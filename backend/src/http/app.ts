@@ -11,6 +11,7 @@ import { registerErrorHandler } from './errors.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerAlertRoutes } from './routes/alerts.js';
+import { registerAppealRoutes } from './routes/appeals.js';
 import { registerBillingRoutes } from './routes/billing.js';
 import { registerBusinessRoutes } from './routes/business.js';
 import { registerConversationRoutes } from './routes/conversations.js';
@@ -101,6 +102,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerPlaybookRoutes(app);
   registerTelegramRoutes(app);
   registerReportRoutes(app);
+  registerAppealRoutes(app);
   registerConversationRoutes(app);
   registerTaskRoutes(app);
   registerAlertRoutes(app);

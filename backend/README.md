@@ -33,7 +33,7 @@ npm run db:migrate     # jadvallar + RLS siyosatlari
 npm run verify         # tiplar + barcha tekshiruvlar
 ```
 
-Oxirgi qadam **301/301 o'tishi shart**. O'tmasa — davom etmang.
+Oxirgi qadam **334/334 o'tishi shart**. O'tmasa — davom etmang.
 
 | To'plam | Tekshiruv |
 |---|---|
@@ -48,6 +48,7 @@ Oxirgi qadam **301/301 o'tishi shart**. O'tmasa — davom etmang.
 | Billing integratsiyasi | 28 |
 | AI Playbook Builder | 14 |
 | Kunlik hisobot (FR-134) | 28 |
+| Kouching: e'tiroz + rahbar izohi (FR-123/124) | 33 |
 
 ## Skriptlar
 
@@ -64,6 +65,7 @@ Oxirgi qadam **301/301 o'tishi shart**. O'tmasa — davom etmang.
 | `npm run verify:pipeline` | AI quvuri testi — haqiqiy LLM'siz, mock bilan |
 | `npm run verify:dashboard` | Dashboard, vazifalar, ogohlantirishlar testi |
 | `npm run verify:reports` | Kunlik hisobot: jadval, idempotentlik, matn |
+| `npm run verify:coaching` | E'tiroz oqimi + rahbar izohi, isbot kafolati |
 | `npm run db:studio` | Bazani brauzerda ko'rish |
 
 ## Ikkita baza ulanishi — nega
@@ -243,6 +245,14 @@ GET    /api/v1/businesses/:id/dashboard/criteria         (eng zaif mezon bilan)
 GET    /api/v1/businesses/:id/dashboard/trend            (?granularity=day|week)
 GET    /api/v1/businesses/:id/dashboard/seats/:seatId    (FR-112 sotuvchi kabineti)
 
+POST   /api/v1/businesses/:id/appeals?scoreId=N          (FR-124 sotuvchi e'tirozi)
+GET    /api/v1/businesses/:id/appeals                    (?status)
+PATCH  /api/v1/businesses/:id/appeals/:appealId          (qabul / rad)
+GET    /api/v1/businesses/:id/appeals/analytics          (AI kalibratsiyasi)
+
+POST   /api/v1/businesses/:id/conversations/:convId/comments  (FR-123)
+PATCH  /api/v1/businesses/:id/comments/:commentId/seen
+
 GET    /api/v1/businesses/:id/reports/daily              (oxirgi 14 hisobot)
 PUT    /api/v1/businesses/:id/reports/daily/settings     (chat id + soat)
 POST   /api/v1/businesses/:id/reports/daily/send         (darhol yuborish)
@@ -315,6 +325,42 @@ Tahlil o'zi qiymat bermaydi — **harakat** beradi. Shu sababli:
 
 Dashboard'da "aniqlanmadi" (score null) hech qayerda past ball sifatida
 hisoblanmaydi — alohida `unknownCount` ustunida ko'rsatiladi.
+
+## Kouching halqasi (FR-123 / FR-124)
+
+Tahlil sotuvchiga yetib bormasa, u shunchaki nazorat vositasi. Halqa:
+
+```
+AI baholaydi → sotuvchi kabinetida ko'radi → rozi bo'lmasa e'tiroz
+  → rahbar hal qiladi → izoh qoldiradi → sotuvchi o'qiydi
+```
+
+**Isbot talabi ballga tegishli, uni kim qo'ygani ahamiyatsiz.** Rahbar
+e'tirozni qabul qilib ball ko'targanda ham iqtibos `verifyEvidence` dan
+o'tadi — o'sha funksiya, o'sha normalizatsiya, o'sha natija. Shuning uchun
+u `analyze.ts` dan **eksport qilingan**. Aks holda "AI ga ishonmaymiz,
+odamga ishonamiz" degan teshik ochilardi va bazadagi
+`CHECK (score IS NULL OR evidence_quote IS NOT NULL)` baribir yozuvni
+rad etib, foydalanuvchi tushunarsiz xato ko'rardi.
+
+Boshqa qarorlar:
+
+- **Bir mezonga bitta ochiq e'tiroz** (409). Aks holda norozi sotuvchi
+  bitta ballga o'nta e'tiroz yozib, rahbarning navbatini bo'g'ib qo'yardi.
+- **Rad etishda sabab majburiy.** Sababsiz rad etish e'tiroz oqimini
+  ochiq qoldirib, uni ma'nosiz qiladi.
+- **Umumiy ball qayta hisoblanmaydi** — `analysis.overall_score` tahlil
+  paytidagi holatni saqlaydi. Qayta hisoblash uchun butun vaznli mantiqni
+  takrorlash kerak bo'lardi; buning o'rniga rahbar "qayta tahlil" tugmasini
+  bosadi.
+- **E'tirozni hal qilish suhbat detalida**, alohida ekranda emas: iqtibosni
+  tasdiqlash uchun transkript yonida bo'lish shart.
+- Qabul qilingan e'tirozlar `GET /appeals/analytics` da to'planadi — qaysi
+  mezonda AI ko'p xato qilsa, o'sha mezonning ta'rifi noaniq degani.
+
+Sotuvchi izoh yoza olmaydi — bu muhokama emas, kouching kanali. Uning
+ovozi e'tiroz orqali eshitiladi. `seen_at` esa rahbarga "izohim yetib
+bordimi" degan savolga javob beradi.
 
 ## Kunlik hisobot (FR-134)
 

@@ -145,6 +145,7 @@ export const alertKind = pgEnum('alert_kind', [
   'broken_commitment',
   'sync_error',
   'low_confidence', // AI o'ziga ishonchi past — inson ko'rigi kerak (FR-83)
+  'score_appeal', // sotuvchi bahoga e'tiroz bildirdi (FR-124)
 ]);
 
 export const alertSeverity = pgEnum('alert_severity', ['info', 'warning', 'critical']);

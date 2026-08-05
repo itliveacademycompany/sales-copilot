@@ -58,7 +58,7 @@ function normalize(s: string): string {
   return s.toLowerCase().replace(/\s+/g, ' ').trim();
 }
 
-interface EvidenceCheck {
+export interface EvidenceCheck {
   found: boolean;
   segmentId: bigint | null;
   startSeconds: string | null;
@@ -68,8 +68,13 @@ interface EvidenceCheck {
  * Iqtibos transkriptda bormi? Avval model ko'rsatgan segmentda, keyin
  * hammasida, oxiri butun matn birlashmasida (iqtibos ikki xabar
  * chegarasidan o'tgan bo'lishi mumkin) qidiriladi.
+ *
+ * **Eksport qilingan**, chunki e'tirozni hal qilishda rahbar qo'lda
+ * qo'ygan ball ham xuddi shu tekshiruvdan o'tadi (FR-124). Isbot talabi
+ * modelga emas, BALLGA tegishli — uni kim qo'ygani ahamiyatsiz. Aks holda
+ * "AI ga ishonmaymiz, odamga ishonamiz" degan teshik paydo bo'lardi.
  */
-function verifyEvidence(
+export function verifyEvidence(
   quote: string,
   hintSeq: number | null,
   segments: (PromptSegment & { id: bigint })[],

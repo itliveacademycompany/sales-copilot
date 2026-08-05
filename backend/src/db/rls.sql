@@ -52,7 +52,7 @@ DECLARE
     'department', 'business_member', 'seat', 'work_schedule',
     'playbook', 'playbook_simulation',
     'contact', 'conversation', 'transcript_segment', 'analysis',
-    'criterion_score', 'score_appeal',
+    'criterion_score', 'score_appeal', 'conversation_comment',
     'commitment', 'task',
     'integration', 'sync_log',
     'analysis_job',

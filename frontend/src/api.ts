@@ -169,7 +169,50 @@ export interface Segment {
   startSeconds: string;
 }
 
+// ─── Kouching: e'tiroz (FR-124) va rahbar izohi (FR-123) ───────────────────
+
+export interface AppealRow {
+  id: string;
+  criterionScoreId: string;
+  status: 'open' | 'accepted' | 'rejected';
+  reason: string;
+  originalScore: number | null;
+  newScore: number | null;
+  resolutionNote: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+  /** Faqat rahbar ro'yxatida keladi. */
+  criterionCode?: string;
+  criterionName?: string;
+  maxScore?: number;
+  evidenceQuote?: string | null;
+  raisedByName?: string | null;
+  conversationId?: string;
+}
+
+export interface CommentRow {
+  id: string;
+  body: string;
+  criterionCode: string | null;
+  authorId: string | null;
+  authorName: string | null;
+  seenAt: string | null;
+  createdAt: string;
+}
+
+export interface AppealCriterionStat {
+  code: string;
+  name: string;
+  total: number;
+  accepted: number;
+  rejected: number;
+  open: number;
+  avgCorrection: number | null;
+}
+
 export interface CriterionScoreRow {
+  /** FR-124: e'tiroz aynan shu qatorga bog'lanadi. */
+  id: string;
   criterionCode: string;
   criterionName: string;
   categoryCode: string | null;
@@ -272,6 +315,8 @@ export interface ConversationDetail {
   contact: ContactInfo | null;
   previousConversations: PreviousConversation[];
   categoryNames: Record<string, string>;
+  comments: CommentRow[];
+  appeals: AppealRow[];
 }
 
 export interface Kpi {

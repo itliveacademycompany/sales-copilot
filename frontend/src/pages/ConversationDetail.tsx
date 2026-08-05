@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   api,
+  ApiError,
   ballKlass,
   ballRang,
   fmtSana,
   fmtSoniya,
+  type AppealRow,
   type ConversationDetail as Detail,
 } from '../api';
 import { Gauge } from '../components/Gauge';
@@ -44,6 +46,129 @@ const VADA_HOLAT_NOMI: Record<string, { nom: string; klass: string }> = {
   missed: { nom: 'Muddati o\'tdi', klass: 'qizil' },
 };
 
+/**
+ * E'tirozni hal qilish (FR-124) — rahbar uchun.
+ *
+ * Ataylab suhbat detalida turadi, alohida "e'tirozlar" ekranida emas:
+ * ballni ko'tarish uchun transkriptdan iqtibos keltirish shart va
+ * server uni tekshiradi. Transkriptsiz bu formani to'ldirib bo'lmaydi.
+ */
+function EtirozHal({
+  appeal,
+  maxScore,
+  isbotsiz,
+  businessId,
+  onTugadi,
+}: {
+  appeal: AppealRow;
+  maxScore: number;
+  isbotsiz: boolean;
+  businessId: string;
+  onTugadi: () => void;
+}) {
+  const [rejim, setRejim] = useState<'yopiq' | 'qabul' | 'rad'>('yopiq');
+  const [ball, setBall] = useState(maxScore);
+  const [iqtibos, setIqtibos] = useState('');
+  const [izoh, setIzoh] = useState('');
+  const [band, setBand] = useState(false);
+  const [xato, setXato] = useState<string | null>(null);
+
+  async function yubor(status: 'accepted' | 'rejected') {
+    setBand(true);
+    setXato(null);
+    try {
+      await api.patch(`/api/v1/businesses/${businessId}/appeals/${appeal.id}`, {
+        status,
+        ...(status === 'accepted'
+          ? { newScore: ball, ...(iqtibos.trim() ? { evidenceQuote: iqtibos.trim() } : {}) }
+          : {}),
+        ...(izoh.trim() ? { resolutionNote: izoh.trim() } : {}),
+      });
+      onTugadi();
+    } catch (e) {
+      setXato(e instanceof ApiError ? e.message : 'Saqlanmadi');
+    } finally {
+      setBand(false);
+    }
+  }
+
+  if (rejim === 'yopiq') {
+    return (
+      <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+        <button className="btn kichik" onClick={() => setRejim('qabul')}>
+          Qabul qilish
+        </button>
+        <button className="btn ikkinchi kichik" onClick={() => setRejim('rad')}>
+          Rad etish
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="etiroz-forma">
+      {rejim === 'qabul' ? (
+        <>
+          <div className="maydon-blok">
+            <label htmlFor={`ball-${appeal.id}`}>Yangi ball</label>
+            <select
+              id={`ball-${appeal.id}`}
+              value={ball}
+              onChange={(e) => setBall(Number(e.target.value))}
+            >
+              {Array.from({ length: maxScore + 1 }, (_, i) => (
+                <option key={i} value={i}>
+                  {i} / {maxScore}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="maydon-blok">
+            <label htmlFor={`iqtibos-${appeal.id}`}>
+              Yozishmadan iqtibos {isbotsiz ? '(majburiy)' : '(ixtiyoriy)'}
+            </label>
+            <textarea
+              id={`iqtibos-${appeal.id}`}
+              value={iqtibos}
+              onChange={(e) => setIqtibos(e.target.value)}
+              rows={2}
+              placeholder="Matnni yozishmadan aynan nusxalang"
+            />
+            <div className="yordam">
+              Iqtibos yozishmada bor-yo'qligi tekshiriladi — ball qo'ygan odam ham
+              isbot keltiradi, xuddi AI kabi.
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="maydon-blok">
+          <label htmlFor={`sabab-${appeal.id}`}>Rad etish sababi</label>
+          <textarea
+            id={`sabab-${appeal.id}`}
+            value={izoh}
+            onChange={(e) => setIzoh(e.target.value)}
+            rows={2}
+            placeholder="Sotuvchi buni o'qiydi — sababni aniq yozing"
+          />
+        </div>
+      )}
+      {xato && <div className="xato-qator">{xato}</div>}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button
+          className="btn kichik"
+          disabled={band || (rejim === 'rad' && izoh.trim().length === 0)}
+          onClick={() => void yubor(rejim === 'qabul' ? 'accepted' : 'rejected')}
+        >
+          {band ? 'Saqlanmoqda…' : 'Tasdiqlash'}
+        </button>
+        <button className="btn ikkinchi kichik" onClick={() => setRejim('yopiq')}>
+          Bekor
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ConversationDetail() {
   const { id } = useParams<{ id: string }>();
   const { business } = useAuth();
@@ -57,6 +182,21 @@ export function ConversationDetail() {
   const mezonRefs = useRef(new Map<string, HTMLDivElement>());
   const audioRef = useRef<AudioPleyerHandle>(null);
 
+  // FR-124 / FR-123
+  const [etirozOchiq, setEtirozOchiq] = useState<string | null>(null);
+  const [etirozSabab, setEtirozSabab] = useState('');
+  const [yangiIzoh, setYangiIzoh] = useState('');
+  const [band, setBand] = useState(false);
+  const [xato, setXato] = useState<string | null>(null);
+
+  const ruxsat = business?.permissions ?? [];
+  const etirozBildiraOladi = ruxsat.includes('appeal:create');
+  const izohQoldiraOladi = ruxsat.includes('task:manage:all');
+  const etirozHalQilaOladi = ruxsat.includes('appeal:resolve');
+
+  /** Mezonga bog'lanmagan izohlar — ular alohida kartada ko'rsatiladi. */
+  const umumiyIzohlar = d?.comments.filter((c) => c.criterionCode === null) ?? [];
+
   const load = useCallback(() => {
     if (!business || !id) return;
     void api
@@ -65,6 +205,27 @@ export function ConversationDetail() {
   }, [business, id]);
 
   useEffect(load, [load]);
+
+  /**
+   * FR-123: sotuvchi sahifani ochsa, izohlar o'qilgan deb belgilanadi.
+   *
+   * Alohida "o'qidim" tugmasi qo'yilmadi — hech kim uni bosmaydi va
+   * rahbar "izohim yetib bordimi" degan savolga javob ololmasdi.
+   * Belgilash faqat sotuvchi uchun: rahbar o'z izohini ochgani
+   * "sotuvchi ko'rdi" degani emas.
+   */
+  useEffect(() => {
+    if (!business || !d || izohQoldiraOladi) return;
+    const korilmagan = d.comments.filter((c) => c.seenAt === null);
+    if (korilmagan.length === 0) return;
+    void Promise.all(
+      korilmagan.map((c) =>
+        api
+          .patch(`/api/v1/businesses/${business.businessId}/comments/${c.id}/seen`)
+          .catch(() => undefined),
+      ),
+    );
+  }, [business, d, izohQoldiraOladi]);
 
   /**
    * Isbotdan transkriptga sakrash (TZ 8.3 — mahsulotning asosiy farqlanishi).
@@ -165,6 +326,45 @@ export function ConversationDetail() {
     if (sakra(segmentId)) return;
     setShowFullTranscript(true);
     setKutayotganSakrash(segmentId);
+  }
+
+  /** FR-124: sotuvchi bahoga e'tiroz bildiradi. */
+  async function etirozYubor(scoreId: string) {
+    if (!business || etirozSabab.trim().length < 10) return;
+    setBand(true);
+    setXato(null);
+    try {
+      await api.post(
+        `/api/v1/businesses/${business.businessId}/appeals?scoreId=${scoreId}`,
+        { reason: etirozSabab.trim() },
+      );
+      setEtirozOchiq(null);
+      setEtirozSabab('');
+      load();
+    } catch (e) {
+      setXato(e instanceof ApiError ? e.message : 'E\'tiroz yuborilmadi');
+    } finally {
+      setBand(false);
+    }
+  }
+
+  /** FR-123: rahbar kouching izohi qoldiradi. */
+  async function izohYubor() {
+    if (!business || !id || yangiIzoh.trim().length < 2) return;
+    setBand(true);
+    setXato(null);
+    try {
+      await api.post(
+        `/api/v1/businesses/${business.businessId}/conversations/${id}/comments`,
+        { body: yangiIzoh.trim() },
+      );
+      setYangiIzoh('');
+      load();
+    } catch (e) {
+      setXato(e instanceof ApiError ? e.message : 'Izoh saqlanmadi');
+    } finally {
+      setBand(false);
+    }
   }
 
   async function reanalyze() {
@@ -579,6 +779,97 @@ export function ConversationDetail() {
                               "{s.evidenceQuote}"
                             </div>
                           )}
+
+                          {/* Shu mezonga qaratilgan rahbar izohi (FR-123) */}
+                          {d.comments
+                            .filter((c) => c.criterionCode === s.criterionCode)
+                            .map((c) => (
+                              <div className="izoh-blok" key={c.id}>
+                                <b>{c.authorName ?? 'Rahbar'}:</b> {c.body}
+                              </div>
+                            ))}
+
+                          {/* E'tiroz holati va tugmasi (FR-124) */}
+                          {(() => {
+                            const etiroz = d.appeals.find((x) => x.criterionScoreId === s.id);
+                            if (etiroz) {
+                              return (
+                                <div className={`etiroz-holat ${etiroz.status}`}>
+                                  {etiroz.status === 'open' && (
+                                    <>
+                                      ⏳ E'tiroz: "{etiroz.reason}"
+                                      {/* Hal qilish aynan shu yerda — iqtibosni
+                                          tasdiqlash uchun transkript yonida
+                                          bo'lish shart. */}
+                                      {etirozHalQilaOladi && (
+                                        <EtirozHal
+                                          appeal={etiroz}
+                                          maxScore={s.maxScore}
+                                          isbotsiz={s.evidenceQuote === null}
+                                          businessId={business!.businessId}
+                                          onTugadi={load}
+                                        />
+                                      )}
+                                    </>
+                                  )}
+                                  {etiroz.status === 'accepted' && (
+                                    <>
+                                      ✓ E'tiroz qabul qilindi — ball {etiroz.originalScore ?? '—'} →{' '}
+                                      <b>{etiroz.newScore}</b>
+                                      {etiroz.resolutionNote && <> · {etiroz.resolutionNote}</>}
+                                    </>
+                                  )}
+                                  {etiroz.status === 'rejected' && (
+                                    <>✕ E'tiroz rad etildi: {etiroz.resolutionNote}</>
+                                  )}
+                                </div>
+                              );
+                            }
+                            if (!etirozBildiraOladi) return null;
+                            if (etirozOchiq === s.id) {
+                              return (
+                                <div className="etiroz-forma">
+                                  <textarea
+                                    value={etirozSabab}
+                                    onChange={(e) => setEtirozSabab(e.target.value)}
+                                    placeholder="Nega bu baho noto'g'ri deb hisoblaysiz? Yozishmadagi qaysi joyni AI o'tkazib yuborgan?"
+                                    rows={3}
+                                    autoFocus
+                                  />
+                                  <div className="yordam">Kamida 10 belgi. Rahbar buni ko'radi.</div>
+                                  <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+                                    <button
+                                      className="btn kichik"
+                                      disabled={band || etirozSabab.trim().length < 10}
+                                      onClick={() => void etirozYubor(s.id)}
+                                    >
+                                      Yuborish
+                                    </button>
+                                    <button
+                                      className="btn ikkinchi kichik"
+                                      onClick={() => {
+                                        setEtirozOchiq(null);
+                                        setEtirozSabab('');
+                                      }}
+                                    >
+                                      Bekor
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return (
+                              <button
+                                className="etiroz-tugma"
+                                onClick={() => {
+                                  setEtirozOchiq(s.id);
+                                  setEtirozSabab('');
+                                }}
+                              >
+                                Bu baho noto'g'ri deb hisoblayman
+                              </button>
+                            );
+                          })()}
                         </div>
                       ))}
                     </div>
@@ -636,6 +927,51 @@ export function ConversationDetail() {
                 )}
             </>
           )}
+
+          {/* ─── Rahbar izohlari (FR-123) ───
+              AI kouchingi mezonlar doirasida gapiradi; rahbar kontekstni
+              biladi. Shuning uchun ikkalasi yonma-yon turadi. */}
+          {(izohQoldiraOladi || umumiyIzohlar.length > 0) && (
+            <div className="card">
+              <h2 style={{ marginBottom: 8 }}>Rahbar izohi</h2>
+              {umumiyIzohlar.length === 0 && (
+                <div className="yordam" style={{ marginBottom: 8 }}>
+                  Hali izoh yo'q. AI baholaydi, siz kontekst berasiz.
+                </div>
+              )}
+              {umumiyIzohlar.map((c) => (
+                <div className="izoh-blok" key={c.id}>
+                  <div className="bosh">
+                    <b>{c.authorName ?? 'Rahbar'}</b>
+                    <span className="vaqt">{fmtSana(c.createdAt)}</span>
+                    {c.seenAt === null && <span className="badge kul">o'qilmagan</span>}
+                  </div>
+                  {c.body}
+                </div>
+              ))}
+              {izohQoldiraOladi && (
+                <div style={{ marginTop: 10 }}>
+                  <textarea
+                    value={yangiIzoh}
+                    onChange={(e) => setYangiIzoh(e.target.value)}
+                    placeholder="Masalan: bu mijoz bilan o'tgan safar ham narx bosqichida to'xtab qolgansiz — keyingi safar qiymatni oldin ayting."
+                    rows={3}
+                    style={{ width: '100%' }}
+                  />
+                  <button
+                    className="btn kichik"
+                    style={{ marginTop: 6 }}
+                    disabled={band || yangiIzoh.trim().length < 2}
+                    onClick={() => void izohYubor()}
+                  >
+                    {band ? 'Saqlanmoqda…' : 'Izoh qoldirish'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {xato && <div className="xato-qator">{xato}</div>}
         </div>
       </div>
     </>

@@ -396,3 +396,47 @@ export const scoreAppeal = pgTable(
     index('score_appeal_business_status_idx').on(t.businessId, t.status, t.createdAt),
   ],
 );
+
+/**
+ * FR-123: rahbardan sotuvchiga qo'lda izoh.
+ *
+ * AI kouchingi umumlashtiradi — u playbook mezonlari doirasida gapiradi.
+ * Rahbar esa kontekstni biladi: "bu mijoz bilan o'tgan safar ham shunday
+ * bo'lgan", "narxni ayta olmasliging sabab bilimda emas, ishonchda".
+ * Shu ikkisi bir-birini almashtirmaydi.
+ *
+ * `criterionCode` ixtiyoriy: izoh butun suhbatga yoki aniq bir mezonga
+ * qaratilgan bo'lishi mumkin. Mezonga bog'langanda sotuvchi uni aynan
+ * o'sha bahoning yonida ko'radi — "nega 1 ball?" savoliga javob
+ * shu yerda turadi.
+ *
+ * `seenAt` — sotuvchi izohni ochdimi. Kouching o'qilmasa, u bo'lmagani
+ * bilan barobar; rahbar buni ko'rib turishi kerak.
+ */
+export const conversationComment = pgTable(
+  'conversation_comment',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => business.id, { onDelete: 'cascade' }),
+    conversationId: uuid('conversation_id')
+      .notNull()
+      .references(() => conversation.id, { onDelete: 'cascade' }),
+    /** Izoh kimga — odatda suhbat sotuvchisi. */
+    seatId: uuid('seat_id').references(() => seat.id, { onDelete: 'set null' }),
+    authorId: uuid('author_id').references(() => appUser.id, { onDelete: 'set null' }),
+
+    body: text('body').notNull(),
+    /** Ixtiyoriy: aniq mezonga bog'langan izoh. */
+    criterionCode: text('criterion_code'),
+
+    seenAt: timestamp('seen_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index('conversation_comment_conv_idx').on(t.conversationId, t.createdAt),
+    index('conversation_comment_seat_idx').on(t.seatId, t.seenAt),
+  ],
+);
