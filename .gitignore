@@ -1,0 +1,34 @@
+# ─────────────────────────────────────────────────────────────
+# Bog'liqliklar va build natijalari
+# ─────────────────────────────────────────────────────────────
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+
+# ─────────────────────────────────────────────────────────────
+# SIRLAR — hech qachon repozitoriyaga tushmaydi
+# ─────────────────────────────────────────────────────────────
+# Bu fayllarda baza paroli, COOKIE_SECRET va CREDENTIALS_KEY bor.
+# CREDENTIALS_KEY oshkor bo'lsa, bazadagi shifrlangan Telegram va LLM
+# kalitlarini ochish mumkin bo'ladi — ya'ni baza zaxirasi o'g'irlansa
+# himoya qolmaydi.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.dump
+
+# ─────────────────────────────────────────────────────────────
+# Muhit va vaqtinchalik fayllar
+# ─────────────────────────────────────────────────────────────
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+coverage/
+tmp/
+.cache/

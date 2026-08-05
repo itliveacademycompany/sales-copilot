@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "contact_business_telegram_uq" ON "contact" USING btree ("business_id","telegram_id");
