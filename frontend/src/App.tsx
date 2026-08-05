@@ -8,6 +8,7 @@ import { Conversations } from './pages/Conversations';
 import { Dashboard } from './pages/Dashboard';
 import { Login } from './pages/Login';
 import { Onboarding } from './pages/Onboarding';
+import { PasswordReset } from './pages/PasswordReset';
 import { PlaybookEditor } from './pages/PlaybookEditor';
 import { SeatCabinet } from './pages/SeatCabinet';
 import { Settings } from './pages/Settings';
@@ -17,7 +18,20 @@ export function App() {
   const { loading, user, business } = useAuth();
 
   if (loading) return <div className="yuklanmoqda">Yuklanmoqda…</div>;
-  if (!user || !business) return <Login />;
+
+  /**
+   * FR-06: parol tiklash havolasi auth tekshiruvidan OLDIN keladi.
+   * Aks holda parolni unutgan odam kirish ekranidan nariga o'ta olmasdi —
+   * havolani bosgan bo'lsa ham.
+   */
+  if (!user || !business) {
+    return (
+      <Routes>
+        <Route path="/parol-tiklash/:token" element={<PasswordReset />} />
+        <Route path="*" element={<Login />} />
+      </Routes>
+    );
+  }
 
   // FR-10/17: onboarding tugamagan bo'lsa, hamma yo'l shu sehrgarga olib
   // boradi — mahsulotni sozlamasdan turib bo'sh dashboard'ga tushish

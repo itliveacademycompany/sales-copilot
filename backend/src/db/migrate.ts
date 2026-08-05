@@ -56,11 +56,14 @@ async function verifyRls(client: postgres.Sql): Promise<void> {
       AND c.relkind = 'r'
       -- Ataylab RLS'siz jadvallar (izohi rls.sql oxirida):
       --   app_user, session          — foydalanuvchiga tegishli, biznesga emas
+      --   password_reset             — token bo'yicha qidiriladi, biznes
+      --                                konteksti yo'q: tiklayotgan odam hali
+      --                                kirmagan (FR-06)
       --   playbook_template          — umumiy shablonlar kutubxonasi
       --   ai_provider, platform_setting — platforma darajasi, super-admin
       --   prompt_template            — platforma darajasidagi prompt versiyalari (FR-88)
       AND c.relname NOT IN (
-        'app_user', 'session', 'playbook_template',
+        'app_user', 'session', 'password_reset', 'playbook_template',
         'ai_provider', 'platform_setting', 'prompt_template',
         '__drizzle_migrations'
       )

@@ -33,7 +33,7 @@ npm run db:migrate     # jadvallar + RLS siyosatlari
 npm run verify         # tiplar + barcha tekshiruvlar
 ```
 
-Oxirgi qadam **334/334 o'tishi shart**. O'tmasa — davom etmang.
+Oxirgi qadam **353/353 o'tishi shart**. O'tmasa — davom etmang.
 
 | To'plam | Tekshiruv |
 |---|---|
@@ -49,6 +49,7 @@ Oxirgi qadam **334/334 o'tishi shart**. O'tmasa — davom etmang.
 | AI Playbook Builder | 14 |
 | Kunlik hisobot (FR-134) | 28 |
 | Kouching: e'tiroz + rahbar izohi (FR-123/124) | 33 |
+| Parolni tiklash (FR-06) | 19 |
 
 ## Skriptlar
 
@@ -66,6 +67,7 @@ Oxirgi qadam **334/334 o'tishi shart**. O'tmasa — davom etmang.
 | `npm run verify:dashboard` | Dashboard, vazifalar, ogohlantirishlar testi |
 | `npm run verify:reports` | Kunlik hisobot: jadval, idempotentlik, matn |
 | `npm run verify:coaching` | E'tiroz oqimi + rahbar izohi, isbot kafolati |
+| `npm run verify:password-reset` | Parol tiklash: token, muddat, oshkor qilmaslik |
 | `npm run db:studio` | Bazani brauzerda ko'rish |
 
 ## Ikkita baza ulanishi — nega
@@ -202,6 +204,9 @@ POST   /api/v1/auth/register | login | logout | logout-all
 GET    /api/v1/auth/sessions
 PATCH  /api/v1/auth/me                                    (FR-160 profil)
 POST   /api/v1/auth/change-password                       (barcha sessiyalar bekor bo'ladi)
+POST   /api/v1/auth/password-reset/request                (FR-06, sessiyasiz)
+POST   /api/v1/auth/password-reset/confirm                (FR-06, sessiyasiz)
+POST   /api/v1/businesses/:id/users/:userId/reset-link    (rahbar yaratadi)
 
 GET    /api/v1/businesses/:id
 PATCH  /api/v1/businesses/:id
@@ -325,6 +330,41 @@ Tahlil o'zi qiymat bermaydi — **harakat** beradi. Shu sababli:
 
 Dashboard'da "aniqlanmadi" (score null) hech qayerda past ball sifatida
 hisoblanmaydi — alohida `unknownCount` ustunida ko'rsatiladi.
+
+## Parolni tiklash (FR-06)
+
+Loyihada SMTP yo'q va uni qo'shish domen, SPF/DKIM va yetkazish
+muammolarini olib keladi. Lekin **yetkazish kanali allaqachon bor**:
+maqsadli foydalanuvchi — Telegram'da ishlaydigan sotuvchi va uning
+akkaunti botga bog'langan. Shuning uchun ikkita yo'l:
+
+| Yo'l | Kim | Qachon |
+|---|---|---|
+| `POST /auth/password-reset/request` | foydalanuvchi o'zi | Telegram bog'langan bo'lsa |
+| `POST /businesses/:id/users/:userId/reset-link` | rahbar | har doim ishlaydi |
+
+Xavfsizlik qarorlari:
+
+- **Javob har doim bir xil.** "Bunday email topilmadi" javobi ro'yxatdan
+  o'tgan manzillarni tekshirish vositasiga aylanardi. Test buni aynan
+  baytma-bayt taqqoslab tekshiradi.
+- **6 xonali kod emas, uzun token.** Kod qulayroq, lekin 10⁶ variantni
+  sinash arzon — u holda urinishlar hisoblagichi va qulflash kerak
+  bo'lardi. 32 baytlik token bu muammoni butunlay yo'q qiladi.
+- **Token bazada xesh holida**, sessiya tokeni kabi.
+- **Yangi so'rov eskilarini bekor qiladi.** Aks holda "havolani boshqa
+  odam ko'rdi" holatida uni bekor qilish imkoni bo'lmasdi.
+- **Muddat 30 daqiqa**, bir marta ishlaydi, poyga holati `used_at is null`
+  sharti bilan yopilgan.
+- **Tiklashdan keyin barcha eski sessiyalar bekor qilinadi.** Tiklashning
+  odatiy sababi — "hisobimga kimdir kirgan" shubhasi; eski sessiyalar
+  tirik qolsa bu amal ma'nosiz bo'lardi.
+- Rate limit: so'rov 15 daqiqada 5 marta. Usiz kimdir begona odamning
+  Telegram'iga cheksiz xabar yuborib, uni bezovta qila olardi.
+
+`password_reset` jadvaliga RLS qo'llanmaydi — token bo'yicha qidiriladi
+va biznes konteksti yo'q: parolni tiklayotgan odam hali kirmagan.
+`migrate.ts` dagi tekshiruv ro'yxatida bu istisno yozilgan.
 
 ## Kouching halqasi (FR-123 / FR-124)
 

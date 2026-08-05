@@ -31,7 +31,8 @@
     "verify:playbook-ai": "tsx src/http/verify-playbook-ai.ts",
     "verify:reports": "tsx src/http/verify-reports.ts",
     "verify:coaching": "tsx src/http/verify-coaching.ts",
-    "verify": "npm run typecheck && npm run db:verify && npm run verify:auth && npm run verify:api && npm run verify:telegram && npm run verify:pipeline && npm run verify:dashboard && npm run verify:billing-logic && npm run verify:billing && npm run verify:playbook-ai && npm run verify:reports && npm run verify:coaching",
+    "verify:password-reset": "tsx src/http/verify-password-reset.ts",
+    "verify": "npm run typecheck && npm run db:verify && npm run verify:auth && npm run verify:api && npm run verify:telegram && npm run verify:pipeline && npm run verify:dashboard && npm run verify:billing-logic && npm run verify:billing && npm run verify:playbook-ai && npm run verify:reports && npm run verify:coaching && npm run verify:password-reset",
     "provider:llm": "tsx src/db/add-llm-provider.ts"
   },
   "dependencies": {

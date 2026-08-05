@@ -371,7 +371,11 @@ function Biznes({
 function Sotuvchilar({ businessId }: { businessId: string }) {
   const [rows, setRows] = useState<SeatFull[]>([]);
   const [yangiIsm, setYangiIsm] = useState('');
-  const [havola, setHavola] = useState<{ seatId: string; token: string } | null>(null);
+  // Ikki xil havola bir xil bloкda ko'rsatiladi, lekin manzili boshqa —
+  // aktivatsiya yangi hisob uchun, tiklash esa mavjud parolni almashtiradi.
+  const [havola, setHavola] = useState<
+    { seatId: string; token: string; tur: 'aktivatsiya' | 'parol' } | null
+  >(null);
   const [tahrir, setTahrir] = useState<string | null>(null);
   const [tgId, setTgId] = useState('');
   const { holat, xato, bajar } = useSaqlash();
@@ -438,13 +442,32 @@ function Sotuvchilar({ businessId }: { businessId: string }) {
                             const r = await api.post<{ activationToken: string }>(
                               `${base}/${s.id}/activation-link`,
                             );
-                            setHavola({ seatId: s.id, token: r.activationToken });
+                            setHavola({ seatId: s.id, token: r.activationToken, tur: 'aktivatsiya' });
                             yukla();
                           })
                         }
                       >
                         Aktivatsiya havolasi
                       </button>{' '}
+                      {/* FR-06: o'rin egallangan bo'lsagina — bo'sh o'rinda
+                          tiklanadigan hisob yo'q. */}
+                      {s.userId && (
+                        <>
+                          <button
+                            className="btn ikkinchi kichik"
+                            onClick={() =>
+                              void bajar(async () => {
+                                const r = await api.post<{ resetToken: string }>(
+                                  `/api/v1/businesses/${businessId}/users/${s.userId}/reset-link`,
+                                );
+                                setHavola({ seatId: s.id, token: r.resetToken, tur: 'parol' });
+                              })
+                            }
+                          >
+                            Parol havolasi
+                          </button>{' '}
+                        </>
+                      )}
                       <button
                         className="btn ikkinchi kichik"
                         onClick={() =>
@@ -466,12 +489,20 @@ function Sotuvchilar({ businessId }: { businessId: string }) {
 
         {havola && (
           <div className="card" style={{ marginTop: 12, borderLeft: '4px solid var(--info)' }}>
-            <b>Aktivatsiya havolasi tayyor</b>
+            <b>
+              {havola.tur === 'parol'
+                ? 'Parol tiklash havolasi tayyor'
+                : 'Aktivatsiya havolasi tayyor'}
+            </b>
             <div className="yordam" style={{ margin: '6px 0' }}>
-              Bu token <b>faqat hozir</b> ko'rinadi va bir marta ishlaydi. Sotuvchiga yuboring.
+              Bu token <b>faqat hozir</b> ko'rinadi va bir marta ishlaydi.
+              {havola.tur === 'parol' && ' 30 daqiqadan keyin kuchini yo\'qotadi.'} Sotuvchiga
+              shaxsan yetkazing.
             </div>
             <code style={{ wordBreak: 'break-all', display: 'block', fontSize: 12 }}>
-              {`${window.location.origin}/aktivatsiya/${havola.token}`}
+              {havola.tur === 'parol'
+                ? `${window.location.origin}/parol-tiklash/${havola.token}`
+                : `${window.location.origin}/aktivatsiya/${havola.token}`}
             </code>
             <button
               className="btn ikkinchi kichik"
@@ -557,6 +588,7 @@ function Sotuvchilar({ businessId }: { businessId: string }) {
 
 function Rahbarlar({ businessId }: { businessId: string }) {
   const [rows, setRows] = useState<MemberRow[]>([]);
+  const [tiklash, setTiklash] = useState<{ ism: string; token: string } | null>(null);
   const [email, setEmail] = useState('');
   const [ism, setIsm] = useState('');
   const [rol, setRol] = useState<'supervisor' | 'head' | 'auditor'>('supervisor');
@@ -619,6 +651,21 @@ function Rahbarlar({ businessId }: { businessId: string }) {
                   {m.user?.lastLoginAt ? fmtSana(m.user.lastLoginAt) : 'hech qachon'}
                 </td>
                 <td>
+                  {/* FR-06: parolni unutgan rahbarga havola. Telegram
+                      bog'lanmagan bo'lsa bu yagona yo'l. */}
+                  <button
+                    className="btn ikkinchi kichik"
+                    onClick={() =>
+                      void bajar(async () => {
+                        const r = await api.post<{ resetToken: string }>(
+                          `/api/v1/businesses/${businessId}/users/${m.userId}/reset-link`,
+                        );
+                        setTiklash({ ism: m.user?.displayName ?? '', token: r.resetToken });
+                      })
+                    }
+                  >
+                    Parol havolasi
+                  </button>{' '}
                   {m.role !== 'owner' && (
                     <button
                       className="btn ikkinchi kichik"
@@ -640,6 +687,27 @@ function Rahbarlar({ businessId }: { businessId: string }) {
         <div className="yordam" style={{ marginTop: 8 }}>
           Ega rolini o'zgartirib bo'lmaydi — to'lov va odamlar ustidan nazorat egada qoladi.
         </div>
+
+        {tiklash && (
+          <div className="card" style={{ marginTop: 12, borderLeft: '4px solid var(--info)' }}>
+            <b>{tiklash.ism} uchun parol tiklash havolasi</b>
+            <div className="yordam" style={{ margin: '6px 0' }}>
+              Havola <b>faqat hozir</b> ko'rinadi, bir marta ishlaydi va 30 daqiqadan keyin
+              kuchini yo'qotadi. Uni shaxsan yetkazing.
+            </div>
+            <code style={{ wordBreak: 'break-all', display: 'block', fontSize: 12 }}>
+              {`${window.location.origin}/parol-tiklash/${tiklash.token}`}
+            </code>
+            <button
+              className="btn ikkinchi kichik"
+              style={{ marginTop: 8 }}
+              onClick={() => setTiklash(null)}
+            >
+              Yopish
+            </button>
+          </div>
+        )}
+
         <Xabar holat={holat} xato={xato} />
       </div>
 

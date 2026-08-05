@@ -1,6 +1,7 @@
 import { and, eq, isNull, ne } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { createResetForUser, userBelongsToBusiness } from '../../auth/password-reset.js';
 import { isUniqueViolation } from '../../db/errors.js';
 import { withoutTenantIsolation, withTenant } from '../../db/index.js';
 import { appUser, businessMember } from '../../db/schema/index.js';
@@ -220,6 +221,45 @@ export function registerMemberRoutes(app: FastifyInstance): void {
         tx.delete(businessMember).where(eq(businessMember.id, memberId)),
       );
       return { ok: true };
+    },
+  );
+
+  /**
+   * FR-06: rahbar parol tiklash havolasini yaratadi.
+   *
+   * Bu yo'l har doim ishlaydi — Telegram bog'lanmagan bo'lsa ham. Sinov
+   * davrida asosiy yo'l shu: sotuvchi "parolni unutdim" deydi, rahbar
+   * havolani yaratib, uni istalgan kanal orqali yetkazadi.
+   *
+   * Token javobda **faqat bir marta** ko'rinadi va bazada xesh holida
+   * saqlanadi — boshqa hech qanday endpoint uni qaytarmaydi.
+   *
+   * Ruxsat: `member:manage` (rahbarlar uchun) yoki `seat:manage:all`
+   * (sotuvchilar uchun). Ikkalasi ham yo'q bo'lsa — 404.
+   */
+  app.post(
+    '/api/v1/businesses/:businessId/users/:userId/reset-link',
+    { preHandler: [requireBusiness] },
+    async (req) => {
+      const { userId } = z
+        .object({ businessId: z.string().uuid(), userId: z.string().uuid() })
+        .parse(req.params);
+      const businessId = req.business!.businessId;
+      const perms = req.business!.permissions;
+
+      if (!perms.includes('member:manage') && !perms.includes('seat:manage:all')) {
+        throw AppError.notFound();
+      }
+
+      // Begona biznesning foydalanuvchisiga havola yaratib bo'lmaydi.
+      if (!(await userBelongsToBusiness(userId, businessId))) throw AppError.notFound();
+
+      const { token, expiresAt } = await createResetForUser(userId, 'admin');
+      return {
+        resetToken: token,
+        expiresAt,
+        note: 'Havola bir marta ishlaydi va 30 daqiqadan keyin kuchini yo\'qotadi',
+      };
     },
   );
 }

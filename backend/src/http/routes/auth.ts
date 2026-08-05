@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { loadAuthContext } from '../../auth/context.js';
 import { hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from '../../auth/password.js';
+import { consumeResetToken, requestReset } from '../../auth/password-reset.js';
 import {
   createSession,
   listActiveSessions,
@@ -226,6 +227,85 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     const sessions = await listActiveSessions(req.auth!.user.id);
     return sessions.map((s) => ({ ...s, current: s.id === req.sessionId }));
   });
+
+  /**
+   * FR-06: parolni tiklashni so'rash.
+   *
+   * **Javob har doim bir xil** — foydalanuvchi topilsa ham, topilmasa ham.
+   * Aks holda bu endpoint ro'yxatdan o'tgan email'larni tekshirish
+   * vositasiga aylanardi (user enumeration).
+   *
+   * Rate limit majburiy: usiz kimdir begona odamning Telegram'iga
+   * cheksiz xabar yuborib, uni bezovta qila olardi.
+   */
+  app.post(
+    '/api/v1/auth/password-reset/request',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '15 minutes' } },
+    },
+    async (req) => {
+      const body = z.object({ emailOrLogin: z.string().trim().min(3).max(200) }).parse(req.body);
+      const natija = await requestReset(body.emailOrLogin, config.WEB_ORIGIN);
+
+      // Faqat jurnalga — javobga emas.
+      req.log.info(
+        { delivered: natija.delivered, reason: natija.reason },
+        'parol tiklash so\'rovi',
+      );
+
+      return {
+        ok: true,
+        note:
+          'Agar bunday hisob mavjud bo\'lsa va Telegram bog\'langan bo\'lsa, ' +
+          'tiklash havolasi yuborildi. Havola 30 daqiqa amal qiladi.',
+      };
+    },
+  );
+
+  /** FR-06: yangi parolni o'rnatish. */
+  app.post(
+    '/api/v1/auth/password-reset/confirm',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '15 minutes' } },
+    },
+    async (req, reply) => {
+      const body = z
+        .object({
+          token: z.string().trim().min(20),
+          newPassword: z.string().min(MIN_PASSWORD_LENGTH),
+        })
+        .parse(req.body);
+
+      const natija = await consumeResetToken(body.token);
+      if (!natija.ok) {
+        const matn = {
+          invalid: 'Havola noto\'g\'ri',
+          expired: 'Havola muddati tugagan — yangisini so\'rang',
+          used: 'Bu havola allaqachon ishlatilgan',
+        }[natija.reason];
+        throw AppError.badRequest(matn);
+      }
+
+      const hash = await hashPassword(body.newPassword);
+      await withoutTenantIsolation('parol tiklash: yangi parolni yozish', (tx) =>
+        tx
+          .update(appUser)
+          .set({ passwordHash: hash, updatedAt: new Date() })
+          .where(eq(appUser.id, natija.userId)),
+      );
+
+      /**
+       * Barcha eski sessiyalar bekor qilinadi. Parolni tiklashning
+       * odatiy sababi — "hisobimga kimdir kirgan" shubhasi; eski
+       * sessiyalar tirik qolsa bu amal ma'nosiz bo'lardi.
+       */
+      await revokeAllForUser(natija.userId);
+      const fresh = await createSession(natija.userId);
+      setSessionCookie(reply, fresh.token);
+
+      return { ok: true };
+    },
+  );
 
   /**
    * FR-160: o'z profilini tahrirlash.

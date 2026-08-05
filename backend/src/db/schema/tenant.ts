@@ -228,6 +228,46 @@ export const session = pgTable(
   ],
 );
 
+/**
+ * FR-06: parolni tiklash tokeni.
+ *
+ * Alohida jadval, `app_user` ustuni emas — chunki muddat va "ishlatilgan"
+ * belgisi kerak, hamda bir vaqtda bir nechta so'rov bo'lishi mumkin
+ * (foydalanuvchi "yubor" tugmasini ikki marta bosdi).
+ *
+ * Token bazada **xesh holida** turadi, xuddi sessiya tokeni kabi: baza
+ * zaxirasi o'g'irlansa ham u bilan parol tiklab bo'lmaydi.
+ *
+ * 6 xonali kod EMAS, uzun token ishlatiladi. Kod qulayroq ko'rinadi,
+ * lekin 10^6 variantni sinab ko'rish arzon — u holda urinishlar
+ * hisoblagichi va qulflash kerak bo'lardi. 32 baytlik token bu
+ * muammoni butunlay yo'q qiladi.
+ *
+ * RLS qo'llanmaydi: `app_user` kabi bu ham tenantdan tashqari
+ * (foydalanuvchi bir nechta biznesda bo'lishi mumkin, FR-08).
+ */
+export const passwordReset = pgTable(
+  'password_reset',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUser.id, { onDelete: 'cascade' }),
+
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    usedAt: timestamp('used_at', { withTimezone: true }),
+
+    /** `self` — foydalanuvchi so'radi, `admin` — rahbar yaratdi. */
+    requestedVia: text('requested_via').notNull().default('self'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('password_reset_token_uq').on(t.tokenHash),
+    index('password_reset_user_idx').on(t.userId, t.createdAt),
+  ],
+);
+
 /** FR-163: ish jadvali — ish vaqtidan tashqari qo'ng'iroqlar alohida belgilanadi. */
 export const workSchedule = pgTable('work_schedule', {
   businessId: uuid('business_id')

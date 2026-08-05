@@ -57,6 +57,13 @@
       "when": 1785927885547,
       "tag": "0007_furry_forge",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1785933116761,
+      "tag": "0008_yellow_king_bedlam",
+      "breakpoints": true
     }
   ]
 }

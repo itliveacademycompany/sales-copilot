@@ -96,7 +96,10 @@ $$;
 --                     Kirish huquqi `business_member` / `seat` orqali
 --                     ilova darajasida tekshiriladi.
 --   session           Foydalanuvchiga bog'langan, biznesga emas.
+--   password_reset    Foydalanuvchiga bog'langan (FR-06). Token bo'yicha
+--                     qidiriladi, ya'ni biznes konteksti umuman yo'q —
+--                     parolni tiklayotgan odam hali kirmagan.
 --   playbook_template Platforma darajasidagi umumiy shablonlar (FR-32).
 --
--- Bu uch jadvalga tegadigan har bir so'rov ilova kodida aniq
--- `userId` filtri bilan yozilishi SHART.
+-- Bu jadvallarga tegadigan har bir so'rov ilova kodida aniq
+-- `userId` (yoki token xeshi) filtri bilan yozilishi SHART.
