@@ -33,7 +33,7 @@ npm run db:migrate     # jadvallar + RLS siyosatlari
 npm run verify         # tiplar + barcha tekshiruvlar
 ```
 
-Oxirgi qadam **353/353 o'tishi shart**. O'tmasa — davom etmang.
+Oxirgi qadam **388/388 o'tishi shart**. O'tmasa — davom etmang.
 
 | To'plam | Tekshiruv |
 |---|---|
@@ -50,6 +50,7 @@ Oxirgi qadam **353/353 o'tishi shart**. O'tmasa — davom etmang.
 | Kunlik hisobot (FR-134) | 28 |
 | Kouching: e'tiroz + rahbar izohi (FR-123/124) | 33 |
 | Parolni tiklash (FR-06) | 19 |
+| Qo'lda suhbat yuklash (sinov vositasi) | 35 |
 
 ## Skriptlar
 
@@ -68,6 +69,7 @@ Oxirgi qadam **353/353 o'tishi shart**. O'tmasa — davom etmang.
 | `npm run verify:reports` | Kunlik hisobot: jadval, idempotentlik, matn |
 | `npm run verify:coaching` | E'tiroz oqimi + rahbar izohi, isbot kafolati |
 | `npm run verify:password-reset` | Parol tiklash: token, muddat, oshkor qilmaslik |
+| `npm run verify:import` | Transkript parseri + qo'lda yuklash |
 | `npm run db:studio` | Bazani brauzerda ko'rish |
 
 ## Ikkita baza ulanishi — nega
@@ -235,6 +237,7 @@ DELETE /api/v1/businesses/:id/members/:memberId
 GET    /api/v1/businesses/:id/conversations
 GET    /api/v1/businesses/:id/conversations/:convId      (transkript + ballar + isbot)
 POST   /api/v1/businesses/:id/conversations/:convId/analyze  (qayta tahlil, FR-85)
+POST   /api/v1/businesses/:id/conversations/import       (qo'lda yuklash, ?dryRun)
 
 GET    /api/v1/businesses/:id/tasks                      (?status ?seatId ?view=today|overdue)
 POST   /api/v1/businesses/:id/tasks
@@ -330,6 +333,41 @@ Tahlil o'zi qiymat bermaydi — **harakat** beradi. Shu sababli:
 
 Dashboard'da "aniqlanmadi" (score null) hech qayerda past ball sifatida
 hisoblanmaydi — alohida `unknownCount` ustunida ko'rsatiladi.
+
+## Qo'lda suhbat yuklash — sinov vositasi
+
+`POST /businesses/:id/conversations/import`
+
+Telegram kanalini ulab, haqiqiy suhbat kelishini kutish bir necha kun
+oladi. Baholash to'g'ri ishlayotganini bilish esa bugun kerak. Bu
+endpoint mavjud yozishmani tizimga beradi.
+
+**Soxta yo'l emas:** yuklangan suhbat `analysis_job` navbatiga tushadi
+va O'SHA quvurdan o'tadi — pre-filter → ekstraksiya → isbotli baholash →
+isbotni kodda tekshirish. Ya'ni ko'rgan natijangiz haqiqiy natija.
+
+Parser (`import/transcript-parser.ts`) odam qo'lda joylashtirgan matn
+bilan ishlaydi, ya'ni kirish har doim iflos:
+
+- `Mijoz:` / `Menejer:` / `Client:` / `Клиент:` — uch tilda yorliqlar
+- `[10:05]`, `10:05`, `(10:05:33)` — vaqt yorliqdan oldin ham, keyin ham
+- `- `, `* `, `1. ` — ko'chirishda qo'shilib qolgan ro'yxat belgilari
+- **Prefiksiz qator oldingi xabarga qo'shiladi.** Uzun gap ko'chirilganda
+  qatorlarga bo'linadi; har bo'lakni alohida xabar deb hisoblash suhbat
+  dinamikasini (javob tezligi, navbatlar soni) buzib yuborardi.
+
+Ikkita qaror izohga arziydi:
+
+1. **Tanimagan yorliq rolga aylantirilmaydi.** `Malika: salom` uchraganda
+   "bu menejer bo'lsa kerak" deb taxmin qilinmaydi — FR-84 bo'yicha rol
+   almashib ketishi butun tahlilni teskari qiladi. Buning o'rniga
+   ogohlantirish beriladi.
+2. **`dryRun` rejimi bor.** Foydalanuvchi saqlashdan OLDIN kim gapirgani
+   qanday tushunilganini ko'radi. Rollar noto'g'ri bo'lsa, buni
+   natijadan payqash deyarli imkonsiz.
+
+Suhbat `external_source = 'manual'` bilan belgilanadi — sinov ma'lumoti
+haqiqiy statistikadan ajralib tursin.
 
 ## Parolni tiklash (FR-06)
 

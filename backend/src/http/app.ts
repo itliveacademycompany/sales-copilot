@@ -15,6 +15,7 @@ import { registerAppealRoutes } from './routes/appeals.js';
 import { registerBillingRoutes } from './routes/billing.js';
 import { registerBusinessRoutes } from './routes/business.js';
 import { registerConversationRoutes } from './routes/conversations.js';
+import { registerImportRoutes } from './routes/import.js';
 import { registerDashboardRoutes } from './routes/dashboard.js';
 import { registerTaskRoutes } from './routes/tasks.js';
 import { registerMemberRoutes } from './routes/members.js';
@@ -104,6 +105,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerReportRoutes(app);
   registerAppealRoutes(app);
   registerConversationRoutes(app);
+  registerImportRoutes(app);
   registerTaskRoutes(app);
   registerAlertRoutes(app);
   registerDashboardRoutes(app);
