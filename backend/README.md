@@ -33,7 +33,7 @@ npm run db:migrate     # jadvallar + RLS siyosatlari
 npm run verify         # tiplar + barcha tekshiruvlar
 ```
 
-Oxirgi qadam **388/388 o'tishi shart**. O'tmasa — davom etmang.
+Oxirgi qadam **405/405 o'tishi shart**. O'tmasa — davom etmang.
 
 | To'plam | Tekshiruv |
 |---|---|
@@ -51,6 +51,7 @@ Oxirgi qadam **388/388 o'tishi shart**. O'tmasa — davom etmang.
 | Kouching: e'tiroz + rahbar izohi (FR-123/124) | 33 |
 | Parolni tiklash (FR-06) | 19 |
 | Qo'lda suhbat yuklash (sinov vositasi) | 35 |
+| STT javobini qayta ishlash (FAZA 2) | 17 |
 
 ## Skriptlar
 
@@ -70,6 +71,8 @@ Oxirgi qadam **388/388 o'tishi shart**. O'tmasa — davom etmang.
 | `npm run verify:coaching` | E'tiroz oqimi + rahbar izohi, isbot kafolati |
 | `npm run verify:password-reset` | Parol tiklash: token, muddat, oshkor qilmaslik |
 | `npm run verify:import` | Transkript parseri + qo'lda yuklash |
+| `npm run verify:stt` | STT javobini qayta ishlash (API'siz) |
+| `npm run provider:stt` | Google STT kalitini qo'shish va tekshirish |
 | `npm run db:studio` | Bazani brauzerda ko'rish |
 
 ## Ikkita baza ulanishi — nega
@@ -238,6 +241,7 @@ GET    /api/v1/businesses/:id/conversations
 GET    /api/v1/businesses/:id/conversations/:convId      (transkript + ballar + isbot)
 POST   /api/v1/businesses/:id/conversations/:convId/analyze  (qayta tahlil, FR-85)
 POST   /api/v1/businesses/:id/conversations/import       (qo'lda yuklash, ?dryRun)
+POST   /api/v1/businesses/:id/conversations/transcribe   (audio → matn, saqlamaydi)
 
 GET    /api/v1/businesses/:id/tasks                      (?status ?seatId ?view=today|overdue)
 POST   /api/v1/businesses/:id/tasks
@@ -333,6 +337,67 @@ Tahlil o'zi qiymat bermaydi — **harakat** beradi. Shu sababli:
 
 Dashboard'da "aniqlanmadi" (score null) hech qayerda past ball sifatida
 hisoblanmaydi — alohida `unknownCount` ustunida ko'rsatiladi.
+
+## Audio → matn (STT, FAZA 2)
+
+`POST /businesses/:id/conversations/transcribe` — audio yuboradi,
+transkript qaytaradi. **Hech narsa saqlamaydi.**
+
+Sozlash:
+
+```bash
+STT_KEY_FILE=C:\yol\service-account.json npm run provider:stt
+```
+
+Skript kalitni bazaga yozishdan **oldin** 1 soniyalik jim WAV bilan
+sinaydi. Noto'g'ri kalitni saqlab qo'yish eng chalkash nosozlik bo'lardi:
+tahlil ishlamaydi, lekin qayerda xato ekani bilinmaydi. API kaliti ham
+qabul qilinadi (`STT_API_KEY`) — kredensial `{` bilan boshlansa service
+account, aks holda API kaliti deb olinadi.
+
+### Rolni tizim BELGILAMAYDI — buni odam qiladi
+
+Bu modulning eng muhim qarori. Google diarizatsiyasi `speakerTag: 1|2`
+beradi, lekin **qaysi biri menejer ekanini bilmaydi**. Uni taxmin qilish
+(masalan "birinchi gapirgan — mijoz") aynan FR-84 dagi muammoni
+keltiradi: rol almashsa, kouching mutlaqo teskari xulosa chiqaradi va
+buni hech kim sezmaydi.
+
+Shuning uchun oqim uch qadamli:
+
+```
+audio → transkript + so'zlovchi belgilari
+      → ODAM qaysi so'zlovchi menejer ekanini tanlaydi
+      → matn importi orqali saqlanadi
+```
+
+Uchinchi qadam mavjud matn yo'lini qayta ishlatadi
+(`utterancesToTranscript` STT natijasini `[MM:SS] Menejer: ...`
+shakliga o'giradi). Natijada saqlash, parser va testlar **bitta**
+yo'lda qoladi — ikkita alohida yo'l bo'lsa, biri tuzatilganda
+ikkinchisi eskirib qolardi.
+
+### Boshqa detallar
+
+- **Chegara 10 MB.** Google inline audioni shu atrofda qabul qiladi.
+  Fayl kelib, keyin Google tomonidan rad etilgani — "yukladim, hech
+  narsa bo'lmadi" holatidan yomonroq, shuning uchun chegara bizda
+  tekshiriladi va aniq xato beriladi.
+- **M4A/AAC rad etiladi** aniq xabar bilan — Google uni
+  qo'llab-quvvatlamaydi.
+- **Eng to'liq `result` tanlanadi.** Diarizatsiya yoqilganda Google
+  so'zlarni oxirgi natijada to'liq qaytaradi, oldingilarida qisman.
+  Birinchisini olsak transkript jimgina qirqilib qolardi — bu
+  `verify:stt` da alohida tekshiriladi.
+- `SttError` → **400**, 500 emas. Sozlash muammosi server nosozligi
+  emas va foydalanuvchi "Serverda xatolik" o'rniga aniq sababni ko'radi.
+- Xarajat daqiqa bo'yicha yuqoriga yaxlitlanadi (~$0.009/daq).
+  Bepul 60 daqiqa hisobga olinmaydi — unga tayanish mijozga noto'g'ri
+  raqam ko'rsatardi.
+
+> ⚠️ **O'zbek STT sifati oldindan ma'lum emas** — TZ da bu №1 risk.
+> Shuning uchun matn yo'li ham qoldirilgan: baholash sifatini STT
+> sifatidan ajratib sinash mumkin.
 
 ## Qo'lda suhbat yuklash — sinov vositasi
 

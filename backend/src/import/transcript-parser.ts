@@ -172,6 +172,38 @@ export function parseTranscript(raw: string): ParseResult {
 }
 
 /**
+ * STT natijasini transkript MATNIGA aylantiradi.
+ *
+ * Nega matnga, to'g'ridan-to'g'ri segmentlarga emas: audio yo'li shu
+ * bilan matn yo'lining ustiga tushadi va **bitta yo'l** qoladi —
+ * o'sha parser, o'sha saqlash, o'sha testlar. Ikkita alohida yo'l
+ * bo'lsa, biri tuzatilganda ikkinchisi eskirib qolardi.
+ *
+ * `managerTag` — odam tanlagan so'zlovchi. Uni bu yerda taxmin
+ * qilmaymiz (FR-84): diarizatsiya "1 va 2" deb ajratadi, lekin
+ * qaysi biri menejer ekanini bilmaydi va noto'g'ri taxmin butun
+ * tahlilni teskari qiladi.
+ */
+export function utterancesToTranscript(
+  utterances: { speakerTag: number; text: string; startSeconds: number }[],
+  managerTag: number,
+): string {
+  return utterances
+    .map((u) => {
+      const rol = u.speakerTag === managerTag ? 'Menejer' : 'Mijoz';
+      const jami = Math.max(0, Math.round(u.startSeconds));
+      const mm = String(Math.floor(jami / 60)).padStart(2, '0');
+      const ss = String(jami % 60).padStart(2, '0');
+      // Vaqt belgisi yozuv boshidan hisoblanadi (00:00 dan), ya'ni
+      // `assignOffsets` uni to'g'ri o'qiydi va javob tezligi haqiqiy
+      // audio vaqtiga tayanadi.
+      return `[${mm}:${ss}] ${rol}: ${u.text.trim()}`;
+    })
+    .filter((l) => !/^\[\d{2}:\d{2}\] (Menejer|Mijoz):\s*$/.test(l))
+    .join('\n');
+}
+
+/**
  * Segmentlarga suhbat boshidan hisoblangan soniyalarni beradi.
  *
  * Vaqt belgilari bo'lsa — ulardan (yarim tundan o'tish holati hisobga

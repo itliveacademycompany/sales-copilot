@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { getActiveStt, SttError } from '../../ai/stt.js';
 import { withTenant } from '../../db/index.js';
 import { conversation, seat, transcriptSegment } from '../../db/schema/index.js';
 import { assignOffsets, parseTranscript } from '../../import/transcript-parser.js';
@@ -131,6 +132,78 @@ export function registerImportRoutes(app: FastifyInstance): void {
         queued: queued.queued,
         warnings,
         note: 'Suhbat navbatga qo\'yildi. Tahlil bir necha soniyada tayyor bo\'ladi.',
+      };
+    },
+  );
+
+  /**
+   * AUDIO → TRANSKRIPT (FAZA 2, 1-qadam).
+   *
+   * Bu endpoint **hech narsa saqlamaydi** — u faqat audioni matnga
+   * aylantirib qaytaradi. Sabab FR-84 da: Google diarizatsiyasi
+   * "1-so'zlovchi / 2-so'zlovchi" deb ajratadi, lekin qaysi biri
+   * menejer ekanini bilmaydi. Uni taxmin qilish — rol almashuvi
+   * xavfi, ya'ni butun tahlil teskari chiqishi.
+   *
+   * Shuning uchun oqim ikki qadamli:
+   *   1. audio → transkript + so'zlovchi belgilari (shu endpoint)
+   *   2. odam qaysi so'zlovchi menejer ekanini tanlaydi → matn
+   *      importi orqali saqlanadi
+   *
+   * Natijada rol har doim ODAM tomonidan belgilanadi.
+   */
+  app.post(
+    '/api/v1/businesses/:businessId/conversations/transcribe',
+    { preHandler: [requireBusiness, requirePermission('playbook:write')] },
+    async (req) => {
+      const file = await req.file();
+      if (!file) throw AppError.badRequest('Audio fayl yuborilmadi');
+
+      const audio = await file.toBuffer();
+      if (audio.length === 0) throw AppError.badRequest('Fayl bo\'sh');
+      if (audio.length > 10 * 1024 * 1024) {
+        throw AppError.badRequest(
+          'Fayl 10 MB dan katta. Google inline audioni shu chegarada qabul qiladi — ' +
+            'faylni qisqartiring yoki past bitrate bilan qayta kodlang.',
+        );
+      }
+
+      const til = (file.fields.languageCode as { value?: string } | undefined)?.value;
+      const soni = Number(
+        (file.fields.speakerCount as { value?: string } | undefined)?.value ?? 2,
+      );
+
+      /**
+       * `SttError` — sozlash yoki fayl muammosi, server nosozligi emas.
+       * Uni 500 bilan qaytarish foydalanuvchiga "Serverda xatolik"
+       * degan foydasiz xabar ko'rsatardi, holbuki asl sabab aniq va
+       * tuzatsa bo'ladigan ("Speech-to-Text API yoqilmagan" kabi).
+       */
+      let natija;
+      try {
+        const stt = await getActiveStt();
+        natija = await stt.transcribe({
+          audio,
+          mimeType: file.mimetype,
+          languageCode: til && til.length > 0 ? til : undefined,
+          speakerCount: Number.isFinite(soni) && soni >= 1 && soni <= 6 ? soni : 2,
+        });
+      } catch (err) {
+        if (err instanceof SttError) throw AppError.badRequest(err.message);
+        throw err;
+      }
+
+      return {
+        utterances: natija.utterances,
+        speakerCount: natija.speakerCount,
+        language: natija.language,
+        durationSeconds: natija.durationSeconds,
+        costUsd: natija.costUsd,
+        model: natija.model,
+        note:
+          natija.speakerCount < 2
+            ? 'Faqat bitta so\'zlovchi aniqlandi — yozuvda ikkalasi ham eshitilishiga ishonch hosil qiling.'
+            : 'Qaysi so\'zlovchi menejer ekanini tanlang.',
       };
     },
   );

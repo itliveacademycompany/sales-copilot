@@ -1,6 +1,7 @@
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { sql } from 'drizzle-orm';
@@ -72,6 +73,18 @@ export async function buildApp(): Promise<FastifyInstance> {
       sameSite: 'lax',
       path: '/',
     },
+  });
+
+  /**
+   * Audio yuklash uchun (FAZA 2).
+   *
+   * 25 MB chegarasi ataylab: Google STT inline audioni ~10 MB gacha
+   * qabul qiladi, lekin fayl bizga kelib, keyin rad etilgani —
+   * "yukladim, hech narsa bo'lmadi" holatidan yaxshiroq: chegara
+   * aniq xato bilan qaytariladi.
+   */
+  await app.register(multipart, {
+    limits: { fileSize: 25 * 1024 * 1024, files: 1 },
   });
 
   // ─── Rate limiting (NFR-24) ───
