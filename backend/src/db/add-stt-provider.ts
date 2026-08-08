@@ -30,8 +30,9 @@ import { aiProvider } from './schema/index.js';
 
 const KEY_FILE = process.env.STT_KEY_FILE;
 const API_KEY = process.env.STT_API_KEY;
-const MODEL = process.env.STT_MODEL ?? 'latest_long';
+const MODEL = process.env.STT_MODEL ?? 'default';
 const TIL = process.env.STT_LANGUAGE ?? 'uz-UZ';
+const NARX = Number(process.env.STT_COST_MIN ?? '0.024');
 
 function yordam(): never {
   console.error(
@@ -40,8 +41,9 @@ function yordam(): never {
       '  $env:STT_KEY_FILE="C:\\yol\\service-account.json"; npm run provider:stt\n' +
       '  $env:STT_API_KEY="AIza..."; npm run provider:stt\n\n' +
       'Qo\'shimcha:\n' +
-      '  STT_MODEL     — standart: latest_long\n' +
-      '  STT_LANGUAGE  — standart: uz-UZ\n',
+      '  STT_MODEL     — standart: default (aniqroq: latest_long, lekin hamma tilda yo\'q)\n' +
+      '  STT_LANGUAGE  — standart: uz-UZ\n' +
+      '  STT_COST_MIN  — daqiqa narxi USD, standart: 0.024\n',
   );
   process.exit(1);
 }
@@ -76,7 +78,7 @@ async function main(): Promise<void> {
   }
 
   console.log(`\nKredensial: ${tur}`);
-  console.log(`Model: ${MODEL}, til: ${TIL}`);
+  console.log(`Model: ${MODEL}, til: ${TIL}, narx: $${NARX}/daqiqa`);
 
   /**
    * Tekshiruv: 1 soniyalik jim WAV yuboriladi. Nutq topilmasligi
@@ -116,7 +118,7 @@ async function main(): Promise<void> {
       kind: 'google',
       label: 'google-stt',
       apiKeyEncrypted: encryptSecret(credential),
-      models: { stt: MODEL, language: TIL },
+      models: { stt: MODEL, language: TIL, costPerMinuteUsd: NARX },
       isActive: true,
     });
   });

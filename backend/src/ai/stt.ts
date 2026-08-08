@@ -76,12 +76,17 @@ export interface SttClient {
 export class SttError extends Error {}
 
 /**
- * Google Speech-to-Text narxi (v1, standard model, 2025 yil ma'lumoti).
- * Diarizatsiya bilan — daqiqasiga ~$0.009 (birinchi 60 daqiqa bepul,
- * lekin buni hisobga olmaymiz: bepul limitga tayanish xarajatni
- * kam ko'rsatadi va mijozga noto'g'ri raqam ketadi).
+ * Google STT narxi — daqiqasiga, dollarda.
+ *
+ * Standart tarif ~$0.024/daqiqa (v1 standard model). Aniq raqam
+ * mintaqa, model va shartnomaga qarab farq qiladi, shuning uchun u
+ * provayder sozlamasidan (`models.costPerMinuteUsd`) o'zgartiriladi.
+ *
+ * **Birinchi 60 daqiqa bepul hisobga OLINMAYDI.** Bepul limitga
+ * tayanib xarajatni kam ko'rsatish — mijozga noto'g'ri tannarx
+ * ko'rsatish demak (FR-89 xarajat kuzatuvining ma'nosi shunda).
  */
-const GOOGLE_PER_MINUTE_USD = 0.009;
+const DEFAULT_PER_MINUTE_USD = 0.024;
 
 /**
  * MIME → Google `encoding`.
@@ -263,9 +268,17 @@ export function extractWords(results: GoogleResult[]): SttWord[] {
 }
 
 export class GoogleStt implements SttClient {
+  /**
+   * `model` standarti ataylab `default`, `latest_long` emas.
+   * `latest_long` aniqroq, lekin u hamma tilda mavjud emas va
+   * qo'llab-quvvatlanmagan tilda Google xato qaytaradi. `default`
+   * esa qo'llab-quvvatlanadigan har bir tilda ishlaydi — birinchi
+   * sozlash urinishi xatosiz o'tishi muhimroq.
+   */
   constructor(
     private readonly credential: string,
-    private readonly model = 'latest_long',
+    private readonly model = 'default',
+    private readonly perMinuteUsd = DEFAULT_PER_MINUTE_USD,
   ) {}
 
   async transcribe(req: SttRequest): Promise<SttResult> {
@@ -320,7 +333,7 @@ export class GoogleStt implements SttClient {
       durationSeconds,
       model: this.model,
       // Google daqiqa bo'yicha, yuqoriga yaxlitlab hisoblaydi.
-      costUsd: Math.ceil(durationSeconds / 60) * GOOGLE_PER_MINUTE_USD,
+      costUsd: Math.ceil(durationSeconds / 60) * this.perMinuteUsd,
       speakerCount: new Set(utterances.map((u) => u.speakerTag)).size,
     };
   }
@@ -387,7 +400,10 @@ export async function getActiveStt(): Promise<SttClient> {
 
   if (!provider) {
     throw new SttError(
-      'Faol STT provayderi yo\'q — admin paneldan Google kalitini qo\'shib faollashtiring',
+      'Bulutli STT provayderi sozlanmagan. Ikki yo\'l bor: ' +
+        '(1) lokal Whisper — kalitsiz va kartasiz, `npm run stt:local -- fayl.mp3` ' +
+        'natijasini "Matn" bo\'limiga joylashtiring; ' +
+        '(2) Google kalitini qo\'shing — `npm run provider:stt`.',
     );
   }
   if (!provider.apiKeyEncrypted) throw new SttError('Faol STT provayderida kalit yo\'q');
@@ -396,8 +412,14 @@ export async function getActiveStt(): Promise<SttClient> {
   const models = (provider.models ?? {}) as Record<string, string>;
 
   switch (provider.kind) {
-    case 'google':
-      return new GoogleStt(credential, models.stt ?? 'latest_long');
+    case 'google': {
+      const narx = Number(models.costPerMinuteUsd);
+      return new GoogleStt(
+        credential,
+        models.stt ?? 'default',
+        Number.isFinite(narx) && narx > 0 ? narx : undefined,
+      );
+    }
     default:
       throw new SttError(
         `STT uchun "${provider.kind}" provayderi hali qo'llab-quvvatlanmaydi (hozircha faqat google)`,

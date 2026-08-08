@@ -225,6 +225,14 @@ export function SuhbatYuklash({
             MP3, WAV, OGG yoki FLAC — 10 MB gacha. M4A qo'llab-quvvatlanmaydi.
             Yozuvda ikkala tomon ham eshitilishi kerak, aks holda so'zlovchilar ajralmaydi.
           </div>
+          <div className="yordam" style={{ marginTop: 6 }}>
+            <b>Bulutli STT sozlanmagan bo'lsa</b> — kompyuteringizda lokal aylantiring
+            (kalit ham, karta ham kerak emas):
+            <br />
+            <code>npm run stt:local -- "C:\yozuvlar\qongiroq.mp3"</code>
+            <br />
+            Natijani <b>Matn</b> bo'limiga joylashtiring.
+          </div>
         </div>
       )}
 

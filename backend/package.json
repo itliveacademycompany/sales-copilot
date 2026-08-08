@@ -36,7 +36,8 @@
     "verify:stt": "tsx src/http/verify-stt.ts",
     "verify": "npm run typecheck && npm run db:verify && npm run verify:auth && npm run verify:api && npm run verify:telegram && npm run verify:pipeline && npm run verify:dashboard && npm run verify:billing-logic && npm run verify:billing && npm run verify:playbook-ai && npm run verify:reports && npm run verify:coaching && npm run verify:password-reset && npm run verify:import && npm run verify:stt",
     "provider:llm": "tsx src/db/add-llm-provider.ts",
-    "provider:stt": "tsx src/db/add-stt-provider.ts"
+    "provider:stt": "tsx src/db/add-stt-provider.ts",
+    "stt:local": "python ../tools/whisper-local.py"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

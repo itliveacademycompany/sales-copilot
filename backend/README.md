@@ -338,7 +338,52 @@ Tahlil o'zi qiymat bermaydi — **harakat** beradi. Shu sababli:
 Dashboard'da "aniqlanmadi" (score null) hech qayerda past ball sifatida
 hisoblanmaydi — alohida `unknownCount` ustunida ko'rsatiladi.
 
-## Audio → matn (STT, FAZA 2)
+## Audio → matn: lokal Whisper (kalitsiz, kartasiz)
+
+Google Cloud bepul tarif uchun ham **karta talab qiladi**. Shuning uchun
+asosiy yo'l — kompyuterda ishlaydigan Whisper. Bonus: audio hech qayerga
+yuborilmaydi, ya'ni TZ dagi "Ma'lumot O'zbekistonda" ustunligi bilan
+to'g'ri keladi.
+
+```bash
+pip install faster-whisper
+npm run stt:local -- "C:\yozuvlar\qongiroq.mp3"
+```
+
+Natija to'g'ridan-to'g'ri "Suhbat yuklash → Matn" oynasiga tayyor:
+
+```
+[00:00] Mijoz: Salom, kurs narxi qancha?
+[00:07] Menejer: Assalomu alaykum! Avval maqsadingizni bilsam...
+```
+
+### So'zlovchilarni ajratish — o'lchovga asoslangan taxmin
+
+Whisper "kim gapirdi" degan savolga javob bermaydi va lokal
+diarizatsiya (pyannote) HuggingFace tokeni hamda shartlarni qabul
+qilishni talab qiladi — sozlash yuki katta.
+
+Buning o'rniga **so'zlar orasidagi jimlik** ishlatiladi. Bu qaror
+o'lchovga asoslangan, taxminga emas:
+
+| | Pauza |
+|---|---|
+| Gap ichidagi to'xtalish | 0.4–1.0 s |
+| So'zlovchi almashuvi | 1.8–2.3 s |
+
+Chegara 1.5 s. **Muhim detal:** Whisper segmentlari uzluksiz — har
+birining boshi oldingisining oxiriga teng, ya'ni segment darajasida
+pauza umuman ko'rinmaydi (birinchi urinishda 0 ta almashuv topilgan
+edi). Faqat `word_timestamps=True` haqiqiy jimlikni ochadi.
+
+Chegara sozlanadi: `--gap 2.0` (almashuv ko'p bo'lsa), `--gap 1.0`
+(kam bo'lsa), `--first menejer` (birinchi menejer gapirgan bo'lsa).
+
+> Bu **taxmin, kafolat emas.** Yuklashdan oldin rollarni o'qib chiqing —
+> "Ko'rib chiqish" qadami aynan shuning uchun bor. Rol noto'g'ri bo'lsa
+> butun tahlil teskari chiqadi (FR-84).
+
+## Audio → matn: bulutli STT (ixtiyoriy)
 
 `POST /businesses/:id/conversations/transcribe` — audio yuboradi,
 transkript qaytaradi. **Hech narsa saqlamaydi.**
