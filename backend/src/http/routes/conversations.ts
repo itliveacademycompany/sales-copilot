@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, lt, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, lt, ne, or, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant, withoutTenantIsolation } from '../../db/index.js';
@@ -30,14 +30,38 @@ import { AppError } from '../errors.js';
  * o'tadi (FR-81). Bu mahsulotning asosiy farqi.
  */
 
+/**
+ * Kursor `"<ISO sana>|<uuid>"` shaklida — sof sanadan farqli.
+ *
+ * Sabab: `startedAt` Telegram xabarining `sentAt` vaqti, ya'ni SONIYA
+ * aniqligida — bir nechta suhbat AYNAN bir xil soniyada boshlangan
+ * bo'lishi juda oddiy holat. Faqat sana bo'yicha `<` solishtirish
+ * shunday holatda bir guruh suhbatni butunlay "yutib yuboradi": agar
+ * sahifa chegarasi aynan shu guruh o'rtasidan o'tsa, ular hech qachon
+ * keyingi sahifada chiqmaydi (barchasi bir xil qiymatga ega, hech biri
+ * "qat'iy kichik" emas). `id` ikkinchi tayanch sifatida bu holatni
+ * yo'qqa chiqaradi.
+ */
+const cursorRe = /^(.+)\|([0-9a-f-]{36})$/i;
+const cursorSchema = z
+  .string()
+  .refine((v) => cursorRe.test(v), 'kursor formati noto\'g\'ri')
+  .transform((v) => {
+    const m = cursorRe.exec(v)!;
+    return { startedAt: new Date(m[1]!), id: m[2]! };
+  });
+
+function encodeCursor(startedAt: Date, id: string): string {
+  return `${startedAt.toISOString()}|${id}`;
+}
+
 const listQuery = z.object({
   status: z
     .enum(['received', 'filtered', 'queued', 'transcribing', 'analyzing', 'done', 'failed'])
     .optional(),
   seatId: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(30),
-  /** Kursor: shu vaqtdan eski suhbatlar (startedAt bo'yicha). */
-  before: z.coerce.date().optional(),
+  before: cursorSchema.optional(),
 });
 
 export function registerConversationRoutes(app: FastifyInstance): void {
@@ -81,17 +105,33 @@ export function registerConversationRoutes(app: FastifyInstance): void {
             and(
               q.status ? eq(conversation.status, q.status) : undefined,
               onlySeat ? eq(conversation.seatId, onlySeat) : undefined,
-              q.before ? lt(conversation.startedAt, q.before) : undefined,
+              q.before
+                ? or(
+                    lt(conversation.startedAt, q.before.startedAt),
+                    and(
+                      eq(conversation.startedAt, q.before.startedAt),
+                      lt(conversation.id, q.before.id),
+                    ),
+                  )
+                : undefined,
             ),
           )
-          .orderBy(desc(conversation.startedAt))
-          .limit(q.limit),
+          // Ikkinchi tartib mezoni (`id`) kursordagi ikkinchi tayanchga
+          // mos kelishi SHART — aks holda bir xil `startedAt`li guruh
+          // ichida tartib har so'rovda boshqacha bo'lib, ba'zi qatorlar
+          // ikki marta chiqishi yoki umuman chiqmasligi mumkin edi.
+          .orderBy(desc(conversation.startedAt), desc(conversation.id))
+          // `limit + 1`: aynan shu limit sonicha qator kelsa "keyingisi
+          // yo'q" holatidan ajratib bo'lmaydi — bittasi ortiqcha so'raymiz.
+          .limit(q.limit + 1),
       );
 
-      const last = rows[rows.length - 1];
+      const hasMore = rows.length > q.limit;
+      const page = hasMore ? rows.slice(0, q.limit) : rows;
+      const last = page[page.length - 1];
       return {
-        conversations: rows,
-        nextCursor: rows.length === q.limit && last ? last.startedAt : null,
+        conversations: page,
+        nextCursor: hasMore && last ? encodeCursor(last.startedAt, last.id) : null,
       };
     },
   );

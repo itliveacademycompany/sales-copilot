@@ -3,8 +3,11 @@ import { config } from '../config.js';
 import { analyzeConversation } from '../ai/analyze.js';
 import { getActiveLlm, LlmRefusalError, type LlmClient } from '../ai/llm.js';
 import { runBillingTick } from '../billing/engine.js';
+import { dispatchTaskExports } from '../integrations/crm-export.js';
+import { qongiroqlarniQaytaIshla, sinxronla } from '../integrations/moizvonki.js';
 import { runDailyReportTick } from '../reports/daily.js';
 import { markOverdueCommitments } from './maintenance.js';
+import { dispatchAlertNotifications } from './notify.js';
 import { claimNextJob, completeJob, failJob, reclaimStuckJobs } from './queue.js';
 import { sweepIdleSessions } from './scheduler.js';
 
@@ -67,6 +70,18 @@ export async function runWorkerTick(llm?: LlmClient): Promise<TickResult> {
 let stopRequested = false;
 let loopPromise: Promise<void> | null = null;
 
+/**
+ * Moi Zvonki ishlari — siklni KUTDIRMASDAN, fonda.
+ *
+ * Bitta qo'ng'iroqni baholash (yozuvni yuklash + STT + LLM) o'nlab
+ * soniya oladi. Sikl uni `await` qilsa, shu vaqt ichida Telegram tahlili
+ * ham, bildirishnomalar ham to'xtab turardi. Shuning uchun ish fonda
+ * boshlanadi, bayroq esa oldingisi tugamaguncha yangisini boshlatmaydi —
+ * bir vaqtda ikki nusxa ishlab, bir qo'ng'iroqni ikki marta olmasin.
+ */
+let mzSinxronBand = false;
+let mzQaytaIshlashBand = false;
+
 /** Server bilan birga ishga tushadigan doimiy sikl. */
 export function startWorkerLoop(log: {
   info: (obj: unknown, msg?: string) => void;
@@ -76,6 +91,9 @@ export function startWorkerLoop(log: {
 
   loopPromise = (async () => {
     let lastSweep = 0;
+    let lastNotify = 0;
+    let lastMzSync = 0;
+    let lastMzProcess = 0;
     let lastReclaim = 0;
     let lastBilling = 0;
     let lastReport = 0;
@@ -89,6 +107,68 @@ export function startWorkerLoop(log: {
           lastSweep = now;
           const queued = await sweepIdleSessions();
           if (queued > 0) log.info({ queued }, 'scheduler: sessiyalar navbatga qo\'yildi');
+        }
+
+        /**
+         * Ogohlantirish bildirishnomalari — har 20 soniyada.
+         *
+         * Tahlildan tez-tez: qizil bayroq haqida rahbar 5 daqiqadan
+         * keyin emas, darhol bilishi kerak. Ish yo'q bo'lsa so'rov
+         * arzon — indeks bo'yicha bo'sh natija.
+         */
+        if (now - lastNotify > 20_000) {
+          lastNotify = now;
+          const n = await dispatchAlertNotifications();
+          if (n.sent > 0 || n.failed > 0) {
+            log.info(n, 'bildirishnoma: ogohlantirishlar tarqatildi');
+          }
+
+          /**
+           * Vazifalarni CRM ga yuborish — xuddi shu ritmda.
+           *
+           * Ogohlantirish bilan bir tikda: ikkalasi ham tashqi HTTP va
+           * ikkalasi ham "yangi yozuv bormi" degan arzon so'rov bilan
+           * boshlanadi. Alohida taymer qo'shish faqat kod murakkabligini
+           * oshirardi.
+           */
+          const e = await dispatchTaskExports();
+          if (e.sent > 0 || e.failed > 0) {
+            log.info(e, 'CRM: vazifalar yuborildi');
+          }
+        }
+
+        /**
+         * Moi Zvonki: yangi qo'ng'iroqlarni olish — har 2 daqiqada,
+         * kutayotganlarni baholash — har 15 soniyada (bir tikda 2 tadan).
+         * Ikkalasi ham fonda — sabab yuqoridagi bayroqlar izohida.
+         */
+        if (now - lastMzSync > 120_000 && !mzSinxronBand) {
+          lastMzSync = now;
+          mzSinxronBand = true;
+          void sinxronla()
+            .then((r) => {
+              const saqlandi = r.reduce((n, x) => n + x.saqlandi, 0);
+              if (saqlandi > 0) log.info({ saqlandi }, 'moizvonki: yangi qo\'ng\'iroqlar olindi');
+              for (const x of r) {
+                if (x.xato) log.error({ businessId: x.businessId, xato: x.xato }, 'moizvonki: sinxronlash xatosi');
+              }
+            })
+            .catch((err: unknown) => log.error({ err }, 'moizvonki: sinxronlash yiqildi'))
+            .finally(() => {
+              mzSinxronBand = false;
+            });
+        }
+        if (now - lastMzProcess > 15_000 && !mzQaytaIshlashBand) {
+          lastMzProcess = now;
+          mzQaytaIshlashBand = true;
+          void qongiroqlarniQaytaIshla()
+            .then((r) => {
+              if (r.qayta > 0) log.info(r, 'moizvonki: qo\'ng\'iroqlar baholandi');
+            })
+            .catch((err: unknown) => log.error({ err }, 'moizvonki: baholash yiqildi'))
+            .finally(() => {
+              mzQaytaIshlashBand = false;
+            });
         }
 
         // Osilgan ishlar + muddati o'tgan va'dalar — har 5 daqiqada.

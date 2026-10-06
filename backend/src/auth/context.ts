@@ -2,6 +2,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { withoutTenantIsolation } from '../db/index.js';
 import { appUser, business, businessMember, seat } from '../db/schema/index.js';
 import { permissionsFor, type Permission, type Role } from './permissions.js';
+import { keshdanOl, keshgaYoz } from './context-cache.js';
 
 /**
  * Foydalanuvchining biznes a'zoliklarini aniqlash.
@@ -43,7 +44,24 @@ export interface AuthContext {
   businesses: BusinessAccess[];
 }
 
+/**
+ * Auth konteksti — keshdan yoki bazadan.
+ *
+ * Kesh HAR SO'ROVDA chaqiriladigan uchta so'rovni olib tashlaydi
+ * (o'lchandi: 1.27 ms mediana). Eskirish chegarasi va bekor qilish
+ * qoidalari `context-cache.ts` da tushuntirilgan.
+ */
 export async function loadAuthContext(userId: string): Promise<AuthContext | null> {
+  const keshdan = keshdanOl(userId);
+  if (keshdan !== undefined) return keshdan;
+
+  const ctx = await bazadanYukla(userId);
+  keshgaYoz(userId, ctx);
+  return ctx;
+}
+
+/** Keshsiz, to'g'ridan-to'g'ri bazadan. */
+async function bazadanYukla(userId: string): Promise<AuthContext | null> {
   return withoutTenantIsolation(
     'auth yuklanishi: foydalanuvchining biznes a\'zoliklari tenantlar ustidan so\'raladi',
     async (tx) => {

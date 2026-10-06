@@ -633,6 +633,54 @@ async function main(): Promise<void> {
     );
     check('javobsiz savol ogohlantirish BERADI', g2Alerts.length === 1 && g2Alerts[0]!.kind === 'missed_lead');
 
+    /*
+     * G3: «Ogohlantirishlar faqat ish vaqtida» sozlamasi.
+     *
+     * G2 bilan AYNAN bir xil holat takrorlanadi — farq faqat sozlamada.
+     * Shu sababli natijadagi farqni boshqa hech narsa tushuntira olmaydi:
+     * agar ogohlantirish yaratilmasa, uni to'sgan narsa aynan sozlama.
+     *
+     * Jadval T0 tushmaydigan hafta kuniga qo'yiladi — soat bilan
+     * o'ynashdan ko'ra ishonchli, chunki test qaysi soatda ishga
+     * tushishidan qat'i nazar ishlaydi.
+     */
+    const t0Kun = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Tashkent',
+      weekday: 'short',
+    }).format(new Date(T0 * 1000));
+    const KUNLAR = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const boshqaKun = ((KUNLAR.indexOf(t0Kun) + 1) % 7) + 1; // ISO 1..7
+
+    const jadvalJavob = await app.inject({
+      method: 'PUT',
+      url: `${base}/work-hours`,
+      cookies: auth,
+      payload: { startHour: 0, endHour: 24, days: [boshqaKun], alertsOnlyWorkHours: true },
+    });
+    check('ish jadvali saqlandi', jadvalJavob.statusCode === 200);
+
+    await send(70, 701, 998, 'Salom, marketing kursi bormi?', T0);
+    await send(71, 701, 777, 'Ha, bor', T0 + 120);
+    await send(72, 701, 998, 'Narxi qancha?', T0 + 200);
+    await sweepIdleSessions(0);
+    const tickG3 = await runWorkerTick(mock);
+    const g3Alerts = await withoutTenantIsolation('test: natijani tekshirish', (tx) =>
+      tx.select().from(alert).where(eq(alert.dedupeKey, `noreply:${tickG3.conversationId!}`)),
+    );
+    check(
+      'ish vaqtidan tashqari — ogohlantirish YARATILMAYDI',
+      g3Alerts.length === 0,
+      `topildi: ${g3Alerts.length}`,
+    );
+
+    // Sozlamani qaytaramiz — keyingi tekshiruvlarga ta'sir qilmasin.
+    await app.inject({
+      method: 'PUT',
+      url: `${base}/work-hours`,
+      cookies: auth,
+      payload: { startHour: 0, endHour: 24, days: [1, 2, 3, 4, 5, 6, 7], alertsOnlyWorkHours: false },
+    });
+
     // ═══ H: API ═══
     console.log('\n— H: suhbatlar API —');
 
@@ -641,6 +689,52 @@ async function main(): Promise<void> {
     check('ro\'yxat qaytdi', list.statusCode === 200 && listBody.conversations.length >= 7, `soni: ${listBody.conversations.length}`);
     const listA = listBody.conversations.find((c) => c.id === convA);
     check('ro\'yxatda umumiy ball ko\'rinadi', listA?.overallScore !== null && listA !== undefined);
+
+    // Sahifalash: limit'dan ko'p suhbat bor (>=7), shuning uchun kichik
+    // limit bilan so'ralsa nextCursor bo'lishi va u orqali qolganini
+    // olib bo'lishi kerak — hech biri takrorlanmasdan, hech biri tushib
+    // qolmasdan.
+    const smallPage = await app.inject({
+      method: 'GET',
+      url: `${base}/conversations?limit=3`,
+      cookies: auth,
+    });
+    const smallPageBody = smallPage.json() as {
+      conversations: { id: string }[];
+      nextCursor: string | null;
+    };
+    check(
+      'kichik limit bilan aynan 3 ta va nextCursor bor',
+      smallPageBody.conversations.length === 3 && smallPageBody.nextCursor !== null,
+      JSON.stringify(smallPageBody.nextCursor),
+    );
+    const secondPage = await app.inject({
+      method: 'GET',
+      url: `${base}/conversations?limit=3&before=${encodeURIComponent(smallPageBody.nextCursor!)}`,
+      cookies: auth,
+    });
+    const secondPageBody = secondPage.json() as { conversations: { id: string }[] };
+    const firstIds = new Set(smallPageBody.conversations.map((c) => c.id));
+    check(
+      'ikkinchi sahifa birinchisi bilan TAKRORLANMAYDI',
+      secondPageBody.conversations.length > 0 &&
+        secondPageBody.conversations.every((c) => !firstIds.has(c.id)),
+      JSON.stringify(secondPageBody.conversations.map((c) => c.id)),
+    );
+
+    // Sotuvchi filtri: faqat Malikaga (seatId) biriktirilgan suhbatlar.
+    const bySeat = await app.inject({
+      method: 'GET',
+      url: `${base}/conversations?seatId=${seatId}`,
+      cookies: auth,
+    });
+    const bySeatBody = bySeat.json() as { conversations: { id: string; seatId: string | null }[] };
+    check(
+      'seatId filtri faqat shu sotuvchining suhbatlarini qaytaradi',
+      bySeatBody.conversations.length > 0 &&
+        bySeatBody.conversations.every((c) => c.seatId === seatId),
+      JSON.stringify(bySeatBody.conversations.map((c) => c.seatId)),
+    );
 
     const detail = await app.inject({
       method: 'GET',

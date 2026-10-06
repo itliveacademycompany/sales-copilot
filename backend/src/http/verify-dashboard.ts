@@ -383,6 +383,71 @@ async function main(): Promise<void> {
       (kindFilter.json() as { alerts: unknown[] }).alerts.length === 1,
     );
 
+    // status=active — "resolved bo'lmagan hammasi" (new + seen birlashtirilgan).
+    const activeFilter = await app.inject({
+      method: 'GET',
+      url: `${base}/alerts?status=active`,
+      cookies: auth,
+    });
+    check(
+      'status=active ikkala faol ogohlantirishni qaytaradi',
+      (activeFilter.json() as { alerts: unknown[] }).alerts.length === 2,
+      JSON.stringify(activeFilter.json()),
+    );
+
+    // Sahifalash (ikkalasi ham hali faol ekan): limit=1 + cursor bilan
+    // ikkinchi sahifadan qolganini olish, keyin nextCursor tugashi kerak.
+    const page1 = await app.inject({
+      method: 'GET',
+      url: `${base}/alerts?status=active&limit=1`,
+      cookies: auth,
+    });
+    const page1Body = page1.json() as { alerts: { id: string }[]; nextCursor: string | null };
+    check(
+      'birinchi sahifa 1 ta va nextCursor bor',
+      page1Body.alerts.length === 1 && page1Body.nextCursor !== null,
+    );
+    const page2 = await app.inject({
+      method: 'GET',
+      url: `${base}/alerts?status=active&limit=1&before=${encodeURIComponent(page1Body.nextCursor!)}`,
+      cookies: auth,
+    });
+    const page2Body = page2.json() as { alerts: { id: string }[]; nextCursor: string | null };
+    check(
+      'ikkinchi sahifa qolgan (boshqa) ogohlantirishni beradi, nextCursor tugaydi',
+      page2Body.alerts.length === 1 &&
+        page2Body.alerts[0]?.id !== page1Body.alerts[0]?.id &&
+        page2Body.nextCursor === null,
+      JSON.stringify(page2Body),
+    );
+
+    const oneAlertId = (alertBody.alerts[0] as { id: string }).id;
+    await app.inject({
+      method: 'PATCH',
+      url: `${base}/alerts/${oneAlertId}`,
+      cookies: auth,
+      payload: { status: 'resolved' },
+    });
+    const afterResolve = await app.inject({
+      method: 'GET',
+      url: `${base}/alerts?status=active`,
+      cookies: auth,
+    });
+    check(
+      'hal qilingandan keyin status=active uni chiqarib tashlaydi',
+      (afterResolve.json() as { alerts: unknown[] }).alerts.length === 1,
+    );
+    const resolvedFilter = await app.inject({
+      method: 'GET',
+      url: `${base}/alerts?status=resolved`,
+      cookies: auth,
+    });
+    check(
+      'status=resolved faqat hal qilinganlarni qaytaradi',
+      (resolvedFilter.json() as { alerts: { id: string }[] }).alerts.length === 1 &&
+        (resolvedFilter.json() as { alerts: { id: string }[] }).alerts[0]?.id === oneAlertId,
+    );
+
     const alertId = alertBody.alerts[0]!.id;
     const seen = await app.inject({
       method: 'PATCH',

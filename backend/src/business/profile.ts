@@ -15,6 +15,12 @@ import { z } from 'zod';
  * `ai/*` modullari `http/routes/*` ga bog'lanmasligi kerak.
  */
 export const profileSchema = z.object({
+  /**
+   * Soha — "ta'lim", "qurilish materiallari" kabi. Qisqa bo'lgani uchun
+   * `businessDescription` dan ajratilgan: playbook builder promptida u
+   * sarlavha rolini bajaradi va mezonlarni sohaga moslashtiradi.
+   */
+  industry: z.string().trim().max(120).default(''),
   businessDescription: z.string().trim().max(2000).default(''),
   primaryOffers: z.array(z.string().trim().min(1).max(200)).max(30).default([]),
   typicalCustomers: z.string().trim().max(1000).default(''),

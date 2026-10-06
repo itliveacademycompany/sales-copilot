@@ -7,7 +7,19 @@
  * xato yig'ishni ham xavf ostiga qo'yardi.
  */
 
-const API = 'https://api.telegram.org';
+/**
+ * Telegram API manzili.
+ *
+ * O'zgaruvchidan olinadi, faqat TEST uchun: soxta server bilan sinash
+ * aks holda haqiqiy tarmoqqa chiqishni talab qilardi. Ishlab chiqarishda
+ * o'zgaruvchi qo'yilmaydi va standart manzil ishlatiladi.
+ */
+function apiBase(): string {
+  // Har chaqiruvda o'qiladi, modul yuklanganda emas: test o'zgaruvchini
+  // import'lardan KEYIN qo'yadi, va modul darajasidagi o'qish o'shanda
+  // eski qiymatni ushlab qolardi.
+  return process.env.TELEGRAM_API_BASE || 'https://api.telegram.org';
+}
 
 export interface SendResult {
   ok: boolean;
@@ -36,7 +48,7 @@ export async function sendTelegramMessage(
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(`${API}/bot${botToken}/sendMessage`, {
+    const res = await fetch(`${apiBase()}/bot${botToken}/sendMessage`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({

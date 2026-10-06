@@ -8,6 +8,7 @@ import { withTenant } from '../../db/index.js';
 import { seat } from '../../db/schema/index.js';
 import { requireBusiness } from '../auth-plugin.js';
 import { AppError } from '../errors.js';
+import { seatWorkHoursSchema } from '../../business/settings.js';
 
 /**
  * Sotuvchi o'rinlari — litsenziya birligi.
@@ -55,6 +56,8 @@ const publicColumns = {
   externalIds: seat.externalIds,
   activation: seat.activation,
   telegramLinked: seat.telegramLinked,
+  /** `null` — biznes jadvalidan foydalanadi. */
+  workHours: seat.workHours,
   isActive: seat.isActive,
   isOccupied: seat.isOccupied,
   totalConversations: seat.totalConversations,
@@ -300,6 +303,77 @@ export function registerSeatRoutes(app: FastifyInstance): void {
       );
 
       return { activationToken: token };
+    },
+  );
+
+  /**
+   * ═════════════════════════════════════════════════════════════════════
+   * O'RIN ISH JADVALI — «Menejerlar uchun alohida jadval»
+   * ═════════════════════════════════════════════════════════════════════
+   *
+   * `null` yuborilsa jadval O'CHIRILADI va o'rin biznesnikiga qaytadi.
+   * Bu «hammasini biznesnikiga tenglashtirib qo'yish» dan farq qiladi:
+   * qaytgan o'rin biznes jadvali o'zgarganda unga ergashadi.
+   *
+   * Yozish huquqi `business:write` da — jadval hisobot raqamlariga
+   * ta'sir qiladi, ya'ni bu menejerni tahrirlash emas, biznes qarori.
+   */
+  app.get(
+    '/api/v1/businesses/:businessId/seats/:seatId/work-hours',
+    { preHandler: requireBusiness },
+    async (req) => {
+      const { seatId } = seatParams.parse(req.params);
+      const businessId = req.business!.businessId;
+      const [row] = await withTenant(businessId, (tx) =>
+        tx
+          .select({ workHours: seat.workHours, departmentId: seat.departmentId })
+          .from(seat)
+          .where(eq(seat.id, seatId))
+          .limit(1),
+      );
+      if (!row) throw AppError.notFound();
+      assertSeatScope(req, row.departmentId);
+      return { workHours: seatWorkHoursSchema.parse(row.workHours ?? null) };
+    },
+  );
+
+  app.put(
+    '/api/v1/businesses/:businessId/seats/:seatId/work-hours',
+    { preHandler: requireBusiness },
+    async (req) => {
+      const { seatId } = seatParams.parse(req.params);
+      const businessId = req.business!.businessId;
+      if (!hasPermission(req.business!.permissions, 'business:write')) {
+        throw AppError.forbidden();
+      }
+
+      const workHours = seatWorkHoursSchema.parse(req.body ?? null);
+      if (workHours) {
+        if (workHours.endHour <= workHours.startHour) {
+          throw AppError.badRequest("Tugash soati boshlanishdan keyin bo'lishi kerak");
+        }
+        if (workHours.days.length === 0) {
+          throw AppError.badRequest('Kamida bitta ish kuni tanlang');
+        }
+      }
+
+      const [mavjud] = await withTenant(businessId, (tx) =>
+        tx
+          .select({ departmentId: seat.departmentId })
+          .from(seat)
+          .where(eq(seat.id, seatId))
+          .limit(1),
+      );
+      if (!mavjud) throw AppError.notFound();
+      assertSeatScope(req, mavjud.departmentId);
+
+      await withTenant(businessId, (tx) =>
+        tx
+          .update(seat)
+          .set({ workHours, updatedAt: new Date() })
+          .where(and(eq(seat.id, seatId), eq(seat.businessId, businessId))),
+      );
+      return { workHours };
     },
   );
 }

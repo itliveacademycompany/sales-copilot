@@ -206,6 +206,15 @@ export function ConversationDetail() {
 
   useEffect(load, [load]);
 
+  useEffect(() => {
+    if (!d) return;
+    const kutilmoqda = ['received', 'queued', 'analyzing'].includes(d.conversation.status);
+    if (!kutilmoqda && d.analysis) return;
+
+    const timer = window.setInterval(load, 3000);
+    return () => window.clearInterval(timer);
+  }, [d, load]);
+
   /**
    * FR-123: sotuvchi sahifani ochsa, izohlar o'qilgan deb belgilanadi.
    *

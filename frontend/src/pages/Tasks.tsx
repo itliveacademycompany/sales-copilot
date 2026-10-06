@@ -20,6 +20,8 @@ const HOLAT_NOMI: Record<TaskRow['status'], string> = {
 export function Tasks() {
   const { business } = useAuth();
   const [view, setView] = useState('');
+  const [statusFiltr, setStatusFiltr] = useState('');
+  const [seatFiltr, setSeatFiltr] = useState('');
   const [rows, setRows] = useState<TaskRow[]>([]);
   const [stats, setStats] = useState<TaskAnalytics | null>(null);
   const [seats, setSeats] = useState<SeatRow[]>([]);
@@ -34,9 +36,12 @@ export function Tasks() {
   const load = useCallback(() => {
     if (!base) return;
     setLoading(true);
-    const q = view ? `?view=${view}` : '';
+    const p = new URLSearchParams();
+    if (view) p.set('view', view);
+    if (statusFiltr) p.set('status', statusFiltr);
+    if (seatFiltr) p.set('seatId', seatFiltr);
     void Promise.all([
-      api.get<{ tasks: TaskRow[] }>(`${base}/tasks${q}`),
+      api.get<{ tasks: TaskRow[] }>(`${base}/tasks?${p}`),
       api.get<TaskAnalytics>(`${base}/tasks/analytics`),
     ])
       .then(([t, a]) => {
@@ -44,7 +49,7 @@ export function Tasks() {
         setStats(a);
       })
       .finally(() => setLoading(false));
-  }, [base, view]);
+  }, [base, view, statusFiltr, seatFiltr]);
 
   useEffect(load, [load]);
 
@@ -162,6 +167,37 @@ export function Tasks() {
               {k.nom}
             </button>
           ))}
+        </div>
+        <div className="filtr-panel" style={{ marginBottom: 0 }}>
+          <select value={statusFiltr} onChange={(e) => setStatusFiltr(e.target.value)}>
+            <option value="">Holat: barchasi</option>
+            {(Object.keys(HOLAT_NOMI) as TaskRow['status'][]).map((h) => (
+              <option key={h} value={h}>
+                {HOLAT_NOMI[h]}
+              </option>
+            ))}
+          </select>
+          {seats.length > 1 && (
+            <select value={seatFiltr} onChange={(e) => setSeatFiltr(e.target.value)}>
+              <option value="">Sotuvchi: barchasi</option>
+              {seats.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.displayName}
+                </option>
+              ))}
+            </select>
+          )}
+          {(statusFiltr || seatFiltr) && (
+            <button
+              className="btn ikkinchi kichik"
+              onClick={() => {
+                setStatusFiltr('');
+                setSeatFiltr('');
+              }}
+            >
+              Filtrlarni tozalash
+            </button>
+          )}
         </div>
       </div>
 

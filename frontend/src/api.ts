@@ -76,6 +76,21 @@ export interface BusinessRow {
   currency: string;
   locale: string;
   onboardingStep: string;
+  createdAt: string;
+  onboardingCompletedAt: string | null;
+}
+
+/** Ish jadvali — biznes va o'rin uchun bir xil shakl. */
+export interface IshJadvaliQiymat {
+  startHour: number;
+  endHour: number;
+  days: number[];
+}
+
+/** Biznes jadvali — o'rin jadvalida bo'lmagan bosh kalitlar bilan. */
+export interface BiznesIshJadvali extends IshJadvaliQiymat {
+  alertsOnlyWorkHours: boolean;
+  perSeatSchedules: boolean;
 }
 
 export interface SeatFull {
@@ -86,8 +101,11 @@ export interface SeatFull {
   login: string | null;
   phoneNumbers: string[];
   externalIds: Record<string, string>;
-  activation: 'pending' | 'active' | 'suspended';
+  /** `activation_status` enum: bazada aynan shu uchtasi bor. */
+  activation: 'pending' | 'active' | 'disabled';
   telegramLinked: boolean;
+  /** Alohida ish jadvali — `null` bo'lsa biznesnikidan foydalanadi. */
+  workHours: IshJadvaliQiymat | null;
   isActive: boolean;
   isOccupied: boolean;
   totalConversations: number;
@@ -360,6 +378,613 @@ export interface TrendPoint {
   flagged: number;
 }
 
+// ─── Analitika ──────────────────────────────────────────────────────────────
+//
+// Muhim shart: `null` = "hisoblab bo'lmadi", `0` = "haqiqatan nol". Ikkalasini
+// aralashtirmaslik kerak — 4 ta suhbatda bitim summasi topilgan bo'lsa,
+// qolganini 0 so'm deb qo'shish o'rtacha bitimni darhol yolg'on qiladi.
+// Shuning uchun tiplarda ham `number | null` ataylab saqlanadi.
+
+/** Taqsimot bo'lagi — doiraviy va gorizontal diagrammalar uchun. */
+export interface Ulush {
+  key: string;
+  count: number;
+  avgScore?: number | null;
+  /** Lid sifatida: model aynan qanday yozgani (normallashtirishdan oldin). */
+  rawLabels?: string[];
+}
+
+export interface AnalyticsOverview {
+  conversations: number;
+  analyzed: number;
+  filtered: number;
+  scored: number;
+  avgScore: number | null;
+  flagged: number;
+  warmLeads: number;
+  leadKnown: number;
+  leadConversionPct: number | null;
+  dealSum: number | null;
+  dealKnown: number;
+  avgDeal: number | null;
+  avgDurationSeconds: number | null;
+  aiCostUsd: number | null;
+  tasks: number;
+  tasksDone: number;
+  tasksOverdue: number;
+  taskCompletionPct: number | null;
+}
+
+export interface AnalyticsMix {
+  businessRelevance: Ulush[];
+  callFamily: Ulush[];
+  serviceLine: Ulush[];
+  channel: Ulush[];
+  status: Ulush[];
+}
+
+export interface CategoryAgg {
+  categoryCode: string;
+  evaluated: number;
+  scored: number;
+  unknownCount: number;
+  avgScore: number | null;
+  avgPct: number | null;
+  weakCount: number;
+  weightPct: number | null;
+}
+
+/**
+ * Mezon darajasidagi to'liq kesim.
+ *
+ * `typicalText` / `targetText` — o'ylab topilgan tavsiya EMAS, balki
+ * playbook rubrikasining aynan o'sha darajadagi matni (baholangan
+ * paytdagi nusxasi). Shu sababli "hozir shunday / shunga intilish kerak"
+ * juftligi har doim haqiqiy ta'rifga tayanadi.
+ */
+export interface CriterionDetail {
+  code: string;
+  name: string;
+  description: string | null;
+  categoryCode: string | null;
+  evaluated: number;
+  scored: number;
+  unknownCount: number;
+  avgScore: number | null;
+  avgPct: number | null;
+  weakCount: number;
+  maxScore: number;
+  typicalLevel: number | null;
+  typicalText: string | null;
+  targetLevel: number;
+  targetText: string | null;
+}
+
+/**
+ * Ustunlar `code` EMAS, `{code, name}` juftligi bilan keladi: mezon
+ * kodlari playbook avlodlari orasida qayta ishlatiladi, shuning uchun
+ * bir xil kod ostida ikkita boshqa mezon bo'lishi mumkin. Sarlavhada kod
+ * ko'rsatiladi, to'liq nom esa tooltipda.
+ */
+export interface SeatMatrix {
+  criteria: { code: string; name: string }[];
+  seats: {
+    seatId: string;
+    displayName: string;
+    cells: { code: string; name: string; avgPct: number | null; scored: number }[];
+  }[];
+  average: { code: string; name: string; avgPct: number | null }[];
+}
+
+export interface AnalyticsQuality {
+  criteria: CriterionDetail[];
+  seatMatrix: SeatMatrix;
+  categories: CategoryAgg[];
+  distribution: { bucket: number; label: string; count: number }[];
+  compliance: Ulush[];
+  topGaps: Ulush[];
+}
+
+/** Ko'rib chiqiladigan yoki namunaviy qo'ng'iroq kartochkasi. */
+export interface CoachingCall {
+  conversationId: string;
+  startedAt: string;
+  seatName: string | null;
+  overallScore: number;
+  summary: string | null;
+  primaryGap: string | null;
+  /** Erkin matnli kouching — aynan shu suhbatga tegishli. */
+  improvement: string | null;
+  strength: string | null;
+  suggestion: string | null;
+}
+
+export interface CoachingFocus {
+  code: string;
+  name: string;
+  avgPct: number;
+  weak: number;
+}
+
+export interface AnalyticsCoaching {
+  kpi: {
+    seatsNeedingAttention: number;
+    callsToReview: number;
+    scoredCalls: number;
+    seats: number;
+  };
+  priorities: {
+    seatId: string;
+    displayName: string;
+    scoredCalls: number;
+    avgScore: number | null;
+    flagged: number;
+    weakCount: number;
+    focus: CoachingFocus | null;
+    secondFocus: CoachingFocus | null;
+    reviewCalls: {
+      conversationId: string;
+      startedAt: string;
+      overallScore: number;
+      summary: string | null;
+    }[];
+  }[];
+  /** Qisqa yorliqlar — mezon nomidan, shuning uchun sanash mumkin. */
+  improve: { code: string; name: string; count: number }[];
+  strong: { code: string; name: string; count: number }[];
+  reviewCalls: CoachingCall[];
+  bestCalls: CoachingCall[];
+  trend: {
+    seatId: string;
+    displayName: string;
+    points: { day: string; avgScore: number; calls: number }[];
+  }[];
+}
+
+export interface AnalyticsVoice {
+  talkRatio: {
+    seatId: string;
+    displayName: string;
+    conversations: number;
+    /** `duration` — audio vaqti bo'yicha; `chars` — matn hajmi bo'yicha. */
+    method: 'duration' | 'chars';
+    managerPct: number | null;
+    clientPct: number | null;
+  }[];
+  redFlags: {
+    seatId: string;
+    displayName: string;
+    conversations: number;
+    flags: number;
+  }[];
+  flagKinds: Ulush[];
+}
+
+export interface AnalyticsLeads {
+  leadQuality: Ulush[];
+  urgency: Ulush[];
+  objections: Ulush[];
+  deals: {
+    known: number;
+    total: number | null;
+    avg: number | null;
+    max: number | null;
+    currency: string | null;
+  };
+  decisionMaker: { yes: number; no: number; unknown: number };
+}
+
+export type TaskSource = 'all' | 'playbook_analysis' | 'other_analysis' | 'manual';
+
+export interface AnalyticsTasks {
+  source: TaskSource;
+  /**
+   * AYNI DAMDAGI holat — davrga bog'liq emas. "Davrda 846 ta yaratildi"
+   * tarixiy fakt, "hozir 589 tasi kechikkan" esa bugungi muammo; ikkalasi
+   * bir blokda turmasligi kerak.
+   */
+  now: { open: number; overdue: number; dueToday: number };
+  periodStats: {
+    created: number;
+    completed: number;
+    /** Bajarilganlar orasida eski davrdan qolganlari ham bor — 100% dan oshishi mumkin. */
+    completionPct: number | null;
+    avgCompletionSeconds: number | null;
+  };
+  byStatus: Ulush[];
+  byAction: (Ulush & { done: number })[];
+  bySource: { key: string; open: number; created: number; completed: number }[];
+  bySeat: {
+    seatId: string;
+    displayName: string;
+    open: number;
+    overdue: number;
+    created: number;
+    completed: number;
+    completionPct: number | null;
+  }[];
+  daily: { day: string; created: number; completed: number }[];
+  byStage: { key: string; open: number; overdue: number }[];
+  commitments: { party: string; status: string; count: number }[];
+}
+
+export interface AnalyticsActivity {
+  timezone: string;
+  /** Ish jadvali sozlamasi — "ish vaqtida" bo'linishi shundan hisoblanadi. */
+  workHours: { startHour: number; endHour: number; days: number[] };
+  totals: { conversations: number; analyzed: number; scored: number; unanswered: number };
+  /** Javob berilgan ulushi eng yuqori soat (kamida 3 ta suhbatli). */
+  bestHour: { hour: number; pct: number } | null;
+  byHour: {
+    hour: number;
+    count: number;
+    avgScore: number | null;
+    answered: number;
+    unanswered: number;
+  }[];
+  daily: { day: string; total: number; unanswered: number; avgScore: number | null }[];
+  bySeat: {
+    seatId: string;
+    displayName: string;
+    total: number;
+    /** Ikkala tomon ham gapirgan suhbat — telefoniyadagi "ulangan" ekvivalenti. */
+    engaged: number;
+    notEngaged: number;
+    analyzed: number;
+    scored: number;
+    /** Sotuv emas: xizmat, ichki yoki boshqa gaplar. */
+    operational: number;
+    unanswered: number;
+    engagedPct: number | null;
+    aiLinked: boolean;
+    medianFirstResponseSeconds: number | null;
+  }[];
+  /** Javobsiz VA tanlangan oyna ichida qayta bog'lanilmagan holatlar. */
+  callbackMinutes: number;
+  noCallback: {
+    seatId: string | null;
+    displayName: string;
+    total: number;
+    inHours: number;
+    outHours: number;
+  }[];
+  newLeads: {
+    seatId: string | null;
+    displayName: string;
+    leads: number;
+    responded: number;
+    medianSeconds: number | null;
+    under1h: number;
+    under4h: number;
+    under24h: number;
+    over24h: number;
+  }[];
+  /** Birinchi javob tezligi — mijoz sabri bo'yicha chelaklangan. */
+  responseSpeed: {
+    under15m: number;
+    under1h: number;
+    under4h: number;
+    over4h: number;
+    unknown: number;
+  };
+  unansweredBySeat: {
+    seatId: string;
+    displayName: string;
+    inHours: number;
+    outHours: number;
+  }[];
+  byWeekday: { weekday: number; count: number; avgScore: number | null }[];
+  duration: {
+    known: number;
+    avgSeconds: number | null;
+    medianSeconds: number | null;
+    maxSeconds: number | null;
+  };
+  medianFirstResponseSeconds: number | null;
+  unansweredSessions: number;
+}
+
+/**
+ * Anketa savoli va uning javoblari.
+ *
+ * `answerType` faol playbookdan olinadi; savol u yerda topilmasa (eski
+ * avloddan qolgan bo'lsa) `text` deb qaraladi — matnni har doim ro'yxat
+ * sifatida ko'rsatish mumkin, shuning uchun bu eng xavfsiz taxmin.
+ */
+export interface AnketaSavol {
+  question: string;
+  answerType: string;
+  total: number;
+  answers: { value: string; count: number }[];
+  yes: number;
+  no: number;
+  numbers: { value: number; count: number }[];
+  numericAvg: number | null;
+}
+
+export interface AnalyticsCustomer {
+  deals: {
+    known: number;
+    analyzed: number;
+    total: number | null;
+    avg: number | null;
+    currency: string | null;
+  };
+  dealDaily: { day: string; count: number; sum: number }[];
+  /** Erkin matn — shuning uchun diagramma emas, ro'yxat sifatida ko'rsatiladi. */
+  budgetReaction: Ulush[];
+  serviceMix: { line: string; relevance: string; count: number }[];
+  questionnaire: {
+    questions: AnketaSavol[];
+    matrix: {
+      seats: string[];
+      questions: string[];
+      cells: { seat: string; question: string; count: number }[];
+    };
+  };
+}
+
+/**
+ * Lid holati — CRM natijasi EMAS, faollik bo'yicha xulosa.
+ * `bitimli` yagona dalilga tayanadi: suhbatda aniq summa aytilgani.
+ */
+export type LidHolat = 'bitimli' | 'faol' | 'sovimoqda' | 'sovigan';
+
+export interface LidYozuv {
+  contactId: string;
+  name: string | null;
+  seatId: string | null;
+  seatName: string | null;
+  lastAt: string;
+  daysSince: number;
+  conversations: number;
+  leadQuality: string | null;
+  overallScore: number | null;
+  primaryGap: string | null;
+  summary: string | null;
+  dealAmount: number | null;
+  holat: LidHolat;
+}
+
+export interface AnalyticsFunnel {
+  thresholds: { activeDays: number; lostDays: number };
+  lifecycle: {
+    total: number;
+    withDeal: number;
+    active: number;
+    cooling: number;
+    cold: number;
+  };
+  quality: {
+    avgScore: number | null;
+    low: number;
+    mid: number;
+    high: number;
+    scored: number;
+  };
+  lossReasons: { key: string; count: number; example: string | null }[];
+  lossStages: { key: string; example: string | null; count: number }[];
+  reconnect: LidYozuv[];
+}
+
+// ─── Lid xulosalari ─────────────────────────────────────────────────────────
+
+/** Holat CRM natijasi EMAS — faollik bo'yicha aniqlanadi. */
+export type LidStatus = 'bitimli' | 'faol' | 'sovimoqda' | 'sovigan';
+
+export interface LidQator {
+  contactId: string;
+  name: string | null;
+  company: string | null;
+  seatId: string | null;
+  seatName: string | null;
+  lastAt: string;
+  daysSince: number;
+  conversations: number;
+  overallScore: number | null;
+  leadQuality: string | null;
+  dealAmount: number | null;
+  holat: LidStatus;
+  /** Birinchi e'tiroz, bo'lmasa asosiy zaif joy. */
+  reason: string | null;
+  stage: string | null;
+  summary: string | null;
+  /** 0..100 — bashorat emas, qaytish uchun tartiblash balli. */
+  winBack: number;
+  winBackLevel: 'yuqori' | 'ortacha' | 'past';
+  reconnectWindow: string;
+}
+
+export interface LidRoyxat {
+  total: number;
+  thresholds: { activeDays: number; lostDays: number };
+  leads: LidQator[];
+  hasMore: boolean;
+  filters: {
+    reasons: { key: string; count: number }[];
+    seats: { id: string; name: string }[];
+    statuses: LidStatus[];
+  };
+}
+
+export interface LidTafsilot {
+  lead: {
+    contactId: string;
+    name: string | null;
+    company: string | null;
+    phone: string | null;
+    isDecisionMaker: boolean | null;
+    firstSeenAt: string;
+    lastAt: string;
+    daysSince: number;
+    holat: LidStatus;
+    seatId: string | null;
+    seatName: string | null;
+    conversations: number;
+    avgScore: number | null;
+    dealAmount: number | null;
+    dealCurrency: string | null;
+    leadQuality: string | null;
+    serviceLine: string | null;
+    callFamily: string | null;
+    winBack: number;
+    winBackLevel: 'yuqori' | 'ortacha' | 'past';
+    reconnectWindow: string;
+  };
+  summary: { sarlavha: string; matn: string };
+  nextStep: { matn: string; muddat: string };
+  signals: {
+    medianFirstResponseSeconds: number | null;
+    avgFollowUpDays: number | null;
+    trend: 'osish' | 'pasayish' | 'barqaror' | null;
+    totalTalkSeconds: number;
+  };
+  reasons: {
+    objections: string[];
+    primaryGap: string | null;
+    weakCriteria: {
+      code: string;
+      name: string;
+      avgScore: number;
+      maxScore: number;
+      count: number;
+    }[];
+  };
+  coaching: {
+    improvements: string[];
+    strengths: string[];
+    betterPhrases: { context: string; suggestion: string }[];
+  };
+  /** BANT — faqat dalil bor bo'lgan qismi to'ladi, qolgani `null`. */
+  qualification: {
+    budget: string | null;
+    authority: string | null;
+    need: string | null;
+    timing: string | null;
+  };
+  commitments: {
+    what: string;
+    party: string;
+    status: string;
+    deadline: string | null;
+    createdAt: string;
+  }[];
+  timeline: {
+    conversationId: string;
+    startedAt: string;
+    endedAt: string | null;
+    channel: string;
+    status: string;
+    seatName: string | null;
+    overallScore: number | null;
+    summary: string | null;
+    primaryGap: string | null;
+    turns: number;
+    objections: string[];
+    dealAmount: number | null;
+  }[];
+}
+
+// ─── Kunlik hisobot ─────────────────────────────────────────────────────────
+
+export interface HisobotKun {
+  date: string;
+  conversations: number;
+  scored: number;
+  avgScore: number | null;
+  /** AI matni yozilganmi — u faqat hisobot yuborilgan kunlarda bo'ladi. */
+  hasReport: boolean;
+}
+
+/**
+ * Hisobotning bir kesimi — biznes uchun ham, har menejer uchun ham
+ * BIR XIL shakl. Shu tufayli interfeysda bitta komponent ikkalasini
+ * ham chizadi va ular hech qachon bir-biridan farq qilib qolmaydi.
+ */
+export interface HisobotBolimlari {
+  activity: {
+    conversations: number;
+    /** Ikkala tomon ham gapirgan suhbat — "bog'langan" ekvivalenti. */
+    engaged: number;
+    notEngaged: number;
+    engagementPct: number | null;
+    talkSeconds: number;
+  };
+  tasks: { yaratildi: number; bajarildi: number; ochiq: number; kechikkan: number };
+  quality: {
+    analyzed: number;
+    scored: number;
+    /** Sotuvga oid bo'lmagan: xizmat, ichki. */
+    operational: number;
+    unanswered: number;
+    flagged: number;
+    avgScore: number | null;
+    medianFirstResponseSeconds: number | null;
+  };
+  leads: { newLeads: number; withDeal: number; dealSum: number | null };
+  /** Raqamlardan yasalgan tavsiyalar — mos muammo bo'lmasa, jumla yo'q. */
+  recommendations: string[];
+  conclusion: string;
+}
+
+export interface HisobotKuni {
+  date: string;
+  overall: HisobotBolimlari & {
+    previous: {
+      date: string;
+      conversations: number;
+      engaged: number;
+      engagementPct: number | null;
+      talkSeconds: number;
+      avgScore: number | null;
+      scored: number;
+    } | null;
+    questionnaire: { question: string; answers: number }[];
+    weakest: { code: string; name: string; avgScore: number; count: number }[];
+  };
+  bySeat: (HisobotBolimlari & {
+    seatId: string;
+    displayName: string;
+    strength: string | null;
+    improvement: string | null;
+  })[];
+  report: { content: string | null; createdAt: string; triggeredBy: string | null } | null;
+}
+
+export interface AnalyticsClients {
+  newClients: number;
+  returningClients: number;
+  linkedConversations: number;
+  totalConversations: number;
+  top: {
+    id: string;
+    name: string | null;
+    company: string | null;
+    isDecisionMaker: boolean | null;
+    conversations: number;
+    avgScore: number | null;
+    lastAt: string;
+  }[];
+}
+
+export interface AnalyticsTeam {
+  categories: string[];
+  seats: {
+    seatId: string;
+    displayName: string;
+    conversations: number;
+    avgScore: number | null;
+    flagged: number;
+  }[];
+  cells: {
+    seatId: string;
+    categoryCode: string;
+    scored: number;
+    unknownCount: number;
+    avgPct: number | null;
+  }[];
+}
+
 // ─── Sotuvchi kabineti (FR-112) ─────────────────────────────────────────────
 
 export interface SeatCriterionRow {
@@ -417,6 +1042,25 @@ export interface AlertRow {
   conversationId: string | null;
   seatId: string | null;
   createdAt: string;
+  resolvedAt?: string | null;
+  /** Server `join` bilan qo'shadi — interfeys alohida so'rov qilmasin. */
+  seatName?: string | null;
+  conversationSummary?: string | null;
+}
+
+/**
+ * "3 kun oldin" — ogohlantirishlarda aniq sanadan ko'ra foydaliroq:
+ * rahbar uchun muhimi qachon bo'lgani emas, qancha vaqt o'tgani.
+ */
+export function fmtQachon(iso: string): string {
+  const sek = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (sek < 60) return 'hozirgina';
+  if (sek < 3600) return `${Math.floor(sek / 60)} daqiqa oldin`;
+  if (sek < 86400) return `${Math.floor(sek / 3600)} soat oldin`;
+  const kun = Math.floor(sek / 86400);
+  if (kun < 30) return `${kun} kun oldin`;
+  const oy = Math.floor(kun / 30);
+  return oy < 12 ? `${oy} oy oldin` : `${Math.floor(oy / 12)} yil oldin`;
 }
 
 export interface SeatRow {
@@ -428,6 +1072,8 @@ export interface SeatRow {
 // ─── Biznes profili (FR-11) ──────────────────────────────────────────────────
 
 export interface BusinessProfile {
+  /** Soha — qisqa nom ("ta'lim markazi"). AI kontekstiga birinchi bo'lib tushadi. */
+  industry: string;
   businessDescription: string;
   primaryOffers: string[];
   typicalCustomers: string;
@@ -453,6 +1099,7 @@ export interface BusinessProfile {
 }
 
 export const EMPTY_PROFILE: BusinessProfile = {
+  industry: '',
   businessDescription: '',
   primaryOffers: [],
   typicalCustomers: '',
@@ -644,4 +1291,24 @@ export function ballRang(score: number | null): string {
   if (score >= BALL_CHEGARA.yaxshi) return 'var(--info)';
   if (score >= BALL_CHEGARA.orta) return 'var(--orta)';
   return 'var(--past)';
+}
+
+/**
+ * `ballRang` FON sifatida ishlatilganda ustiga yoziladigan matn rangi.
+ *
+ * Nega alohida funksiya kerak: to'rt rangning uchtasi to'q va oq matnni
+ * ko'taradi, `--orta` (to'q sariq, #dc8500) esa yorug' — unda oq matn
+ * kontrasti atigi 2.84 chiqadi, ya'ni WCAG AA (4.5) dan ancha past va
+ * raqam amalda o'qilmaydi. Issiqlik xaritasida bu jiddiy: katakdagi
+ * foiz — blokning butun ma'nosi.
+ *
+ * Chegaralar `ballRang` bilan bir xil bo'lishi SHART, aks holda rang va
+ * matn bir-biriga mos kelmay qoladi.
+ */
+export function ballMatnRang(score: number | null): string {
+  if (score === null) return 'var(--text-muted)';
+  if (score >= BALL_CHEGARA.yuqori) return 'var(--ball-ust-yuqori)';
+  if (score >= BALL_CHEGARA.yaxshi) return 'var(--ball-ust-info)';
+  if (score >= BALL_CHEGARA.orta) return 'var(--ball-ust-orta)';
+  return 'var(--ball-ust-past)';
 }

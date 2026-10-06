@@ -37,6 +37,18 @@ export const alert = pgTable(
     /** Bir xil ogohlantirish takrorlanmasligi uchun. */
     dedupeKey: text('dedupe_key'),
 
+    /**
+     * Bildirishnoma YUBORILGAN vaqt (outbox naqshi).
+     *
+     * `null` — hali yuborilmagan. Yuborish tahlil tranzaksiyasi ichida
+     * QILINMAYDI: tashqi HTTP chaqiruvi tranzaksiyani ushlab turardi va
+     * Telegram sekin javob bersa butun tahlil qulflanardi. Buning
+     * o'rniga ogohlantirish avval bazaga tushadi, keyin alohida
+     * dispetcher uni yuboradi — server o'rtada yiqilsa ham xabar
+     * yo'qolmaydi.
+     */
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
     resolvedBy: uuid('resolved_by').references(() => appUser.id, { onDelete: 'set null' }),
@@ -44,6 +56,8 @@ export const alert = pgTable(
   (t) => [
     index('alert_business_status_idx').on(t.businessId, t.status, t.createdAt),
     index('alert_dedupe_idx').on(t.businessId, t.dedupeKey),
+    /** Dispetcher faqat yuborilmaganlarni oladi. */
+    index('alert_notify_idx').on(t.notifiedAt, t.createdAt),
   ],
 );
 

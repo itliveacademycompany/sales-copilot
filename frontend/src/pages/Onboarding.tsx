@@ -129,6 +129,17 @@ function ProfileStep({ onNext }: { onNext: () => void }) {
       </div>
 
       <div className="maydon-blok">
+        <label className="maydon">Sohangiz</label>
+        <input
+          className="input"
+          value={profile.industry}
+          maxLength={120}
+          placeholder="Masalan: ta'lim markazi"
+          onChange={(e) => setProfile({ ...profile, industry: e.target.value })}
+        />
+      </div>
+
+      <div className="maydon-blok">
         <label className="maydon">Biznesingiz nima bilan shug'ullanadi? *</label>
         <textarea
           className="input"

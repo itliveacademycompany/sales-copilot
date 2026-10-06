@@ -112,7 +112,16 @@ export function draftToPlaybookBody(
     },
     promptNotes: {
       stage1: { vocabulary, contextHint: '' },
-      stage2: { businessContext: profile.businessDescription, extractionHints: '', taskGuidance: '' },
+      stage2: {
+        // Soha tavsif oldiga qo'yiladi: model uchun eng qisqa va eng
+        // aniqlovchi ma'lumot shu — "ta'lim markazi" degan bir so'z
+        // uzun tavsifdan ko'ra kontekstni tezroq o'rnatadi.
+        businessContext: [profile.industry, profile.businessDescription]
+          .filter((s) => s.trim().length > 0)
+          .join('. '),
+        extractionHints: '',
+        taskGuidance: '',
+      },
       stage3: { scoringGuidance: '', coachingNotes: '', complianceNotes: '' },
     },
     leadQuality: {},

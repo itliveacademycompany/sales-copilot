@@ -15,6 +15,7 @@ import {
   type TrendPoint,
 } from '../api';
 import { useAuth } from '../auth';
+import { Ikon } from '../icons';
 
 /**
  * Rahbar dashboard'i — TZ 8.1 #1: "Ma'lumot birinchi. Rahbar 30 soniyada
@@ -180,12 +181,11 @@ export function Dashboard() {
 
       {weakest && (
         <div
-          className="card"
+          className="banner-diqqat"
           /* Kouching xulosasi — bu xato emas, o'sish imkoniyati.
              Shuning uchun "xavf" qizili emas, "e'tibor" sarig'i. */
-          style={{ marginBottom: 14, borderLeft: '4px solid var(--orta)', display: 'flex', gap: 12, alignItems: 'center' }}
         >
-          <div style={{ fontSize: 24 }}>🎯</div>
+          <Ikon nom="ogohlantirish" />
           <div>
             <b>Jamoaning eng zaif joyi: {weakest.name}</b> ({weakest.code}) — o'rtacha{' '}
             {weakest.avgScore}/3. Shu bosqichni birgalikda mashq qilish eng katta o'sish beradi.

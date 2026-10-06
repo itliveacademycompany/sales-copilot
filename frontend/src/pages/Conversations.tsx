@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, ballKlass, fmtSana, type ConversationRow } from '../api';
+import { api, ballKlass, fmtSana, type ConversationRow, type SeatRow } from '../api';
 import { SuhbatYuklash } from '../components/SuhbatYuklash';
 import { useAuth } from '../auth';
 
@@ -26,25 +26,61 @@ export function Conversations() {
   const { business } = useAuth();
   const navigate = useNavigate();
   const [status, setStatus] = useState('');
+  const [seatId, setSeatId] = useState('');
+  const [seats, setSeats] = useState<SeatRow[]>([]);
   const [rows, setRows] = useState<ConversationRow[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [yanaBor, setYanaBor] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [yuklanmoqdaYana, setYuklanmoqdaYana] = useState(false);
   const [yangilash, setYangilash] = useState(0);
+
+  const base = business ? `/api/v1/businesses/${business.businessId}` : '';
 
   // Yuklash huquqi qayta tahlil bilan bir xil: ikkalasi ham LLM pulini
   // sarflaydi, shuning uchun o'qish huquqi yetarli emas.
   const yuklayOladi = business?.permissions.includes('playbook:write') ?? false;
 
+  const yukla = useCallback(
+    (qoshib: boolean, oxirgiCursor: string | null) => {
+      if (!base) return;
+      if (qoshib) setYuklanmoqdaYana(true);
+      else setLoading(true);
+
+      const p = new URLSearchParams();
+      if (status) p.set('status', status);
+      if (seatId) p.set('seatId', seatId);
+      if (qoshib && oxirgiCursor) p.set('before', oxirgiCursor);
+
+      void api
+        .get<{ conversations: ConversationRow[]; nextCursor: string | null }>(
+          `${base}/conversations?${p}`,
+        )
+        .then((r) => {
+          setRows((prev) => (qoshib ? [...prev, ...r.conversations] : r.conversations));
+          setCursor(r.nextCursor);
+          setYanaBor(r.nextCursor !== null);
+        })
+        .finally(() => {
+          setLoading(false);
+          setYuklanmoqdaYana(false);
+        });
+    },
+    [base, status, seatId],
+  );
+
+  // Filtr o'zgarsa yoki yangi suhbat yuklansa — ro'yxat boshidan.
   useEffect(() => {
-    if (!business) return;
-    setLoading(true);
-    const q = status ? `?status=${status}` : '';
+    yukla(false, null);
+  }, [yukla, yangilash]);
+
+  useEffect(() => {
+    if (!base) return;
     void api
-      .get<{ conversations: ConversationRow[] }>(
-        `/api/v1/businesses/${business.businessId}/conversations${q}`,
-      )
-      .then((r) => setRows(r.conversations))
-      .finally(() => setLoading(false));
-  }, [business, status, yangilash]);
+      .get<SeatRow[] | { seats: SeatRow[] }>(`${base}/seats`)
+      .then((r) => setSeats(Array.isArray(r) ? r : r.seats))
+      .catch(() => setSeats([]));
+  }, [base]);
 
   return (
     <>
@@ -65,6 +101,18 @@ export function Conversations() {
               </button>
             ))}
           </div>
+          {seats.length > 1 && (
+            <div className="filtr-panel" style={{ marginBottom: 0 }}>
+              <select value={seatId} onChange={(e) => setSeatId(e.target.value)}>
+                <option value="">Sotuvchi: barchasi</option>
+                {seats.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.displayName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -136,6 +184,18 @@ export function Conversations() {
           </table>
         )}
       </div>
+
+      {yanaBor && (
+        <div style={{ textAlign: 'center', marginTop: 14 }}>
+          <button
+            className="btn ikkinchi"
+            disabled={yuklanmoqdaYana}
+            onClick={() => yukla(true, cursor)}
+          >
+            {yuklanmoqdaYana ? 'Yuklanmoqda…' : 'Yana yuklash'}
+          </button>
+        </div>
+      )}
     </>
   );
 }

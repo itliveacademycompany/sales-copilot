@@ -79,6 +79,18 @@ export const task = pgTable(
     crmStageName: text('crm_stage_name'),
     crmTaskId: text('crm_task_id'),
 
+    /**
+     * CRM ga YUBORILGAN vaqt (outbox).
+     *
+     * `null` — hali yuborilmagan. Ogohlantirish dispetcheri bilan bir xil
+     * naqsh: tashqi HTTP chaqiruvi tahlil tranzaksiyasidan tashqarida
+     * bo'lishi shart, aks holda CRM sekin javob bersa butun quvur
+     * qulflanardi.
+     */
+    exportedAt: timestamp('exported_at', { withTimezone: true }),
+    /** Oxirgi yuborishdagi xato — interfeysda ko'rsatish uchun. */
+    exportError: text('export_error'),
+
     createdBy: uuid('created_by').references(() => appUser.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -87,5 +99,7 @@ export const task = pgTable(
     index('task_seat_due_idx').on(t.businessId, t.seatId, t.status, t.dueAt),
     index('task_business_status_idx').on(t.businessId, t.status),
     index('task_conversation_idx').on(t.conversationId),
+    /** Eksport dispetcheri faqat yuborilmaganlarni oladi. */
+    index('task_export_idx').on(t.exportedAt, t.createdAt),
   ],
 );

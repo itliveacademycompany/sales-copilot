@@ -32,6 +32,27 @@ export const business = pgTable(
     /** TZ FR-11: biznes anketasi. AI Playbook Builder shundan oziqlanadi. */
     profile: jsonb('profile').notNull().default(sql`'{}'::jsonb`),
 
+    /**
+     * Ish jadvali — `{ startHour, endHour, days: [1..7] }` (ISO: 1 = dushanba).
+     *
+     * `profile` ichiga qo'yilmadi: u AI promptlariga to'liq uzatiladi va
+     * ish soatlari u yerda faqat shovqin bo'lardi. Bu esa hisobot
+     * mantiqiga tegishli sozlama — "javobsiz qo'ng'iroq ish vaqtida
+     * bo'lganmi" degan savol aynan shundan hisoblanadi.
+     */
+    workHours: jsonb('work_hours')
+      .notNull()
+      .default(sql`'{"startHour":9,"endHour":18,"days":[1,2,3,4,5,6]}'::jsonb`),
+
+    /**
+     * Qaysi ogohlantirishlar yaratilsin — `{ kinds: {...}, telegram, lowScore }`.
+     *
+     * Bu sozlama HAQIQATAN ishlaydi: `analyze.ts` ogohlantirish
+     * yaratishdan oldin shu yerga qaraydi. Faqat interfeysda turgan,
+     * lekin hech narsani o'zgartirmaydigan tugma — yolg'on sozlama.
+     */
+    alertPrefs: jsonb('alert_prefs').notNull().default(sql`'{}'::jsonb`),
+
     /** Onboarding sehrgari qaysi qadamda to'xtagani (FR-17). */
     onboardingStep: text('onboarding_step').notNull().default('profile'),
     onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
@@ -165,6 +186,17 @@ export const seat = pgTable(
 
     /** CRM/telefoniyadagi identifikatorlar: { amocrm: "123", moizvonki: "45" } */
     externalIds: jsonb('external_ids').notNull().default(sql`'{}'::jsonb`),
+
+    /**
+     * Shu o'rin uchun ALOHIDA ish jadvali — null bo'lsa biznesnikidan
+     * foydalanadi.
+     *
+     * Nullable ataylab: "jadval yo'q" va "jadval bor, lekin biznesnikiga
+     * teng" — bir xil narsa emas. Birinchisida biznes jadvalini
+     * o'zgartirsa bu o'rin ham ergashadi, ikkinchisida ergashmaydi.
+     * Standart qiymat qo'ysak, bu farqni yo'qotardik.
+     */
+    workHours: jsonb('work_hours'),
 
     activationToken: text('activation_token'),
     activation: activationStatus('activation').notNull().default('pending'),

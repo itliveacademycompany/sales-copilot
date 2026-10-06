@@ -16,9 +16,13 @@ import { registerAppealRoutes } from './routes/appeals.js';
 import { registerBillingRoutes } from './routes/billing.js';
 import { registerBusinessRoutes } from './routes/business.js';
 import { registerConversationRoutes } from './routes/conversations.js';
+import { registerCrmRoutes } from './routes/crm.js';
 import { registerImportRoutes } from './routes/import.js';
+import { registerAnalyticsRoutes } from './routes/analytics.js';
+import { registerLeadRoutes } from './routes/leads.js';
 import { registerDashboardRoutes } from './routes/dashboard.js';
 import { registerTaskRoutes } from './routes/tasks.js';
+import { registerMoizvonkiRoutes } from './routes/moizvonki.js';
 import { registerMemberRoutes } from './routes/members.js';
 import { registerPlaybookRoutes } from './routes/playbook.js';
 import { registerReportRoutes } from './routes/reports.js';
@@ -115,6 +119,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerSeatRoutes(app);
   registerPlaybookRoutes(app);
   registerTelegramRoutes(app);
+  registerCrmRoutes(app);
+  registerMoizvonkiRoutes(app);
   registerReportRoutes(app);
   registerAppealRoutes(app);
   registerConversationRoutes(app);
@@ -122,6 +128,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerTaskRoutes(app);
   registerAlertRoutes(app);
   registerDashboardRoutes(app);
+  registerAnalyticsRoutes(app);
+  registerLeadRoutes(app);
   registerBillingRoutes(app);
 
   // ─── Sog'liq tekshiruvi ───

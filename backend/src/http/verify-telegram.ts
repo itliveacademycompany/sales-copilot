@@ -1,5 +1,6 @@
 import { eq, inArray, like } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
+import { keshniTozala } from '../auth/context-cache.js';
 import { decryptSecret, encryptSecret, maskSecret } from '../crypto/secrets.js';
 import { cleanupTestDataQuietly } from '../db/clean-test-data.js';
 import { closeDb, withoutTenantIsolation } from '../db/index.js';
@@ -132,6 +133,18 @@ async function main(): Promise<void> {
     await withoutTenantIsolation('test: super-admin huquqini berish', (tx) =>
       tx.update(appUser).set({ systemRole: 'super_admin' }).where(eq(appUser.email, email)),
     );
+
+    /**
+     * Auth keshini tozalaymiz.
+     *
+     * Yozuv HTTP orqali emas, TO'G'RIDAN-TO'G'RI bazaga qilindi —
+     * demak `auth-plugin` dagi bekor qilish hooki ishga tushmaydi.
+     *
+     * Ishlab chiqarishda ham ayni shunday: `admin:grant` skripti
+     * ALOHIDA jarayonda ishlaydi va ishlab turgan server o'zgarishni
+     * TTL (30 s) o'tgach ko'radi. Skript buni operatorga aytadi.
+     */
+    keshniTozala();
 
     const asAdmin = await app.inject({
       method: 'GET',

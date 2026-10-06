@@ -2,13 +2,15 @@ import { randomBytes } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { encryptSecret, maskSecret, safeCompare } from '../../crypto/secrets.js';
+import { decryptSecret, encryptSecret, maskSecret, safeCompare } from '../../crypto/secrets.js';
 import { withoutTenantIsolation, withTenant } from '../../db/index.js';
 import { integration, seat } from '../../db/schema/index.js';
 import { ingestMessage } from '../../telegram/ingest.js';
+import { sendTelegramMessage } from '../../telegram/send.js';
 import { extractText, primaryMessage, telegramUpdate } from '../../telegram/types.js';
 import { requireBusiness, requirePermission } from '../auth-plugin.js';
 import { AppError } from '../errors.js';
+import { telegramManzil, telegramTargetsSchema } from '../../business/channels.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -159,6 +161,124 @@ export function registerTelegramRoutes(app: FastifyInstance): void {
     },
   );
 
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════
+   * BILDIRISHNOMA MANZILLARI — bot / guruh / kanal
+   * ═══════════════════════════════════════════════════════════════════════
+   *
+   * `discovered` — bot ko'rgan chatlar (webhook to'ldiradi). U faqat
+   * O'QISH uchun: foydalanuvchi ro'yxatdan tanlaydi, qo'lda yozmaydi.
+   * Shu bilan birga qo'lda kiritish ham qoldirilgan — kanalga bot
+   * administrator qilib qo'shilsa-yu hech kim yozmasa, kanal ro'yxatga
+   * tushmaydi.
+   */
+  app.get(
+    '/api/v1/businesses/:businessId/integrations/telegram/targets',
+    { preHandler: [requireBusiness, requirePermission('business:read')] },
+    async (req) => {
+      const businessId = req.business!.businessId;
+      const [row] = await withTenant(businessId, (tx) =>
+        tx
+          .select({ config: integration.config })
+          .from(integration)
+          .where(eq(integration.kind, 'telegram_bot'))
+          .limit(1),
+      );
+      const config = (row?.config ?? {}) as Record<string, unknown>;
+      return { targets: telegramTargetsSchema.parse(config.telegramTargets ?? {}) };
+    },
+  );
+
+  app.put(
+    '/api/v1/businesses/:businessId/integrations/telegram/targets',
+    { preHandler: [requireBusiness, requirePermission('integration:manage')] },
+    async (req) => {
+      /**
+       * `discovered` mijozdan QABUL QILINMAYDI — u serverning kuzatuvi.
+       * Aks holda foydalanuvchi o'ylab topilgan chatlar ro'yxatini
+       * yuborishi va interfeys yolg'on ma'lumot ko'rsatishi mumkin edi.
+       */
+      const body = z
+        .object({
+          dm: telegramManzil.nullable().default(null),
+          group: telegramManzil.nullable().default(null),
+          channel: telegramManzil.nullable().default(null),
+        })
+        .parse(req.body);
+
+      const businessId = req.business!.businessId;
+      const natija = await withTenant(businessId, async (tx) => {
+        const [row] = await tx
+          .select({ id: integration.id, config: integration.config })
+          .from(integration)
+          .where(eq(integration.kind, 'telegram_bot'))
+          .limit(1);
+        if (!row) throw AppError.badRequest('Avval Telegram botni ulang');
+
+        const config = (row.config ?? {}) as Record<string, unknown>;
+        const eski = telegramTargetsSchema.parse(config.telegramTargets ?? {});
+        const yangi = { ...eski, ...body };
+
+        await tx
+          .update(integration)
+          .set({
+            config: { ...config, telegramTargets: yangi },
+            updatedAt: new Date(),
+          })
+          .where(eq(integration.id, row.id));
+        return yangi;
+      });
+
+      return { targets: natija };
+    },
+  );
+
+  /**
+   * Sinov xabari — manzil HAQIQATAN ishlaydimi.
+   *
+   * Bu tugma bo'lmasa, sozlama to'g'ri kiritilganini bilishning yagona
+   * yo'li haqiqiy ogohlantirishni kutish bo'lardi. Botni guruhga
+   * qo'shishni unutish esa eng ko'p uchraydigan xato.
+   */
+  app.post(
+    '/api/v1/businesses/:businessId/integrations/telegram/targets/test',
+    { preHandler: [requireBusiness, requirePermission('integration:manage')] },
+    async (req) => {
+      const { kanal } = z
+        .object({ kanal: z.enum(['dm', 'group', 'channel']) })
+        .parse(req.body);
+
+      const businessId = req.business!.businessId;
+      const [row] = await withTenant(businessId, (tx) =>
+        tx
+          .select({
+            config: integration.config,
+            credentials: integration.credentialsEncrypted,
+            status: integration.status,
+          })
+          .from(integration)
+          .where(eq(integration.kind, 'telegram_bot'))
+          .limit(1),
+      );
+      if (!row || row.status !== 'connected' || !row.credentials) {
+        throw AppError.badRequest('Telegram bot ulanmagan');
+      }
+
+      const config = (row.config ?? {}) as Record<string, unknown>;
+      const targets = telegramTargetsSchema.parse(config.telegramTargets ?? {});
+      const manzil = targets[kanal];
+      if (!manzil) throw AppError.badRequest('Bu kanal uchun manzil tanlanmagan');
+
+      const natija = await sendTelegramMessage(
+        decryptSecret(row.credentials),
+        manzil.chatId,
+        'Sotuv Intellekti: sinov xabari. Bu manzilga ogohlantirishlar keladi.',
+      );
+      return { ok: natija.ok, error: natija.error ?? null };
+    },
+  );
+
   /** Sotuvchiga Telegram user id biriktirish — FR-84 uchun zarur. */
   app.patch(
     '/api/v1/businesses/:businessId/seats/:seatId/telegram',
@@ -256,6 +376,25 @@ export function registerTelegramRoutes(app: FastifyInstance): void {
       const msg = primaryMessage(parsed.data);
       if (!msg) return { ok: true, skipped: 'xabar yo\'q' };
 
+      /**
+       * GURUH VA KANAL — mijoz suhbati EMAS.
+       *
+       * Ilgari bu yerda chat turi umuman tekshirilmasdi: botni jamoa
+       * guruhiga qo'shsangiz, hamkasblar yozishmasi "mijoz suhbati"
+       * bo'lib bazaga tushar, tahlil qilinar va menejerlarga ball
+       * qo'yilardi. Endi bunday chatlar faqat MANZIL sifatida
+       * eslab qolinadi — bildirishnoma yuborish uchun ro'yxatdan
+       * tanlash mumkin bo'lsin.
+       */
+      if (msg.chat.type !== 'private') {
+        await manzilniEslab(found.businessId, {
+          chatId: String(msg.chat.id),
+          type: msg.chat.type,
+          title: msg.chat.title ?? msg.chat.username ?? null,
+        });
+        return { ok: true, skipped: 'guruh/kanal — manzil sifatida qayd etildi' };
+      }
+
       const text = extractText(msg);
       if (!text) return { ok: true, skipped: 'matn ajratilmadi' };
 
@@ -278,4 +417,45 @@ export function registerTelegramRoutes(app: FastifyInstance): void {
       }
     },
   );
+}
+
+/**
+ * Bot ko'rgan guruh/kanalni integratsiya konfiguratsiyasiga yozadi.
+ *
+ * Nega kerak: Telegram guruhining chat id si (`-1001234567890`) hech
+ * qayerda ochiq ko'rinmaydi va uni topish uchun odam uchinchi tomon
+ * botlaridan foydalanishga majbur bo'lardi. Botni guruhga qo'shib
+ * bitta xabar yozish — eng tabiiy yo'l.
+ *
+ * Ro'yxat 50 tada cheklangan va eng yangisi boshida turadi: bot ko'p
+ * guruhda bo'lsa ham sozlama sahifasi cheksiz o'smasin.
+ */
+async function manzilniEslab(
+  businessId: string,
+  chat: { chatId: string; type: 'group' | 'supergroup' | 'channel'; title: string | null },
+): Promise<void> {
+  await withTenant(businessId, async (tx) => {
+    const [row] = await tx
+      .select({ id: integration.id, config: integration.config })
+      .from(integration)
+      .where(eq(integration.kind, 'telegram_bot'))
+      .limit(1);
+    if (!row) return;
+
+    const config = (row.config ?? {}) as Record<string, unknown>;
+    const targets = telegramTargetsSchema.parse(config.telegramTargets ?? {});
+    const qolgan = targets.discovered.filter((d) => d.chatId !== chat.chatId);
+    const yangi = [
+      { ...chat, seenAt: new Date().toISOString() },
+      ...qolgan,
+    ].slice(0, 50);
+
+    await tx
+      .update(integration)
+      .set({
+        config: { ...config, telegramTargets: { ...targets, discovered: yangi } },
+        updatedAt: new Date(),
+      })
+      .where(eq(integration.id, row.id));
+  });
 }

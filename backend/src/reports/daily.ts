@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { decryptSecret } from '../crypto/secrets.js';
+import { manzillarniTop, telegramTargetsSchema } from '../business/channels.js';
+import { alertPrefsSchema } from '../business/settings.js';
 import { withoutTenantIsolation } from '../db/index.js';
 import { sendTelegramMessage } from '../telegram/send.js';
 
@@ -253,6 +255,9 @@ interface HisobotBiznesi {
   timezone: string;
   reportHour: number;
   reportChatId: string | null;
+  /** Bildirishnoma kanallari matritsasi uchun — `business/channels.ts`. */
+  telegramTargets: unknown;
+  alertPrefs: unknown;
   botTokenEncrypted: Buffer | null;
 }
 
@@ -267,6 +272,8 @@ async function hisobotBizneslari(): Promise<HisobotBiznesi[]> {
         b.id, b.name, b.timezone,
         coalesce((i.config ->> 'reportHour')::int, 9) as report_hour,
         i.config ->> 'reportChatId'                   as report_chat_id,
+        i.config -> 'telegramTargets'                 as telegram_targets,
+        b.alert_prefs                                 as alert_prefs,
         i.credentials_encrypted                       as bot_token
       from business b
       join integration i
@@ -283,6 +290,8 @@ async function hisobotBizneslari(): Promise<HisobotBiznesi[]> {
     timezone: String(r.timezone ?? 'Asia/Tashkent'),
     reportHour: Number(r.report_hour ?? 9),
     reportChatId: (r.report_chat_id as string | null) ?? null,
+    telegramTargets: r.telegram_targets ?? null,
+    alertPrefs: r.alert_prefs ?? null,
     botTokenEncrypted: (r.bot_token as Buffer | null) ?? null,
   }));
 }
@@ -328,15 +337,45 @@ export async function runDailyReportFor(
     `),
   );
 
-  if (!biz.reportChatId) return { ...natija, skipped: 'chat id sozlanmagan' };
-  if (!biz.botTokenEncrypted) return { ...natija, skipped: 'bot token yo\'q' };
-
-  const res = await sendTelegramMessage(
-    decryptSecret(biz.botTokenEncrypted),
-    biz.reportChatId,
-    matn,
+  /**
+   * Manzillar: avval «Bildirishnomalar» matritsasi, keyin ESKI
+   * `reportChatId`.
+   *
+   * Tartib ataylab shunday: matritsa yangi va aniqroq, lekin uni hali
+   * sozlamagan bizneslar bor va ularning hisoboti to'xtab qolmasligi
+   * kerak. Matritsada biror kanal tanlansa — eski qiymat e'tiborsiz
+   * qoladi, aks holda bitta hisobot ikki joyga ketardi.
+   */
+  const prefs = alertPrefsSchema.parse(biz.alertPrefs ?? {});
+  const matritsadan = manzillarniTop(
+    prefs.channels,
+    telegramTargetsSchema.parse(biz.telegramTargets ?? {}),
+    'daily_report',
   );
-  return res.ok ? { ...natija, sent: true } : { ...natija, skipped: `yuborilmadi: ${res.error}` };
+  const manzillar =
+    matritsadan.length > 0 ? matritsadan : biz.reportChatId ? [biz.reportChatId] : [];
+
+  /**
+   * Tartib MUHIM: avval manzil, keyin token.
+   *
+   * Ikkalasi ham yo'q bo'lsa, foydalanuvchiga foydaliroq xabar —
+   * "chat id sozlanmagan": token botni ulaganda o'zi paydo bo'ladi,
+   * chat id ni esa odam o'zi tanlashi kerak.
+   */
+  if (manzillar.length === 0) return { ...natija, skipped: 'chat id sozlanmagan' };
+  if (!biz.botTokenEncrypted) return { ...natija, skipped: "bot token yo'q" };
+
+  const token = decryptSecret(biz.botTokenEncrypted);
+  const xatolar: string[] = [];
+  let bittasiKetdi = false;
+  for (const chatId of manzillar) {
+    const res = await sendTelegramMessage(token, chatId, matn);
+    if (res.ok) bittasiKetdi = true;
+    else xatolar.push(res.error ?? 'nomalum xato');
+  }
+  return bittasiKetdi
+    ? { ...natija, sent: true }
+    : { ...natija, skipped: 'yuborilmadi: ' + xatolar.join('; ') };
 }
 
 /** Worker chaqiradigan sikl — soatiga bir marta. */
