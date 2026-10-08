@@ -3,6 +3,7 @@ import { isProd } from '../config.js';
 import { loadAuthContext, type AuthContext, type BusinessAccess } from '../auth/context.js';
 import { hasPermission, type Permission } from '../auth/permissions.js';
 import { validateSession } from '../auth/session.js';
+import { keshniTozala } from '../auth/context-cache.js';
 import { AppError } from './errors.js';
 
 export const SESSION_COOKIE = 'sid';
@@ -73,6 +74,50 @@ export function registerAuth(app: FastifyInstance): void {
 
     req.auth = ctx;
     req.sessionId = info.sessionId;
+  });
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════
+   * KESHNI BEKOR QILISH — bitta joyda, unutib bo'lmaydigan qilib
+   * ═══════════════════════════════════════════════════════════════════
+   *
+   * Auth konteksti to'rtta jadvaldan yig'iladi: `app_user`,
+   * `business_member`, `seat`, `business`. Ularni o'zgartiradigan
+   * endpointlar o'nlab joyda va ular yana ko'payadi.
+   *
+   * Har biriga qo'lda `keshniBekorQil()` yozish mumkin edi, lekin
+   * bunday qoida DISTSIPLINAGA tayanadi: yangi endpoint yozgan odam
+   * uni unutadi va huquq eskirib qoladi. Xato jimgina bo'ladi va
+   * xavfsizlikka tegadi — eng yomon tur.
+   *
+   * Shuning uchun qoida strukturaviy: `/auth/` yoki `/businesses/`
+   * ostidagi HAR QANDAY muvaffaqiyatli o'zgartirish keshni tozalaydi.
+   * Yangi endpoint qo'shgan odam hech narsa qilmasa ham to'g'ri
+   * ishlaydi.
+   *
+   * NEGA BUTUN KESH, faqat bitta foydalanuvchi emas
+   * ───────────────────────────────────────────────
+   * Rol o'zgartirgan odam bilan roli o'zgargan odam — BOSHQA-BOSHQA
+   * odamlar. Faqat so'rov yuborganning keshini tozalash aynan kerakli
+   * holatni o'tkazib yuborardi.
+   *
+   * NARXI
+   * ─────
+   * `Map.clear()` — bir amal. Kesh keyingi so'rovlarda foydalanuvchi
+   * boshiga bitta so'rov bilan qayta to'ladi (1.27 ms). Bu mahsulot
+   * o'qishga og'ir: yozuv har necha soniyada bir marta bo'ladi,
+   * o'qish esa sekundiga o'nlab marta.
+   *
+   * Webhook (`/api/v1/webhooks/…`) bu naqshga TUSHMAYDI — u tez-tez
+   * keladi va auth kontekstiga umuman tegmaydi.
+   */
+  app.addHook('onResponse', async (req, reply) => {
+    if (req.method === 'GET' || req.method === 'HEAD') return;
+    if (reply.statusCode >= 400) return;
+    const url = req.url;
+    if (url.startsWith('/api/v1/auth/') || url.startsWith('/api/v1/businesses/')) {
+      keshniTozala();
+    }
   });
 }
 

@@ -1,0 +1,13 @@
+torch
+transformers
+soundfile
+accelerate
+huggingface_hub
+hydra-core
+omegaconf
+pyannote.audio
+sentencepiece
+torchaudio
+imageio-ffmpeg
+# Optional, only for --engine qwen3-uzbek:
+# qwen-asr

@@ -48,6 +48,17 @@ const PRESETLAR: Record<string, Preset> = {
     model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo',
     izoh: 'Keng model tanlovi',
   },
+  /**
+   * Google Gemini — rasmiy OpenAI-uyg'un endpoint orqali. Kalit
+   * aistudio.google.com da BEPUL va KARTASIZ olinadi (bu Google Cloud
+   * emas — alohida, oddiyroq mahsulot). Bepul kunlik limiti
+   * OpenRouter'ning `:free` modellaridan sezilarli yuqori.
+   */
+  gemini: {
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+    model: 'gemini-2.5-flash',
+    izoh: 'aistudio.google.com — bepul, kartasiz, OpenRouter\'dan yuqori limit',
+  },
 };
 
 const KALIT = process.env.LLM_API_KEY;

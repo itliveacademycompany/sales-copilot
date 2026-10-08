@@ -53,6 +53,11 @@ const PRICES: Record<string, { in: number; out: number }> = {
   'llama-3.3-70b-versatile': { in: 0, out: 0 },
   'openai/gpt-oss-120b': { in: 0, out: 0 },
   'moonshotai/kimi-k2-instruct': { in: 0, out: 0 },
+  // Taxminiy — Google narxini o'zgartirsa bu yerda yangilanadi. Fallback
+  // ($10/$50) dan past qo'yilgani ma'qul: Gemini haqiqatda arzon, uni
+  // FALLBACK bilan hisoblash xarajatni sun'iy oshirib ko'rsatardi.
+  'gemini-2.5-flash': { in: 0.3, out: 2.5 },
+  'gemini-2.5-pro': { in: 1.25, out: 10 },
 };
 const FALLBACK_PRICE = { in: 10, out: 50 };
 

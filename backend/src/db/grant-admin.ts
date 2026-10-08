@@ -50,6 +50,22 @@ async function main(): Promise<void> {
     `\n${user.displayName} <${user.email}> → ${user.systemRole}\n` +
       (revoke ? 'Super-admin huquqi olib tashlandi.\n' : 'Super-admin huquqi berildi.\n'),
   );
+
+  /**
+   * Kechikish haqida OGOHLANTIRISH.
+   *
+   * Server auth kontekstini keshlaydi (`auth/context-cache.ts`) va
+   * bekor qilish HTTP so'rovlariga bog'langan. Bu skript esa
+   * ALOHIDA jarayon — uning yozuvi ishlab turgan serverga darhol
+   * yetib bormaydi.
+   *
+   * Buni jimgina qoldirish mumkin emas edi: operator huquq berib,
+   * darhol sinab ko'radi va "ishlamadi" deb o'ylaydi.
+   */
+  console.log(
+    "Eslatma: ishlab turgan server bu o'zgarishni 30 soniyagacha kechikib ko'radi (auth keshi)." +
+      "\nShoshilinch bo'lsa serverni qayta ishga tushiring.\n",
+  );
 }
 
 main()

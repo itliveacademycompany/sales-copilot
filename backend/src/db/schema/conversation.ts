@@ -102,6 +102,17 @@ export const conversation = pgTable(
      */
     externalThreadId: text('external_thread_id'),
 
+    /**
+     * Tashqi tizimdagi XODIM identifikatori (Moi Zvonki `user_id` va h.k.).
+     *
+     * Nega alohida ustun: qo'ng'iroq kelganda xodim hali hech qaysi
+     * menejerga bog'lanmagan bo'lishi mumkin. Unda `seatId` bo'sh qoladi,
+     * suhbat esa kutib turadi. Rahbar keyinroq xodimni menejerga
+     * bog'laganda, kutayotgan qo'ng'iroqlar aynan shu ustun orqali topilib
+     * o'sha menejerga o'tkaziladi — hech biri yo'qolmaydi.
+     */
+    externalUserId: text('external_user_id'),
+
     startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
     endedAt: timestamp('ended_at', { withTimezone: true }),
     durationSeconds: integer('duration_seconds'),
@@ -156,6 +167,8 @@ export const conversation = pgTable(
     ),
     index('conversation_seat_idx').on(t.businessId, t.seatId, t.startedAt),
     index('conversation_status_idx').on(t.businessId, t.status),
+    /** Xodim bog'langanda kutayotgan qo'ng'iroqlarni topish. */
+    index('conversation_external_user_idx').on(t.businessId, t.externalSource, t.externalUserId),
   ],
 );
 

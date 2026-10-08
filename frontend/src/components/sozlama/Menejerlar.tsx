@@ -18,7 +18,7 @@ type Holat = 'faol' | 'nofaol';
 const AKTIV: Record<SeatFull['activation'], { nom: string; ton: string }> = {
   active: { nom: 'Aktivatsiya qilingan', ton: 'yaxshi' },
   pending: { nom: 'Aktivatsiya kutilmoqda', ton: 'orta' },
-  suspended: { nom: "To'xtatilgan", ton: 'xavf' },
+  disabled: { nom: "To'xtatilgan", ton: 'xavf' },
 };
 const CRM_KALIT = 'crm';
 

@@ -1,0 +1,2 @@
+ALTER TABLE "conversation" ADD COLUMN "external_user_id" text;--> statement-breakpoint
+CREATE INDEX "conversation_external_user_idx" ON "conversation" USING btree ("business_id","external_source","external_user_id");

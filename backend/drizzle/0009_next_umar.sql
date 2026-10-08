@@ -1,0 +1,1 @@
+ALTER TABLE "business" ADD COLUMN "work_hours" jsonb DEFAULT '{"startHour":9,"endHour":18,"days":[1,2,3,4,5,6]}'::jsonb NOT NULL;

@@ -25,6 +25,7 @@ import {
   setSessionCookie,
 } from '../auth-plugin.js';
 import { AppError } from '../errors.js';
+import { rasmMaydon } from '../../media/image.js';
 
 const email = z
   .string()
@@ -323,7 +324,8 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         .object({
           displayName: z.string().trim().min(2).max(120).optional(),
           locale: z.enum(['uz', 'uz-Cyrl', 'ru', 'en']).optional(),
-          avatarUrl: z.string().url().max(500).nullable().optional(),
+          // Tashqi havola yoki yuklangan rasm (data: URI) — media/image.ts.
+          avatarUrl: rasmMaydon.nullable().optional(),
         })
         .parse(req.body);
       if (Object.keys(patch).length === 0) {

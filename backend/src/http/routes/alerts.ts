@@ -1,8 +1,8 @@
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, lt, ne, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { withTenant } from '../../db/index.js';
-import { alert } from '../../db/schema/index.js';
+import { alert, analysis, seat } from '../../db/schema/index.js';
 import { requireBusiness, requirePermission } from '../auth-plugin.js';
 import { AppError } from '../errors.js';
 
@@ -17,7 +17,13 @@ import { AppError } from '../errors.js';
  */
 
 const listQuery = z.object({
-  status: z.enum(['new', 'seen', 'resolved']).optional(),
+  /**
+   * `active` — oddiy enum QIYMATI EMAS, "resolved bo'lmagan hammasi"
+   * degani (`new` + `seen`). Frontend'dagi "Faol" yorlig'i shu bilan
+   * ishlaydi — aks holda ikkita alohida so'rov (`new` va `seen`) va
+   * ularni birlashtirish kerak bo'lardi.
+   */
+  status: z.enum(['new', 'seen', 'resolved', 'active']).optional(),
   kind: z
     .enum([
       'red_flag',
@@ -29,6 +35,8 @@ const listQuery = z.object({
     ])
     .optional(),
   limit: z.coerce.number().int().min(1).max(200).default(50),
+  /** Kursor: shu vaqtdan eski ogohlantirishlar (createdAt bo'yicha). */
+  before: z.coerce.date().optional(),
 });
 
 export function registerAlertRoutes(app: FastifyInstance): void {
@@ -39,19 +47,50 @@ export function registerAlertRoutes(app: FastifyInstance): void {
       const q = listQuery.parse(req.query);
       const businessId = req.business!.businessId;
 
-      const [rows, [counts]] = await withTenant(businessId, (tx) =>
+      /**
+       * Sotuvchi nomi ogohlantirish bilan BIRGA qaytadi.
+       *
+       * Interfeys uni alohida so'rov bilan olsa, 50 ta ogohlantirish
+       * uchun 50 ta qo'shimcha so'rov ketardi; sotuvchini oldindan
+       * yuklab olish esa ro'yxatni interfeysda yig'ishni talab qilardi.
+       * Bitta `join` ikkalasidan ham arzon.
+       */
+      const [rows, [counts], turlar] = await withTenant(businessId, (tx) =>
         Promise.all([
           tx
-            .select()
+            .select({
+              id: alert.id,
+              kind: alert.kind,
+              severity: alert.severity,
+              status: alert.status,
+              title: alert.title,
+              body: alert.body,
+              conversationId: alert.conversationId,
+              seatId: alert.seatId,
+              createdAt: alert.createdAt,
+              resolvedAt: alert.resolvedAt,
+              seatName: seat.displayName,
+              conversationSummary: analysis.summary,
+            })
             .from(alert)
+            .leftJoin(seat, eq(seat.id, alert.seatId))
+            .leftJoin(analysis, eq(analysis.conversationId, alert.conversationId))
             .where(
               and(
-                q.status ? eq(alert.status, q.status) : undefined,
+                q.status === 'active'
+                  ? ne(alert.status, 'resolved')
+                  : q.status
+                    ? eq(alert.status, q.status)
+                    : undefined,
                 q.kind ? eq(alert.kind, q.kind) : undefined,
+                q.before ? lt(alert.createdAt, q.before) : undefined,
               ),
             )
             .orderBy(desc(alert.createdAt))
-            .limit(q.limit),
+            // `limit + 1`: agar aynan shu limit sonicha qator kelsa, buni
+            // "keyingisi yo'q" dan ajratib bo'lmaydi — qo'shimcha 1 qator
+            // orqali bilib olamiz, keyin uni javobdan kesib tashlaymiz.
+            .limit(q.limit + 1),
           tx
             .select({
               newCount: sql<number>`count(*) filter (where ${alert.status} = 'new')::int`,
@@ -60,10 +99,28 @@ export function registerAlertRoutes(app: FastifyInstance): void {
               )::int`,
             })
             .from(alert),
+          /** Tur bo'yicha FAOL sanoq — filtr tugmalaridagi raqamlar. */
+          tx
+            .select({
+              kind: alert.kind,
+              count: sql<number>`count(*)::int`,
+            })
+            .from(alert)
+            .where(sql`${alert.status} <> 'resolved'`)
+            .groupBy(alert.kind),
         ]),
       );
 
-      return { alerts: rows, unseenCount: counts?.newCount ?? 0, criticalOpen: counts?.critical ?? 0 };
+      const hasMore = rows.length > q.limit;
+      const page = hasMore ? rows.slice(0, q.limit) : rows;
+      const last = page[page.length - 1];
+      return {
+        alerts: page,
+        unseenCount: counts?.newCount ?? 0,
+        criticalOpen: counts?.critical ?? 0,
+        byKind: turlar,
+        nextCursor: hasMore && last ? last.createdAt : null,
+      };
     },
   );
 

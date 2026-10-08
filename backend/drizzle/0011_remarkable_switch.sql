@@ -1,0 +1,1 @@
+ALTER TABLE "seat" ADD COLUMN "work_hours" jsonb;

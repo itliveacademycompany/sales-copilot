@@ -1,7 +1,16 @@
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { getActiveStt, SttError } from '../../ai/stt.js';
+import { stage2Result, stage3Result } from '../../ai/prompts.js';
+import { refineAndAnalyzeTranscript } from '../../ai/refine-and-analyze.js';
+import { SttError } from '../../ai/stt.js';
+import { refineTranscript, speakerSchema } from '../../ai/transcript-refine.js';
+import {
+  loadActivePlaybookAndBusiness,
+  sttModelSchema,
+  tahlilniSaqla,
+  transkriptQil,
+} from '../../calls/pipeline.js';
 import { withTenant } from '../../db/index.js';
 import { conversation, seat, transcriptSegment } from '../../db/schema/index.js';
 import { assignOffsets, parseTranscript } from '../../import/transcript-parser.js';
@@ -48,6 +57,10 @@ const importBody = z.object({
   /** Faqat segmentlarga bo'lib ko'rsatish, saqlamasdan. */
   dryRun: z.boolean().default(false),
 });
+
+
+
+
 
 export function registerImportRoutes(app: FastifyInstance): void {
   app.post(
@@ -172,39 +185,224 @@ export function registerImportRoutes(app: FastifyInstance): void {
       const soni = Number(
         (file.fields.speakerCount as { value?: string } | undefined)?.value ?? 2,
       );
+      const sttModel = sttModelSchema.parse(
+        (file.fields.sttModel as { value?: string } | undefined)?.value ?? 'gigaam',
+      );
 
       /**
        * `SttError` — sozlash yoki fayl muammosi, server nosozligi emas.
        * Uni 500 bilan qaytarish foydalanuvchiga "Serverda xatolik"
        * degan foydasiz xabar ko'rsatardi, holbuki asl sabab aniq va
        * tuzatsa bo'ladigan ("Speech-to-Text API yoqilmagan" kabi).
+       * Lokal zaxira mantiqi `calls/pipeline.ts` da.
        */
       let natija;
       try {
-        const stt = await getActiveStt();
-        natija = await stt.transcribe({
-          audio,
+        natija = await transkriptQil(audio, {
           mimeType: file.mimetype,
+          filename: file.filename,
           languageCode: til && til.length > 0 ? til : undefined,
           speakerCount: Number.isFinite(soni) && soni >= 1 && soni <= 6 ? soni : 2,
+          sttModel,
         });
       } catch (err) {
         if (err instanceof SttError) throw AppError.badRequest(err.message);
         throw err;
       }
 
+      const inputSegments = natija.utterances.map((u, seq) => ({
+        seq,
+        text: u.text,
+        startSeconds: u.startSeconds,
+        endSeconds: u.endSeconds,
+      }));
+
+      const pbCtx = await loadActivePlaybookAndBusiness(req.business!.businessId);
+
+      if (!pbCtx) {
+        // Playbook yo'q — baholab bo'lmaydi, faqat transkript (eski
+        // xatti-harakat: rolni odam keyinroq matn oqimi orqali tasdiqlaydi).
+        const refined = await refineTranscript(inputSegments);
+        return {
+          turns: refined.turns.map((t) => ({
+            speaker: t.speaker,
+            text: t.text,
+            startSeconds: t.startSeconds,
+          })),
+          speakerCount: natija.speakerCount,
+          language: natija.language,
+          durationSeconds: natija.durationSeconds,
+          costUsd: natija.costUsd,
+          model: natija.model,
+          roleConfidence: refined.confidence,
+          degraded: refined.degraded,
+          note:
+            ('note' in natija && typeof natija.note === 'string' ? `${natija.note} ` : '') +
+            refined.note +
+            ' Faol playbook topilmadi — baholash o\'tkazib yuborildi, faqat transkript.',
+          preview: null,
+          analysisPayload: null,
+        };
+      }
+
+      /**
+       * FR-84 va birlashtirilgan oqim: nafaqat "kim gapirdi" (rol),
+       * balki "qayerda YANGI odam gapira boshladi" ham, KLASSIFIKATSIYA
+       * ham, BAHOLASH ham — bittasi bilan, BITTA LLM so'rovida
+       * (refine-and-analyze.ts). Odatiy oqimdan farqi: inson tasdig'i
+       * baholashdan OLDIN emas — foydalanuvchi ongli ravishda shu
+       * tezlik/narx almashinuvini tanlagan (FR-84 izohiga qarang).
+       */
+      const merged = await refineAndAnalyzeTranscript(
+        inputSegments,
+        pbCtx.body,
+        pbCtx.businessContext,
+      );
+
       return {
-        utterances: natija.utterances,
+        turns: merged.turns.map((t) => ({
+          speaker: t.speaker,
+          text: t.text,
+          startSeconds: t.startSeconds,
+        })),
         speakerCount: natija.speakerCount,
         language: natija.language,
         durationSeconds: natija.durationSeconds,
-        costUsd: natija.costUsd,
-        model: natija.model,
+        costUsd: natija.costUsd + merged.costUsd,
+        model: merged.model,
+        roleConfidence: merged.transcriptConfidence,
+        degraded: false,
         note:
-          natija.speakerCount < 2
-            ? 'Faqat bitta so\'zlovchi aniqlandi — yozuvda ikkalasi ham eshitilishiga ishonch hosil qiling.'
-            : 'Qaysi so\'zlovchi menejer ekanini tanlang.',
+          ('note' in natija && typeof natija.note === 'string' ? `${natija.note} ` : '') +
+          merged.transcriptNote,
+        preview: {
+          businessRelevance: merged.extracted.businessRelevance,
+          callFamily: merged.extracted.callFamily,
+          serviceLine: merged.extracted.serviceLine,
+          summary: merged.extracted.summary,
+          classificationConfidence: merged.extracted.confidence,
+          leadQuality: merged.stage3.leadQuality,
+          primaryGap: merged.stage3.primaryGap,
+          compliance: merged.stage3.compliance,
+          scores: merged.stage3.scores.map((s) => ({
+            code: s.code,
+            score: s.score,
+            reasoning: s.reasoning,
+          })),
+          redFlags: merged.stage3.redFlags,
+        },
+        analysisPayload: {
+          turns: merged.turns.map((t) => ({
+            speaker: t.speaker,
+            text: t.text,
+            startSeconds: t.startSeconds,
+          })),
+          extracted: merged.extracted,
+          stage3: merged.stage3,
+          transcriptConfidence: merged.transcriptConfidence,
+          costUsd: natija.costUsd + merged.costUsd,
+          tokensIn: merged.tokensIn,
+          tokensOut: merged.tokensOut,
+          model: merged.model,
+        },
       };
+    },
+  );
+
+  const importAnalyzedBody = z.object({
+    seatId: z.string().uuid(),
+    channel: z.enum(['telegram', 'phone', 'meeting', 'whatsapp', 'instagram']).default('phone'),
+    startedAt: z.coerce.date().optional(),
+    turns: z
+      .array(
+        z.object({
+          speaker: speakerSchema,
+          text: z.string().min(1),
+          startSeconds: z.number().min(0),
+        }),
+      )
+      .min(1),
+    extracted: stage2Result,
+    stage3: stage3Result,
+    transcriptConfidence: z.number().min(0).max(1),
+    costUsd: z.number().min(0),
+    tokensIn: z.number().int().min(0),
+    tokensOut: z.number().int().min(0),
+    model: z.string(),
+  });
+
+  /**
+   * AUDIO OQIMINI SAQLASH — birlashtirilgan (transkript+baholash) natijani
+   * bazaga yozadi. `/transcribe` javobidagi `analysisPayload` shu yerga
+   * O'ZGARTIRILMAGAN holda qaytariladi (foydalanuvchi faqat ko'rib
+   * chiqadi, LLM QAYTA chaqirilmaydi — bu birlashtirishning butun
+   * ma'nosi). Playbook serverda QAYTADAN yuklanadi (mijozga ishonilmaydi)
+   * va isbot tekshiruvi (`persistAnalysisTx`) odatdagidek to'liq ishlaydi.
+   */
+  app.post(
+    '/api/v1/businesses/:businessId/conversations/import-analyzed',
+    { preHandler: [requireBusiness, requirePermission('playbook:write')] },
+    async (req, reply) => {
+      const startedProcessing = Date.now();
+      const bodyIn = importAnalyzedBody.parse(req.body);
+      const businessId = req.business!.businessId;
+
+      const pbCtx = await loadActivePlaybookAndBusiness(businessId);
+      if (!pbCtx) {
+        throw AppError.badRequest('Faol playbook topilmadi — avval playbook yarating.');
+      }
+
+      const startedAt = bodyIn.startedAt ?? new Date();
+      const lastEnd = bodyIn.turns.reduce((max, t) => Math.max(max, t.startSeconds), 0);
+
+      const result = await withTenant(businessId, async (tx) => {
+        const [s] = await tx
+          .select({ id: seat.id })
+          .from(seat)
+          .where(eq(seat.id, bodyIn.seatId))
+          .limit(1);
+        if (!s) throw AppError.badRequest('Bunday sotuvchi topilmadi');
+
+        const [conv] = await tx
+          .insert(conversation)
+          .values({
+            businessId,
+            seatId: bodyIn.seatId,
+            channel: bodyIn.channel,
+            direction: 'na',
+            externalSource: 'manual',
+            externalId: `manual:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`,
+            startedAt,
+            endedAt: new Date(startedAt.getTime() + lastEnd * 1000),
+            status: 'analyzing',
+          })
+          .returning({ id: conversation.id });
+        if (!conv) throw new Error('suhbat yaratilmadi');
+
+        // Segmentlar, pre-filter, darvoza va isbot tekshiruvi — Moi Zvonki
+        // oqimi bilan BIR XIL kod (`calls/pipeline.ts`).
+        return tahlilniSaqla(tx, {
+          businessId,
+          conversationId: conv.id,
+          seatId: bodyIn.seatId,
+          contactId: null,
+          startedAt,
+          pb: pbCtx,
+          turns: bodyIn.turns,
+          extracted: bodyIn.extracted,
+          stage3: bodyIn.stage3,
+          transcriptConfidence: bodyIn.transcriptConfidence,
+          costUsd: bodyIn.costUsd,
+          tokensIn: bodyIn.tokensIn,
+          tokensOut: bodyIn.tokensOut,
+          model: bodyIn.model,
+          processingStartedAt: startedProcessing,
+          speakerAttributionMethod: 'llm_inferred',
+        });
+      });
+
+      reply.status(201);
+      return result;
     },
   );
 }
