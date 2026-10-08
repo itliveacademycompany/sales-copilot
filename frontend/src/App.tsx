@@ -1,24 +1,9 @@
+import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
 import { Layout } from './components/Layout';
-import { AiChat } from './pages/AiChat';
-import { Alerts } from './pages/Alerts';
-import { Analitika } from './pages/Analitika';
-import { Billing } from './pages/Billing';
-import { ConversationDetail } from './pages/ConversationDetail';
-import { Conversations } from './pages/Conversations';
-import { Dashboard } from './pages/Dashboard';
-import { KunlikHisobotSahifa } from './pages/KunlikHisobotSahifa';
-import { LidTafsilot } from './pages/LidTafsilot';
-import { LidXulosalari } from './pages/LidXulosalari';
+import { SAHIFA } from './sahifalar';
 import { Login } from './pages/Login';
-import { Onboarding } from './pages/Onboarding';
-import { PasswordReset } from './pages/PasswordReset';
-import { PlaybookEditor } from './pages/PlaybookEditor';
-import { Qongiroqlar } from './pages/Qongiroqlar';
-import { SeatCabinet } from './pages/SeatCabinet';
-import { Settings } from './pages/Settings';
-import { Tasks } from './pages/Tasks';
 
 export function App() {
   const { loading, user, business } = useAuth();
@@ -32,10 +17,12 @@ export function App() {
    */
   if (!user || !business) {
     return (
+      <Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}>
       <Routes>
-        <Route path="/parol-tiklash/:token" element={<PasswordReset />} />
+        <Route path="/parol-tiklash/:token" element={<SAHIFA.passwordReset />} />
         <Route path="*" element={<Login />} />
       </Routes>
+      </Suspense>
     );
   }
 
@@ -45,7 +32,9 @@ export function App() {
   if (business.onboardingStep !== 'done') {
     return (
       <div className="main" style={{ marginLeft: 0, maxWidth: 900, margin: '0 auto', paddingTop: 40 }}>
-        <Onboarding />
+        <Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}>
+          <SAHIFA.onboarding />
+        </Suspense>
       </div>
     );
   }
@@ -60,22 +49,22 @@ export function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/" element={rahbar ? <Dashboard /> : <SeatCabinet />} />
-        <Route path="/sotuvchi/:seatId" element={<SeatCabinet />} />
-        <Route path="/suhbatlar" element={<Conversations />} />
-        <Route path="/suhbatlar/:id" element={<ConversationDetail />} />
-        <Route path="/vazifalar" element={<Tasks />} />
-        <Route path="/ogohlantirishlar" element={<Alerts />} />
-        <Route path="/qongiroqlar" element={<Qongiroqlar />} />
-        <Route path="/ai-chat" element={<AiChat />} />
-        <Route path="/lidlar" element={<LidXulosalari />} />
-        <Route path="/lidlar/:id" element={<LidTafsilot />} />
+        <Route path="/" element={rahbar ? <SAHIFA.dashboard /> : <SAHIFA.seatCabinet />} />
+        <Route path="/sotuvchi/:seatId" element={<SAHIFA.seatCabinet />} />
+        <Route path="/suhbatlar" element={<SAHIFA.conversations />} />
+        <Route path="/suhbatlar/:id" element={<SAHIFA.conversationDetail />} />
+        <Route path="/vazifalar" element={<SAHIFA.tasks />} />
+        <Route path="/ogohlantirishlar" element={<SAHIFA.alerts />} />
+        <Route path="/qongiroqlar" element={<SAHIFA.qongiroqlar />} />
+        <Route path="/ai-chat" element={<SAHIFA.aiChat />} />
+        <Route path="/lidlar" element={<SAHIFA.lidlar />} />
+        <Route path="/lidlar/:id" element={<SAHIFA.lidTafsilot />} />
         {/* Jamoa analitikasi va hisobot — faqat rahbar (server ham tekshiradi) */}
-        {rahbar && <Route path="/analitika" element={<Analitika />} />}
-        {rahbar && <Route path="/kunlik-hisobot" element={<KunlikHisobotSahifa />} />}
-        <Route path="/playbook" element={<PlaybookEditor />} />
-        <Route path="/billing" element={<Billing />} />
-        <Route path="/sozlamalar" element={<Settings />} />
+        {rahbar && <Route path="/analitika" element={<SAHIFA.analitika />} />}
+        {rahbar && <Route path="/kunlik-hisobot" element={<SAHIFA.kunlikHisobot />} />}
+        <Route path="/playbook" element={<SAHIFA.playbook />} />
+        <Route path="/billing" element={<SAHIFA.billing />} />
+        <Route path="/sozlamalar" element={<SAHIFA.settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

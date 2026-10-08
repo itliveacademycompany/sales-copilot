@@ -15,6 +15,9 @@ import {
   MessagesSquare,
   Link2,
   Palette,
+  PhoneCall,
+  AudioLines,
+  Share2,
   Pencil,
   Send,
   Settings2,
@@ -41,6 +44,7 @@ import { Rahbarlar } from '../components/sozlama/Rahbarlar';
 import { Menejerlar } from '../components/sozlama/Menejerlar';
 import { IshJadvali } from '../components/sozlama/IshJadvali';
 import { Obuna } from '../components/sozlama/Obuna';
+import { CrmEksport, MoiZvonki, SttTanlash } from '../components/sozlama/Integratsiyalar';
 import { TanlovMenyu } from '../components/analitika/Ochiluvchi';
 import { ParolInput } from '../components/ParolInput';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -90,6 +94,9 @@ type Bolim =
   | 'crmNatija'
   | 'crmVoronka'
   | 'integratsiya'
+  | 'moizvonki'
+  | 'crmEksport'
+  | 'stt'
   | 'kunlik';
 
 const ROL_NOM: Record<string, string> = {
@@ -140,10 +147,13 @@ export function Settings() {
     { key: 'xizmat', nom: "Xizmat yo'nalishlari", guruh: 'tahlil', ikon: <Box />, korinadi: playbookKoradi },
     { key: 'oilalar', nom: "Qo'ng'iroq oilalari", guruh: 'tahlil', ikon: <MessagesSquare />, korinadi: playbookKoradi },
     { key: 'ai', nom: "AI ko'rsatmalari", guruh: 'tahlil', ikon: <Sparkles />, korinadi: playbookKoradi },
+    { key: 'stt', nom: 'Nutqni matnga (STT)', guruh: 'tahlil', ikon: <AudioLines />, korinadi: true },
     { key: 'lidSifati', nom: 'Lid sifati bosqichlari', guruh: 'lid', ikon: <Flame />, korinadi: bizneskoradi },
     { key: 'crmNatija', nom: 'CRM natija bosqichlari', guruh: 'lid', ikon: <Flag />, korinadi: bizneskoradi },
     { key: 'crmVoronka', nom: 'Faol CRM voronkalari', guruh: 'lid', ikon: <Filter />, korinadi: bizneskoradi },
     { key: 'integratsiya', nom: 'Telegram bot', guruh: 'lid', ikon: <Send />, korinadi: bizneskoradi },
+    { key: 'moizvonki', nom: 'Moi Zvonki', guruh: 'lid', ikon: <PhoneCall />, korinadi: bizneskoradi },
+    { key: 'crmEksport', nom: 'Vazifalarni CRM ga yuborish', guruh: 'lid', ikon: <Share2 />, korinadi: bizneskoradi },
     { key: 'kunlik', nom: 'Kunlik hisobot', guruh: 'hisobot', ikon: <FileBarChart />, korinadi: bizneskoradi },
   ];
   const korinadigan = BOLIMLAR.filter((b) => b.korinadi);
@@ -221,6 +231,9 @@ export function Settings() {
         {bolim.key === 'crmNatija' && <CrmNatija />}
         {bolim.key === 'crmVoronka' && <CrmVoronkalar />}
         {bolim.key === 'integratsiya' && business && <Integratsiya businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
+        {bolim.key === 'moizvonki' && business && <MoiZvonki businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
+        {bolim.key === 'crmEksport' && business && <CrmEksport businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
+        {bolim.key === 'stt' && <SttTanlash />}
         {bolim.key === 'kunlik' && <KunlikHisobotSozlama />}
       </div>
     </>

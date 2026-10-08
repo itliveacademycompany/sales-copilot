@@ -53,30 +53,39 @@ function sahifa<T extends ComponentType<Record<string, never>>>(
  */
 export const SAHIFA = {
   dashboard: sahifa(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard }))),
-  seatCabinet: sahifa(() =>
-    import('./pages/SeatCabinet').then((m) => ({ default: m.SeatCabinet })),
-  ),
-  analytics: sahifa(() => import('./pages/Analytics').then((m) => ({ default: m.Analytics }))),
-  dailyReport: sahifa(() =>
-    import('./pages/DailyReport').then((m) => ({ default: m.DailyReport })),
-  ),
-  leads: sahifa(() => import('./pages/Leads').then((m) => ({ default: m.Leads }))),
-  leadDetail: sahifa(() => import('./pages/LeadDetail').then((m) => ({ default: m.LeadDetail }))),
-  conversations: sahifa(() =>
-    import('./pages/Conversations').then((m) => ({ default: m.Conversations })),
-  ),
-  conversationDetail: sahifa(() =>
-    import('./pages/ConversationDetail').then((m) => ({ default: m.ConversationDetail })),
-  ),
+  seatCabinet: sahifa(() => import('./pages/SeatCabinet').then((m) => ({ default: m.SeatCabinet }))),
+  analitika: sahifa(() => import('./pages/Analitika').then((m) => ({ default: m.Analitika }))),
+  kunlikHisobot: sahifa(() => import('./pages/KunlikHisobotSahifa').then((m) => ({ default: m.KunlikHisobotSahifa }))),
+  lidlar: sahifa(() => import('./pages/LidXulosalari').then((m) => ({ default: m.LidXulosalari }))),
+  lidTafsilot: sahifa(() => import('./pages/LidTafsilot').then((m) => ({ default: m.LidTafsilot }))),
+  conversations: sahifa(() => import('./pages/Conversations').then((m) => ({ default: m.Conversations }))),
+  conversationDetail: sahifa(() => import('./pages/ConversationDetail').then((m) => ({ default: m.ConversationDetail }))),
+  qongiroqlar: sahifa(() => import('./pages/Qongiroqlar').then((m) => ({ default: m.Qongiroqlar }))),
+  aiChat: sahifa(() => import('./pages/AiChat').then((m) => ({ default: m.AiChat }))),
   tasks: sahifa(() => import('./pages/Tasks').then((m) => ({ default: m.Tasks }))),
   alerts: sahifa(() => import('./pages/Alerts').then((m) => ({ default: m.Alerts }))),
-  playbook: sahifa(() =>
-    import('./pages/PlaybookEditor').then((m) => ({ default: m.PlaybookEditor })),
-  ),
+  playbook: sahifa(() => import('./pages/PlaybookEditor').then((m) => ({ default: m.PlaybookEditor }))),
   billing: sahifa(() => import('./pages/Billing').then((m) => ({ default: m.Billing }))),
   settings: sahifa(() => import('./pages/Settings').then((m) => ({ default: m.Settings }))),
   onboarding: sahifa(() => import('./pages/Onboarding').then((m) => ({ default: m.Onboarding }))),
-  passwordReset: sahifa(() =>
-    import('./pages/PasswordReset').then((m) => ({ default: m.PasswordReset })),
-  ),
+  passwordReset: sahifa(() => import('./pages/PasswordReset').then((m) => ({ default: m.PasswordReset }))),
+};
+
+/**
+ * Yon menyu manzili → sahifa. Layout sichqoncha tekkanda shu ro'yxatdan
+ * qidiradi; ro'yxatda yo'q manzil (masalan tashqi havola) jimgina o'tkaziladi.
+ */
+export const MANZIL_SAHIFA: Record<string, { oldindanYukla: () => void }> = {
+  '/': SAHIFA.dashboard,
+  '/suhbatlar': SAHIFA.conversations,
+  '/qongiroqlar': SAHIFA.qongiroqlar,
+  '/vazifalar': SAHIFA.tasks,
+  '/ogohlantirishlar': SAHIFA.alerts,
+  '/ai-chat': SAHIFA.aiChat,
+  '/lidlar': SAHIFA.lidlar,
+  '/analitika': SAHIFA.analitika,
+  '/kunlik-hisobot': SAHIFA.kunlikHisobot,
+  '/playbook': SAHIFA.playbook,
+  '/billing': SAHIFA.billing,
+  '/sozlamalar': SAHIFA.settings,
 };

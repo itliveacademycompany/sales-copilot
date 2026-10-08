@@ -15,8 +15,9 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode, Suspense } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
+import { MANZIL_SAHIFA } from '../sahifalar';
 import { api, type BillingStatus } from '../api';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
@@ -116,6 +117,9 @@ export function Layout() {
       end={to === '/'}
       className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
       onClick={() => setMenyu(false)}
+      // Sichqoncha tekkan paytdan bosishgacha ~100-300 ms o'tadi — sahifa bo'lagi shu orada yuklanadi.
+      onMouseEnter={() => MANZIL_SAHIFA[to]?.oldindanYukla()}
+      onFocus={() => MANZIL_SAHIFA[to]?.oldindanYukla()}
       title={keng ? undefined : nom}
     >
       <span className="ikon">
@@ -231,7 +235,9 @@ export function Layout() {
             )}
           </NavLink>
         )}
-        <Outlet />
+        <Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );
