@@ -1,3 +1,4 @@
+import { Pause, Play } from 'lucide-react';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 /**
@@ -88,7 +89,7 @@ export const AudioPleyer = forwardRef<
           else el.pause();
         }}
       >
-        {ijro ? '❚❚' : '▶'}
+        {ijro ? <Pause fill="currentColor" /> : <Play fill="currentColor" />}
       </button>
       <input
         type="range"

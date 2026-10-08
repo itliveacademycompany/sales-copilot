@@ -1,3 +1,4 @@
+import { TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, ApiError, type SeatRow } from '../api';
 
@@ -47,9 +48,14 @@ Menejer: Albatta! Ertaga bepul sinov darsiga yozib qo'yaymi?`;
 export function SuhbatYuklash({
   businessId,
   onYuklandi,
+  kanal = 'telegram',
+  tugmaMatni = 'Suhbat yuklash',
 }: {
   businessId: string;
   onYuklandi: (conversationId: string) => void;
+  /** Suhbat qaysi kanaldan — Qo'ng'iroqlar sahifasi 'phone' beradi. */
+  kanal?: 'telegram' | 'phone';
+  tugmaMatni?: string;
 }) {
   const [ochiq, setOchiq] = useState(false);
   const [seats, setSeats] = useState<SeatRow[]>([]);
@@ -156,6 +162,7 @@ export function SuhbatYuklash({
       const r = await api.post<{ conversationId: string }>(url, {
         seatId,
         text: matn,
+        channel: kanal,
         ...(sana ? { startedAt: new Date(sana).toISOString() } : {}),
       });
       setOchiq(false);
@@ -173,7 +180,7 @@ export function SuhbatYuklash({
   if (!ochiq) {
     return (
       <button className="btn ikkinchi" onClick={() => setOchiq(true)}>
-        ＋ Suhbat yuklash
+        ＋ {tugmaMatni}
       </button>
     );
   }
@@ -359,7 +366,7 @@ export function SuhbatYuklash({
 
       {ogohlar.map((o, i) => (
         <div key={i} className="etiroz-holat open" style={{ marginBottom: 8 }}>
-          ⚠ {o}
+          <TriangleAlert /> {o}
         </div>
       ))}
 

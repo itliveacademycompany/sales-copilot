@@ -1,3 +1,4 @@
+import { ChevronRight, ListChecks } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api, fmtSana, type SeatRow, type TaskAnalytics, type TaskRow } from '../api';
@@ -19,7 +20,11 @@ const HOLAT_NOMI: Record<TaskRow['status'], string> = {
 
 export function Tasks() {
   const { business } = useAuth();
-  const [view, setView] = useState('');
+  // Boshqa sahifadan "?view=overdue" bilan kelinsa — shu ko'rinish ochiladi
+  const [view, setView] = useState(() => {
+    const v = new URLSearchParams(window.location.search).get('view') ?? '';
+    return KORINISHLAR.some((k) => k.key === v) ? v : '';
+  });
   const [rows, setRows] = useState<TaskRow[]>([]);
   const [stats, setStats] = useState<TaskAnalytics | null>(null);
   const [seats, setSeats] = useState<SeatRow[]>([]);
@@ -170,7 +175,7 @@ export function Tasks() {
           <div className="yuklanmoqda">Yuklanmoqda…</div>
         ) : rows.length === 0 ? (
           <div className="hech-narsa">
-            <div className="katta-ikon">☑</div>
+            <div className="katta-ikon"><ListChecks /></div>
             Bu ko'rinishda vazifa yo'q
           </div>
         ) : (
@@ -197,9 +202,9 @@ export function Tasks() {
                       {t.conversationId && (
                         <Link
                           to={`/suhbatlar/${t.conversationId}`}
-                          style={{ fontSize: 12, color: 'var(--toq-dark)', fontWeight: 500 }}
+                          style={{ fontSize: 12, color: 'var(--ia-text)', fontWeight: 500 }}
                         >
-                          suhbatni ko'rish →
+                          suhbatni ko'rish <ChevronRight />
                         </Link>
                       )}
                     </td>
@@ -220,7 +225,7 @@ export function Tasks() {
                     <td>
                       <select
                         className="input"
-                        style={{ width: 'auto', padding: '5px 8px', fontSize: 13 }}
+                        style={{ width: 'auto', padding: '6px 32px 6px 11px', fontSize: 13 }}
                         value={t.status}
                         onChange={(e) => void setStatus(t.id, e.target.value as TaskRow['status'])}
                       >

@@ -1,15 +1,62 @@
-import { useCallback, useEffect, useState } from 'react';
+import {
+  Bell,
+  Box,
+  Building2,
+  CalendarDays,
+  Check,
+  CircleCheck,
+  CircleHelp,
+  CreditCard,
+  Filter,
+  Flag,
+  Flame,
+  FileBarChart,
+  MessageSquareWarning,
+  MessagesSquare,
+  Link2,
+  Palette,
+  Pencil,
+  Send,
+  Settings2,
+  Trash2,
+  Upload,
+  Sparkles,
+  UserRound,
+  UserRoundPlus,
+  UsersRound,
+} from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Bildirishnomalar, Bizneslar, Korinish, MuammoXabari } from '../components/sozlama/Bolimlar';
+import { ProfileStep } from './Onboarding';
+import { BaholashMezonlari } from '../components/mezonlar/BaholashMezonlari';
+import { AnketaSavollari } from '../components/anketa/AnketaSavollari';
+import { XizmatYonalishlari } from '../components/xizmat/XizmatYonalishlari';
+import { QongiroqOilalari } from '../components/oilalar/QongiroqOilalari';
+import { AiKorsatmalari } from '../components/ai/AiKorsatmalari';
+import { LidSifatiBosqichlari } from '../components/lid/LidSifatiBosqichlari';
+import { CrmNatija } from '../components/crm/CrmNatija';
+import { CrmVoronkalar } from '../components/crm/CrmVoronkalar';
+import { KunlikHisobotSozlama } from '../components/hisobot/KunlikHisobotSozlama';
+import { Rahbarlar } from '../components/sozlama/Rahbarlar';
+import { Menejerlar } from '../components/sozlama/Menejerlar';
+import { IshJadvali } from '../components/sozlama/IshJadvali';
+import { Obuna } from '../components/sozlama/Obuna';
+import { TanlovMenyu } from '../components/analitika/Ochiluvchi';
+import { ParolInput } from '../components/ParolInput';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { lokalAvatarSaqla, rasmniTayyorla, useLokalAvatar } from '../components/avatar';
 import {
   api,
   ApiError,
   fmtSana,
+  EMPTY_PROFILE,
+  type BusinessProfile,
   type BusinessRow,
   type DailyReportRow,
-  type MemberRow,
-  type SeatFull,
   type TelegramIntegration,
 } from '../api';
 import { useAuth } from '../auth';
+import { useT } from '../i18n';
 
 /**
  * SOZLAMALAR — TZ 3.11 (FR-160, 161, 162, 164, 165, 166).
@@ -23,7 +70,27 @@ import { useAuth } from '../auth';
  * yashirish faqat foydasiz tugmani ko'rsatmaslik uchun.
  */
 
-type Bolim = 'profil' | 'biznes' | 'sotuvchilar' | 'rahbarlar' | 'integratsiya';
+type Bolim =
+  | 'profil'
+  | 'korinish'
+  | 'biznes'
+  | 'bizneslar'
+  | 'bildirishnoma'
+  | 'rahbarlar'
+  | 'sotuvchilar'
+  | 'jadval'
+  | 'obuna'
+  | 'muammo'
+  | 'mezonlar'
+  | 'anketa'
+  | 'xizmat'
+  | 'oilalar'
+  | 'ai'
+  | 'lidSifati'
+  | 'crmNatija'
+  | 'crmVoronka'
+  | 'integratsiya'
+  | 'kunlik';
 
 const ROL_NOM: Record<string, string> = {
   owner: 'Ega',
@@ -32,25 +99,20 @@ const ROL_NOM: Record<string, string> = {
   auditor: 'Auditor',
 };
 
-const AKTIVATSIYA: Record<string, { nom: string; klass: string }> = {
-  active: { nom: 'Faol', klass: 'ok' },
-  pending: { nom: 'Kutilmoqda', klass: 'sariq' },
-  suspended: { nom: 'To\'xtatilgan', klass: 'qizil' },
+
+
+type Guruh = 'umumiy' | 'tahlil' | 'lid' | 'hisobot';
+const GURUH_NOMI: Record<Guruh, string> = {
+  umumiy: 'Umumiy',
+  tahlil: "Qo'ng'iroq tahlili",
+  lid: 'Lid va CRM',
+  hisobot: 'Hisobotlar',
 };
-
-/** TZ 8.2: mavzu tanlovi — tizim / yorug' / qorong'i (FR-162). */
-const MAVZU_KALIT = 'sotuvai-mavzu';
-
-function mavzuniQoll(v: string): void {
-  const root = document.documentElement;
-  if (v === 'system') root.removeAttribute('data-theme');
-  else root.setAttribute('data-theme', v);
-  localStorage.setItem(MAVZU_KALIT, v);
-}
 
 export function Settings() {
   const { user, business, refresh } = useAuth();
-  const [bolim, setBolim] = useState<Bolim>('profil');
+  const t = useT();
+  const [params, setParams] = useSearchParams();
 
   const p = business?.permissions ?? [];
   const bizneskoradi = p.includes('business:read');
@@ -58,51 +120,130 @@ export function Settings() {
   const seatBoshqaradi = p.includes('seat:manage:all') || p.includes('seat:manage:department');
   const memberBoshqaradi = p.includes('member:manage');
   const integratsiyaBoshqaradi = p.includes('integration:manage');
+  const obunaKoradi = p.includes('subscription:manage');
+  const playbookKoradi = p.includes('playbook:read');
 
-  const BOLIMLAR: { key: Bolim; nom: string; korinadi: boolean }[] = [
-    { key: 'profil', nom: 'Profil', korinadi: true },
-    { key: 'biznes', nom: 'Biznes', korinadi: bizneskoradi },
-    { key: 'sotuvchilar', nom: 'Sotuvchilar', korinadi: seatBoshqaradi },
-    { key: 'rahbarlar', nom: 'Rahbarlar', korinadi: memberBoshqaradi },
-    { key: 'integratsiya', nom: 'Integratsiyalar', korinadi: bizneskoradi },
+  // Har bo'lim o'z ruxsatiga qarab ko'rinadi — chegara serverda, bu yerda faqat foydasiz tugma yashiriladi
+  const BOLIMLAR: { key: Bolim; nom: string; guruh: Guruh; ikon: ReactNode; korinadi: boolean }[] = [
+    { key: 'profil', nom: 'Profil', guruh: 'umumiy', ikon: <UserRound />, korinadi: true },
+    { key: 'korinish', nom: "Ko'rinish", guruh: 'umumiy', ikon: <Palette />, korinadi: true },
+    { key: 'biznes', nom: 'Umumiy', guruh: 'umumiy', ikon: <Settings2 />, korinadi: bizneskoradi },
+    { key: 'bizneslar', nom: 'Bizneslar', guruh: 'umumiy', ikon: <Building2 />, korinadi: true },
+    { key: 'bildirishnoma', nom: 'Bildirishnomalar', guruh: 'umumiy', ikon: <Bell />, korinadi: bizneskoradi },
+    { key: 'rahbarlar', nom: 'Rahbarlar', guruh: 'umumiy', ikon: <UserRoundPlus />, korinadi: memberBoshqaradi },
+    { key: 'sotuvchilar', nom: 'Menejerlar', guruh: 'umumiy', ikon: <UsersRound />, korinadi: seatBoshqaradi },
+    { key: 'jadval', nom: 'Ish jadvali', guruh: 'umumiy', ikon: <CalendarDays />, korinadi: bizneskoradi },
+    { key: 'obuna', nom: 'Obuna', guruh: 'umumiy', ikon: <CreditCard />, korinadi: obunaKoradi },
+    { key: 'muammo', nom: 'Muammo haqida xabar berish', guruh: 'umumiy', ikon: <MessageSquareWarning />, korinadi: true },
+    { key: 'mezonlar', nom: 'Baholash mezonlari', guruh: 'tahlil', ikon: <CircleCheck />, korinadi: playbookKoradi },
+    { key: 'anketa', nom: 'Anketa savollari', guruh: 'tahlil', ikon: <CircleHelp />, korinadi: playbookKoradi },
+    { key: 'xizmat', nom: "Xizmat yo'nalishlari", guruh: 'tahlil', ikon: <Box />, korinadi: playbookKoradi },
+    { key: 'oilalar', nom: "Qo'ng'iroq oilalari", guruh: 'tahlil', ikon: <MessagesSquare />, korinadi: playbookKoradi },
+    { key: 'ai', nom: "AI ko'rsatmalari", guruh: 'tahlil', ikon: <Sparkles />, korinadi: playbookKoradi },
+    { key: 'lidSifati', nom: 'Lid sifati bosqichlari', guruh: 'lid', ikon: <Flame />, korinadi: bizneskoradi },
+    { key: 'crmNatija', nom: 'CRM natija bosqichlari', guruh: 'lid', ikon: <Flag />, korinadi: bizneskoradi },
+    { key: 'crmVoronka', nom: 'Faol CRM voronkalari', guruh: 'lid', ikon: <Filter />, korinadi: bizneskoradi },
+    { key: 'integratsiya', nom: 'Telegram bot', guruh: 'lid', ikon: <Send />, korinadi: bizneskoradi },
+    { key: 'kunlik', nom: 'Kunlik hisobot', guruh: 'hisobot', ikon: <FileBarChart />, korinadi: bizneskoradi },
   ];
+  const korinadigan = BOLIMLAR.filter((b) => b.korinadi);
+  const bolim = korinadigan.find((b) => b.key === params.get('b')) ?? korinadigan[0]!;
+  const ochish = (k: Bolim) =>
+    setParams(
+      (eski) => {
+        const n = new URLSearchParams(eski);
+        if (k === 'profil') n.delete('b');
+        else n.set('b', k);
+        return n;
+      },
+      { replace: true },
+    );
+  const guruhlar = (Object.keys(GURUH_NOMI) as Guruh[]).filter((g) => korinadigan.some((b) => b.guruh === g));
 
   return (
     <>
       <div className="sahifa-bosh">
         <div>
-          <h1>Sozlamalar</h1>
-          <div className="izoh">Profil, biznes, jamoa va ulanishlar</div>
+          <h1>{t('Sozlamalar')}</h1>
+          <div className="izoh">{t('Profil, biznes, jamoa, tahlil va ulanishlar')}</div>
         </div>
       </div>
 
-      <div className="tab-qator" style={{ marginBottom: 14, flexWrap: 'wrap' }}>
-        {BOLIMLAR.filter((b) => b.korinadi).map((b) => (
-          <button
-            key={b.key}
-            className={`tab${bolim === b.key ? ' active' : ''}`}
-            onClick={() => setBolim(b.key)}
-          >
-            {b.nom}
-          </button>
-        ))}
+      {/* 1-daraja: guruhlar; 2-daraja: guruhdagi bo'limlar */}
+      <div className="tab-qator sz-guruhlar" role="tablist" aria-label="Sozlamalar guruhlari">
+        {guruhlar.map((g) => {
+          const soni = korinadigan.filter((b) => b.guruh === g).length;
+          return (
+            <button
+              key={g}
+              role="tab"
+              aria-selected={bolim.guruh === g}
+              className={`tab${bolim.guruh === g ? ' active' : ''}`}
+              onClick={() => ochish(korinadigan.find((b) => b.guruh === g)!.key)}
+            >
+              {t(GURUH_NOMI[g])} <small className="sz-soni">{soni}</small>
+            </button>
+          );
+        })}
+      </div>
+      <div className="tab-qator sz-bolimlar" role="tablist" aria-label={t(GURUH_NOMI[bolim.guruh])}>
+        {korinadigan
+          .filter((b) => b.guruh === bolim.guruh)
+          .map((b) => (
+            <button key={b.key} role="tab" aria-selected={bolim.key === b.key} className={`tab${bolim.key === b.key ? ' active' : ''}`} onClick={() => ochish(b.key)}>
+              {b.ikon} {t(b.nom)}
+            </button>
+          ))}
       </div>
 
-      {bolim === 'profil' && <Profil user={user} onSaqlandi={refresh} />}
-      {bolim === 'biznes' && business && (
-        <Biznes businessId={business.businessId} yozaOladi={bizneYozadi} onSaqlandi={refresh} />
+      <div className="sz-ichi">
+        {bolim.key === 'profil' && <Profil user={user} business={business} onSaqlandi={refresh} />}
+        {bolim.key === 'korinish' && <Korinish />}
+        {bolim.key === 'biznes' && business && <Biznes businessId={business.businessId} yozaOladi={bizneYozadi} onSaqlandi={refresh} />}
+        {bolim.key === 'bizneslar' && business && <Bizneslar joriyId={business.businessId} />}
+        {bolim.key === 'bildirishnoma' && business && <Bildirishnomalar businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
+        {bolim.key === 'rahbarlar' && business && <Rahbarlar businessId={business.businessId} />}
+        {bolim.key === 'sotuvchilar' && business && <Menejerlar businessId={business.businessId} />}
+        {bolim.key === 'jadval' && business && <IshJadvali businessId={business.businessId} />}
+        {bolim.key === 'obuna' && business && <Obuna businessId={business.businessId} />}
+        {bolim.key === 'muammo' && <MuammoXabari biznes={business?.name ?? '—'} foydalanuvchi={user?.displayName ?? '—'} />}
+        {bolim.key === 'mezonlar' && <BaholashMezonlari />}
+        {bolim.key === 'anketa' && <AnketaSavollari />}
+        {bolim.key === 'xizmat' && <XizmatYonalishlari />}
+        {bolim.key === 'oilalar' && <QongiroqOilalari />}
+        {bolim.key === 'ai' && (
+          <>
+            <AiKorsatmalari />
+            {bizneskoradi && <BiznesProfili />}
+          </>
+        )}
+        {bolim.key === 'lidSifati' && <LidSifatiBosqichlari />}
+        {bolim.key === 'crmNatija' && <CrmNatija />}
+        {bolim.key === 'crmVoronka' && <CrmVoronkalar />}
+        {bolim.key === 'integratsiya' && business && <Integratsiya businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
+        {bolim.key === 'kunlik' && <KunlikHisobotSozlama />}
+      </div>
+    </>
+  );
+}
+
+/** Onboarding'dagi profil formasi — saqlangach xabar chiqadi. */
+function BiznesProfili() {
+  const [saqlandi, setSaqlandi] = useState(false);
+  return (
+    <>
+      {saqlandi && (
+        <div className="ok-qator" style={{ marginBottom: 10 }}>
+          Biznes profili saqlandi <Check />
+        </div>
       )}
-      {bolim === 'sotuvchilar' && business && <Sotuvchilar businessId={business.businessId} />}
-      {bolim === 'rahbarlar' && business && <Rahbarlar businessId={business.businessId} />}
-      {bolim === 'integratsiya' && business && (
-        <>
-          <Integratsiya businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />
-          <KunlikHisobot
-            businessId={business.businessId}
-            boshqaraOladi={integratsiyaBoshqaradi}
-          />
-        </>
-      )}
+      <ProfileStep
+        tugmaMatni="Saqlash"
+        onNext={() => {
+          setSaqlandi(true);
+          setTimeout(() => setSaqlandi(false), 2500);
+        }}
+      />
     </>
   );
 }
@@ -132,142 +273,318 @@ function useSaqlash() {
 
 function Xabar({ holat, xato }: { holat: string; xato: string | null }) {
   if (xato) return <div className="xato-qator">{xato}</div>;
-  if (holat === 'ok') return <div className="ok-qator">Saqlandi ✓</div>;
+  if (holat === 'ok') return <div className="ok-qator">Saqlandi <Check /></div>;
   return null;
 }
 
-// ─── PROFIL (FR-160, FR-162) ────────────────────────────────────────────────
+// ─── PROFIL (FR-160) ────────────────────────────────────────────────────────
 
 function Profil({
   user,
+  business,
   onSaqlandi,
 }: {
-  user: { displayName: string; email: string | null; login: string | null; locale: string } | null;
+  user: { id: string; displayName: string; email: string | null; login: string | null; locale: string; avatarUrl: string | null } | null;
+  business: { businessId: string; role: string; permissions: string[] } | null;
   onSaqlandi: () => Promise<void>;
 }) {
-  const [ism, setIsm] = useState(user?.displayName ?? '');
-  const [til, setTil] = useState(user?.locale ?? 'uz');
-  const [mavzu, setMavzu] = useState(() => localStorage.getItem(MAVZU_KALIT) ?? 'system');
+  const boshlangich = { ism: user?.displayName ?? '', til: user?.locale ?? 'uz', avatar: user?.avatarUrl ?? '' };
+  const [ism, setIsm] = useState(boshlangich.ism);
+  const [til, setTil] = useState(boshlangich.til);
+  const [avatar, setAvatar] = useState(boshlangich.avatar);
+  const [avatarOchiq, setAvatarOchiq] = useState(false);
+  const [rasmXato, setRasmXato] = useState(false);
+  // Fayldan tanlangan rasm: undefined — o'zgarmagan, null — olib tashlandi, string — yangi rasm
+  const saqlanganLokal = useLokalAvatar(user?.id);
+  const [yangiLokal, setYangiLokal] = useState<string | null | undefined>(undefined);
+  const [faylXato, setFaylXato] = useState<string | null>(null);
+  const [sudrash, setSudrash] = useState(false);
+  const faylRef = useRef<HTMLInputElement>(null);
+  const lokal = yangiLokal === undefined ? saqlanganLokal : yangiLokal;
+
+  async function faylniOl(f: File | undefined) {
+    if (!f) return;
+    setFaylXato(null);
+    try {
+      setYangiLokal(await rasmniTayyorla(f));
+    } catch (e) {
+      setFaylXato(e instanceof Error ? e.message : "Rasmni o'qib bo'lmadi");
+    }
+  }
+  const [tg, setTg] = useState<TelegramIntegration | null>(null);
   const { holat, xato, bajar } = useSaqlash();
 
   const parol = useSaqlash();
   const [joriy, setJoriy] = useState('');
   const [yangi, setYangi] = useState('');
 
+  useEffect(() => {
+    if (!business) return;
+    void api.get<TelegramIntegration>(`/api/v1/businesses/${business.businessId}/integrations/telegram`).then(setTg).catch(() => undefined);
+  }, [business?.businessId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const ozgargan =
+    ism.trim() !== boshlangich.ism || til !== boshlangich.til || avatar.trim() !== boshlangich.avatar || yangiLokal !== undefined;
+  const avatarTogri = avatar.trim() === '' || /^https?:\/\/\S+$/.test(avatar.trim());
+  const bosh = (ism.trim() || '?')
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((s) => s[0]!.toUpperCase())
+    .join('');
+  const tgBot = tg?.integration?.config.botUsername;
+
   return (
     <>
-      <div className="card">
-        <div className="karta-bosh">
+      <section className="card pr-karta">
+        <header className="pr-bosh">
           <h2>Profil</h2>
-        </div>
-        <div className="maydon-blok">
-          <label htmlFor="p-ism">Ism</label>
-          <input id="p-ism" value={ism} onChange={(e) => setIsm(e.target.value)} maxLength={120} />
-        </div>
-        <div className="maydon-blok">
-          <label htmlFor="p-email">Email</label>
-          <input id="p-email" value={user?.email ?? user?.login ?? '—'} disabled />
-          <div className="yordam">
-            Email o'zgartirish yangi manzilni tasdiqlashni talab qiladi — hozircha qo'llab
-            quvvatlanmaydi.
-          </div>
-        </div>
-        <div className="maydon-blok">
-          <label htmlFor="p-til">Til</label>
-          <select id="p-til" value={til} onChange={(e) => setTil(e.target.value)}>
-            <option value="uz">O'zbekcha</option>
-            <option value="ru">Ruscha</option>
-          </select>
-          <div className="yordam">
-            Interfeys tarjimasi hali qo'shilmagan — bu tanlov hisobotlar tili uchun saqlanadi.
-          </div>
-        </div>
-        <div className="maydon-blok">
-          <label htmlFor="p-mavzu">Ko'rinish (FR-162)</label>
-          <select
-            id="p-mavzu"
-            value={mavzu}
-            onChange={(e) => {
-              setMavzu(e.target.value);
-              mavzuniQoll(e.target.value);
+          <p>Shaxsiy ma'lumotlaringizni yangilang</p>
+        </header>
+
+        <div className="pr-avatar-qator">
+          {/* Rasmni avatar ustiga sudrab tashlash ham mumkin */}
+          <div
+            className={`pr-avatar${sudrash ? ' sudrash' : ''}`}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setSudrash(true);
+            }}
+            onDragLeave={() => setSudrash(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setSudrash(false);
+              void faylniOl(e.dataTransfer.files[0]);
             }}
           >
-            <option value="system">Tizim bo'yicha</option>
-            <option value="light">Yorug'</option>
-            <option value="dark">Qorong'i</option>
-          </select>
+            {lokal ? (
+              <img src={lokal} alt="Profil rasmi" />
+            ) : avatar.trim() && avatarTogri && !rasmXato ? (
+              <img src={avatar.trim()} alt="Profil rasmi" onError={() => setRasmXato(true)} />
+            ) : (
+              <span>{bosh}</span>
+            )}
+            <button type="button" className="pr-qalam" onClick={() => faylRef.current?.click()} aria-label="Rasm tanlash">
+              <Pencil />
+            </button>
+            <input
+              ref={faylRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              hidden
+              onChange={(e) => {
+                void faylniOl(e.target.files?.[0]);
+                e.target.value = '';
+              }}
+            />
+          </div>
+          <div className="pr-avatar-matn">
+            <b>Rasmni o'zgartirish</b>
+            <small>JPG, PNG yoki WEBP · 2 MB gacha · avatar ustiga sudrab tashlash ham mumkin</small>
+            <div className="pr-avatar-tugmalar">
+              <button type="button" className="btn ikkinchi kichik" onClick={() => faylRef.current?.click()}>
+                <Upload /> Rasm tanlash
+              </button>
+              <button type="button" className="btn ikkinchi kichik" onClick={() => setAvatarOchiq((v) => !v)} aria-expanded={avatarOchiq}>
+                <Link2 /> Havola orqali
+              </button>
+              {(lokal || avatar) && (
+                <button
+                  type="button"
+                  className="btn ikkinchi kichik pr-olib"
+                  onClick={() => {
+                    setYangiLokal(null);
+                    setAvatar('');
+                  }}
+                >
+                  <Trash2 /> Olib tashlash
+                </button>
+              )}
+            </div>
+            {faylXato && <small className="pr-xato">{faylXato}</small>}
+            {lokal && <small>Fayldan qo'yilgan rasm shu brauzerda saqlanadi — boshqa qurilmada ko'rinishi uchun havola orqali qo'ying.</small>}
+            {avatarOchiq && (
+              <div className="pr-avatar-maydon">
+                <input
+                  className="input"
+                  value={avatar}
+                  onChange={(e) => {
+                    setAvatar(e.target.value);
+                    setRasmXato(false);
+                  }}
+                  placeholder="https://…/rasm.jpg"
+                  aria-label="Rasm havolasi"
+                  autoFocus
+                />
+              </div>
+            )}
+            {!avatarTogri && <small className="pr-xato">Havola https:// bilan boshlanishi kerak</small>}
+            {avatarTogri && rasmXato && avatar.trim() && <small className="pr-xato">Rasm ochilmadi — havolani tekshiring</small>}
+          </div>
         </div>
-        <Xabar holat={holat} xato={xato} />
-        <button
-          className="btn"
-          disabled={holat === 'ketmoqda' || ism.trim().length < 2}
-          onClick={() =>
-            void bajar(async () => {
-              await api.patch('/api/v1/auth/me', { displayName: ism.trim(), locale: til });
-              await onSaqlandi();
-            })
-          }
-        >
-          {holat === 'ketmoqda' ? 'Saqlanmoqda…' : 'Saqlash'}
-        </button>
-      </div>
 
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="karta-bosh">
+        <div className="pr-maydonlar">
+          <div className="maydon-blok">
+            <label htmlFor="p-ism">Nom</label>
+            <input id="p-ism" value={ism} onChange={(e) => setIsm(e.target.value)} maxLength={120} />
+          </div>
+          <div className="maydon-blok">
+            <label htmlFor="p-email">Email</label>
+            <input id="p-email" value={user?.email ?? user?.login ?? '—'} disabled title="Email o'zgartirish yangi manzilni tasdiqlashni talab qiladi — hozircha qo'llab-quvvatlanmaydi" />
+          </div>
+        </div>
+        <div className="pr-belgilar">
+          {business && <span className="pr-belgi rol">{ROL_NOM[business.role] ?? business.role}</span>}
+          <span className="pr-belgi kirish">{user?.email ? 'Email' : 'Login'}</span>
+        </div>
+
+        <div className="pr-ajrat" />
+
+        <header className="pr-bosh">
+          <h2>Ulangan hisoblar</h2>
+          <p>Ulangan hisoblaringizni boshqaring</p>
+        </header>
+        <div className="pr-hisob">
+          <span className="pr-hisob-ikon tg" aria-hidden="true">
+            <Send />
+          </span>
+          <div className="pr-hisob-matn">
+            <b>Telegram</b>
+            <small>
+              {tg?.connected
+                ? `${tgBot ? `@${tgBot.replace(/^@/, '')} boti` : 'Bot'} ulangan — kunlik hisobot va parolni tiklash havolalari shu orqali keladi.`
+                : 'Telegram botni ulash orqali kunlik hisobot va bildirishnomalar olishingiz mumkin.'}
+            </small>
+          </div>
+          {tg?.connected ? (
+            <span className="pr-belgi ulangan">
+              <Check /> Ulangan
+            </span>
+          ) : (
+            <Link to="/sozlamalar?b=integratsiya" className="btn ikkinchi">
+              Botni ulash
+            </Link>
+          )}
+        </div>
+
+        <div className="pr-ajrat" />
+        <Xabar holat={holat} xato={xato} />
+        <div className="pr-past">
+          <button
+            type="button"
+            className="btn ikkinchi"
+            disabled={!ozgargan || holat === 'ketmoqda'}
+            onClick={() => {
+              setIsm(boshlangich.ism);
+              setTil(boshlangich.til);
+              setAvatar(boshlangich.avatar);
+              setAvatarOchiq(false);
+              setYangiLokal(undefined);
+              setFaylXato(null);
+            }}
+          >
+            Bekor qilish
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={!ozgargan || holat === 'ketmoqda' || ism.trim().length < 2 || !avatarTogri}
+            onClick={() =>
+              void bajar(async () => {
+                await api.patch('/api/v1/auth/me', {
+                  displayName: ism.trim(),
+                  locale: til,
+                  avatarUrl: avatar.trim() ? avatar.trim() : null,
+                });
+                // Fayldan tanlangan rasm — faqat shu brauzerda
+                if (yangiLokal !== undefined && user) lokalAvatarSaqla(user.id, yangiLokal);
+                setYangiLokal(undefined);
+                await onSaqlandi();
+                setAvatarOchiq(false);
+              })
+            }
+          >
+            {holat === 'ketmoqda' ? 'Saqlanmoqda…' : 'Saqlash'}
+          </button>
+        </div>
+      </section>
+
+      <section className="card pr-karta">
+        <header className="pr-bosh">
           <h2>Parolni o'zgartirish</h2>
-        </div>
-        <div className="maydon-blok">
-          <label htmlFor="p-joriy">Joriy parol</label>
-          <input
-            id="p-joriy"
-            type="password"
-            value={joriy}
-            onChange={(e) => setJoriy(e.target.value)}
-            autoComplete="current-password"
-          />
-        </div>
-        <div className="maydon-blok">
-          <label htmlFor="p-yangi">Yangi parol</label>
-          <input
-            id="p-yangi"
-            type="password"
-            value={yangi}
-            onChange={(e) => setYangi(e.target.value)}
-            autoComplete="new-password"
-          />
-          <div className="yordam">Kamida 10 belgi. Uzunlik murakkablikdan muhimroq.</div>
+          <p>Parol o'zgargach boshqa barcha qurilmalardagi sessiyalar bekor qilinadi.</p>
+        </header>
+        <div className="pr-maydonlar">
+          <div className="maydon-blok">
+            <label htmlFor="p-joriy">Joriy parol</label>
+            <ParolInput id="p-joriy" value={joriy} onChange={(e) => setJoriy(e.target.value)} autoComplete="current-password" />
+          </div>
+          <div className="maydon-blok">
+            <label htmlFor="p-yangi">Yangi parol</label>
+            <ParolInput id="p-yangi" value={yangi} onChange={(e) => setYangi(e.target.value)} autoComplete="new-password" />
+            <div className="yordam">Kamida 10 belgi. Uzunlik murakkablikdan muhimroq.</div>
+          </div>
         </div>
         <Xabar holat={parol.holat} xato={parol.xato} />
-        <div className="yordam" style={{ marginBottom: 8 }}>
-          Parol o'zgargach boshqa barcha qurilmalardagi sessiyalar bekor qilinadi.
+        <div className="pr-past">
+          <button
+            type="button"
+            className="btn"
+            disabled={parol.holat === 'ketmoqda' || joriy.length < 1 || yangi.length < 10}
+            onClick={() =>
+              void parol
+                .bajar(() => api.post('/api/v1/auth/change-password', { currentPassword: joriy, newPassword: yangi }))
+                .then((ok) => {
+                  if (ok) {
+                    setJoriy('');
+                    setYangi('');
+                  }
+                })
+            }
+          >
+            {parol.holat === 'ketmoqda' ? "O'zgartirilmoqda…" : "Parolni o'zgartirish"}
+          </button>
         </div>
-        <button
-          className="btn"
-          disabled={parol.holat === 'ketmoqda' || joriy.length < 1 || yangi.length < 10}
-          onClick={() =>
-            void parol
-              .bajar(() =>
-                api.post('/api/v1/auth/change-password', {
-                  currentPassword: joriy,
-                  newPassword: yangi,
-                }),
-              )
-              .then((ok) => {
-                if (ok) {
-                  setJoriy('');
-                  setYangi('');
-                }
-              })
-          }
-        >
-          {parol.holat === 'ketmoqda' ? 'O\'zgartirilmoqda…' : 'Parolni o\'zgartirish'}
-        </button>
-      </div>
+      </section>
     </>
   );
 }
 
 // ─── BIZNES (FR-161) ────────────────────────────────────────────────────────
+
+const VAQT_ZONALARI = [
+  ['Asia/Tashkent', 'UTC+5'],
+  ['Asia/Samarkand', 'UTC+5'],
+  ['Asia/Almaty', 'UTC+6'],
+  ['Asia/Bishkek', 'UTC+6'],
+  ['Asia/Dushanbe', 'UTC+5'],
+  ['Asia/Ashgabat', 'UTC+5'],
+  ['Europe/Moscow', 'UTC+3'],
+  ['Europe/Istanbul', 'UTC+3'],
+  ['Asia/Dubai', 'UTC+4'],
+  ['Asia/Seoul', 'UTC+9'],
+  ['Asia/Tokyo', 'UTC+9'],
+  ['Europe/London', 'UTC+0'],
+  ['Europe/Berlin', 'UTC+1'],
+  ['America/New_York', 'UTC-5'],
+  ['America/Los_Angeles', 'UTC-8'],
+  ['UTC', 'UTC+0'],
+].map(([qiymat, ofset]) => ({ qiymat: qiymat!, nom: qiymat === 'UTC' ? 'UTC' : `${qiymat} (${ofset})` }));
+
+const VALYUTALAR = [
+  { qiymat: 'UZS', nom: "UZS — so'm" },
+  { qiymat: 'USD', nom: 'USD — dollar' },
+  { qiymat: 'RUB', nom: 'RUB — rubl' },
+];
+
+/** Serverda «soha» maydoni yo'q — shu brauzerda, biznes bo'yicha saqlanadi. */
+const sohaKalit = (id: string) => `sotuvai-soha:${id}`;
+const sohaOl = (id: string) => {
+  try {
+    return localStorage.getItem(sohaKalit(id)) ?? '';
+  } catch {
+    return '';
+  }
+};
 
 function Biznes({
   businessId,
@@ -278,485 +595,217 @@ function Biznes({
   yozaOladi: boolean;
   onSaqlandi: () => Promise<void>;
 }) {
-  const [row, setRow] = useState<BusinessRow | null>(null);
+  type Qator = BusinessRow & { createdAt?: string; deletedAt?: string | null; profile?: Partial<BusinessProfile> | null };
+  const [asl, setAsl] = useState<Qator | null>(null);
+  const [nom, setNom] = useState('');
+  const [tavsif, setTavsif] = useState('');
+  const [tz, setTz] = useState('Asia/Tashkent');
+  const [valyuta, setValyuta] = useState('UZS');
+  const [logo, setLogo] = useState('');
+  const [aslSoha, setAslSoha] = useState(() => sohaOl(businessId));
+  const [soha, setSoha] = useState(aslSoha);
   const { holat, xato, bajar } = useSaqlash();
 
-  useEffect(() => {
-    void api.get<BusinessRow>(`/api/v1/businesses/${businessId}`).then(setRow).catch(() => undefined);
+  const yukla = useCallback(() => {
+    const s = sohaOl(businessId);
+    setAslSoha(s);
+    setSoha(s);
+    void api
+      .get<Qator>(`/api/v1/businesses/${businessId}`)
+      .then((r) => {
+        setAsl(r);
+        setNom(r.name);
+        setTavsif(r.profile?.businessDescription ?? '');
+        setTz(r.timezone);
+        setValyuta(r.currency);
+        setLogo(r.logoUrl ?? '');
+      })
+      .catch(() => undefined);
   }, [businessId]);
+  useEffect(yukla, [yukla]);
 
-  if (!row) return <div className="yuklanmoqda">Yuklanmoqda…</div>;
+  if (!asl) return <div className="card skelet" style={{ height: 420 }} aria-busy="true" />;
+
+  const aslTavsif = asl.profile?.businessDescription ?? '';
+  const ozgargan =
+    nom.trim() !== asl.name ||
+    soha.trim() !== aslSoha ||
+    tavsif.trim() !== aslTavsif.trim() ||
+    tz !== asl.timezone ||
+    valyuta !== asl.currency ||
+    logo.trim() !== (asl.logoUrl ?? '');
+  const logoTogri = logo.trim() === '' || /^https?:\/\/\S+$/.test(logo.trim());
+  const TIL_NOMI: Record<string, string> = { uz: "O'zbek tili", 'uz-Cyrl': "O'zbek tili (kirill)", ru: 'Rus tili', en: 'Ingliz tili' };
+  const faol = !asl.deletedAt;
+  // Serverdagi qiymat ro'yxatda bo'lmasa ham yo'qolmasin
+  const zonalar = VAQT_ZONALARI.some((z) => z.qiymat === asl.timezone)
+    ? VAQT_ZONALARI
+    : [{ qiymat: asl.timezone, nom: asl.timezone }, ...VAQT_ZONALARI];
+  const valyutalar = VALYUTALAR.some((v) => v.qiymat === asl.currency)
+    ? VALYUTALAR
+    : [{ qiymat: asl.currency, nom: asl.currency }, ...VALYUTALAR];
+
+  const bekor = () => {
+    setNom(asl.name);
+    setSoha(aslSoha);
+    setTavsif(aslTavsif);
+    setTz(asl.timezone);
+    setValyuta(asl.currency);
+    setLogo(asl.logoUrl ?? '');
+  };
 
   return (
-    <div className="card">
-      <div className="karta-bosh">
-        <h2>Biznes sozlamalari</h2>
-      </div>
-      <div className="maydon-blok">
-        <label htmlFor="b-nom">Nomi</label>
-        <input
-          id="b-nom"
-          value={row.name}
-          disabled={!yozaOladi}
-          onChange={(e) => setRow({ ...row, name: e.target.value })}
-          maxLength={120}
-        />
-      </div>
-      <div className="maydon-blok">
-        <label htmlFor="b-tz">Vaqt zonasi</label>
-        <select
-          id="b-tz"
-          value={row.timezone}
-          disabled={!yozaOladi}
-          onChange={(e) => setRow({ ...row, timezone: e.target.value })}
-        >
-          <option value="Asia/Tashkent">Asia/Tashkent (UTC+5)</option>
-          <option value="Asia/Almaty">Asia/Almaty (UTC+6)</option>
-          <option value="Europe/Moscow">Europe/Moscow (UTC+3)</option>
-          <option value="UTC">UTC</option>
-        </select>
-        <div className="yordam">
-          Kunlik hisobot va "bugungi vazifalar" shu zonaga qarab hisoblanadi.
+    <section className="card pr-karta bz-karta">
+      <header className="pr-bosh">
+        <h2>Umumiy</h2>
+        <p>Biznes sozlamalarini yangilash</p>
+      </header>
+
+      <div className="pr-maydonlar">
+        <div className="maydon-blok">
+          <label htmlFor="b-nom">Biznes nomi</label>
+          <input id="b-nom" value={nom} disabled={!yozaOladi} onChange={(e) => setNom(e.target.value)} maxLength={120} />
+        </div>
+        <div className="maydon-blok">
+          <label htmlFor="b-soha">Soha</label>
+          <input
+            id="b-soha"
+            value={soha}
+            disabled={!yozaOladi}
+            onChange={(e) => setSoha(e.target.value)}
+            placeholder="Masalan: Ta'lim"
+            maxLength={80}
+          />
+          <div className="yordam">Shu brauzerda saqlanadi — serverda soha maydoni hali yo'q.</div>
         </div>
       </div>
-      <div className="maydon-blok">
-        <label htmlFor="b-valyuta">Valyuta</label>
-        <select
-          id="b-valyuta"
-          value={row.currency}
+      <div className="maydon-blok bz-toliq">
+        <label htmlFor="b-tavsif">Tavsif</label>
+        <textarea
+          id="b-tavsif"
+          rows={2}
+          value={tavsif}
           disabled={!yozaOladi}
-          onChange={(e) => setRow({ ...row, currency: e.target.value })}
-        >
-          <option value="UZS">UZS — so'm</option>
-          <option value="USD">USD</option>
-          <option value="RUB">RUB</option>
-        </select>
-      </div>
-      <div className="maydon-blok">
-        <label htmlFor="b-logo">Logotip havolasi</label>
-        <input
-          id="b-logo"
-          value={row.logoUrl ?? ''}
-          disabled={!yozaOladi}
-          placeholder="https://…"
-          onChange={(e) => setRow({ ...row, logoUrl: e.target.value })}
+          onChange={(e) => setTavsif(e.target.value)}
+          placeholder="Biznesingiz nima bilan shug'ullanadi — AI suhbatlarni shu kontekstda tahlil qiladi"
+          maxLength={2000}
         />
       </div>
+      <div className="pr-maydonlar">
+        <div className="maydon-blok">
+          <label htmlFor="b-til">Biznes tili</label>
+          <TanlovMenyu
+            id="b-til"
+            aria="Biznes tili"
+            qiymat={asl.locale}
+            variantlar={[{ qiymat: asl.locale, nom: TIL_NOMI[asl.locale] ?? asl.locale }]}
+            onOzgar={() => undefined}
+            kenglik="100%"
+            disabled
+          />
+          <div className="yordam">Playbooklar va tizim ishlaydigan asosiy til. Biznes yaratishda bir marta tanlanadi. Bu interfeys tili emas.</div>
+        </div>
+        <div className="maydon-blok">
+          <label htmlFor="b-tz">Vaqt zonasi</label>
+          <TanlovMenyu id="b-tz" aria="Vaqt zonasi" qiymat={tz} variantlar={zonalar} onOzgar={setTz} kenglik="100%" disabled={!yozaOladi} />
+          <div className="yordam">Kunlik hisobot va «bugungi vazifalar» shu zonaga qarab hisoblanadi.</div>
+        </div>
+      </div>
+      <div className="pr-maydonlar">
+        <div className="maydon-blok">
+          <label htmlFor="b-valyuta">Valyuta</label>
+          <TanlovMenyu id="b-valyuta" aria="Valyuta" qiymat={valyuta} variantlar={valyutalar} onOzgar={setValyuta} kenglik="100%" disabled={!yozaOladi} />
+        </div>
+        <div className="maydon-blok">
+          <label htmlFor="b-logo">Logotip havolasi</label>
+          <input id="b-logo" value={logo} disabled={!yozaOladi} placeholder="https://…/logo.png" onChange={(e) => setLogo(e.target.value)} />
+          {!logoTogri && <div className="yordam" style={{ color: 'var(--past-text)' }}>Havola https:// bilan boshlanishi kerak</div>}
+        </div>
+      </div>
+
+      {/* Server sozlamasi yo'q almashtirgichlar — holati halol ko'rsatiladi */}
+      <div className="bz-almash">
+        <div>
+          <b>Vazifalarni CRM'ga yuborish</b>
+          <small>Mos keladigan vazifalarni ulangan CRM'ga yuborish. CRM hali ulanmagan — vazifalar SotuvAI ichida yuritiladi.</small>
+        </div>
+        <label className="vr-almash" title="CRM ulanmagan">
+          <input type="checkbox" role="switch" checked={false} disabled readOnly />
+          <span className="vr-almash-yol" aria-hidden="true" />
+        </label>
+      </div>
+      <div className="bz-almash">
+        <div>
+          <b>Suhbatlardan AI vazifalar yaratish</b>
+          <small>Suhbatda menejer bergan va'dalardan AI avtomatik vazifa yaratadi. Hozir doim yoqilgan — o'chirish sozlamasi hali qo'shilmagan.</small>
+        </div>
+        <label className="vr-almash" title="Doim yoqilgan">
+          <input type="checkbox" role="switch" checked disabled readOnly />
+          <span className="vr-almash-yol" aria-hidden="true" />
+        </label>
+      </div>
+
+      <div className="bz-malumot">
+        <b>Biznes ma'lumotlari</b>
+        <dl>
+          <div>
+            <dt>Slug:</dt>
+            <dd>{asl.slug}</dd>
+          </div>
+          <div>
+            <dt>ID:</dt>
+            <dd className="bz-id">{asl.id}</dd>
+          </div>
+          <div>
+            <dt>Yaratilgan sana:</dt>
+            <dd>{asl.createdAt ? asl.createdAt.slice(0, 10) : '—'}</dd>
+          </div>
+          <div>
+            <dt>Holat:</dt>
+            <dd className={faol ? 'bz-faol' : 'bz-nofaol'}>{faol ? 'Faol' : "O'chirilgan"}</dd>
+          </div>
+        </dl>
+      </div>
+
       <Xabar holat={holat} xato={xato} />
       {yozaOladi && (
-        <button
-          className="btn"
-          disabled={holat === 'ketmoqda' || row.name.trim().length < 2}
-          onClick={() =>
-            void bajar(async () => {
-              await api.patch(`/api/v1/businesses/${businessId}`, {
-                name: row.name.trim(),
-                timezone: row.timezone,
-                currency: row.currency,
-                logoUrl: row.logoUrl?.trim() ? row.logoUrl.trim() : null,
-              });
-              await onSaqlandi();
-            })
-          }
-        >
-          {holat === 'ketmoqda' ? 'Saqlanmoqda…' : 'Saqlash'}
-        </button>
+        <div className="pr-past">
+          <button type="button" className="btn ikkinchi" disabled={!ozgargan || holat === 'ketmoqda'} onClick={bekor}>
+            Bekor qilish
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={!ozgargan || holat === 'ketmoqda' || nom.trim().length < 2 || !logoTogri}
+            onClick={() =>
+              void bajar(async () => {
+                try {
+                  if (soha.trim()) localStorage.setItem(sohaKalit(businessId), soha.trim());
+                  else localStorage.removeItem(sohaKalit(businessId));
+                } catch {
+                  /* xotira yopiq — soha saqlanmaydi, qolganlari saqlanadi */
+                }
+                await api.patch(`/api/v1/businesses/${businessId}`, {
+                  name: nom.trim(),
+                  timezone: tz,
+                  currency: valyuta,
+                  logoUrl: logo.trim() ? logo.trim() : null,
+                });
+                // Tavsif biznes profilida — faqat o'zgarganda butun profil qayta yoziladi
+                if (tavsif.trim() !== aslTavsif.trim()) {
+                  const p = await api.get<{ profile: BusinessProfile }>(`/api/v1/businesses/${businessId}/profile`);
+                  await api.put(`/api/v1/businesses/${businessId}/profile`, { ...EMPTY_PROFILE, ...p.profile, businessDescription: tavsif.trim() });
+                }
+                await onSaqlandi();
+                yukla();
+              })
+            }
+          >
+            {holat === 'ketmoqda' ? 'Saqlanmoqda…' : 'Saqlash'}
+          </button>
+        </div>
       )}
-    </div>
-  );
-}
-
-// ─── SOTUVCHILAR (FR-164) ───────────────────────────────────────────────────
-
-function Sotuvchilar({ businessId }: { businessId: string }) {
-  const [rows, setRows] = useState<SeatFull[]>([]);
-  const [yangiIsm, setYangiIsm] = useState('');
-  // Ikki xil havola bir xil bloкda ko'rsatiladi, lekin manzili boshqa —
-  // aktivatsiya yangi hisob uchun, tiklash esa mavjud parolni almashtiradi.
-  const [havola, setHavola] = useState<
-    { seatId: string; token: string; tur: 'aktivatsiya' | 'parol' } | null
-  >(null);
-  const [tahrir, setTahrir] = useState<string | null>(null);
-  const [tgId, setTgId] = useState('');
-  const { holat, xato, bajar } = useSaqlash();
-
-  const yukla = useCallback(() => {
-    void api
-      .get<SeatFull[]>(`/api/v1/businesses/${businessId}/seats`)
-      .then(setRows)
-      .catch(() => undefined);
-  }, [businessId]);
-
-  useEffect(yukla, [yukla]);
-
-  const base = `/api/v1/businesses/${businessId}/seats`;
-
-  return (
-    <>
-      <div className="card">
-        <div className="karta-bosh">
-          <h2>Sotuvchilar ({rows.filter((r) => r.isActive).length} faol)</h2>
-        </div>
-        {rows.length === 0 ? (
-          <div className="hech-narsa">Hali sotuvchi qo'shilmagan</div>
-        ) : (
-          <table className="jadval">
-            <thead>
-              <tr>
-                <th>Ism</th>
-                <th>Holat</th>
-                <th>Telegram</th>
-                <th>Suhbat</th>
-                <th>Ball</th>
-                <th>Amal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((s) => {
-                const a = AKTIVATSIYA[s.activation] ?? { nom: s.activation, klass: 'kul' };
-                return (
-                  <tr key={s.id} style={{ opacity: s.isActive ? 1 : 0.5 }}>
-                    <td>
-                      <b>{s.displayName}</b>
-                      {!s.isActive && <span className="badge kul" style={{ marginLeft: 6 }}>o'chirilgan</span>}
-                    </td>
-                    <td>
-                      <span className={`badge ${a.klass}`}>{a.nom}</span>
-                    </td>
-                    <td>
-                      {s.telegramLinked ? (
-                        <span className="badge ok">ulangan</span>
-                      ) : (
-                        <button className="btn ikkinchi kichik" onClick={() => setTahrir(s.id)}>
-                          ID biriktirish
-                        </button>
-                      )}
-                    </td>
-                    <td>{s.totalConversations}</td>
-                    <td>{s.avgScore === null ? '—' : `${Math.round(Number(s.avgScore))}%`}</td>
-                    <td>
-                      <button
-                        className="btn ikkinchi kichik"
-                        onClick={() =>
-                          void bajar(async () => {
-                            const r = await api.post<{ activationToken: string }>(
-                              `${base}/${s.id}/activation-link`,
-                            );
-                            setHavola({ seatId: s.id, token: r.activationToken, tur: 'aktivatsiya' });
-                            yukla();
-                          })
-                        }
-                      >
-                        Aktivatsiya havolasi
-                      </button>{' '}
-                      {/* FR-06: o'rin egallangan bo'lsagina — bo'sh o'rinda
-                          tiklanadigan hisob yo'q. */}
-                      {s.userId && (
-                        <>
-                          <button
-                            className="btn ikkinchi kichik"
-                            onClick={() =>
-                              void bajar(async () => {
-                                const r = await api.post<{ resetToken: string }>(
-                                  `/api/v1/businesses/${businessId}/users/${s.userId}/reset-link`,
-                                );
-                                setHavola({ seatId: s.id, token: r.resetToken, tur: 'parol' });
-                              })
-                            }
-                          >
-                            Parol havolasi
-                          </button>{' '}
-                        </>
-                      )}
-                      <button
-                        className="btn ikkinchi kichik"
-                        onClick={() =>
-                          void bajar(async () => {
-                            await api.patch(`${base}/${s.id}`, { isActive: !s.isActive });
-                            yukla();
-                          })
-                        }
-                      >
-                        {s.isActive ? 'O\'chirish' : 'Yoqish'}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-
-        {havola && (
-          <div className="card" style={{ marginTop: 12, borderLeft: '4px solid var(--info)' }}>
-            <b>
-              {havola.tur === 'parol'
-                ? 'Parol tiklash havolasi tayyor'
-                : 'Aktivatsiya havolasi tayyor'}
-            </b>
-            <div className="yordam" style={{ margin: '6px 0' }}>
-              Bu token <b>faqat hozir</b> ko'rinadi va bir marta ishlaydi.
-              {havola.tur === 'parol' && ' 30 daqiqadan keyin kuchini yo\'qotadi.'} Sotuvchiga
-              shaxsan yetkazing.
-            </div>
-            <code style={{ wordBreak: 'break-all', display: 'block', fontSize: 12 }}>
-              {havola.tur === 'parol'
-                ? `${window.location.origin}/parol-tiklash/${havola.token}`
-                : `${window.location.origin}/aktivatsiya/${havola.token}`}
-            </code>
-            <button
-              className="btn ikkinchi kichik"
-              style={{ marginTop: 8 }}
-              onClick={() => setHavola(null)}
-            >
-              Yopish
-            </button>
-          </div>
-        )}
-
-        {tahrir && (
-          <div className="card" style={{ marginTop: 12, borderLeft: '4px solid var(--info)' }}>
-            <b>Telegram ID biriktirish</b>
-            <div className="yordam" style={{ margin: '6px 0' }}>
-              FR-84: speaker roli shu ID orqali <b>deterministik</b> aniqlanadi — taxmin bilan
-              emas. Sotuvchining Telegram raqamli ID sini kiriting.
-            </div>
-            <div className="maydon-blok">
-              <input
-                value={tgId}
-                onChange={(e) => setTgId(e.target.value)}
-                placeholder="masalan: 123456789"
-              />
-            </div>
-            <button
-              className="btn"
-              disabled={!/^\d{3,}$/.test(tgId)}
-              onClick={() =>
-                void bajar(async () => {
-                  await api.patch(
-                    `/api/v1/businesses/${businessId}/seats/${tahrir}/telegram`,
-                    { telegramId: tgId },
-                  );
-                  setTahrir(null);
-                  setTgId('');
-                  yukla();
-                })
-              }
-            >
-              Biriktirish
-            </button>{' '}
-            <button className="btn ikkinchi" onClick={() => setTahrir(null)}>
-              Bekor
-            </button>
-          </div>
-        )}
-        <Xabar holat={holat} xato={xato} />
-      </div>
-
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="karta-bosh">
-          <h2>Yangi sotuvchi</h2>
-        </div>
-        <div className="maydon-blok">
-          <label htmlFor="s-ism">Ism familiya</label>
-          <input
-            id="s-ism"
-            value={yangiIsm}
-            onChange={(e) => setYangiIsm(e.target.value)}
-            placeholder="Malika Karimova"
-          />
-        </div>
-        <button
-          className="btn"
-          disabled={yangiIsm.trim().length < 2}
-          onClick={() =>
-            void bajar(async () => {
-              await api.post(base, { displayName: yangiIsm.trim() });
-              setYangiIsm('');
-              yukla();
-            })
-          }
-        >
-          Qo'shish
-        </button>
-      </div>
-    </>
-  );
-}
-
-// ─── RAHBARLAR (FR-165) ─────────────────────────────────────────────────────
-
-function Rahbarlar({ businessId }: { businessId: string }) {
-  const [rows, setRows] = useState<MemberRow[]>([]);
-  const [tiklash, setTiklash] = useState<{ ism: string; token: string } | null>(null);
-  const [email, setEmail] = useState('');
-  const [ism, setIsm] = useState('');
-  const [rol, setRol] = useState<'supervisor' | 'head' | 'auditor'>('supervisor');
-  const { holat, xato, bajar } = useSaqlash();
-
-  const yukla = useCallback(() => {
-    void api
-      .get<MemberRow[]>(`/api/v1/businesses/${businessId}/members`)
-      .then(setRows)
-      .catch(() => undefined);
-  }, [businessId]);
-
-  useEffect(yukla, [yukla]);
-
-  const base = `/api/v1/businesses/${businessId}/members`;
-
-  return (
-    <>
-      <div className="card">
-        <div className="karta-bosh">
-          <h2>Rahbarlar</h2>
-        </div>
-        <table className="jadval">
-          <thead>
-            <tr>
-              <th>Ism</th>
-              <th>Email</th>
-              <th>Rol</th>
-              <th>Oxirgi kirish</th>
-              <th>Amal</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((m) => (
-              <tr key={m.id} style={{ opacity: m.isActive ? 1 : 0.5 }}>
-                <td>
-                  <b>{m.user?.displayName ?? '—'}</b>
-                </td>
-                <td style={{ color: 'var(--text-secondary)' }}>{m.user?.email ?? '—'}</td>
-                <td>
-                  {m.role === 'owner' ? (
-                    <span className="badge navy">{ROL_NOM.owner}</span>
-                  ) : (
-                    <select
-                      value={m.role}
-                      onChange={(e) =>
-                        void bajar(async () => {
-                          await api.patch(`${base}/${m.id}`, { role: e.target.value });
-                          yukla();
-                        })
-                      }
-                    >
-                      <option value="supervisor">{ROL_NOM.supervisor}</option>
-                      <option value="head">{ROL_NOM.head}</option>
-                      <option value="auditor">{ROL_NOM.auditor}</option>
-                    </select>
-                  )}
-                </td>
-                <td style={{ color: 'var(--text-secondary)' }}>
-                  {m.user?.lastLoginAt ? fmtSana(m.user.lastLoginAt) : 'hech qachon'}
-                </td>
-                <td>
-                  {/* FR-06: parolni unutgan rahbarga havola. Telegram
-                      bog'lanmagan bo'lsa bu yagona yo'l. */}
-                  <button
-                    className="btn ikkinchi kichik"
-                    onClick={() =>
-                      void bajar(async () => {
-                        const r = await api.post<{ resetToken: string }>(
-                          `/api/v1/businesses/${businessId}/users/${m.userId}/reset-link`,
-                        );
-                        setTiklash({ ism: m.user?.displayName ?? '', token: r.resetToken });
-                      })
-                    }
-                  >
-                    Parol havolasi
-                  </button>{' '}
-                  {m.role !== 'owner' && (
-                    <button
-                      className="btn ikkinchi kichik"
-                      onClick={() =>
-                        void bajar(async () => {
-                          await api.patch(`${base}/${m.id}`, { isActive: !m.isActive });
-                          yukla();
-                        })
-                      }
-                    >
-                      {m.isActive ? 'O\'chirish' : 'Yoqish'}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="yordam" style={{ marginTop: 8 }}>
-          Ega rolini o'zgartirib bo'lmaydi — to'lov va odamlar ustidan nazorat egada qoladi.
-        </div>
-
-        {tiklash && (
-          <div className="card" style={{ marginTop: 12, borderLeft: '4px solid var(--info)' }}>
-            <b>{tiklash.ism} uchun parol tiklash havolasi</b>
-            <div className="yordam" style={{ margin: '6px 0' }}>
-              Havola <b>faqat hozir</b> ko'rinadi, bir marta ishlaydi va 30 daqiqadan keyin
-              kuchini yo'qotadi. Uni shaxsan yetkazing.
-            </div>
-            <code style={{ wordBreak: 'break-all', display: 'block', fontSize: 12 }}>
-              {`${window.location.origin}/parol-tiklash/${tiklash.token}`}
-            </code>
-            <button
-              className="btn ikkinchi kichik"
-              style={{ marginTop: 8 }}
-              onClick={() => setTiklash(null)}
-            >
-              Yopish
-            </button>
-          </div>
-        )}
-
-        <Xabar holat={holat} xato={xato} />
-      </div>
-
-      <div className="card" style={{ marginTop: 14 }}>
-        <div className="karta-bosh">
-          <h2>Rahbar taklif qilish</h2>
-        </div>
-        <div className="maydon-blok">
-          <label htmlFor="r-email">Email</label>
-          <input
-            id="r-email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="rahbar@kompaniya.uz"
-          />
-        </div>
-        <div className="maydon-blok">
-          <label htmlFor="r-ism">Ism familiya</label>
-          <input id="r-ism" value={ism} onChange={(e) => setIsm(e.target.value)} />
-        </div>
-        <div className="maydon-blok">
-          <label htmlFor="r-rol">Rol</label>
-          <select id="r-rol" value={rol} onChange={(e) => setRol(e.target.value as typeof rol)}>
-            <option value="supervisor">{ROL_NOM.supervisor} — kundalik boshqaruv</option>
-            <option value="head">{ROL_NOM.head} — faqat o'z bo'limi</option>
-            <option value="auditor">{ROL_NOM.auditor} — faqat o'qish</option>
-          </select>
-        </div>
-        <button
-          className="btn"
-          disabled={!email.includes('@') || ism.trim().length < 2}
-          onClick={() =>
-            void bajar(async () => {
-              await api.post(`${base}/invite`, {
-                email: email.trim(),
-                displayName: ism.trim(),
-                role: rol,
-              });
-              setEmail('');
-              setIsm('');
-              yukla();
-            })
-          }
-        >
-          Taklif qilish
-        </button>
-      </div>
-    </>
+    </section>
   );
 }
 
@@ -904,7 +953,7 @@ function Integratsiya({
 
 // ─── KUNLIK HISOBOT (FR-134) ────────────────────────────────────────────────
 
-function KunlikHisobot({
+export function KunlikHisobot({
   businessId,
   boshqaraOladi,
 }: {

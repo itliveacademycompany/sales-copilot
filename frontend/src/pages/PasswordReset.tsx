@@ -1,6 +1,8 @@
+import { Lock } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api';
+import { ParolInput } from '../components/ParolInput';
 import { useAuth } from '../auth';
 
 /**
@@ -61,9 +63,8 @@ export function PasswordReset() {
 
         <div className="maydon-blok">
           <label className="maydon">Yangi parol</label>
-          <input
-            className="input"
-            type="password"
+          <ParolInput
+            ikon={<Lock />}
             value={parol}
             onChange={(e) => setParol(e.target.value)}
             required
@@ -76,9 +77,8 @@ export function PasswordReset() {
 
         <div className="maydon-blok">
           <label className="maydon">Parolni takrorlang</label>
-          <input
-            className="input"
-            type="password"
+          <ParolInput
+            ikon={<Lock />}
             value={takror}
             onChange={(e) => setTakror(e.target.value)}
             required

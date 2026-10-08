@@ -1,15 +1,21 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
 import { Layout } from './components/Layout';
+import { AiChat } from './pages/AiChat';
 import { Alerts } from './pages/Alerts';
+import { Analitika } from './pages/Analitika';
 import { Billing } from './pages/Billing';
 import { ConversationDetail } from './pages/ConversationDetail';
 import { Conversations } from './pages/Conversations';
 import { Dashboard } from './pages/Dashboard';
+import { KunlikHisobotSahifa } from './pages/KunlikHisobotSahifa';
+import { LidTafsilot } from './pages/LidTafsilot';
+import { LidXulosalari } from './pages/LidXulosalari';
 import { Login } from './pages/Login';
 import { Onboarding } from './pages/Onboarding';
 import { PasswordReset } from './pages/PasswordReset';
 import { PlaybookEditor } from './pages/PlaybookEditor';
+import { Qongiroqlar } from './pages/Qongiroqlar';
 import { SeatCabinet } from './pages/SeatCabinet';
 import { Settings } from './pages/Settings';
 import { Tasks } from './pages/Tasks';
@@ -60,6 +66,13 @@ export function App() {
         <Route path="/suhbatlar/:id" element={<ConversationDetail />} />
         <Route path="/vazifalar" element={<Tasks />} />
         <Route path="/ogohlantirishlar" element={<Alerts />} />
+        <Route path="/qongiroqlar" element={<Qongiroqlar />} />
+        <Route path="/ai-chat" element={<AiChat />} />
+        <Route path="/lidlar" element={<LidXulosalari />} />
+        <Route path="/lidlar/:id" element={<LidTafsilot />} />
+        {/* Jamoa analitikasi va hisobot — faqat rahbar (server ham tekshiradi) */}
+        {rahbar && <Route path="/analitika" element={<Analitika />} />}
+        {rahbar && <Route path="/kunlik-hisobot" element={<KunlikHisobotSahifa />} />}
         <Route path="/playbook" element={<PlaybookEditor />} />
         <Route path="/billing" element={<Billing />} />
         <Route path="/sozlamalar" element={<Settings />} />

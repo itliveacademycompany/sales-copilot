@@ -33,8 +33,27 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   return (await res.json()) as T;
 }
 
+/**
+ * Bir vaqtda ketayotgan bir xil GET so'rovlari bitta tarmoq so'roviga
+ * birlashtiriladi. Sabab: bir sahifada bir nechta komponent bir xil narsani
+ * so'raydi (masalan ogohlantirishlar soni — menyu ham, tepa panel ham) va
+ * React ishlab chiqish rejimida effektlar ikki marta ishlaydi. Birlashtirmasak
+ * sahifa ochilishi serverning so'rovlar chegarasiga (daqiqasiga 300) tez
+ * yetadi. Faqat "uchishda" bo'lgan so'rovlar birlashadi — javob kelgach
+ * keyingi so'rov yana serverga boradi (bu kesh emas).
+ */
+const uchishda = new Map<string, Promise<unknown>>();
+
+function getBirlashtir<T>(url: string): Promise<T> {
+  const bor = uchishda.get(url);
+  if (bor) return bor as Promise<T>;
+  const vada = request<T>('GET', url).finally(() => uchishda.delete(url));
+  uchishda.set(url, vada);
+  return vada;
+}
+
 export const api = {
-  get: <T>(url: string) => request<T>('GET', url),
+  get: <T>(url: string) => getBirlashtir<T>(url),
   post: <T>(url: string, body?: unknown) => request<T>('POST', url, body),
   put: <T>(url: string, body?: unknown) => request<T>('PUT', url, body),
   patch: <T>(url: string, body?: unknown) => request<T>('PATCH', url, body),
@@ -219,6 +238,8 @@ export interface CriterionScoreRow {
   categoryWeightPct: string | null;
   score: number | null;
   maxScore: number;
+  /** Baholash paytidagi rubrika — playbook keyin o'zgargan bo'lsa ham ma'nosi saqlanadi. */
+  rubricSnapshot?: Rubric | null;
   evidenceQuote: string | null;
   evidenceStartSeconds: string | null;
   evidenceSegmentId: string | null;
@@ -394,6 +415,12 @@ export interface TaskRow {
   completedAt: string | null;
   createdAt: string;
   isOverdue: boolean;
+  /** CRM bilan bog'langan vazifa (amoCRM va h.k.) — bo'lmasa null. */
+  /** Harakat turi (follow_up, call_back…) — faqat yaratishda beriladi. */
+  action?: string | null;
+  crmTaskId?: string | null;
+  crmStageId?: string | null;
+  crmStageName?: string | null;
 }
 
 export interface TaskAnalytics {
@@ -628,6 +655,20 @@ export function fmtPul(v: number | string | null | undefined, currency = 'UZS'):
  *  80–100 yuqori  yashil
  */
 export const BALL_CHEGARA = { yuqori: 80, yaxshi: 60, orta: 40 } as const;
+
+/**
+ * Lid sifati model yozgan erkin matn sifatida saqlanadi — "issiq" ham,
+ * "hot" ham kelishi mumkin. Interfeys uchun uch turga keltiriladi;
+ * tanilmagan qiymat — null.
+ */
+export type LidTuri = 'hot' | 'warm' | 'cold';
+export function lidTuri(v: string | null | undefined): LidTuri | null {
+  const t = (v ?? '').trim().toLowerCase();
+  if (/^(hot|issiq|qaynoq)/.test(t)) return 'hot';
+  if (/^(warm|iliq)/.test(t)) return 'warm';
+  if (/^(cold|sovuq)/.test(t)) return 'cold';
+  return null;
+}
 
 export function ballKlass(score: number | null): string {
   if (score === null) return 'yoq';

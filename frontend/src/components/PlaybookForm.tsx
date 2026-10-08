@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { PlaybookBody } from '../api';
+import { kontekstniAjrat, kontekstniYig } from './xizmat/kontekstBlok';
+import { bahoniAjrat, bahoniYig, blokniAjrat, blokniYig } from './ai/blok';
 
 /**
  * Playbook tahrirlagichi. Bosh sahifada ham (mavjudini o'zgartirish),
@@ -11,7 +13,13 @@ import type { PlaybookBody } from '../api';
 interface Props {
   value: PlaybookBody;
   onChange: (v: PlaybookBody) => void;
+  /** Biznes profilidagi asosiy xizmatlar — xizmat yo'nalishi uchun bir bosishda qo'shiladigan takliflar. */
+  xizmatTakliflari?: string[];
+  /** Faqat shu bo'limni ko'rsatish (Sozlamalar ichida). Berilmasa — hammasi. */
+  bolim?: PlaybookBolim;
 }
+
+export type PlaybookBolim = 'mezonlar' | 'anketa' | 'xizmat' | 'oilalar' | 'ai';
 
 let idCounter = 0;
 const nextId = () => `tmp${++idCounter}`;
@@ -60,7 +68,7 @@ export function TagList({
             }
           }}
         />
-        <button type="button" className="btn ikkinchi kichik" onClick={add}>
+        <button type="button" className="btn ikkinchi kichik" style={{ whiteSpace: 'nowrap', flexShrink: 0 }} onClick={add}>
           + Qo'shish
         </button>
       </div>
@@ -68,7 +76,8 @@ export function TagList({
   );
 }
 
-export function PlaybookForm({ value, onChange }: Props) {
+export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: Props) {
+  const kor = (b: PlaybookBolim) => !bolim || bolim === b;
   const totalWeight = value.criteria.categories.reduce((s, c) => s + c.weightPct, 0);
   const weightOk = Math.abs(totalWeight - 100) < 0.5;
 
@@ -131,11 +140,34 @@ export function PlaybookForm({ value, onChange }: Props) {
     onChange({ ...value, classificationPolicy: { ...value.classificationPolicy, callFamilies } });
   const setRedFlags = (redFlags: typeof value.classificationPolicy.redFlags) =>
     onChange({ ...value, classificationPolicy: { ...value.classificationPolicy, redFlags } });
+  /**
+   * Xizmat yo'nalishlari: bo'sh joylar olib tashlanadi, takrorlar
+   * qo'shilmaydi (katta-kichik harf farq qilmaydi), uzunlik serverdagi
+   * cheklov bilan bir xil (120) — aks holda saqlashda xato chiqardi.
+   */
+  const setServiceLines = (royxat: string[]) => {
+    const korilgan = new Set<string>();
+    const serviceLines = royxat
+      .map((s) => s.trim().slice(0, 120))
+      .filter((s) => {
+        const k = s.toLowerCase();
+        if (!s || korilgan.has(k)) return false;
+        korilgan.add(k);
+        return true;
+      });
+    onChange({ ...value, classificationPolicy: { ...value.classificationPolicy, serviceLines } });
+  };
+  const mavjudXizmat = new Set(value.classificationPolicy.serviceLines.map((s) => s.toLowerCase()));
+  const qolganTakliflar = [...new Set(xizmatTakliflari.map((s) => s.trim()).filter(Boolean))].filter(
+    (s) => !mavjudXizmat.has(s.toLowerCase()),
+  );
   const setQuestions = (questions: typeof value.questionnaire.questions) =>
     onChange({ ...value, questionnaire: { ...value.questionnaire, questions } });
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {kor('mezonlar') && (
+      <>
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ flex: 1 }}>
           <b>Vaznlar yig'indisi: </b>
@@ -259,8 +291,12 @@ export function PlaybookForm({ value, onChange }: Props) {
       <button type="button" className="btn ikkinchi" onClick={addCategory}>
         + Kategoriya qo'shish
       </button>
+      </>
+      )}
 
-      <div className="grid-2">
+      {(kor('oilalar') || kor('mezonlar')) && (
+      <div className={bolim ? 'pf-yakka' : 'grid-2'}>
+        {kor('oilalar') && (
         <div className="card">
           <h2 style={{ marginBottom: 8 }}>Murojaat turlari</h2>
           <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 10 }}>
@@ -328,7 +364,9 @@ export function PlaybookForm({ value, onChange }: Props) {
             + Qo'shish
           </button>
         </div>
+        )}
 
+        {kor('mezonlar') && (
         <div className="card">
           <h2 style={{ marginBottom: 8 }}>Qizil bayroqlar</h2>
           <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 10 }}>
@@ -385,8 +423,51 @@ export function PlaybookForm({ value, onChange }: Props) {
             + Qo'shish
           </button>
         </div>
+        )}
       </div>
+      )}
 
+      {kor('xizmat') && (
+      <div className="card">
+        <h2 style={{ marginBottom: 8 }}>Xizmat yo'nalishlari</h2>
+        <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 10 }}>
+          Kompaniya sotadigan xizmat yoki mahsulot yo'nalishlari — masalan "Web dasturlash", "IT Kids".
+          AI har suhbat qaysi yo'nalishga tegishli ekanini aniqlaydi; Qo'ng'iroqlar sahifasida shu
+          bo'yicha filtrlash mumkin bo'ladi.
+        </div>
+        <TagList
+          items={value.classificationPolicy.serviceLines}
+          onChange={setServiceLines}
+          placeholder="Yo'nalish nomi va Enter"
+        />
+        {qolganTakliflar.length > 0 && (
+          <div className="xizmat-takliflar">
+            <span>Biznes profilidan:</span>
+            {qolganTakliflar.map((s) => (
+              <button
+                key={s}
+                type="button"
+                className="chip-tugma"
+                onClick={() => setServiceLines([...value.classificationPolicy.serviceLines, s])}
+              >
+                + {s}
+              </button>
+            ))}
+            {qolganTakliflar.length > 1 && (
+              <button
+                type="button"
+                className="chip-tugma faol"
+                onClick={() => setServiceLines([...value.classificationPolicy.serviceLines, ...qolganTakliflar])}
+              >
+                Hammasini qo'shish
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      )}
+
+      {kor('anketa') && (
       <div className="card">
         <h2 style={{ marginBottom: 8 }}>Savolnoma</h2>
         <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 10 }}>
@@ -447,7 +528,10 @@ export function PlaybookForm({ value, onChange }: Props) {
           + Savol qo'shish
         </button>
       </div>
+      )}
 
+      {kor('ai') && (
+      <>
       <div className="card">
         <h2 style={{ marginBottom: 8 }}>Soha lug'ati</h2>
         <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 10 }}>
@@ -464,6 +548,75 @@ export function PlaybookForm({ value, onChange }: Props) {
           }
         />
       </div>
+      <AiKorsatmalar value={value} onChange={onChange} />
+      </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * AI ko'rsatmalari — faqat AI tahlilda haqiqatan ishlatiladigan maydonlar:
+ * biznes konteksti va ma'lumot ajratish (2-bosqich), baholash ko'rsatmasi
+ * (3-bosqich — ballar va lid sifati shu yerda aniqlanadi).
+ */
+function AiKorsatmalar({ value, onChange }: { value: PlaybookBody; onChange: (v: PlaybookBody) => void }) {
+  const pn = value.promptNotes;
+  const set2 = (k: 'businessContext' | 'extractionHints', v: string) =>
+    onChange({ ...value, promptNotes: { ...pn, stage2: { ...pn.stage2, [k]: v } } });
+  // Xizmat yo'nalishlari bloki shu yerda ko'rinmaydi va buzilmaydi — saqlashda avtomatik qayta qo'shiladi
+  const [kontekst, xizmatBlok] = kontekstniAjrat(pn.stage2.businessContext);
+  // AI ko'rsatmalari bo'limi qo'shgan avtomatik bloklar ham shu yerda ko'rinmaydi
+  const [ajratish, ajratishBlok] = blokniAjrat(pn.stage2.extractionHints);
+  const [bahoMatn, bahoBlok, lidBlok] = bahoniAjrat(pn.stage3.scoringGuidance);
+  const setBaho = (v: string) => onChange({ ...value, promptNotes: { ...pn, stage3: { ...pn.stage3, scoringGuidance: bahoniYig(v, bahoBlok, lidBlok) } } });
+  const maydonlar: { id: string; nom: string; izoh: string; qiymat: string; max: number; set: (v: string) => void; misol: string }[] = [
+    {
+      id: 'ai-kontekst',
+      nom: 'Biznes konteksti',
+      izoh: "AI har suhbatni o'qishdan oldin biladigan narsa: nima sotasiz, kimga, qanday sharoitda.",
+      qiymat: kontekst,
+      max: 3000 - (xizmatBlok ? xizmatBlok.length + 2 : 0),
+      set: (v) => set2('businessContext', kontekstniYig(v, xizmatBlok)),
+      misol: "Masalan: IT o'quv markazi, 7–17 yoshli bolalar uchun kurslar. Mijoz odatda ota-ona.",
+    },
+    {
+      id: 'ai-ajratish',
+      nom: "Ma'lumot ajratish ko'rsatmasi",
+      izoh: "Suhbatdan mijoz ma'lumoti, va'dalar va anketa javoblarini ajratishda nimaga e'tibor berish kerak.",
+      qiymat: ajratish,
+      max: 2000 - (ajratishBlok ? ajratishBlok.length + 2 : 0),
+      set: (v) => set2('extractionHints', blokniYig(v, ajratishBlok)),
+      misol: "Masalan: «ertaga kelaman» — mijoz va'dasi; yoshni faqat aniq aytilgan bo'lsa yozing.",
+    },
+    {
+      id: 'ai-baho',
+      nom: "Baholash ko'rsatmasi",
+      izoh: "Ball qo'yish va lid sifatini (issiq / iliq / sovuq) aniqlashda qo'shimcha qoidalar.",
+      qiymat: bahoMatn,
+      max: 3000 - (bahoBlok ? bahoBlok.length + 2 : 0) - (lidBlok ? lidBlok.length + 2 : 0),
+      set: setBaho,
+      misol: "Masalan: sinov darsiga yozilgan mijoz — issiq; narxni so'rab, javobsiz ketgan — sovuq.",
+    },
+  ];
+  return (
+    <div className="card">
+      <h2 style={{ marginBottom: 8 }}>AI ko'rsatmalari</h2>
+      <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 14 }}>
+        AI tahlilga qo'shiladigan erkin matnli ko'rsatmalar. Qisqa va aniq yozing — har saqlash yangi playbook versiyasi bo'ladi.
+      </div>
+      {maydonlar.map((m) => (
+        <div className="maydon-blok" key={m.id}>
+          <label htmlFor={m.id}>{m.nom}</label>
+          <textarea id={m.id} rows={3} value={m.qiymat} maxLength={m.max} placeholder={m.misol} onChange={(e) => m.set(e.target.value)} />
+          <div className="yordam">
+            {m.izoh} <span style={{ float: 'right' }}>{m.qiymat.length} / {m.max}</span>
+            {m.id === 'ai-kontekst' && xizmatBlok && (
+              <div>Xizmat yo'nalishlari tavsifi, aliaslar va iboralar ({xizmatBlok.length} belgi) avtomatik qo'shiladi — ularni «Xizmat yo'nalishlari» bo'limida tahrirlang.</div>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

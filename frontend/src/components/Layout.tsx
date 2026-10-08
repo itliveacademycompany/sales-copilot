@@ -1,10 +1,29 @@
-import { useEffect, useState } from 'react';
+import {
+  Bell,
+  CalendarDays,
+  ChartNoAxesColumnIncreasing,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  FileText,
+  LayoutGrid,
+  LogOut,
+  Menu,
+  MessagesSquare,
+  Phone,
+  Settings as SozlamaIkon,
+  Sparkles,
+  X,
+} from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import { api, type BillingStatus } from '../api';
 import { useAuth } from '../auth';
+import { useT } from '../i18n';
+
+const MENYU_KALIT = 'sotuvai-menyu';
 
 const BANNER: Record<string, { klass: string; matn: (d: number | null) => string }> = {
-  trial: { klass: 'sariq', matn: (d) => `Sinov muddati: ${d ?? '?'} kun qoldi` },
   grace: { klass: 'toq', matn: (d) => `To'lov kechikdi — ${d ?? '?'} kundan keyin tahlil to'xtaydi` },
   degraded: {
     klass: 'qizil',
@@ -58,58 +77,137 @@ export function Layout() {
    */
   const rahbar = business?.permissions.includes('analytics:read:all') ?? false;
   const ogohKoradi = business?.permissions.includes('alert:read') ?? false;
-  const playbookKoradi = business?.permissions.includes('playbook:read') ?? false;
 
-  const item = (to: string, ikon: string, nom: string, soni?: number) => (
+  /**
+   * Menyu ikki ko'rinishda: tor (ikon tepada, nom pastda) va keng.
+   * Tanlov brauzerda eslab qolinadi. Mobil ekranda panel har doim keng
+   * (off-canvas) — bu CSS'da hal qilinadi.
+   */
+  const [keng, setKeng] = useState(() => {
+    try {
+      return localStorage.getItem(MENYU_KALIT) === 'keng';
+    } catch {
+      return false;
+    }
+  });
+  // Sozlamalar → Ko'rinish'dan o'zgartirilsa ham darhol qo'llansin
+  useEffect(() => {
+    const tingla = (e: Event) => setKeng((e as CustomEvent<boolean>).detail);
+    window.addEventListener('sotuvai-menyu', tingla);
+    return () => window.removeEventListener('sotuvai-menyu', tingla);
+  }, []);
+  const kengniAlmashtir = () => {
+    setKeng((v) => {
+      try {
+        localStorage.setItem(MENYU_KALIT, v ? 'tor' : 'keng');
+      } catch {
+        /* xotira yopiq bo'lsa ham menyu ishlaydi */
+      }
+      return !v;
+    });
+  };
+
+  const t = useT();
+  const item = (to: string, ikon: ReactNode, uzNom: string, soni?: number) => {
+    const nom = t(uzNom);
+    return (
     <NavLink
       to={to}
       end={to === '/'}
       className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
       onClick={() => setMenyu(false)}
+      title={keng ? undefined : nom}
     >
-      <span className="ikon">{ikon}</span>
-      {nom}
-      {soni !== undefined && soni > 0 && <span className="soni">{soni}</span>}
+      <span className="ikon">
+        {ikon}
+        {soni !== undefined && soni > 0 && <span className="soni">{soni}</span>}
+      </span>
+      <span className="nom">{nom}</span>
     </NavLink>
-  );
+    );
+  };
 
   const banner = billing ? BANNER[billing.status] : undefined;
 
   return (
-    <div className="shell">
+    <div className={`shell${keng ? '' : ' tor'}`}>
       {/* Mobil tepa bar — 860px dan pastda ko'rinadi (TZ 8.1 #4) */}
       <div className="topbar">
         <button
           className="menyu-tugma"
-          aria-label={menyu ? 'Menyuni yopish' : 'Menyuni ochish'}
+          aria-label={menyu ? t('Menyuni yopish') : t('Menyuni ochish')}
           aria-expanded={menyu}
           onClick={() => setMenyu((v) => !v)}
         >
-          {menyu ? '✕' : '☰'}
+          {menyu ? <X /> : <Menu />}
         </button>
         <div className="logo">
-          Sotuv<em>AI</em>
+          <span className="logo-belgi" aria-hidden="true">
+            <Sparkles />
+          </span>
+          <span className="logo-matn">
+            Sotuv<em>AI</em>
+          </span>
         </div>
       </div>
       {menyu && (
         <button className="fon-parda" aria-label="Menyuni yopish" onClick={() => setMenyu(false)} />
       )}
-      <aside className={`sidebar${menyu ? ' ochiq' : ''}`}>
+      <aside className={`sidebar${menyu ? ' ochiq' : ''}${keng ? ' keng' : ''}`}>
         <div className="logo">
-          Sotuv<em>AI</em>
+          <span className="logo-belgi" aria-hidden="true">
+            <Sparkles />
+          </span>
+          <span className="logo-matn">
+            Sotuv<em>AI</em>
+          </span>
         </div>
         <div className="biz">{business?.name}</div>
-        {item('/', rahbar ? '▦' : '👤', rahbar ? 'Dashboard' : 'Mening kabinetim')}
-        {item('/suhbatlar', '💬', rahbar ? 'Suhbatlar' : 'Mening suhbatlarim')}
-        {item('/vazifalar', '☑', rahbar ? 'Vazifalar' : 'Mening vazifalarim')}
-        {ogohKoradi && item('/ogohlantirishlar', '⚑', 'Ogohlantirishlar', unseen)}
-        {playbookKoradi && item('/playbook', '📋', 'Baholash mezonlari')}
-        {canBilling && item('/billing', '💳', 'To\'lov')}
-        {item('/sozlamalar', '⚙', 'Sozlamalar')}
-        <div className="foot">
-          <div className="ism">{user?.displayName}</div>
-          <div>{user?.email}</div>
-          <button onClick={() => void logout()}>Chiqish</button>
+
+        <div className="menyu-sarlavha">{t('Menyu')}</div>
+        <nav className="nav-royxat" aria-label={t('Asosiy menyu')}>
+          {item('/', <LayoutGrid />, 'Bosh sahifa')}
+          {item('/qongiroqlar', <Phone />, 'Qo\'ng\'iroqlar')}
+          {item('/ai-chat', <MessagesSquare />, 'AI Chat')}
+          {rahbar && item('/analitika', <ChartNoAxesColumnIncreasing />, 'Analitika')}
+          {rahbar && item('/kunlik-hisobot', <CalendarDays />, 'Kunlik hisobot')}
+          {item('/lidlar', <FileText />, 'Lid xulosalari')}
+          {ogohKoradi && item('/ogohlantirishlar', <Bell />, 'Ogohlantirishlar', unseen)}
+          {/* Suhbatlar, Vazifalar, Mezonlar, To'lov menyudan olib tashlandi —
+              sahifalar manzili saqlanadi (boshqa bo'limlardagi havolalar ishlaydi) */}
+        </nav>
+
+        <div className="nav-pastki">
+          {item('/sozlamalar', <SozlamaIkon />, 'Sozlamalar')}
+          <div className="foot">
+            <div className="ism">{user?.displayName}</div>
+            <div>{user?.email}</div>
+            <button onClick={() => void logout()}>
+              <LogOut /> {t('Chiqish')}
+            </button>
+          </div>
+          <div className="pastki-qator">
+            {/* Tor menyuda foydalanuvchi bloki yashirin — chiqish shu yerda */}
+            {!keng && (
+              <button
+                className="kengaytir chiqish-tor"
+                onClick={() => void logout()}
+                aria-label="Chiqish"
+                title={`Chiqish (${user?.displayName ?? ''})`}
+              >
+                <LogOut />
+              </button>
+            )}
+            <button
+              className="kengaytir"
+              onClick={kengniAlmashtir}
+              aria-label={keng ? t('Menyuni toraytirish') : t('Menyuni kengaytirish')}
+              aria-expanded={keng}
+              title={keng ? t('Toraytirish') : t('Kengaytirish')}
+            >
+              {keng ? <ChevronsLeft /> : <ChevronsRight />}
+            </button>
+          </div>
         </div>
       </aside>
       <main className="main">
@@ -125,7 +223,12 @@ export function Layout() {
               borderRadius: 8,
             }}
           >
-            {banner.matn(billing!.daysLeft)} {canBilling ? '— boshqarish →' : ''}
+            {banner.matn(billing!.daysLeft)}{' '}
+            {canBilling && (
+              <>
+                — boshqarish <ChevronRight />
+              </>
+            )}
           </NavLink>
         )}
         <Outlet />

@@ -1,3 +1,4 @@
+import { ArrowDown, ArrowUp, ArrowUpRight, ChevronLeft, ChevronRight, CircleCheck, Flag, Target } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -100,7 +101,7 @@ export function SeatCabinet() {
     const yaxshi = teskari ? diff < 0 : diff > 0;
     return (
       <span className={`delta ${yaxshi ? 'up' : 'down'}`}>
-        {diff > 0 ? '▲' : '▼'} {Math.abs(Math.round(diff * 10) / 10)}
+        {diff > 0 ? <ArrowUp /> : <ArrowDown />} {Math.abs(Math.round(diff * 10) / 10)}
       </span>
     );
   };
@@ -113,7 +114,7 @@ export function SeatCabinet() {
         <div>
           {!oziniki && (
             <Link to="/" style={{ color: 'var(--kul-dark)', fontSize: 13 }}>
-              ← Dashboard
+              <ChevronLeft /> Dashboard
             </Link>
           )}
           <h1>{oziniki ? 'Mening kabinetim' : (d?.seat.displayName ?? 'Sotuvchi')}</h1>
@@ -183,7 +184,9 @@ export function SeatCabinet() {
             alignItems: 'center',
           }}
         >
-          <div style={{ fontSize: 24 }}>🎯</div>
+          <div style={{ fontSize: 24, color: 'var(--orta)', display: 'flex' }}>
+            <Target />
+          </div>
           <div>
             <b>
               {oziniki
@@ -245,7 +248,7 @@ export function SeatCabinet() {
                         <span className="delta flat">teng</span>
                       ) : (
                         <span className={`delta ${farq > 0 ? 'up' : 'down'}`}>
-                          {farq > 0 ? '▲' : '▼'} {Math.abs(Math.round(farq * 100) / 100)}
+                          {farq > 0 ? <ArrowUp /> : <ArrowDown />} {Math.abs(Math.round(farq * 100) / 100)}
                         </span>
                       )}
                     </td>
@@ -270,12 +273,12 @@ export function SeatCabinet() {
           <div className="karta-bosh">
             <h2>Ochiq vazifalar</h2>
             <Link to="/vazifalar" className="havola">
-              Hammasi →
+              Hammasi <ChevronRight />
             </Link>
           </div>
           {tasks.length === 0 ? (
             <div className="hech-narsa">
-              <div className="katta-ikon">✓</div>
+              <div className="katta-ikon"><CircleCheck /></div>
               Ochiq vazifa yo'q
             </div>
           ) : (
@@ -312,13 +315,17 @@ export function SeatCabinet() {
                   <div className="chap">
                     <div className="bosh">
                       <span className="vaqt">{fmtSana(r.startedAt)}</span>
-                      {r.isFlagged && <span className="badge qizil">⚑ bayroq</span>}
+                      {r.isFlagged && (
+                        <span className="badge qizil">
+                          <Flag /> bayroq
+                        </span>
+                      )}
                       <span className="vaqt">· {r.segmentCount} xabar</span>
                     </div>
                     <div className="xulosa">{r.summary ?? 'Xulosa yo\'q'}</div>
                     {r.primaryGap && (
                       <div className="zaif">
-                        <span className="belgi">↗</span>
+                        <span className="belgi"><ArrowUpRight /></span>
                         <span>{r.primaryGap}</span>
                       </div>
                     )}

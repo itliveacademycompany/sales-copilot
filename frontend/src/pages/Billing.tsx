@@ -24,7 +24,8 @@ const TRANZAKSIYA_NOMI: Record<string, string> = {
 };
 
 /** TZ 3.10: obuna holati, balans, to'lov tarixi. Faqat egasi ko'radi. */
-export function Billing() {
+/** `ichki` — Sozlamalar ichida: sahifa sarlavhasisiz. */
+export function Billing({ ichki = false }: { ichki?: boolean }) {
   const { business } = useAuth();
   const [data, setData] = useState<BillingFull | null>(null);
   const [amount, setAmount] = useState('');
@@ -66,12 +67,14 @@ export function Billing() {
 
   return (
     <>
-      <div className="sahifa-bosh">
-        <div>
-          <h1>To'lov va obuna</h1>
-          <div className="izoh">Seat asosida narxlash — sotuvchilar soniga qarab</div>
+      {!ichki && (
+        <div className="sahifa-bosh">
+          <div>
+            <h1>To'lov va obuna</h1>
+            <div className="izoh">Seat asosida narxlash — sotuvchilar soniga qarab</div>
+          </div>
         </div>
-      </div>
+      )}
 
       {sub && info && (
         <div className="card" style={{ marginBottom: 14, borderLeft: `4px solid var(--${info.klass === 'ok' ? 'ok)' : info.klass === 'qizil' ? 'qizil)' : 'sariq)'}` }}>

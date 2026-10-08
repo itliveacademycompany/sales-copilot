@@ -1,3 +1,4 @@
+import { Flag, MessagesSquare } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ballKlass, fmtSana, type ConversationRow } from '../api';
@@ -83,7 +84,7 @@ export function Conversations() {
           <div className="yuklanmoqda">Yuklanmoqda…</div>
         ) : rows.length === 0 ? (
           <div className="hech-narsa">
-            <div className="katta-ikon">💬</div>
+            <div className="katta-ikon"><MessagesSquare /></div>
             Hali suhbat yo'q. Telegram botini ulang — yozishmalar avtomatik tushadi.
           </div>
         ) : (
@@ -111,7 +112,7 @@ export function Conversations() {
                     <td style={{ maxWidth: 420 }}>
                       {r.isFlagged && (
                         <span className="badge qizil" style={{ marginRight: 6 }}>
-                          ⚑ ko'rik kerak
+                          <Flag /> ko'rik kerak
                         </span>
                       )}
                       {r.summary ?? (

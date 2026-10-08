@@ -1,27 +1,40 @@
+import { LucideProvider } from 'lucide-react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { AuthProvider } from './auth';
+import { TilProvider } from './i18n';
 import './styles.css';
 
 /**
  * FR-162: saqlangan mavzuni React ishga tushishidan OLDIN qo'llaymiz.
- * Aks holda sahifa bir lahza tizim mavzusida chaqnab, keyin tanlanganiga
- * o'tardi. Tanlanmagan bo'lsa atribut qo'yilmaydi va CSS tizim
- * sozlamasiga qaytadi.
+ * Aks holda sahifa bir lahza boshqa mavzuda chaqnab, keyin tanlanganiga
+ * o'tardi.
+ *
+ * Sukut bo'yicha — yorug' (oq) dizayn. Tizim sozlamasiga faqat
+ * foydalanuvchi "Tizim bo'yicha" ni o'zi tanlaganda ergashiladi.
  */
 const saqlanganMavzu = localStorage.getItem('sotuvai-mavzu');
-if (saqlanganMavzu === 'light' || saqlanganMavzu === 'dark') {
-  document.documentElement.setAttribute('data-theme', saqlanganMavzu);
+if (saqlanganMavzu !== 'system') {
+  document.documentElement.setAttribute(
+    'data-theme',
+    saqlanganMavzu === 'dark' ? 'dark' : 'light',
+  );
 }
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
+    {/* Barcha ikonlar uchun yagona chiziq qalinligi (SF Symbols'ga yaqin).
+        O'lcham CSS'da: .lucide { 1em } — matn o'lchamiga moslashadi. */}
+    <LucideProvider strokeWidth={1.75}>
+      <BrowserRouter>
+        <AuthProvider>
+          <TilProvider>
+            <App />
+          </TilProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </LucideProvider>
   </StrictMode>,
 );

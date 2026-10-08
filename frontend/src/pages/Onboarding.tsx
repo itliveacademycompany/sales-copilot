@@ -1,3 +1,4 @@
+import { ArrowUpRight, Check, ChevronLeft, ChevronRight, PartyPopper, RotateCw, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -51,7 +52,7 @@ export function Onboarding() {
           return (
             <div key={s.key} className={`qadam ${holat}`}>
               <div className="belgi" aria-hidden="true">
-                {holat === 'bajarildi' ? '✓' : i + 1}
+                {holat === 'bajarildi' ? <Check strokeWidth={2.5} /> : i + 1}
               </div>
               <span className="nom">
                 {s.nom}
@@ -86,7 +87,8 @@ export function Onboarding() {
 
 // ─── 1-qadam: biznes profili (FR-11) ────────────────────────────────────────
 
-function ProfileStep({ onNext }: { onNext: () => void }) {
+/** Sozlamalar → Biznes profili ham shu formadan foydalanadi (`tugmaMatni` bilan). */
+export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaMatni?: string }) {
   const { business } = useAuth();
   const [profile, setProfile] = useState<BusinessProfile>(EMPTY_PROFILE);
   const [loading, setLoading] = useState(true);
@@ -200,7 +202,13 @@ function ProfileStep({ onNext }: { onNext: () => void }) {
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
         <button className="btn" disabled={!ready || saving} onClick={() => void save()}>
-          {saving ? 'Saqlanmoqda…' : 'Davom etish →'}
+          {saving ? (
+            'Saqlanmoqda…'
+          ) : (
+            <>
+              {tugmaMatni ?? 'Davom etish'} {!tugmaMatni && <ChevronRight />}
+            </>
+          )}
         </button>
       </div>
       {!ready && (
@@ -258,7 +266,7 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
   if (generating) {
     return (
       <div className="card hech-narsa">
-        <div className="katta-ikon">✨</div>
+        <div className="katta-ikon"><Sparkles /></div>
         AI baholash mezonlarini tuzmoqda… bu 10-20 soniya oladi
       </div>
     );
@@ -270,7 +278,7 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
         <div className="xato-banner">{error}</div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="btn ikkinchi" onClick={onBack}>
-            ← Orqaga
+            <ChevronLeft /> Orqaga
           </button>
           <button className="btn" onClick={() => void generate()}>
             Qayta urinish
@@ -285,12 +293,14 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
   return (
     <>
       <div className="card" style={{ marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center' }}>
-        <div style={{ fontSize: 24 }}>✨</div>
+        <div style={{ fontSize: 24, color: 'var(--ia)', display: 'flex' }}>
+          <Sparkles />
+        </div>
         <div>
           <b>AI qoralamasi tayyor.</b> Ko'rib chiqing, kerak bo'lsa tahrirlang — keyin qabul qiling.
         </div>
         <button className="btn ikkinchi kichik" style={{ marginLeft: 'auto' }} onClick={() => void generate()}>
-          ↻ Qayta generatsiya
+          <RotateCw /> Qayta generatsiya
         </button>
       </div>
 
@@ -298,10 +308,16 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
         <button className="btn ikkinchi" onClick={onBack}>
-          ← Orqaga
+          <ChevronLeft /> Orqaga
         </button>
         <button className="btn" disabled={saving} onClick={() => void accept()}>
-          {saving ? 'Saqlanmoqda…' : 'Qabul qilish va davom etish →'}
+          {saving ? (
+            'Saqlanmoqda…'
+          ) : (
+            <>
+              Qabul qilish va davom etish <ChevronRight />
+            </>
+          )}
         </button>
       </div>
     </>
@@ -382,7 +398,7 @@ function ChannelStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
         <button className="btn ikkinchi" onClick={onBack}>
-          ← Orqaga
+          <ChevronLeft /> Orqaga
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
           {!connected && (
@@ -391,7 +407,7 @@ function ChannelStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
             </button>
           )}
           <button className="btn" onClick={onNext}>
-            Davom etish →
+            Davom etish <ChevronRight />
           </button>
         </div>
       </div>
@@ -453,10 +469,10 @@ function TeamStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 20 }}>
         <button className="btn ikkinchi" onClick={onBack}>
-          ← Orqaga
+          <ChevronLeft /> Orqaga
         </button>
         <button className="btn" onClick={onNext}>
-          Davom etish →
+          Davom etish <ChevronRight />
         </button>
       </div>
     </div>
@@ -517,7 +533,9 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
   return (
     <div className="card" style={{ padding: 32 }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+        <div style={{ fontSize: 52, marginBottom: 12, color: 'var(--ia)', display: 'flex', justifyContent: 'center' }}>
+          <PartyPopper strokeWidth={1.5} />
+        </div>
         <h1 style={{ marginBottom: 8 }}>Tayyor!</h1>
         <div style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>
           Telegram yozishmalari endi avtomatik yig'iladi va sizning playbook'ingiz
@@ -570,7 +588,11 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
                 </span>
                 <div className="matn">
                   <div className="xulosa">{r.summary ?? 'Tahlil qilinmoqda…'}</div>
-                  {r.primaryGap && <div className="zaif">↗ {r.primaryGap}</div>}
+                  {r.primaryGap && (
+                    <div className="zaif">
+                      <ArrowUpRight /> {r.primaryGap}
+                    </div>
+                  )}
                 </div>
               </div>
             );

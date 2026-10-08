@@ -1,7 +1,24 @@
 import { useEffect, useState } from 'react';
-import { api, ApiError, fmtSana, type PlaybookBody, type PlaybookVersion, type ValidateResult } from '../api';
+import {
+  api,
+  ApiError,
+  fmtSana,
+  type BusinessProfile,
+  type PlaybookBody,
+  type PlaybookVersion,
+  type ValidateResult,
+} from '../api';
 import { useAuth } from '../auth';
-import { PlaybookForm } from '../components/PlaybookForm';
+import { PlaybookForm, type PlaybookBolim } from '../components/PlaybookForm';
+
+/** Sozlamalar ichida har bo'lim alohida ochiladi — sarlavha shunga moslashadi. */
+const BOLIM_SARLAVHA: Record<PlaybookBolim, [string, string]> = {
+  mezonlar: ['Baholash mezonlari', "Kategoriyalar, mezonlar va qizil bayroqlar — har suhbat shu bo'yicha baholanadi"],
+  anketa: ['Anketa savollari', 'Har suhbatdan AI shu savollarga javob qidiradi'],
+  xizmat: ["Xizmat yo'nalishlari", "Suhbatlar shu yo'nalishlarga ajratiladi"],
+  oilalar: ["Qo'ng'iroq oilalari", 'Murojaat turlari va qaysilari baholanishi'],
+  ai: ["AI ko'rsatmalari", "Soha lug'ati va AI tahlilga qo'shiladigan ko'rsatmalar"],
+};
 
 const EMPTY_PLAYBOOK: PlaybookBody = {
   criteria: { categories: [], criteria: [] },
@@ -20,7 +37,7 @@ const EMPTY_PLAYBOOK: PlaybookBody = {
  * tahrirlaydi va YANGI versiya sifatida saqlaydi (eskisi o'zgarmaydi —
  * FR-22, tarixni buzmaslik uchun).
  */
-export function PlaybookEditor() {
+export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
   const { business } = useAuth();
   const [playbook, setPlaybook] = useState<PlaybookBody | null>(null);
   const [versions, setVersions] = useState<PlaybookVersion[]>([]);
@@ -29,6 +46,7 @@ export function PlaybookEditor() {
   const [validation, setValidation] = useState<ValidateResult | null>(null);
   const [changeNote, setChangeNote] = useState('');
   const [savedMsg, setSavedMsg] = useState('');
+  const [takliflar, setTakliflar] = useState<string[]>([]);
 
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
 
@@ -41,6 +59,11 @@ export function PlaybookEditor() {
         if (e instanceof ApiError && e.status === 404) setPlaybook(EMPTY_PLAYBOOK);
       });
     api.get<PlaybookVersion[]>(`${base}/playbook/versions`).then(setVersions).catch(() => undefined);
+    // Xizmat yo'nalishi takliflari — biznes profilidagi asosiy xizmatlardan
+    api
+      .get<{ profile: BusinessProfile }>(`${base}/profile`)
+      .then((r) => setTakliflar(r.profile.primaryOffers ?? []))
+      .catch(() => undefined);
   }, [base]);
 
   async function validate(pb: PlaybookBody) {
@@ -84,8 +107,8 @@ export function PlaybookEditor() {
     <>
       <div className="sahifa-bosh">
         <div>
-          <h1>Baholash mezonlari</h1>
-          <div className="izoh">Playbook — har suhbat shu bo'yicha baholanadi</div>
+          {bolim ? <h2 className="pe-sarlavha">{BOLIM_SARLAVHA[bolim][0]}</h2> : <h1>Baholash mezonlari</h1>}
+          <div className="izoh">{bolim ? BOLIM_SARLAVHA[bolim][1] : "Playbook — har suhbat shu bo'yicha baholanadi"}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn ikkinchi" onClick={() => setShowVersions((v) => !v)}>
@@ -158,7 +181,7 @@ export function PlaybookEditor() {
         </div>
       )}
 
-      <PlaybookForm value={playbook} onChange={setPlaybook} />
+      <PlaybookForm value={playbook} onChange={setPlaybook} xizmatTakliflari={takliflar} bolim={bolim} />
 
       <div className="card" style={{ marginTop: 14 }}>
         <label className="maydon">O'zgarish izohi (ixtiyoriy)</label>
