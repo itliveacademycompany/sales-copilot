@@ -6,7 +6,18 @@ import { cleanupTestData, TEST_EMAIL_DOMAIN } from '../db/clean-test-data.js';
 import { closeDb, withoutTenantIsolation } from '../db/index.js';
 import { analysis, contact, conversation, criterionScore, seat } from '../db/schema/index.js';
 import { buildApp } from '../http/app.js';
-import { mzIdlar, qongiroqlarniQaytaIshla, raqamniTozala, sinxronla, subdomenniAjrat } from './moizvonki.js';
+import {
+  baholashPauzasi,
+  bugunBaholangan,
+  limitXatosimi,
+  mzIdlar,
+  osilganlarniQaytar,
+  pauzalarniTozala,
+  qongiroqlarniQaytaIshla,
+  raqamniTozala,
+  sinxronla,
+  subdomenniAjrat,
+} from './moizvonki.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -429,6 +440,79 @@ async function main(): Promise<void> {
 
     const qayta = await app.inject({ method: 'POST', url: `${base}/integrations/moizvonki/retry`, cookies: auth });
     check('xatolilar qayta navbatga qo\'yildi', qayta.json().requeued === 1);
+
+    // ═══ G2: AI LIMITI, KUNLIK LIMIT, OSILGAN QO'NG'IROQ ═══
+    console.log('\n— G2: limitlar —');
+    check('limitXatosimi: 429 / RESOURCE_EXHAUSTED', limitXatosimi("LLM so'rovi muvaffaqiyatsiz (429, gemini-2.5-flash): RESOURCE_EXHAUSTED"));
+    check(
+      'limitXatosimi: oddiy xatolar limit emas',
+      !limitXatosimi("LLM so'rovi muvaffaqiyatsiz (400, x): bad request") && !limitXatosimi('Yozuvda nutq topilmadi'),
+    );
+
+    // 1006 (buzuq yozuv) bu bo'limga aralashmasin.
+    const holatiniQoy = (extId: string, status: 'failed' | 'transcribing', updatedAt = new Date()) =>
+      withoutTenantIsolation('test: holatni qo\'yish', (tx) =>
+        tx.update(conversation).set({ status, updatedAt }).where(eq(conversation.externalId, extId)),
+      );
+    const holatlar = async (...idlar: string[]) =>
+      (await withoutTenantIsolation('test: holatlar', (tx) =>
+        tx.select({ e: conversation.externalId, s: conversation.status }).from(conversation).where(eq(conversation.businessId, businessId)),
+      )).filter((r) => idlar.includes(r.e ?? '')).map((r) => r.s);
+    await holatiniQoy('mz:1006', 'failed');
+
+    const yangiYozuv = (id: number) => `http://127.0.0.1:${port}/rec/${id}.mp3`;
+    QONGIROQLAR.push(
+      { db_call_id: 1007, direction: 0, client_number: '998971111111', start_time: soat + 600, end_time: soat + 680, duration: 80, answered: 1, recording: yangiYozuv(1007), user_id: 501 },
+      { db_call_id: 1008, direction: 0, client_number: '998972222222', start_time: soat + 700, end_time: soat + 790, duration: 90, answered: 1, recording: yangiYozuv(1008), user_id: 501 },
+    );
+    await sinxronla(businessId);
+
+    // AI limiti — xato emas, pauza; qo'ng'iroqlar navbatda qoladi.
+    const limitLlm: LlmClient = {
+      async completeJson() {
+        throw new Error("LLM so'rovi muvaffaqiyatsiz (429, gemini-2.5-flash): RESOURCE_EXHAUSTED quota exceeded");
+      },
+    };
+    const p1 = await qongiroqlarniQaytaIshla({ businessId, stt: soxtaStt, llm: limitLlm, limit: 10 });
+    check('AI limiti: «xato» emas — pauza', p1.pauza === 1 && p1.xato === 0 && p1.baholandi === 0, JSON.stringify(p1));
+    check("ikkala qo'ng'iroq navbatda qoldi", (await holatlar('mz:1007', 'mz:1008')).every((s) => s === 'received'));
+    check('pauza qo\'yildi', baholashPauzasi(businessId) !== null);
+    const p2 = await qongiroqlarniQaytaIshla({ businessId, stt: soxtaStt, llm: soxtaLlm, limit: 10 });
+    check('pauza davomida hech narsa olinmaydi (GPU/AI behuda yonmaydi)', p2.qayta === 0, JSON.stringify(p2));
+    const hp = (await app.inject({ method: 'GET', url: `${base}/integrations/moizvonki`, cookies: auth })).json() as { pauza: { gacha: string } | null };
+    check('holat API pauzani ko\'rsatadi', hp.pauza !== null);
+    pauzalarniTozala();
+
+    // Kunlik limit — bugungi soni + 1: faqat bittasi o'tadi, ikkinchisi ertaga.
+    const bugun = await bugunBaholangan(businessId);
+    const sozla = (dailyLimit: number | null) =>
+      app.inject({
+        method: 'PUT',
+        url: `${base}/integrations/moizvonki`,
+        cookies: auth,
+        payload: { domain: 'https://kompaniya.moizvonki.ru/', userName: 'Admin@Kompaniya.uz', minDurationSeconds: 20, backfillDays: 1, dailyLimit },
+      });
+    check('kunlik limit saqlandi', (await sozla(bugun + 1)).statusCode === 200);
+    const p3 = await qongiroqlarniQaytaIshla({ businessId, stt: soxtaStt, llm: soxtaLlm, limit: 10 });
+    check('kunlik limit: faqat 1 tasi baholandi', p3.baholandi === 1 && p3.qayta === 1, JSON.stringify(p3));
+    const p4 = await qongiroqlarniQaytaIshla({ businessId, stt: soxtaStt, llm: soxtaLlm, limit: 10 });
+    check('limit tugadi — qolgani navbatda kutadi', p4.qayta === 0 && (await holatlar('mz:1007', 'mz:1008')).includes('received'));
+    const hl = (await app.inject({ method: 'GET', url: `${base}/integrations/moizvonki`, cookies: auth })).json() as {
+      bugunBaholandi: number;
+      config: { dailyLimit: number | null };
+    };
+    check('holat API: bugun baholangan va limit', hl.bugunBaholandi === bugun + 1 && hl.config.dailyLimit === bugun + 1, JSON.stringify({ b: hl.bugunBaholandi, l: hl.config.dailyLimit }));
+    await sozla(null);
+    const p5 = await qongiroqlarniQaytaIshla({ businessId, stt: soxtaStt, llm: soxtaLlm, limit: 10 });
+    check('limit olib tashlangach qolgani ham baholandi', p5.baholandi === 1, JSON.stringify(p5));
+
+    // Osilgan qo'ng'iroq — server ishlov o'rtasida to'xtagandek.
+    await holatiniQoy('mz:1006', 'transcribing', new Date(Date.now() - 20 * 60_000));
+    const qaytdi = await osilganlarniQaytar();
+    check("20 daqiqa osilgan qo'ng'iroq navbatga qaytdi", qaytdi === 1 && (await holatlar('mz:1006'))[0] === 'received', `qaytdi: ${qaytdi}`);
+    await holatiniQoy('mz:1006', 'transcribing');
+    check("hozirgina egallangani TEGILMAYDI", (await osilganlarniQaytar()) === 0);
+    await holatiniQoy('mz:1006', 'failed');
 
     // ═══ H: ADMIN HUQUQI YO'Q ═══
     console.log('\n— H: admin huquqisiz —');

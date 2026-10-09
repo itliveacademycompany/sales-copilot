@@ -91,6 +91,14 @@ export const moizvonkiConfigSchema = z
      * baholash pul sarflaydi va hech narsa demaydi.
      */
     minDurationSeconds: z.number().int().min(0).max(600).default(20),
+    /**
+     * Kuniga ko'pi bilan nechta qo'ng'iroq baholansin (biznes vaqt zonasida).
+     *
+     * Har baho STT + LLM — pul va AI kvotasi. Limitdan oshgan qo'ng'iroq
+     * yo'qolmaydi: `received` da qoladi va ertasi kuni navbat bilan baholanadi.
+     * `null` — cheksiz.
+     */
+    dailyLimit: z.number().int().min(1).max(5000).nullable().default(100),
     /** Birinchi ulanishda necha kun orqaga qarab olinsin. */
     backfillDays: z.number().int().min(0).max(30).default(1),
     /** Oxirgi olingan qo'ng'iroq ID si — keyingi sinxronlash shundan boshlanadi. */
@@ -581,6 +589,79 @@ export interface QaytaIshlashNatija {
   qayta: number;
   baholandi: number;
   xato: number;
+  /** AI limiti sabab navbatga qaytarilgan qo'ng'iroqlar. */
+  pauza: number;
+}
+
+/**
+ * AI provayder limiti (HTTP 429, kvota tugadi) — qo'ng'iroqning aybi emas.
+ *
+ * Uni `failed` deb belgilash xato bo'lardi: kunlik kvota tugasa, navbatdagi
+ * har bir qo'ng'iroq birin-ketin «xato»ga tushib, GPU vaqtini ham behuda
+ * yoqardi. Buning o'rniga qo'ng'iroq navbatga qaytadi va shu biznes uchun
+ * baholash biroz to'xtatiladi. Pauza xotirada: server qayta ishga tushsa,
+ * bir urinish qilinadi va limit davom etsa, pauza yana qo'yiladi.
+ */
+export const LIMIT_PAUZA_MS = 15 * 60 * 1000;
+const pauzalar = new Map<string, { gacha: number; sabab: string }>();
+
+export function limitXatosimi(xabar: string): boolean {
+  return /\(429\b|\b429\b.*(limit|quota)|RESOURCE_EXHAUSTED|quota|rate.?limit|too many requests/i.test(xabar);
+}
+
+export function baholashPauzasi(businessId: string): { gacha: string; sabab: string } | null {
+  const p = pauzalar.get(businessId);
+  if (!p) return null;
+  if (p.gacha <= Date.now()) {
+    pauzalar.delete(businessId);
+    return null;
+  }
+  return { gacha: new Date(p.gacha).toISOString(), sabab: p.sabab };
+}
+
+/**
+ * Osilgan qo'ng'iroqlarni navbatga qaytaradi.
+ *
+ * Egallangan qo'ng'iroq `transcribing` holatida ishlanadi. Server o'sha
+ * paytda to'xtasa (deploy, qayta ishga tushish), u shu holatda abadiy qolib,
+ * hech qachon baholanmasdi. Bitta qo'ng'iroq ~1 daqiqa ishlanadi — 15 daqiqa
+ * xavfsiz chegara: hali ishlanayotganini tortib olmaydi.
+ */
+export async function osilganlarniQaytar(): Promise<number> {
+  const rows = await withoutTenantIsolation('moizvonki: osilgan qo\'ng\'iroqlarni navbatga qaytarish', (tx) =>
+    tx
+      .update(conversation)
+      .set({ status: 'received', updatedAt: new Date() })
+      .where(
+        and(
+          eq(conversation.externalSource, 'moizvonki'),
+          inArray(conversation.status, ['transcribing', 'analyzing']),
+          sql`${conversation.updatedAt} < now() - interval '15 minutes'`,
+        ),
+      )
+      .returning({ id: conversation.id }),
+  );
+  return rows.length;
+}
+
+/** Testlar uchun. */
+export function pauzalarniTozala(): void {
+  pauzalar.clear();
+}
+
+/** Bugun (biznes vaqt zonasida) baholangan Moi Zvonki qo'ng'iroqlari. */
+export async function bugunBaholangan(businessId: string): Promise<number> {
+  const rows = await withTenant(businessId, (tx) =>
+    tx.execute(sql`
+      select count(*)::int as n
+      from analysis a
+      join conversation c on c.id = a.conversation_id
+      join business b on b.id = a.business_id
+      where c.external_source = 'moizvonki'
+        and a.created_at >= (date_trunc('day', now() at time zone b.timezone) at time zone b.timezone)
+    `),
+  );
+  return Number((rows as unknown as { n: number }[])[0]?.n ?? 0);
 }
 
 /**
@@ -626,15 +707,27 @@ async function yozuvniYukla(url: string): Promise<{ audio: Buffer; mime: string 
 export async function qongiroqlarniQaytaIshla(
   opts: { limit?: number; stt?: SttClient; llm?: LlmClient; businessId?: string } = {},
 ): Promise<QaytaIshlashNatija> {
-  const n: QaytaIshlashNatija = { qayta: 0, baholandi: 0, xato: 0 };
+  const n: QaytaIshlashNatija = { qayta: 0, baholandi: 0, xato: 0, pauza: 0 };
+
+  // Server ishlov o'rtasida to'xtagan bo'lsa — osilganlar navbatga qaytadi.
+  await osilganlarniQaytar();
 
   const avtomatik = (await ulanganlar(opts.businessId)).filter((i) => i.cfg.autoAnalyze);
   if (avtomatik.length === 0) return n;
 
-  // Obunasi to'xtagan biznes — yangi tahlil yo'q (FR-156), qo'ng'iroqlar kutib turadi.
+  // Uch to'siq — hammasida qo'ng'iroqlar yo'qolmaydi, `received` da kutib turadi:
+  //   AI limiti pauzasi, to'xtagan obuna (FR-156) va kunlik limit.
   const ruxsat: string[] = [];
+  const qolgan = new Map<string, number>();
   for (const i of avtomatik) {
-    if (!(await isAnalysisBlocked(i.businessId))) ruxsat.push(i.businessId);
+    if (baholashPauzasi(i.businessId)) continue;
+    if (await isAnalysisBlocked(i.businessId)) continue;
+    if (i.cfg.dailyLimit !== null) {
+      const q = i.cfg.dailyLimit - (await bugunBaholangan(i.businessId));
+      if (q <= 0) continue;
+      qolgan.set(i.businessId, q);
+    }
+    ruxsat.push(i.businessId);
   }
   if (ruxsat.length === 0) return n;
 
@@ -669,6 +762,9 @@ export async function qongiroqlarniQaytaIshla(
   const pbKesh = new Map<string, Awaited<ReturnType<typeof loadActivePlaybookAndBusiness>>>();
 
   for (const c of nomzodlar) {
+    if (baholashPauzasi(c.businessId)) continue;
+    const q = qolgan.get(c.businessId);
+    if (q !== undefined && q <= 0) continue;
     if (!pbKesh.has(c.businessId)) {
       pbKesh.set(c.businessId, await loadActivePlaybookAndBusiness(c.businessId));
     }
@@ -686,6 +782,7 @@ export async function qongiroqlarniQaytaIshla(
     );
     if (egallandi.length === 0) continue;
     n.qayta++;
+    if (q !== undefined) qolgan.set(c.businessId, q - 1);
 
     const boshlandi = Date.now();
     try {
@@ -749,8 +846,19 @@ export async function qongiroqlarniQaytaIshla(
       });
       n.baholandi++;
     } catch (err) {
-      n.xato++;
       const m = err instanceof Error ? err.message : String(err);
+      if (limitXatosimi(m)) {
+        n.pauza++;
+        pauzalar.set(c.businessId, { gacha: Date.now() + LIMIT_PAUZA_MS, sabab: m.slice(0, 200) });
+        await withoutTenantIsolation('moizvonki: AI limiti — qo\'ng\'iroqni navbatga qaytarish', (tx) =>
+          tx
+            .update(conversation)
+            .set({ status: 'received', updatedAt: new Date() })
+            .where(eq(conversation.id, c.id)),
+        );
+        continue;
+      }
+      n.xato++;
       await withoutTenantIsolation('moizvonki: qo\'ng\'iroq xatosini yozish', (tx) =>
         tx
           .update(conversation)

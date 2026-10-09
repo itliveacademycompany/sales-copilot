@@ -32,6 +32,7 @@ interface MzHolat {
     autoAnalyze: boolean;
     minDurationSeconds: number;
     backfillDays: number;
+    dailyLimit: number | null;
     lastCallId: number | null;
     lastStats: {
       olindi: number;
@@ -54,6 +55,9 @@ interface MzHolat {
     boglanmagan: number;
   };
   recentErrors: { id: string; startedAt: string; reason: string | null }[];
+  bugunBaholandi: number;
+  /** AI provayder limiti (429) sabab baholash vaqtincha to'xtatilgan. */
+  pauza: { gacha: string; sabab: string } | null;
 }
 
 interface MzXodimlar {
@@ -78,6 +82,8 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
   const [avto, setAvto] = useState(true);
   const [minDavom, setMinDavom] = useState(20);
   const [orqaga, setOrqaga] = useState(1);
+  /** Matn: '' — cheksiz. */
+  const [limit, setLimit] = useState('100');
   const [xodimlar, setXodimlar] = useState<MzXodimlar | null>(null);
   const [sinxXabar, setSinxXabar] = useState<string | null>(null);
   const { holat, xato, bajar } = useSaqlash();
@@ -96,6 +102,7 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
           setAvto(r.config.autoAnalyze);
           setMinDavom(r.config.minDurationSeconds);
           setOrqaga(r.config.backfillDays);
+          setLimit(r.config.dailyLimit === null ? '' : String(r.config.dailyLimit));
         }
         if (r.connected) {
           void api
@@ -109,9 +116,25 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
 
   useEffect(yukla, [yukla]);
 
+  /**
+   * Baholash fonda ketadi — holat raqamlari har 20 soniyada yangilanadi.
+   * Faqat holat: forma maydonlariga tegilmaydi, aks holda yozilayotgan qiymat o'chib ketardi.
+   */
+  const ulangan = !!h?.connected;
+  useEffect(() => {
+    if (!ulangan) return;
+    const t = setInterval(() => {
+      void api.get<MzHolat>(base).then(setH).catch(() => undefined);
+    }, 20_000);
+    return () => clearInterval(t);
+  }, [ulangan, base]);
+
   if (!h) return <div className="yuklanmoqda">Yuklanmoqda…</div>;
 
   const c = h.counts;
+  const limitTogri = limit.trim() === '' || (/^\d+$/.test(limit.trim()) && Number(limit) >= 1 && Number(limit) <= 5000);
+  const kunlikLimit = h.config?.dailyLimit ?? null;
+  const limitTugadi = kunlikLimit !== null && h.bugunBaholandi >= kunlikLimit;
 
   return (
     <div className="card" style={{ marginBottom: 14 }}>
@@ -213,6 +236,26 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
         </div>
       </div>
 
+      <div className="maydon-blok">
+        <label htmlFor="mz-limit">Kuniga ko'pi bilan nechta qo'ng'iroq baholansin</label>
+        <input
+          id="mz-limit"
+          type="number"
+          min={1}
+          max={5000}
+          value={limit}
+          placeholder="cheksiz"
+          disabled={!boshqaraOladi}
+          aria-invalid={!limitTogri}
+          onChange={(e) => setLimit(e.target.value)}
+        />
+        <div className="yordam" style={!limitTogri ? { color: 'var(--past)' } : undefined}>
+          {limitTogri
+            ? "Har baho — STT va AI so'rovi (pul yoki bepul kvota). Limitdan oshgani yo'qolmaydi: navbatda qoladi va ertasi kuni baholanadi. Bo'sh — cheksiz."
+            : '1 dan 5000 gacha butun son yoki bo\'sh (cheksiz)'}
+        </div>
+      </div>
+
       <div className="ogoh-sozlama" style={{ marginBottom: 12 }}>
         <label className="sozlama-satr">
           <span className="matn">
@@ -237,7 +280,7 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
         <div className="qolda-qator" style={{ marginBottom: 14 }}>
           <button
             className="btn"
-            disabled={holat === 'ketmoqda' || !domain.trim() || !email.trim()}
+            disabled={holat === 'ketmoqda' || !domain.trim() || !email.trim() || !limitTogri}
             onClick={() =>
               void bajar(async () => {
                 await api.put(base, {
@@ -247,6 +290,7 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
                   autoAnalyze: avto,
                   minDurationSeconds: minDavom,
                   backfillDays: orqaga,
+                  dailyLimit: limit.trim() === '' ? null : Number(limit),
                 });
                 setKalit('');
                 yukla();
@@ -329,7 +373,19 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
               ` · ${h.config.lastStats.olindi} ta ko'rildi: ${h.config.lastStats.saqlandi} yangi, ` +
                 `${h.config.lastStats.javobsiz} javobsiz, ${h.config.lastStats.qisqa} qisqa`}
             {!h.config?.autoAnalyze && ' · avtomatik baholash o\'chiq'}
+            {` · bugun baholandi: ${h.bugunBaholandi}${kunlikLimit !== null ? ` / ${kunlikLimit}` : ''}`}
           </div>
+          {h.pauza && (
+            <div className="xato-qator">
+              AI limiti: baholash {new Date(h.pauza.gacha).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })} gacha
+              to'xtatildi. Qo'ng'iroqlar yo'qolmaydi — navbatda kutib turibdi va keyin o'zi davom etadi.
+            </div>
+          )}
+          {limitTugadi && (
+            <div className="yordam" style={{ marginBottom: 10, color: 'var(--orta-text)' }}>
+              Bugungi limit tugadi ({kunlikLimit} ta). Qolgan {c.kutmoqda} ta qo'ng'iroq ertaga navbat bilan baholanadi.
+            </div>
+          )}
           {h.lastError && <div className="xato-qator">Oxirgi xato: {h.lastError}</div>}
 
           {c.xato > 0 && (

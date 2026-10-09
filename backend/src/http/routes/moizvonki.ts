@@ -5,6 +5,8 @@ import { decryptSecret, encryptSecret, maskSecret } from '../../crypto/secrets.j
 import { withTenant } from '../../db/index.js';
 import { appUser, conversation, integration, seat } from '../../db/schema/index.js';
 import {
+  baholashPauzasi,
+  bugunBaholangan,
   moizvonkiConfigSchema,
   mzIdlar,
   MoizvonkiXato,
@@ -37,6 +39,8 @@ const sozlashBody = z.object({
   autoAnalyze: z.boolean().default(true),
   minDurationSeconds: z.number().int().min(0).max(600).default(20),
   backfillDays: z.number().int().min(0).max(30).default(1),
+  /** `null` — cheksiz. Standart 100: bir kunlik qo'ng'iroqlar kvota/pulni bir zumda yeb qo'ymasin. */
+  dailyLimit: z.number().int().min(1).max(5000).nullable().default(100),
 });
 
 const boglashBody = z.object({
@@ -121,6 +125,7 @@ export function registerMoizvonkiRoutes(app: FastifyInstance): void {
             autoAnalyze: q.cfg.autoAnalyze,
             minDurationSeconds: q.cfg.minDurationSeconds,
             backfillDays: q.cfg.backfillDays,
+            dailyLimit: q.cfg.dailyLimit,
             lastCallId: q.cfg.lastCallId,
             lastStats: q.cfg.lastStats,
           }
@@ -137,6 +142,9 @@ export function registerMoizvonkiRoutes(app: FastifyInstance): void {
         boglanmagan: Number(boglanmagan?.n ?? 0),
       },
       recentErrors: oxirgiXatolar,
+      /** Bugun baholangan va AI limiti pauzasi — interfeys «nega to'xtadi» ni tushuntirishi uchun. */
+      bugunBaholandi: q ? await bugunBaholangan(businessId) : 0,
+      pauza: baholashPauzasi(businessId),
     };
   });
 
@@ -186,6 +194,7 @@ export function registerMoizvonkiRoutes(app: FastifyInstance): void {
       autoAnalyze: body.autoAnalyze,
       minDurationSeconds: body.minDurationSeconds,
       backfillDays: body.backfillDays,
+      dailyLimit: body.dailyLimit,
       lastCallId: boshqaHisob ? null : (mavjud?.cfg.lastCallId ?? null),
       lastStats: boshqaHisob ? null : (mavjud?.cfg.lastStats ?? null),
     });

@@ -164,6 +164,7 @@ export function startWorkerLoop(log: {
           void qongiroqlarniQaytaIshla()
             .then((r) => {
               if (r.qayta > 0) log.info(r, 'moizvonki: qo\'ng\'iroqlar baholandi');
+              if (r.pauza > 0) log.error(r, 'moizvonki: AI limiti — baholash 15 daqiqaga to\'xtatildi, qo\'ng\'iroqlar navbatda');
             })
             .catch((err: unknown) => log.error({ err }, 'moizvonki: baholash yiqildi'))
             .finally(() => {
