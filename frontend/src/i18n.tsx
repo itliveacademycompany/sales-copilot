@@ -111,6 +111,27 @@ const LUGAT: Record<string, { en: string; ru: string }> = {
   Hafta: { en: 'Week', ru: 'Неделя' },
   Oy: { en: 'Month', ru: 'Месяц' },
   Boshqa: { en: 'Custom', ru: 'Другой' },
+
+  // ─── Eski en/ru kataloglaridan ko'chirilgan (t() orqali o'tadiganlari) ───
+  "Saqlash": { en: "Save", ru: "Сохранить" },
+  "Yopish": { en: "Close", ru: "Закрыть" },
+  "Yaratish": { en: "Generate", ru: "Сгенерировать" },
+  "Xato": { en: "Error", ru: "Ошибка" },
+  "Email": { en: "Email", ru: "Email" },
+  "Obuna faol emas — yangi tahlil to'xtatilgan. Balansni to'ldiring.": { en: "Subscription inactive — new analysis is paused. Please top up your balance.", ru: "Подписка неактивна — новый анализ приостановлен. Пополните баланс." },
+  "Sotuvchi": { en: "Rep", ru: "Менеджер" },
+  "O'zbekcha": { en: "O'zbekcha", ru: "O'zbekcha" },
+  "English": { en: "English", ru: "English" },
+  "Русский": { en: "Русский", ru: "Русский" },
+  "Parolni o'zgartirish": { en: "Change password", ru: "Сменить пароль" },
+  "Bekor qilingan": { en: "Cancelled", ru: "Отменено" },
+  "Bot": { en: "Bot", ru: "Бот" },
+  "Biznes nomi": { en: "Business name", ru: "Название бизнеса" },
+  "Valyuta": { en: "Currency", ru: "Валюта" },
+  "Vaqt zonasi": { en: "Time zone", ru: "Часовой пояс" },
+  "Faol": { en: "Active", ru: "Активен" },
+  "O'chirilgan": { en: "Disabled", ru: "Отключён" },
+  "o'chirilgan": { en: "disabled", ru: "отключён" },
 };
 
 const TilCtx = createContext<{ til: Til; setTil: (t: Til) => void; t: (s: string) => string }>({
