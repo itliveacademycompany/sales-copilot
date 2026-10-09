@@ -33,3 +33,7 @@ coverage/
 tmp/
 .cache/
 outputs/
+
+# Lokal STT (GigaAM) muhiti — katta, mashinaga xos
+.venv*/
+tools/.venv-stt/

@@ -154,6 +154,26 @@ def transcribe_chunks(model, wav_path: Path, chunk_seconds: int, words: bool) ->
     return lines
 
 
+def gpu_ga_otkaz(model):
+    """GPU bo'lsa modelni unga o'tkazadi — `from_pretrained` uni CPU'da yuklaydi.
+
+    `STT_DEVICE=cpu` majburan CPU qoldiradi. O'tkazishda xato bo'lsa (masalan
+    xotira yetmasa) CPU'da davom etadi: sekinroq, lekin qo'ng'iroq yo'qolmaydi.
+    """
+    import torch
+
+    if os.getenv("STT_DEVICE", "auto").lower() == "cpu" or not torch.cuda.is_available():
+        print("Qurilma: CPU", file=sys.stderr)
+        return model
+    try:
+        model = model.to("cuda")
+        print(f"Qurilma: {torch.cuda.get_device_name(0)}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001 — har qanday GPU xatosida CPU zaxira
+        print(f"GPU'ga o'tkazib bo'lmadi ({exc}) — CPU'da davom etiladi", file=sys.stderr)
+        model = model.to("cpu")
+    return model
+
+
 def transcribe_longform(model, wav_path: Path, words: bool) -> list[str]:
     patch_pyannote_file_loader(model)
     t0 = time.time()
@@ -330,6 +350,7 @@ def main() -> int:
             revision="large_ctc",
             trust_remote_code=True,
         )
+        model = gpu_ga_otkaz(model)
         print(f"Model tayyor: {time.time() - started:.1f}s", file=sys.stderr)
         if args.mode == "longform":
             try:

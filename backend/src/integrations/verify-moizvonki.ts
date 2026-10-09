@@ -4,9 +4,9 @@ import type { LlmClient, LlmJsonRequest } from '../ai/llm.js';
 import type { SttClient } from '../ai/stt.js';
 import { cleanupTestData, TEST_EMAIL_DOMAIN } from '../db/clean-test-data.js';
 import { closeDb, withoutTenantIsolation } from '../db/index.js';
-import { analysis, contact, conversation, criterionScore } from '../db/schema/index.js';
+import { analysis, contact, conversation, criterionScore, seat } from '../db/schema/index.js';
 import { buildApp } from '../http/app.js';
-import { qongiroqlarniQaytaIshla, raqamniTozala, sinxronla, subdomenniAjrat } from './moizvonki.js';
+import { mzIdlar, qongiroqlarniQaytaIshla, raqamniTozala, sinxronla, subdomenniAjrat } from './moizvonki.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -381,6 +381,38 @@ async function main(): Promise<void> {
 
     const q2 = await qongiroqlarniQaytaIshla({ businessId, stt: soxtaStt, llm: soxtaLlm, limit: 10 });
     check('endi uniki ham baholandi', q2.baholandi === 1, JSON.stringify(q2));
+
+    // ═══ F2: BITTA MENEJER — IKKI MOI ZVONKI HISOBI ═══
+    console.log('\n— F2: bitta menejerga ikki xodim —');
+    check('mzIdlar: eski bitta qiymat', JSON.stringify(mzIdlar({ moizvonki: '501' })) === '["501"]');
+    check('mzIdlar: ro\'yxat va bo\'sh joylar', JSON.stringify(mzIdlar({ moizvonki: '501, 777' })) === '["501","777"]');
+    check('mzIdlar: kalit yo\'q', mzIdlar({}).length === 0 && mzIdlar(null).length === 0);
+
+    const ikkinchi = await app.inject({
+      method: 'PUT',
+      url: `${base}/integrations/moizvonki/employees`,
+      cookies: auth,
+      payload: { xodimId: '777', seatId: azizSeat },
+    });
+    const orinExt = async (id: string) =>
+      (await withoutTenantIsolation('test: o\'rin bog\'lanishi', (tx) =>
+        tx.select({ ext: seat.externalIds }).from(seat).where(eq(seat.id, id)),
+      ))[0]?.ext;
+    check('ikkinchi xodim Aziz\'ga qo\'shildi', ikkinchi.statusCode === 200 && JSON.stringify(mzIdlar(await orinExt(azizSeat)).sort()) === '["501","777"]', JSON.stringify(await orinExt(azizSeat)));
+    check('777 Nodira\'dan olib tashlandi (bir xodim — bir menejer)', mzIdlar(await orinExt(nodiraSeat)).length === 0, JSON.stringify(await orinExt(nodiraSeat)));
+
+    const xj3 = (await app.inject({ method: 'GET', url: `${base}/integrations/moizvonki/employees`, cookies: auth })).json() as {
+      employees: { id: string; seatId: string | null }[];
+    };
+    check(
+      'xodimlar ro\'yxatida ikkalasi ham Aziz\'ga bog\'langan ko\'rinadi',
+      xj3.employees.every((x) => x.seatId === azizSeat),
+      JSON.stringify(xj3.employees),
+    );
+
+    // Bittasini qaytarib o'tkazish — ikkinchisi joyida qolishi kerak.
+    await app.inject({ method: 'PUT', url: `${base}/integrations/moizvonki/employees`, cookies: auth, payload: { xodimId: '777', seatId: nodiraSeat } });
+    check('777 qaytdi, 501 Aziz\'da qoldi', JSON.stringify(mzIdlar(await orinExt(azizSeat))) === '["501"]' && JSON.stringify(mzIdlar(await orinExt(nodiraSeat))) === '["777"]');
 
     // ═══ G: XATO YO'LI ═══
     console.log('\n— G: xato yo\'li —');

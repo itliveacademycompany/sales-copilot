@@ -408,8 +408,7 @@ async function bittaBiznesniSinxronla(ig: UlanganIntegratsiya): Promise<SinxronN
     );
     const xarita = new Map<string, string>();
     for (const o of orinlar) {
-      const mz = (o.ext as Record<string, string> | null)?.moizvonki;
-      if (mz) xarita.set(String(mz), o.id);
+      for (const mz of mzIdlar(o.ext)) xarita.set(mz, o.id);
     }
 
     let oxirgiId = ig.cfg.lastCallId;
@@ -766,12 +765,26 @@ export async function qongiroqlarniQaytaIshla(
 // ─── Xodimni menejerga bog'lash ──────────────────────────────────────────────
 
 /**
+ * O'ringa bog'langan Moi Zvonki xodimlari.
+ *
+ * `seat.externalIds.moizvonki` — vergul bilan ajratilgan ro'yxat (`"2,4"`):
+ * bitta menejer bir nechta Moi Zvonki hisobidan qo'ng'iroq qilishi mumkin
+ * (masalan ikki liniya). Eski bitta-ID'li qiymat (`"2"`) ham shu shaklga mos.
+ */
+export function mzIdlar(ext: unknown): string[] {
+  const v = (ext as Record<string, unknown> | null)?.moizvonki;
+  if (v === undefined || v === null || v === '') return [];
+  return String(v).split(',').map((x) => x.trim()).filter(Boolean);
+}
+
+/**
  * Moi Zvonki xodimini menejer o'rniga bog'laydi (yoki `seatId = null`
  * bilan uzadi).
  *
  * Bir xodim faqat BITTA o'ringa bog'lanadi: avvalgi bog'lanish olib
  * tashlanadi. Aks holda bir qo'ng'iroq qaysi menejerga tegishli ekani
- * noaniq bo'lardi.
+ * noaniq bo'lardi. Teskarisi esa mumkin: bitta o'ringa bir nechta xodim
+ * (`mzIdlar`) — o'rinning boshqa xodimlari bu amaldan ta'sirlanmaydi.
  *
  * Bog'langach, shu xodimning hali baholanmagan, menejersiz
  * qo'ng'iroqlari o'sha menejerga o'tkaziladi — ular navbatdagi tikda
@@ -783,25 +796,26 @@ export async function xodimniBogla(
   seatId: string | null,
 ): Promise<{ otkazildi: number }> {
   return withTenant(businessId, async (tx) => {
-    await tx
-      .update(seat)
-      .set({
-        externalIds: sql`${seat.externalIds} - 'moizvonki'`,
-        updatedAt: new Date(),
-      })
-      .where(sql`${seat.externalIds} ->> 'moizvonki' = ${xodimId}`);
+    const yoz = (id: string, ext: unknown, idlar: string[]) => {
+      const yangi = { ...((ext as Record<string, string> | null) ?? {}) };
+      if (idlar.length) yangi.moizvonki = idlar.join(',');
+      else delete yangi.moizvonki;
+      return tx.update(seat).set({ externalIds: yangi, updatedAt: new Date() }).where(eq(seat.id, id));
+    };
+
+    // Xodim avval qaysi o'rinda bo'lsa — o'sha ro'yxatdan chiqariladi.
+    const hammasi = await tx.select({ id: seat.id, ext: seat.externalIds }).from(seat);
+    for (const o of hammasi) {
+      const idlar = mzIdlar(o.ext);
+      if (idlar.includes(xodimId) && o.id !== seatId) await yoz(o.id, o.ext, idlar.filter((x) => x !== xodimId));
+    }
 
     if (!seatId) return { otkazildi: 0 };
 
-    const [s] = await tx
-      .update(seat)
-      .set({
-        externalIds: sql`${seat.externalIds} || ${JSON.stringify({ moizvonki: xodimId })}::jsonb`,
-        updatedAt: new Date(),
-      })
-      .where(eq(seat.id, seatId))
-      .returning({ id: seat.id });
+    const s = hammasi.find((o) => o.id === seatId);
     if (!s) throw new Error('Bunday menejer topilmadi');
+    const idlar = mzIdlar(s.ext);
+    if (!idlar.includes(xodimId)) await yoz(s.id, s.ext, [...idlar, xodimId]);
 
     const otdi = await tx
       .update(conversation)

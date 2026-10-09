@@ -6,6 +6,7 @@ import { withTenant } from '../../db/index.js';
 import { appUser, conversation, integration, seat } from '../../db/schema/index.js';
 import {
   moizvonkiConfigSchema,
+  mzIdlar,
   MoizvonkiXato,
   sinxronla,
   subdomenniAjrat,
@@ -325,7 +326,7 @@ export function registerMoizvonkiRoutes(app: FastifyInstance): void {
       seats: orinlar.map((o) => ({ id: o.id, name: o.name })),
       employees: xodimlar.map((x) => {
         const boglangan = orinlar.find(
-          (o) => (o.ext as Record<string, string> | null)?.moizvonki === x.id,
+          (o) => mzIdlar(o.ext).includes(x.id),
         );
         /**
          * Taklif — email mos kelgan menejer. Faqat TAKLIF: avtomatik
