@@ -1,5 +1,5 @@
 import { createServer, type Server } from 'node:http';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { LlmClient, LlmJsonRequest } from '../ai/llm.js';
 import type { SttClient } from '../ai/stt.js';
 import { cleanupTestData, TEST_EMAIL_DOMAIN } from '../db/clean-test-data.js';
@@ -27,6 +27,11 @@ import {
  * Haqiqiy Moi Zvonki o'rniga LOKAL soxta server (`calls.list`,
  * `company.list_employee` va yozuv fayli). Haqiqiy kalit bilan sinash
  * testni begona hisobga, tarmoqqa va pullik STT ga bog'lab qo'yardi.
+ *
+ * DIQQAT: dev-server (`npm run dev`) shu bazada ishlab tursa, uning worker'i
+ * har 15 soniyada test biznesining qo'ng'iroqlarini ham olib, test bilan
+ * poyga qiladi — G2 bo'limi tasodifiy yiqiladi. Testni server to'xtatilgan
+ * holda yoki alohida bazada ishga tushiring.
  *
  * STT va LLM ham soxta — lekin ULARDAN KEYINGI hamma narsa haqiqiy:
  * pre-filter, baholash darvozasi va isbot tekshiruvi (`persistAnalysisTx`).
@@ -423,6 +428,34 @@ async function main(): Promise<void> {
 
     // Bittasini qaytarib o'tkazish — ikkinchisi joyida qolishi kerak.
     await app.inject({ method: 'PUT', url: `${base}/integrations/moizvonki/employees`, cookies: auth, payload: { xodimId: '777', seatId: nodiraSeat } });
+    // Xato bog'lashni tuzatish — tarix bilan ko'chirish.
+    const egasi = async (jadval: 'conversation' | 'analysis' | 'criterion_score') =>
+      (await withoutTenantIsolation('test: suhbat egasini tekshirish', (tx) =>
+        tx.execute(sql`select t.seat_id::text as s, count(*)::int as n from ${sql.raw(jadval)} t
+          join conversation c on c.id = ${sql.raw(jadval === 'conversation' ? 't.id' : 't.conversation_id')}
+          where c.business_id = ${businessId} and c.external_user_id = '501' group by 1`),
+      )) as unknown as { s: string; n: number }[];
+    const tarixsiz = await app.inject({ method: 'PUT', url: `${base}/integrations/moizvonki/employees`, cookies: auth, payload: { xodimId: '501', seatId: nodiraSeat } });
+    check(
+      'tarixsiz o\'tkazish — baholangan suhbatlar eski menejerda qoladi',
+      tarixsiz.json().kochirildi === 0 && (await egasi('conversation')).every((r) => r.s === azizSeat),
+      JSON.stringify(await egasi('conversation')),
+    );
+    const tarixli = await app.inject({
+      method: 'PUT',
+      url: `${base}/integrations/moizvonki/employees`,
+      cookies: auth,
+      payload: { xodimId: '501', seatId: nodiraSeat, tarixniKochir: true },
+    });
+    const kochdi = tarixli.json() as { kochirildi: number };
+    check('tarix bilan — qo\'ng\'iroqlar ko\'chdi', kochdi.kochirildi > 0, tarixli.body);
+    for (const j of ['conversation', 'analysis', 'criterion_score'] as const) {
+      const r = await egasi(j);
+      check(`tarix bilan — ${j} to'liq Nodira'da`, r.length > 0 && r.every((x) => x.s === nodiraSeat), JSON.stringify(r));
+    }
+    // Qaytarish — keyingi bo'limlar avvalgi holatni kutadi.
+    await app.inject({ method: 'PUT', url: `${base}/integrations/moizvonki/employees`, cookies: auth, payload: { xodimId: '501', seatId: azizSeat, tarixniKochir: true } });
+
     check('777 qaytdi, 501 Aziz\'da qoldi', JSON.stringify(mzIdlar(await orinExt(azizSeat))) === '["501"]' && JSON.stringify(mzIdlar(await orinExt(nodiraSeat))) === '["777"]');
 
     // ═══ G: XATO YO'LI ═══
@@ -475,7 +508,8 @@ async function main(): Promise<void> {
     };
     const p1 = await qongiroqlarniQaytaIshla({ businessId, stt: soxtaStt, llm: limitLlm, limit: 10 });
     check('AI limiti: «xato» emas — pauza', p1.pauza === 1 && p1.xato === 0 && p1.baholandi === 0, JSON.stringify(p1));
-    check("ikkala qo'ng'iroq navbatda qoldi", (await holatlar('mz:1007', 'mz:1008')).every((s) => s === 'received'));
+    const navbat = await holatlar('mz:1007', 'mz:1008');
+    check("ikkala qo'ng'iroq navbatda qoldi", navbat.length === 2 && navbat.every((s) => s === 'received'), JSON.stringify(navbat));
     check('pauza qo\'yildi', baholashPauzasi(businessId) !== null);
     const p2 = await qongiroqlarniQaytaIshla({ businessId, stt: soxtaStt, llm: soxtaLlm, limit: 10 });
     check('pauza davomida hech narsa olinmaydi (GPU/AI behuda yonmaydi)', p2.qayta === 0, JSON.stringify(p2));

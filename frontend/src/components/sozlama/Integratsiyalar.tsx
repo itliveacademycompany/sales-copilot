@@ -440,18 +440,38 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
                         value={x.seatId ?? ''}
                         disabled={!boshqaraOladi}
                         aria-label={`${x.name ?? x.id} uchun menejer`}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const yangi = e.target.value || null;
+                          /*
+                           * Allaqachon bog'langan xodimni BOSHQA menejerga o'tkazish ikki xil ma'noda
+                           * bo'ladi: xato bog'langan (tarix ham ko'chishi kerak) yoki hisob boshqa
+                           * odamga berilgan (eski suhbatlar eski menejerda qolishi kerak). Tizim buni
+                           * o'zi bila olmaydi — shuning uchun so'raladi.
+                           */
+                          const eski = xodimlar.seats.find((s) => s.id === x.seatId)?.name;
+                          const yangiNom = xodimlar.seats.find((s) => s.id === yangi)?.name;
+                          const tarixniKochir =
+                            !!x.seatId && !!yangi && x.seatId !== yangi && x.calls > 0
+                              ? window.confirm(
+                                  `«${x.name ?? x.id}» ning OLDINGI qo'ng'iroqlari ham (baholari bilan) ${yangiNom} ga o'tkazilsinmi?\n\n` +
+                                    `OK — xato bog'langan edi, bu hisob aslida ${yangiNom}niki.\n` +
+                                    `Bekor qilish — hisob endi ${yangiNom}ga berildi, eski suhbatlar ${eski}da qolsin.`,
+                                )
+                              : false;
                           void amal.bajar(async () => {
-                            const r = await api.put<{ otkazildi: number }>(`${base}/employees`, {
+                            const r = await api.put<{ otkazildi: number; kochirildi: number }>(`${base}/employees`, {
                               xodimId: x.id,
-                              seatId: e.target.value || null,
+                              seatId: yangi,
+                              tarixniKochir,
                             });
-                            if (r.otkazildi > 0) {
+                            if (r.kochirildi > 0) {
+                              setSinxXabar(`${r.kochirildi} ta qo'ng'iroq (baholari, vazifalari va ogohlantirishlari bilan) ${yangiNom}ga ko'chirildi.`);
+                            } else if (r.otkazildi > 0) {
                               setSinxXabar(`${r.otkazildi} ta kutayotgan qo'ng'iroq menejerga o'tdi.`);
                             }
                             yukla();
-                          })
-                        }
+                          });
+                        }}
                       >
                         <option value="">— bog'lanmagan —</option>
                         {xodimlar.seats.map((s) => (

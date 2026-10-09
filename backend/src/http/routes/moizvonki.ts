@@ -15,6 +15,7 @@ import {
   ulanishniTekshir,
   xodimlarniOl,
   xodimniBogla,
+  xodimTarixiniKochir,
 } from '../../integrations/moizvonki.js';
 import { requireBusiness, requirePermission } from '../auth-plugin.js';
 import { AppError } from '../errors.js';
@@ -46,6 +47,12 @@ const sozlashBody = z.object({
 const boglashBody = z.object({
   xodimId: z.string().trim().min(1).max(64),
   seatId: z.string().uuid().nullable(),
+  /**
+   * Xato bog'lashni tuzatish: xodimning OLDINGI qo'ng'iroqlari ham (baholanganlari
+   * bilan) yangi menejerga ko'chadi. Standart `false`: hisob boshqa odamga
+   * berilgan bo'lsa, eski suhbatlar eski menejerda qolishi kerak.
+   */
+  tarixniKochir: z.boolean().default(false),
 });
 
 /** Integratsiya qatori — kalit shifr ochilgan holda. */
@@ -366,7 +373,13 @@ export function registerMoizvonkiRoutes(app: FastifyInstance): void {
   app.put(`${base}/employees`, { preHandler: [requireBusiness, requirePermission('integration:manage')] }, async (req) => {
     const body = boglashBody.parse(req.body);
     try {
-      return await xodimniBogla(req.business!.businessId, body.xodimId, body.seatId);
+      const businessId = req.business!.businessId;
+      const natija = await xodimniBogla(businessId, body.xodimId, body.seatId);
+      const tarix =
+        body.tarixniKochir && body.seatId
+          ? await xodimTarixiniKochir(businessId, body.xodimId, body.seatId)
+          : { kochirildi: 0 };
+      return { ...natija, ...tarix };
     } catch (err) {
       throw AppError.badRequest(err instanceof Error ? err.message : 'Bog\'lab bo\'lmadi');
     }

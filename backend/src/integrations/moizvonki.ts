@@ -7,7 +7,20 @@ import { isAnalysisBlocked } from '../billing/engine.js';
 import { loadActivePlaybookAndBusiness, tahlilniSaqla, transkriptQil } from '../calls/pipeline.js';
 import { decryptSecret } from '../crypto/secrets.js';
 import { withoutTenantIsolation, withTenant, type Tx } from '../db/index.js';
-import { business, contact, conversation, integration, seat, syncLog } from '../db/schema/index.js';
+import {
+  alert,
+  analysis,
+  business,
+  commitment,
+  contact,
+  conversation,
+  conversationComment,
+  criterionScore,
+  integration,
+  seat,
+  syncLog,
+  task,
+} from '../db/schema/index.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -591,6 +604,8 @@ export interface QaytaIshlashNatija {
   xato: number;
   /** AI limiti sabab navbatga qaytarilgan qo'ng'iroqlar. */
   pauza: number;
+  /** Provayder javobi — jurnalda «qaysi limit» ekanini ko'rish uchun. */
+  pauzaSababi?: string;
 }
 
 /**
@@ -849,6 +864,7 @@ export async function qongiroqlarniQaytaIshla(
       const m = err instanceof Error ? err.message : String(err);
       if (limitXatosimi(m)) {
         n.pauza++;
+        n.pauzaSababi = m.slice(0, 300);
         pauzalar.set(c.businessId, { gacha: Date.now() + LIMIT_PAUZA_MS, sabab: m.slice(0, 200) });
         await withoutTenantIsolation('moizvonki: AI limiti — qo\'ng\'iroqni navbatga qaytarish', (tx) =>
           tx
@@ -871,6 +887,49 @@ export async function qongiroqlarniQaytaIshla(
 }
 
 // ─── Xodimni menejerga bog'lash ──────────────────────────────────────────────
+
+/**
+ * Xato bog'lashni tuzatish: xodimning BARCHA qo'ng'iroqlari — baholanganlari
+ * ham — yangi menejerga ko'chadi, ular bilan bog'liq hamma narsa birga.
+ *
+ * `xodimniBogla` faqat egasiz kutayotgan qo'ng'iroqlarni oladi — bu to'g'ri
+ * standart: hisob boshqa odamga berilsa, eski suhbatlar eski menejerniki
+ * bo'lib qolishi kerak. Lekin bog'lash XATO bo'lgan bo'lsa (hisob aslida
+ * boshqa odamniki), Muxlisaning reytingida Maktubaning suhbatlari qolib
+ * ketardi. Bu funksiya aynan shu holat uchun va faqat aniq so'ralganda ishlaydi.
+ *
+ * `daily_summary` tegilmaydi: u o'sha kuni yuborilgan hisobotning nusxasi.
+ */
+export async function xodimTarixiniKochir(
+  businessId: string,
+  xodimId: string,
+  seatId: string,
+): Promise<{ kochirildi: number }> {
+  return withTenant(businessId, async (tx) => {
+    const qatorlar = await tx
+      .select({ id: conversation.id })
+      .from(conversation)
+      .where(
+        and(
+          eq(conversation.externalSource, 'moizvonki'),
+          eq(conversation.externalUserId, xodimId),
+          sql`${conversation.seatId} is distinct from ${seatId}`,
+        ),
+      );
+    const idlar = qatorlar.map((q) => q.id);
+    if (idlar.length === 0) return { kochirildi: 0 };
+
+    const vaqt = new Date();
+    await tx.update(conversation).set({ seatId, updatedAt: vaqt }).where(inArray(conversation.id, idlar));
+    await tx.update(analysis).set({ seatId }).where(inArray(analysis.conversationId, idlar));
+    await tx.update(criterionScore).set({ seatId }).where(inArray(criterionScore.conversationId, idlar));
+    await tx.update(conversationComment).set({ seatId }).where(inArray(conversationComment.conversationId, idlar));
+    await tx.update(alert).set({ seatId }).where(inArray(alert.conversationId, idlar));
+    await tx.update(commitment).set({ seatId }).where(inArray(commitment.conversationId, idlar));
+    await tx.update(task).set({ seatId }).where(inArray(task.conversationId, idlar));
+    return { kochirildi: idlar.length };
+  });
+}
 
 /**
  * O'ringa bog'langan Moi Zvonki xodimlari.
