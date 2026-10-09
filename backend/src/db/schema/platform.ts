@@ -82,6 +82,14 @@ export const aiProvider = pgTable(
     /** Faqat bittasi har `purpose` uchun faol bo'la oladi. */
     isActive: boolean('is_active').notNull().default(false),
 
+    /**
+     * Zaxira navbati (1, 2, …). Faol provayder limitga (429/kvota) yoki
+     * vaqtinchalik nosozlikka urilsa, so'rov shu tartibda keyingisiga o'tadi.
+     * `null` — zaxirada emas. Bepul kvotalarni qo'shib, bitta kalit tugashi
+     * butun baholashni to'xtatib qo'ymasligi uchun.
+     */
+    fallbackOrder: integer('fallback_order'),
+
     /** Oxirgi ulanish tekshiruvi natijasi. */
     lastCheckAt: timestamp('last_check_at', { withTimezone: true }),
     lastCheckOk: boolean('last_check_ok'),

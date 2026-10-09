@@ -1,0 +1,16 @@
+/* AiProvayderlar.tsx — Alisherning sz-/bn- uslubiga mos */
+.ai-prov-royxat { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.ai-prov-qator { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 12px; background: var(--bg-base); box-shadow: var(--neu-out-xs); }
+.ai-prov-asosiy { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.ai-prov-nom { display: flex; align-items: center; gap: 8px; }
+.ai-prov-nom b { font-size: 14.5px; font-weight: 600; }
+.ai-prov-asosiy small { font-size: 12.5px; color: var(--text-secondary); overflow-wrap: anywhere; }
+.ai-prov-asosiy small.bn-ok { color: var(--yuqori-text); }
+.ai-prov-amallar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ai-prov-amallar svg { width: 15px; height: 15px; }
+.ai-prov-kalit { flex-basis: 100%; display: flex; gap: 8px; }
+.ai-prov-kalit .input { flex: 1; min-width: 0; }
+.ai-prov-belgi { display: flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--text-secondary); }
+@media (max-width: 640px) {
+  .ai-prov-kalit { flex-direction: column; }
+}

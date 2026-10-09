@@ -120,6 +120,13 @@
       "when": 1791458102937,
       "tag": "0016_oval_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791528489451,
+      "tag": "0017_sad_star_brand",
+      "breakpoints": true
     }
   ]
 }

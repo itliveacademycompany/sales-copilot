@@ -1,0 +1,1 @@
+ALTER TABLE "ai_provider" ADD COLUMN "fallback_order" integer;

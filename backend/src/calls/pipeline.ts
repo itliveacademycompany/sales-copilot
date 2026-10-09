@@ -88,8 +88,22 @@ export async function transcribeWithLocalStt(
         'Lokal STT transkript. Speaker taglar vaqtinchalik taxminiy: rollarni yuklashdan oldin tekshiring.',
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new SttError(`Lokal STT xatosi (${model}): ${message}`);
+    /**
+     * Sabab BIRINCHI turadi. `execFile` xatosi «Command failed: <butun buyruq
+     * satri>» bilan boshlanadi va saqlanadigan qisqa matnni (300 belgi) to'ldirib,
+     * haqiqiy sababni — Python stderr oxirini (CUDA xotira, ffmpeg, model) —
+     * kesib tashlardi. Shuning uchun stderr'ning oxirgi mazmunli qatorlari olinadi.
+     */
+    const e = err as { stderr?: string; killed?: boolean; signal?: string; code?: number | string; message?: string };
+    const stderr = (e.stderr ?? '')
+      .split(/\r?\n/)
+      .map((q) => q.trim())
+      .filter((q) => q && !/^\s*(Loading weights|W\d{4}|warnings\.warn|filtered by duration)/.test(q));
+    const sabab =
+      e.killed || e.signal
+        ? `jarayon to'xtatildi (${e.signal ?? 'timeout'})`
+        : stderr.slice(-3).join(' | ') || (e.message ?? String(err)).replace(/^Command failed:.*$/m, '').trim() || `chiqish kodi ${e.code ?? '?'}`;
+    throw new SttError(`Lokal STT xatosi (${model}): ${sabab}`.slice(0, 1000));
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

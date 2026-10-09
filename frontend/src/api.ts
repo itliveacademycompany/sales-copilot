@@ -80,6 +80,8 @@ export interface AuthContext {
     displayName: string;
     avatarUrl: string | null;
     locale: string;
+    /** Platforma darajasidagi rol — `super_admin` admin panelni (AI provayderlar) ko'radi. */
+    systemRole?: 'super_admin' | 'business_owner' | 'partner' | 'user';
   };
   businesses: BusinessAccess[];
 }

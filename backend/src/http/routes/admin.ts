@@ -1,6 +1,7 @@
-import { and, desc, eq, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, ne, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import { provayderKlienti } from '../../ai/llm.js';
 import { encryptSecret, maskSecret } from '../../crypto/secrets.js';
 import { withoutTenantIsolation } from '../../db/index.js';
 import { aiProvider, auditLog } from '../../db/schema/index.js';
@@ -27,23 +28,35 @@ async function requireSuperAdmin(req: FastifyRequest): Promise<void> {
   }
 }
 
+/**
+ * Bosqich → model nomi (`stage2`, `stage3`, `playbookBuilder`) va ixtiyoriy
+ * `splitFields` — zaif modellarga katta sxemani bo'lib so'rash uchun RAQAM.
+ * Ilgari faqat matn qabul qilinardi va bepul modelni sozlab bo'lmasdi.
+ */
+const modellar = z.record(z.union([z.string().trim().min(1).max(120), z.number().int().min(1).max(50)]));
+
+/** Zaxira navbati: 1, 2, … yoki `null` — zaxirada emas. */
+const zaxira = z.number().int().min(1).max(20).nullable();
+
 const createProvider = z.object({
   purpose: z.enum(['llm', 'stt']),
   kind: z.enum(['anthropic', 'openai', 'google', 'deepgram', 'custom']),
   label: z.string().trim().min(2).max(80),
   apiKey: z.string().trim().min(8).max(500).optional(),
-  models: z.record(z.string().trim().min(1).max(80)).default({}),
+  models: modellar.default({}),
   baseUrl: z.string().url().max(300).optional(),
   monthlyBudgetUsd: z.number().int().min(0).max(1_000_000).default(0),
+  fallbackOrder: zaxira.default(null),
 });
 
 const patchProvider = z.object({
   label: z.string().trim().min(2).max(80).optional(),
   /** Yangi kalit. Berilsa — eskisi almashtiriladi. Ochib ko'rish imkoni yo'q. */
   apiKey: z.string().trim().min(8).max(500).optional(),
-  models: z.record(z.string().trim().min(1).max(80)).optional(),
+  models: modellar.optional(),
   baseUrl: z.string().url().max(300).nullable().optional(),
   monthlyBudgetUsd: z.number().int().min(0).max(1_000_000).optional(),
+  fallbackOrder: zaxira.optional(),
 });
 
 const idParam = z.object({ id: z.string().uuid() });
@@ -64,6 +77,7 @@ const publicColumns = {
   models: aiProvider.models,
   baseUrl: aiProvider.baseUrl,
   isActive: aiProvider.isActive,
+  fallbackOrder: aiProvider.fallbackOrder,
   lastCheckAt: aiProvider.lastCheckAt,
   lastCheckOk: aiProvider.lastCheckOk,
   lastCheckError: aiProvider.lastCheckError,
@@ -101,7 +115,10 @@ export function registerAdminRoutes(app: FastifyInstance): void {
 
   app.get('/api/v1/admin/providers', guard, async () =>
     withoutTenantIsolation('admin: AI provayderlari platforma darajasida', (tx) =>
-      tx.select(publicColumns).from(aiProvider).orderBy(desc(aiProvider.createdAt)),
+      tx
+        .select(publicColumns)
+        .from(aiProvider)
+        .orderBy(desc(aiProvider.isActive), sql`${aiProvider.fallbackOrder} asc nulls last`, asc(aiProvider.createdAt)),
     ),
   );
 
@@ -123,6 +140,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
             models: body.models,
             baseUrl: body.baseUrl ?? null,
             monthlyBudgetUsd: body.monthlyBudgetUsd,
+            fallbackOrder: body.fallbackOrder,
             createdBy: req.auth!.user.id,
           })
           .returning(publicColumns),
@@ -142,6 +160,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     if (body.models !== undefined) patch.models = body.models;
     if (body.baseUrl !== undefined) patch.baseUrl = body.baseUrl;
     if (body.monthlyBudgetUsd !== undefined) patch.monthlyBudgetUsd = body.monthlyBudgetUsd;
+    if (body.fallbackOrder !== undefined) patch.fallbackOrder = body.fallbackOrder;
 
     if (body.apiKey !== undefined) {
       patch.apiKeyEncrypted = encryptSecret(body.apiKey);
@@ -215,11 +234,13 @@ export function registerAdminRoutes(app: FastifyInstance): void {
   });
 
   /**
-   * Ulanishni tekshirish.
+   * Ulanishni tekshirish — HAQIQIY so'rov.
    *
-   * Hozircha faqat sozlama to'liqligini tekshiradi — haqiqiy API chaqiruvi
-   * LLM klienti yozilgach qo'shiladi. Endpoint shakli hozirdan qat'iy,
-   * shunda frontend keyin o'zgarmaydi.
+   * LLM uchun kichik JSON so'rov ishchi pipeline ishlatadigan AYNAN o'sha
+   * klient (`provayderKlienti`) orqali yuboriladi: kalit, `baseUrl`, model
+   * nomi va JSON rejimi birga tekshiriladi. «Sozlama to'liq» degani hali
+   * ishlashini bildirmaydi — noto'g'ri model nomi faqat jonli so'rovda chiqadi.
+   * STT uchun hozircha sozlama to'liqligi tekshiriladi.
    */
   app.post('/api/v1/admin/providers/:id/test', guard, async (req) => {
     const { id } = idParam.parse(req.params);
@@ -232,6 +253,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
           purpose: aiProvider.purpose,
           key: aiProvider.apiKeyEncrypted,
           models: aiProvider.models,
+          baseUrl: aiProvider.baseUrl,
         })
         .from(aiProvider)
         .where(eq(aiProvider.id, id))
@@ -241,7 +263,30 @@ export function registerAdminRoutes(app: FastifyInstance): void {
 
     const problems: string[] = [];
     if (!row.key) problems.push('API kaliti kiritilmagan');
-    if (Object.keys(row.models as object).length === 0) problems.push('Model tanlanmagan');
+    const modelNomlari = Object.entries((row.models ?? {}) as Record<string, unknown>).filter(([k]) => k !== 'splitFields');
+    if (modelNomlari.length === 0) problems.push('Model tanlanmagan');
+
+    let liveCheck = false;
+    let model: string | null = null;
+    let ms: number | null = null;
+    if (problems.length === 0 && row.purpose === 'llm') {
+      liveCheck = true;
+      const boshlandi = Date.now();
+      try {
+        const javob = await provayderKlienti({ kind: row.kind, apiKeyEncrypted: row.key, models: row.models, baseUrl: row.baseUrl }).completeJson({
+          stage: 'stage2',
+          system: 'Siz ulanish tekshiruvisiz. Faqat berilgan JSON sxemaga mos javob qaytaring.',
+          user: 'Ulanish ishlayaptimi? ok maydoniga true yozing.',
+          schema: { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'], additionalProperties: false },
+          maxTokens: 200,
+        });
+        model = javob.model;
+        if ((javob.json as { ok?: unknown } | null)?.ok !== true) problems.push('Model javob berdi, lekin JSON sxemaga mos emas');
+      } catch (err) {
+        problems.push((err instanceof Error ? err.message : String(err)).slice(0, 500));
+      }
+      ms = Date.now() - boshlandi;
+    }
 
     const ok = problems.length === 0;
     await withoutTenantIsolation('admin: tekshiruv natijasini yozish', (tx) =>
@@ -250,7 +295,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
         .set({
           lastCheckAt: new Date(),
           lastCheckOk: ok,
-          lastCheckError: ok ? null : problems.join('; '),
+          lastCheckError: ok ? null : problems.join('; ').slice(0, 1000),
         })
         .where(eq(aiProvider.id, id)),
     );
@@ -258,11 +303,14 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     return {
       ok,
       problems,
-      // Haqiqiy API chaqiruvi LLM klienti tayyor bo'lgach ishga tushadi.
-      liveCheck: false,
+      liveCheck,
+      model,
+      ms,
       note: ok
-        ? 'Sozlama to\'liq. Jonli tekshiruv LLM klienti ulangach ishlaydi.'
-        : 'Sozlamani to\'ldiring.',
+        ? liveCheck
+          ? `Ishlayapti: ${model} ${ms} ms da javob berdi.`
+          : 'Sozlama to\'liq (STT jonli tekshirilmaydi).'
+        : 'Tekshiruv o\'tmadi.',
     };
   });
 }

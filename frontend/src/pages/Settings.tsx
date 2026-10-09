@@ -16,6 +16,7 @@ import {
   Link2,
   Palette,
   PhoneCall,
+  Cpu,
   AudioLines,
   Share2,
   Pencil,
@@ -46,6 +47,7 @@ import { Menejerlar } from '../components/sozlama/Menejerlar';
 import { IshJadvali } from '../components/sozlama/IshJadvali';
 import { Obuna } from '../components/sozlama/Obuna';
 import { CrmEksport, MoiZvonki, SttTanlash } from '../components/sozlama/Integratsiyalar';
+import { AiProvayderlar } from '../components/sozlama/AiProvayderlar';
 import { TanlovMenyu } from '../components/analitika/Ochiluvchi';
 import { ParolInput } from '../components/ParolInput';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -98,6 +100,7 @@ type Bolim =
   | 'moizvonki'
   | 'crmEksport'
   | 'stt'
+  | 'aiProvayder'
   | 'kunlik';
 
 const ROL_NOM: Record<string, string> = {
@@ -149,6 +152,8 @@ export function Settings() {
     { key: 'oilalar', nom: "Qo'ng'iroq oilalari", guruh: 'tahlil', ikon: <MessagesSquare />, korinadi: playbookKoradi },
     { key: 'ai', nom: "AI ko'rsatmalari", guruh: 'tahlil', ikon: <Sparkles />, korinadi: playbookKoradi },
     { key: 'stt', nom: 'Nutqni matnga (STT)', guruh: 'tahlil', ikon: <AudioLines />, korinadi: true },
+    // Platforma darajasi — kalitlar butun tizimga ishlatiladi, shuning uchun faqat super-admin
+    { key: 'aiProvayder', nom: 'AI provayderlar', guruh: 'tahlil', ikon: <Cpu />, korinadi: user?.systemRole === 'super_admin' },
     { key: 'lidSifati', nom: 'Lid sifati bosqichlari', guruh: 'lid', ikon: <Flame />, korinadi: bizneskoradi },
     { key: 'crmNatija', nom: 'CRM natija bosqichlari', guruh: 'lid', ikon: <Flag />, korinadi: bizneskoradi },
     { key: 'crmVoronka', nom: 'Faol CRM voronkalari', guruh: 'lid', ikon: <Filter />, korinadi: bizneskoradi },
@@ -235,6 +240,7 @@ export function Settings() {
         {bolim.key === 'moizvonki' && business && <MoiZvonki businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
         {bolim.key === 'crmEksport' && business && <CrmEksport businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
         {bolim.key === 'stt' && <SttTanlash />}
+        {bolim.key === 'aiProvayder' && <AiProvayderlar />}
         {bolim.key === 'kunlik' && <KunlikHisobotSozlama />}
       </div>
     </>

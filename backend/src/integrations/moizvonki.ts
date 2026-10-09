@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import type { LlmClient } from '../ai/llm.js';
+import { limitXatosimi, type LlmClient } from '../ai/llm.js';
 import { refineAndAnalyzeTranscript } from '../ai/refine-and-analyze.js';
 import type { SttClient } from '../ai/stt.js';
 import { isAnalysisBlocked } from '../billing/engine.js';
@@ -620,9 +620,8 @@ export interface QaytaIshlashNatija {
 export const LIMIT_PAUZA_MS = 15 * 60 * 1000;
 const pauzalar = new Map<string, { gacha: number; sabab: string }>();
 
-export function limitXatosimi(xabar: string): boolean {
-  return /\(429\b|\b429\b.*(limit|quota)|RESOURCE_EXHAUSTED|quota|rate.?limit|too many requests/i.test(xabar);
-}
+/** Bitta manba — `ai/llm.ts` (zaxira zanjiri ham shu bilan qaror qiladi). */
+export { limitXatosimi };
 
 export function baholashPauzasi(businessId: string): { gacha: string; sabab: string } | null {
   const p = pauzalar.get(businessId);
@@ -878,7 +877,7 @@ export async function qongiroqlarniQaytaIshla(
       await withoutTenantIsolation('moizvonki: qo\'ng\'iroq xatosini yozish', (tx) =>
         tx
           .update(conversation)
-          .set({ status: 'failed', excludedReason: m.slice(0, 300), updatedAt: new Date() })
+          .set({ status: 'failed', excludedReason: m.slice(0, 600), updatedAt: new Date() })
           .where(eq(conversation.id, c.id)),
       );
     }

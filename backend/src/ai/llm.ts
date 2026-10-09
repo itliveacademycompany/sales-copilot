@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNotNull, or } from 'drizzle-orm';
 import { decryptSecret } from '../crypto/secrets.js';
 import { withoutTenantIsolation } from '../db/index.js';
 import { aiProvider } from '../db/schema/index.js';
@@ -337,40 +337,23 @@ export class LlmRefusalError extends Error {
 }
 
 /**
- * Faol LLM provayderidan klient yasash.
+ * Provayder qatoridan klient yasash (kalit shu yerda ochiladi).
  *
- * Kalit bazada shifrlangan (admin panel orqali kiritiladi), shu yerda
- * ochiladi. Provayder yo'q bo'lsa — aniq xato: pipeline jimgina
- * ishlamay qolishidan ko'ra ochiq nosozlik yaxshi.
+ * Admin paneldagi «Tekshirish» ham shu funksiyadan foydalanadi — tekshiruv
+ * va haqiqiy ish bir xil yo'ldan yursin, aks holda «tekshiruv o'tdi, lekin
+ * ishlamayapti» holati bo'lishi mumkin edi.
  */
-export async function getActiveLlm(): Promise<LlmClient> {
-  const [provider] = await withoutTenantIsolation(
-    'worker: faol LLM provayderini o\'qish (platforma darajasi)',
-    (tx) =>
-      tx
-        .select({
-          kind: aiProvider.kind,
-          apiKeyEncrypted: aiProvider.apiKeyEncrypted,
-          models: aiProvider.models,
-          baseUrl: aiProvider.baseUrl,
-        })
-        .from(aiProvider)
-        .where(and(eq(aiProvider.purpose, 'llm'), eq(aiProvider.isActive, true)))
-        .limit(1),
-  );
-
-  if (!provider) {
-    throw new Error(
-      'Faol LLM provayderi yo\'q — admin paneldan provayder qo\'shib faollashtiring',
-    );
-  }
+export function provayderKlienti(provider: {
+  kind: string;
+  apiKeyEncrypted: Uint8Array | Buffer | null;
+  models: unknown;
+  baseUrl: string | null;
+}): LlmClient {
   if (!provider.apiKeyEncrypted) {
-    throw new Error('Faol provayderda API kaliti yo\'q');
+    throw new Error('Provayderda API kaliti yo\'q');
   }
   const apiKey = decryptSecret(Buffer.from(provider.apiKeyEncrypted));
-  const models = (provider.models ?? {}) as Partial<
-    Record<LlmJsonRequest['stage'], string>
-  >;
+  const models = (provider.models ?? {}) as Partial<Record<LlmJsonRequest['stage'], string>>;
 
   /**
    * `splitFields` — zaif modellar uchun: katta sxemani shuncha maydonlik
@@ -378,25 +361,119 @@ export async function getActiveLlm(): Promise<LlmClient> {
    */
   const splitFields = Number((provider.models as Record<string, unknown> | null)?.splitFields);
   const orash = (klient: LlmClient): LlmClient =>
-    Number.isFinite(splitFields) && splitFields > 0
-      ? new SplitJsonLlm(klient, splitFields)
-      : klient;
+    Number.isFinite(splitFields) && splitFields > 0 ? new SplitJsonLlm(klient, splitFields) : klient;
 
   switch (provider.kind) {
     case 'anthropic':
       return orash(new AnthropicLlm(apiKey, models, provider.baseUrl ?? undefined));
-    // Groq OpenAI-uyg'un API beradi — `kind: 'openai'` + Groq `baseUrl`.
+    // Groq, OpenRouter, Gemini (OpenAI-uyg'un rejim) — `kind: 'openai'` + o'z `baseUrl`.
     // Shu sababli enum'ga yangi qiymat va migratsiya kerak emas.
     case 'openai':
     case 'custom':
-      return orash(
-        new OpenAiCompatLlm(
-          apiKey,
-          models,
-          provider.baseUrl ?? 'https://api.groq.com/openai/v1',
-        ),
-      );
+      return orash(new OpenAiCompatLlm(apiKey, models, provider.baseUrl ?? 'https://api.groq.com/openai/v1'));
     default:
       throw new Error(`Provayder turi hali qo'llab-quvvatlanmaydi: ${provider.kind}`);
   }
+}
+
+/**
+ * Provayder limiti (HTTP 429, kvota tugadi) — so'rovning aybi emas,
+ * keyinroq yoki boshqa provayderda o'tadi.
+ */
+export function limitXatosimi(xabar: string): boolean {
+  return /\(429\b|\b429\b.*(limit|quota)|RESOURCE_EXHAUSTED|quota|rate.?limit|too many requests/i.test(xabar);
+}
+
+/** Boshqa provayderda urinib ko'rish ma'nosi bormi: limit, 5xx yoki tarmoq uzilishi. */
+function boshqasigaOtiladimi(xabar: string): boolean {
+  return (
+    limitXatosimi(xabar) ||
+    /\((5\d\d)\b/.test(xabar) ||
+    /fetch failed|ECONNRESET|ECONNREFUSED|ETIMEDOUT|ENOTFOUND|socket hang up|aborted|timeout/i.test(xabar)
+  );
+}
+
+/** Limitga urilgan provayder shuncha vaqt chetlab o'tiladi — har so'rovda tugagan kvotani qayta urmaslik uchun. */
+export const PROVAYDER_SOVUSH_MS = 15 * 60 * 1000;
+const sovuganlar = new Map<string, number>();
+
+/** Testlar uchun. */
+export function sovuganlarniTozala(): void {
+  sovuganlar.clear();
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ZAXIRA ZANJIRI — bitta kalit tugasa ish to'xtamasin
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Faol provayder birinchi, keyin `fallbackOrder` tartibida zaxiralar.
+ * Limit (429/kvota), 5xx yoki tarmoq xatosida so'rov keyingisiga o'tadi;
+ * limitga urilgani 15 daqiqa chetlab o'tiladi. Boshqa xatolar (400 — sxema,
+ * 401 — kalit, xavfsizlik rad etishi) darhol qaytariladi: ular boshqa
+ * provayderda ham tuzalmaydi yoki sozlamani tuzatish kerakligini bildiradi.
+ *
+ * Hammasi limitda bo'lsa — xato matni `limitXatosimi` ga mos keladi, ya'ni
+ * yuqori qatlam (Moi Zvonki) uni «xato» emas, «pauza» deb tushunadi.
+ */
+export class ZaxiraLlm implements LlmClient {
+  constructor(private readonly zanjir: { nom: string; klient: LlmClient }[]) {}
+
+  async completeJson(req: LlmJsonRequest): Promise<LlmJsonResponse> {
+    let oxirgiXato: unknown = null;
+    for (const z of this.zanjir) {
+      const gacha = sovuganlar.get(z.nom);
+      if (gacha && gacha > Date.now()) continue;
+      try {
+        return await z.klient.completeJson(req);
+      } catch (err) {
+        if (err instanceof LlmRefusalError) throw err;
+        const m = err instanceof Error ? err.message : String(err);
+        if (!boshqasigaOtiladimi(m)) throw err;
+        if (limitXatosimi(m)) sovuganlar.set(z.nom, Date.now() + PROVAYDER_SOVUSH_MS);
+        oxirgiXato = err;
+      }
+    }
+    const sabab = oxirgiXato instanceof Error ? oxirgiXato.message : 'hammasi vaqtincha chetlab o\'tilgan';
+    throw new Error(`LLM so'rovi muvaffaqiyatsiz (429, zaxira zanjiri): barcha provayderlar limitda yoki ishlamayapti — ${sabab}`.slice(0, 600));
+  }
+}
+
+/**
+ * Faol LLM provayderidan (va zaxiralaridan) klient yasash.
+ *
+ * Kalit bazada shifrlangan (admin panel orqali kiritiladi). Faol provayder
+ * yo'q bo'lsa — aniq xato: pipeline jimgina ishlamay qolishidan ko'ra ochiq
+ * nosozlik yaxshi. Zaxira yo'q bo'lsa — eskicha bitta klient.
+ */
+export async function getActiveLlm(): Promise<LlmClient> {
+  const qatorlar = await withoutTenantIsolation('worker: faol LLM provayderini o\'qish (platforma darajasi)', (tx) =>
+    tx
+      .select({
+        label: aiProvider.label,
+        kind: aiProvider.kind,
+        apiKeyEncrypted: aiProvider.apiKeyEncrypted,
+        models: aiProvider.models,
+        baseUrl: aiProvider.baseUrl,
+        isActive: aiProvider.isActive,
+        fallbackOrder: aiProvider.fallbackOrder,
+      })
+      .from(aiProvider)
+      .where(and(eq(aiProvider.purpose, 'llm'), or(eq(aiProvider.isActive, true), isNotNull(aiProvider.fallbackOrder)))),
+  );
+
+  const faol = qatorlar.find((q) => q.isActive);
+  if (!faol) {
+    throw new Error('Faol LLM provayderi yo\'q — admin paneldan provayder qo\'shib faollashtiring');
+  }
+  if (!faol.apiKeyEncrypted) {
+    throw new Error('Faol provayderda API kaliti yo\'q');
+  }
+
+  const zaxiralar = qatorlar
+    .filter((q) => !q.isActive && q.apiKeyEncrypted && q.fallbackOrder !== null)
+    .sort((a, b) => a.fallbackOrder! - b.fallbackOrder!);
+  if (zaxiralar.length === 0) return provayderKlienti(faol);
+
+  return new ZaxiraLlm([faol, ...zaxiralar].map((q) => ({ nom: q.label, klient: provayderKlienti(q) })));
 }
