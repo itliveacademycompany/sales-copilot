@@ -3,6 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { loadAuthContext } from '../../auth/context.js';
 import { hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from '../../auth/password.js';
+import { aktivatsiyaMalumoti, aktivlashtir, type AktivatsiyaXato } from '../../auth/activation.js';
 import { consumeResetToken, requestReset } from '../../auth/password-reset.js';
 import {
   createSession,
@@ -46,10 +47,23 @@ const registerBody = z.object({
   businessName: z.string().trim().min(2).max(120),
 });
 
+/**
+ * Kirish: email YOKI login. Maydon nomi `email` — eski mijozlar buzilmasin.
+ * Menejerlarga rahbar login beradi (FR-04), ularda email bo'lmasligi mumkin.
+ */
 const loginBody = z.object({
-  email,
+  email: z.string().trim().toLowerCase().min(3).max(255),
   password: z.string().min(1).max(200),
 });
+
+/** Aktivatsiya xatolari — foydalanuvchiga tushunarli matn. */
+const AKTIVATSIYA_XATO: Record<AktivatsiyaXato, string> = {
+  invalid: 'Havola noto\'g\'ri yoki allaqachon ishlatilgan — rahbardan yangisini so\'rang',
+  expired: 'Havola muddati tugagan — rahbardan yangisini so\'rang',
+  disabled: 'Bu o\'rin o\'chirilgan — rahbaringizga murojaat qiling',
+  login_required: 'Login tanlang: 3–40 belgi, faqat lotin harflari, raqam va . _ -',
+  login_taken: 'Bu login band — boshqasini tanlang',
+};
 
 /** Biznes nomidan URL uchun yaroqli slug yasaydi. */
 function slugify(name: string): string {
@@ -171,18 +185,23 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       const body = loginBody.parse(req.body);
 
       const [user] = await withoutTenantIsolation(
-        'kirish: foydalanuvchini email bo\'yicha topish tenantlardan tashqarida',
+        'kirish: foydalanuvchini email yoki login bo\'yicha topish tenantlardan tashqarida',
         (tx) =>
           tx
             .select({ id: appUser.id, passwordHash: appUser.passwordHash })
             .from(appUser)
-            .where(and(eq(appUser.email, body.email), isNull(appUser.deletedAt)))
+            .where(
+              and(
+                body.email.includes('@') ? eq(appUser.email, body.email) : eq(appUser.login, body.email),
+                isNull(appUser.deletedAt),
+              ),
+            )
             .limit(1),
       );
 
       const ok = await verifyPassword(user?.passwordHash ?? null, body.password);
       if (!ok || !user) {
-        throw AppError.unauthorized('Email yoki parol noto\'g\'ri');
+        throw AppError.unauthorized('Login yoki parol noto\'g\'ri');
       }
 
       const { token } = await createSession(user.id, {
@@ -305,6 +324,50 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       setSessionCookie(reply, fresh.token);
 
       return { ok: true };
+    },
+  );
+
+  /**
+   * FR-04: aktivatsiya havolasi haqida ma'lumot — sahifa ochilganda.
+   *
+   * POST, GET emas: token URL'da tursa, so'rovlar jurnaliga tushardi.
+   */
+  app.post(
+    '/api/v1/auth/activate/info',
+    { config: { rateLimit: { max: 20, timeWindow: '15 minutes' } } },
+    async (req) => {
+      const body = z.object({ token: z.string().trim().min(20).max(200) }).parse(req.body);
+      const natija = await aktivatsiyaMalumoti(body.token);
+      if (!natija.ok) throw AppError.badRequest(AKTIVATSIYA_XATO[natija.reason]);
+      return natija.info;
+    },
+  );
+
+  /** FR-04: parol o'rnatib hisobni faollashtirish — darhol tizimga kiritadi. */
+  app.post(
+    '/api/v1/auth/activate',
+    { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } },
+    async (req, reply) => {
+      const body = z
+        .object({
+          token: z.string().trim().min(20).max(200),
+          password,
+          login: z.string().trim().toLowerCase().max(40).optional(),
+        })
+        .parse(req.body);
+
+      const natija = await aktivlashtir(body);
+      if (!natija.ok) {
+        if (natija.reason === 'login_taken') throw AppError.conflict(AKTIVATSIYA_XATO.login_taken);
+        throw AppError.badRequest(AKTIVATSIYA_XATO[natija.reason]);
+      }
+
+      const { token } = await createSession(natija.userId, {
+        userAgent: req.headers['user-agent'],
+        ip: req.ip,
+      });
+      setSessionCookie(reply, token);
+      return loadAuthContext(natija.userId);
     },
   );
 

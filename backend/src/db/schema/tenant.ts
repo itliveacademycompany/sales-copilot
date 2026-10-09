@@ -198,7 +198,15 @@ export const seat = pgTable(
      */
     workHours: jsonb('work_hours'),
 
+    /**
+     * FR-04: aktivatsiya tokenining SHA-256 xeshi — ochiq token hech qachon
+     * saqlanmaydi (sessiya va parol tiklash tokenlari kabi). Token faqat
+     * rahbarga bir marta ko'rsatiladi va menejer uni `/aktivatsiya/:token`
+     * sahifasida ishlatadi.
+     */
     activationToken: text('activation_token'),
+    /** Token muddati — eski havola cheksiz ochiq eshik bo'lib qolmasin. */
+    activationExpiresAt: timestamp('activation_expires_at', { withTimezone: true }),
     activation: activationStatus('activation').notNull().default('pending'),
     telegramLinked: boolean('telegram_linked').notNull().default(false),
 

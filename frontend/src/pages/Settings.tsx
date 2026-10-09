@@ -29,7 +29,8 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Bildirishnomalar, Bizneslar, Korinish, MuammoXabari } from '../components/sozlama/Bolimlar';
+import { Bizneslar, Korinish, MuammoXabari } from '../components/sozlama/Bolimlar';
+import { Bildirishnomalar } from '../components/sozlama/Bildirishnomalar';
 import { ProfileStep } from './Onboarding';
 import { BaholashMezonlari } from '../components/mezonlar/BaholashMezonlari';
 import { AnketaSavollari } from '../components/anketa/AnketaSavollari';
@@ -48,7 +49,7 @@ import { CrmEksport, MoiZvonki, SttTanlash } from '../components/sozlama/Integra
 import { TanlovMenyu } from '../components/analitika/Ochiluvchi';
 import { ParolInput } from '../components/ParolInput';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { lokalAvatarSaqla, rasmniTayyorla, useLokalAvatar } from '../components/avatar';
+import { rasmniTayyorla } from '../components/avatar';
 import {
   api,
   ApiError,
@@ -301,14 +302,21 @@ function Profil({
   business: { businessId: string; role: string; permissions: string[] } | null;
   onSaqlandi: () => Promise<void>;
 }) {
-  const boshlangich = { ism: user?.displayName ?? '', til: user?.locale ?? 'uz', avatar: user?.avatarUrl ?? '' };
+  /**
+   * Server bitta `avatarUrl` saqlaydi: https havola YOKI yuklangan faylning
+   * data-URL'i. Fayl bo'lsa havola maydoni bo'sh ko'rsatiladi — aks holda
+   * 30 KB lik base64 matn input ichida ko'rinib qolardi.
+   */
+  const serverRasm = user?.avatarUrl ?? '';
+  const serverFayl = serverRasm.startsWith('data:') ? serverRasm : null;
+  const boshlangich = { ism: user?.displayName ?? '', til: user?.locale ?? 'uz', avatar: serverFayl ? '' : serverRasm };
   const [ism, setIsm] = useState(boshlangich.ism);
   const [til, setTil] = useState(boshlangich.til);
   const [avatar, setAvatar] = useState(boshlangich.avatar);
   const [avatarOchiq, setAvatarOchiq] = useState(false);
   const [rasmXato, setRasmXato] = useState(false);
   // Fayldan tanlangan rasm: undefined — o'zgarmagan, null — olib tashlandi, string — yangi rasm
-  const saqlanganLokal = useLokalAvatar(user?.id);
+  const saqlanganLokal = serverFayl;
   const [yangiLokal, setYangiLokal] = useState<string | null | undefined>(undefined);
   const [faylXato, setFaylXato] = useState<string | null>(null);
   const [sudrash, setSudrash] = useState(false);
@@ -414,7 +422,7 @@ function Profil({
               )}
             </div>
             {faylXato && <small className="pr-xato">{faylXato}</small>}
-            {lokal && <small>Fayldan qo'yilgan rasm shu brauzerda saqlanadi — boshqa qurilmada ko'rinishi uchun havola orqali qo'ying.</small>}
+            {lokal && <small>Rasm profilingizda saqlanadi va barcha qurilmalarda ko'rinadi.</small>}
             {avatarOchiq && (
               <div className="pr-avatar-maydon">
                 <input
@@ -423,6 +431,8 @@ function Profil({
                   onChange={(e) => {
                     setAvatar(e.target.value);
                     setRasmXato(false);
+                    // Havola yozilsa — u fayl o'rnini oladi (server bitta rasm saqlaydi).
+                    if (e.target.value.trim()) setYangiLokal(null);
                   }}
                   placeholder="https://…/rasm.jpg"
                   aria-label="Rasm havolasi"
@@ -506,10 +516,9 @@ function Profil({
                 await api.patch('/api/v1/auth/me', {
                   displayName: ism.trim(),
                   locale: til,
-                  avatarUrl: avatar.trim() ? avatar.trim() : null,
+                  // Fayl tanlangan bo'lsa — uning data-URL'i, aks holda havola.
+                  avatarUrl: lokal ?? (avatar.trim() ? avatar.trim() : null),
                 });
-                // Fayldan tanlangan rasm — faqat shu brauzerda
-                if (yangiLokal !== undefined && user) lokalAvatarSaqla(user.id, yangiLokal);
                 setYangiLokal(undefined);
                 await onSaqlandi();
                 setAvatarOchiq(false);

@@ -20,6 +20,8 @@ export function App() {
       <Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}>
       <Routes>
         <Route path="/parol-tiklash/:token" element={<SAHIFA.passwordReset />} />
+        {/* FR-04: menejer aktivatsiyasi — hisob hali yo'q, shuning uchun bu yerda */}
+        <Route path="/aktivatsiya/:token" element={<SAHIFA.aktivatsiya />} />
         <Route path="*" element={<Login />} />
       </Routes>
       </Suspense>
@@ -48,6 +50,10 @@ export function App() {
 
   return (
     <Routes>
+      {/* Kirgan odam (masalan rahbar) havolani ochsa ham sahifa ko'rinsin —
+          aks holda u jimgina bosh sahifaga otilardi. Aktivatsiya sessiyani
+          yangi menejernikiga almashtiradi. */}
+      <Route path="/aktivatsiya/:token" element={<Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}><SAHIFA.aktivatsiya /></Suspense>} />
       <Route element={<Layout />}>
         <Route path="/" element={rahbar ? <SAHIFA.dashboard /> : <SAHIFA.seatCabinet />} />
         <Route path="/sotuvchi/:seatId" element={<SAHIFA.seatCabinet />} />

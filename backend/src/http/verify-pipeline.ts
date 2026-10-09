@@ -681,6 +681,49 @@ async function main(): Promise<void> {
       payload: { startHour: 0, endHour: 24, days: [1, 2, 3, 4, 5, 6, 7], alertsOnlyWorkHours: false },
     });
 
+    /*
+     * G4–G5: «Past baho» ogohlantirishi (alertPrefs.lowScore).
+     *
+     * G2 mock'i: A1 = 1/3, qolganlari null → umumiy ball ~33%. Chegara 50
+     * bo'lsa ogohlantirish chiqishi, replika talabi bajarilmasa chiqmasligi kerak.
+     */
+    const pastBaho = (minTurns: number) =>
+      app.inject({
+        method: 'PUT',
+        url: `${base}/alert-prefs`,
+        cookies: auth,
+        payload: { lowScore: { enabled: true, threshold: 50, minTurns } },
+      });
+    check('past baho sozlamasi saqlandi', (await pastBaho(3)).statusCode === 200);
+
+    await send(80, 702, 997, 'Salom, dasturlash kursi bormi?', T0);
+    await send(81, 702, 777, 'Ha, bor. UX/UI yo\'nalishi', T0 + 120);
+    await send(82, 702, 997, 'Narxi qancha?', T0 + 200);
+    await sweepIdleSessions(0);
+    const tickG4 = await runWorkerTick(mock);
+    const g4Alerts = await withoutTenantIsolation('test: natijani tekshirish', (tx) =>
+      tx.select().from(alert).where(eq(alert.dedupeKey, `lowscore:${tickG4.conversationId!}`)),
+    );
+    check(
+      'chegaradan past baho — «Past baho» ogohlantirishi YARATILADI',
+      g4Alerts.length === 1 && g4Alerts[0]!.kind === 'quality_drop',
+      `topildi: ${g4Alerts.length}`,
+    );
+
+    await pastBaho(10);
+    await send(90, 703, 996, 'Salom, dizayn kursi bormi?', T0);
+    await send(91, 703, 777, 'Ha, bor. UX/UI yo\'nalishi', T0 + 120);
+    await send(92, 703, 996, 'Narxi qancha?', T0 + 200);
+    await sweepIdleSessions(0);
+    const tickG5 = await runWorkerTick(mock);
+    const g5Alerts = await withoutTenantIsolation('test: natijani tekshirish', (tx) =>
+      tx.select().from(alert).where(eq(alert.dedupeKey, `lowscore:${tickG5.conversationId!}`)),
+    );
+    check('replika kam — «Past baho» CHIQMAYDI', g5Alerts.length === 0, `topildi: ${g5Alerts.length}`);
+
+    // Standartga qaytarish — keyingi tekshiruvlarga ta'sir qilmasin.
+    await app.inject({ method: 'PUT', url: `${base}/alert-prefs`, cookies: auth, payload: {} });
+
     // ═══ H: API ═══
     console.log('\n— H: suhbatlar API —');
 

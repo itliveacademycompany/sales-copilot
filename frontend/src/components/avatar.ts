@@ -1,49 +1,14 @@
-import { useEffect, useState } from 'react';
-
 /**
  * Profil rasmi (fayldan).
  *
- * Backend faqat rasm HAVOLASINI saqlaydi (≤500 belgi) — fayl yuklash yo'q.
- * Shuning uchun tanlangan fayl brauzerda kvadrat qilib kesiladi, 256 px ga
- * kichraytiriladi va shu brauzerda saqlanadi. Boshqa qurilmalarda ko'rinishi
- * uchun havola orqali qo'yish kerak (Profil'da shunday deb yozilgan).
+ * Tanlangan fayl brauzerda kvadrat qilib kesiladi va 256 px JPEG ga
+ * kichraytiriladi (odatda 15–40 KB), so'ng data-URL sifatida profilga
+ * (`PATCH /auth/me` → `avatarUrl`) yoziladi. Server data-URL'ni 180 KB
+ * gacha qabul qiladi va formatini tekshiradi (`media/image.ts`).
  */
 
-const KALIT = (userId: string) => `sotuvai-avatar-${userId}`;
-const HODISA = 'sotuvai-avatar';
 export const MAX_HAJM = 2 * 1024 * 1024;
 const OLCHAM = 256;
-
-export function lokalAvatar(userId: string | undefined): string | null {
-  if (!userId) return null;
-  try {
-    return localStorage.getItem(KALIT(userId));
-  } catch {
-    return null;
-  }
-}
-
-export function lokalAvatarSaqla(userId: string, dataUrl: string | null) {
-  try {
-    if (dataUrl) localStorage.setItem(KALIT(userId), dataUrl);
-    else localStorage.removeItem(KALIT(userId));
-  } catch {
-    /* xotira to'la yoki yopiq — rasm faqat shu sahifada qoladi */
-  }
-  window.dispatchEvent(new CustomEvent(HODISA));
-}
-
-/** Avatar o'zgarganda (Profil'da saqlanganda) qayta chiziladi. */
-export function useLokalAvatar(userId: string | undefined) {
-  const [rasm, setRasm] = useState(() => lokalAvatar(userId));
-  useEffect(() => {
-    setRasm(lokalAvatar(userId));
-    const yangila = () => setRasm(lokalAvatar(userId));
-    window.addEventListener(HODISA, yangila);
-    return () => window.removeEventListener(HODISA, yangila);
-  }, [userId]);
-  return rasm;
-}
 
 /** Faylni o'qib, markazdan kvadrat kesadi va JPEG data-URL qaytaradi. */
 export function rasmniTayyorla(fayl: File): Promise<string> {

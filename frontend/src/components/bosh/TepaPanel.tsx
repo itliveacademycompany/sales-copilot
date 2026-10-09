@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { fmtSana, type ConversationRow } from '../../api';
 import { useAuth } from '../../auth';
-import { useLokalAvatar } from '../avatar';
 import { useT } from '../../i18n';
 import { avatarRang, boshHarf, type Davr, type DavrTuri } from './malumot';
 
@@ -54,8 +53,7 @@ export function TepaPanel({
   const t = useT();
   // Profil rasmi: fayldan (shu brauzerda) yoki havoladan; bo'lmasa bosh harflar
   const { user } = useAuth();
-  const lokalRasm = useLokalAvatar(user?.id);
-  const rasm = lokalRasm ?? user?.avatarUrl ?? null;
+  const rasm = user?.avatarUrl ?? null;
   const [soz, setSoz] = useState('');
   const [ochiq, setOchiq] = useState(false);
   const [tanlangan, setTanlangan] = useState(0);

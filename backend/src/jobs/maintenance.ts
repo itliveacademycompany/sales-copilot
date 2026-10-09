@@ -33,12 +33,17 @@ export async function markOverdueCommitments(): Promise<number> {
         )
         insert into alert (business_id, seat_id, conversation_id, kind, severity, title, body, dedupe_key)
         select
-          business_id, seat_id, conversation_id,
+          m.business_id, m.seat_id, m.conversation_id,
           'broken_commitment', 'warning',
-          'Va''da muddati o''tdi: ' || left(what, 120),
-          jsonb_build_object('commitmentId', id),
-          'commitment:' || id
-        from missed
+          'Va''da muddati o''tdi: ' || left(m.what, 120),
+          jsonb_build_object('commitmentId', m.id),
+          'commitment:' || m.id
+        from missed m
+        join business b on b.id = m.business_id
+        -- Sozlamalar → Bildirishnomalar: tur o'chirilgan bo'lsa va'da baribir
+        -- 'missed' bo'ladi (hisobot uchun), faqat ogohlantirish yaratilmaydi.
+        -- Kalit yo'q bo'lsa — standart qiymat (yoqilgan), sxemadagidek.
+        where coalesce((b.alert_prefs -> 'kinds' ->> 'broken_commitment')::boolean, true)
         on conflict do nothing
         returning id
       `),

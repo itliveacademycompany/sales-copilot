@@ -1,7 +1,7 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { generateToken } from '../../auth/tokens.js';
+import { generateToken, hashToken } from '../../auth/tokens.js';
 import { hasPermission } from '../../auth/permissions.js';
 import { isForeignKeyViolation, isUniqueViolation } from '../../db/errors.js';
 import { withTenant } from '../../db/index.js';
@@ -16,6 +16,9 @@ import { seatWorkHoursSchema } from '../../business/settings.js';
  * Ko'lam: `seat:manage:all` (ega, rahbar) barcha o'rinlarni boshqaradi;
  * `seat:manage:department` (bo'lim boshlig'i) faqat o'z bo'limidagilarni.
  */
+
+/** FR-04: aktivatsiya havolasi 7 kun amal qiladi — yangi xodim birinchi kunlarda kiradi. */
+export const AKTIVATSIYA_MUDDATI_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** O'zbek raqamlari uchun: +998XXXXXXXXX yoki 9 xonali ichki format. */
 const phone = z
@@ -294,15 +297,18 @@ export function registerSeatRoutes(app: FastifyInstance): void {
         throw AppError.badRequest('O\'chirilgan o\'rin uchun havola berilmaydi');
       }
 
+      // Bazaga faqat xesh yoziladi; ochiq token shu javobda bir marta ko'rinadi.
+      // Yangi havola eskisini bekor qiladi — bir o'rinda bitta amaldagi token.
       const token = generateToken();
+      const expiresAt = new Date(Date.now() + AKTIVATSIYA_MUDDATI_MS);
       await withTenant(businessId, (tx) =>
         tx
           .update(seat)
-          .set({ activationToken: token, activation: 'pending', updatedAt: new Date() })
+          .set({ activationToken: hashToken(token), activationExpiresAt: expiresAt, activation: 'pending', updatedAt: new Date() })
           .where(and(eq(seat.id, seatId), eq(seat.businessId, businessId))),
       );
 
-      return { activationToken: token };
+      return { activationToken: token, expiresAt: expiresAt.toISOString() };
     },
   );
 

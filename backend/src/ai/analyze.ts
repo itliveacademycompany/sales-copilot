@@ -834,6 +834,46 @@ export async function persistAnalysisTx(
     }
   }
 
+  /**
+   * Past baho (`Sozlamalar → Bildirishnomalar → Past qo'ng'iroq sifati`).
+   *
+   * Uch to'siq:
+   *   - `flagged` tahlil ishonchsiz (isbot topilmagan yoki AI ishonchi past) —
+   *     unga allaqachon `low_confidence` chiqadi; ustiga "past baho" qo'shsak,
+   *     rahbar AI xatosini menejer xatosi deb o'qib qolardi.
+   *   - `minTurns` — ikki replikali yozishma tabiiy ravishda past ball oladi
+   *     va u ogohlantirishga arzimaydi.
+   *   - tur `quality_drop` — yagona o'chirgich (`kinds`) ish vaqti darvozasidan
+   *     ham o'tadi, alohida shart kerak emas.
+   */
+  if (
+    prefs.lowScore.enabled &&
+    prefs.kinds.quality_drop &&
+    !flagged &&
+    overall !== null &&
+    overall < prefs.lowScore.threshold &&
+    segs.length >= prefs.lowScore.minTurns
+  ) {
+    const dedupeKey = `lowscore:${conversationId}`;
+    const [existing] = await tx
+      .select({ id: alert.id })
+      .from(alert)
+      .where(eq(alert.dedupeKey, dedupeKey))
+      .limit(1);
+    if (!existing) {
+      await tx.insert(alert).values({
+        businessId,
+        seatId: conv.seatId,
+        conversationId,
+        kind: 'quality_drop',
+        severity: 'warning',
+        title: `Past baho: ${overall}% (chegara ${prefs.lowScore.threshold}%)`,
+        body: { overall, threshold: prefs.lowScore.threshold },
+        dedupeKey,
+      });
+    }
+  }
+
   // Faqat hali 'analyzing' bo'lsa 'done' — tahlil davomida yangi xabar
   // kelib holatni 'received' ga qaytargan bo'lsa, uni yutib yubormaymiz.
   await tx

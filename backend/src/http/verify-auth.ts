@@ -113,7 +113,7 @@ async function main(): Promise<void> {
     check('noto\'g\'ri parol 401', badPass.statusCode === 401);
     check(
       'xato xabari email mavjudligini oshkor qilmaydi',
-      (badPass.json() as { title: string }).title === 'Email yoki parol noto\'g\'ri',
+      (badPass.json() as { title: string }).title === 'Login yoki parol noto\'g\'ri',
     );
 
     // ── 6. Mavjud bo'lmagan email — xuddi shu javob ──

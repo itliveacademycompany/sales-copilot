@@ -88,17 +88,18 @@ export function Menejerlar({ businessId }: { businessId: string }) {
     void amal(
       s.id,
       async () => {
-        const r = await api.post<{ activationToken: string }>(`${base}/${s.id}/activation-link`);
+        const r = await api.post<{ activationToken: string; expiresAt: string }>(`${base}/${s.id}/activation-link`);
         setOyna({
           tur: 'havola',
           seat: s,
           nom: 'Aktivatsiya havolasi',
-          havola: null,
+          havola: `${window.location.origin}/aktivatsiya/${r.activationToken}`,
           kod: r.activationToken,
           izoh: (
             <>
-              Kod <b>faqat hozir</b> ko'rinadi va bir marta ishlaydi. Diqqat: kodni qabul qiladigan aktivatsiya sahifasi serverda hali yo'q — kod saqlandi,
-              lekin menejer u bilan hozircha kira olmaydi. Aktivatsiya sahifasi backend'ga qo'shilgach, shu kod ishlaydi.
+              Havolani menejerga yuboring: u parol o'rnatadi va darhol tizimga kiradi (login berilmagan bo'lsa, o'zi tanlaydi). Havola{' '}
+              <b>faqat hozir</b> ko'rinadi, <b>bir marta</b> ishlaydi va <b>{new Date(r.expiresAt).toLocaleDateString('uz-UZ')}</b> gacha amal qiladi.
+              Yangi havola yaratilsa, eskisi bekor bo'ladi.
             </>
           ),
         });

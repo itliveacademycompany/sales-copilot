@@ -251,12 +251,13 @@ export function Login() {
 
           <div className="maydon-blok">
             <label className="maydon" htmlFor="l-email">
-              {mode === 'tiklash' ? 'Email yoki login' : 'Email'}
+              {mode === 'register' ? 'Email' : 'Email yoki login'}
             </label>
             <IkonliInput
               id="l-email"
               ikon={<Mail />}
-              type={mode === 'tiklash' ? 'text' : 'email'}
+              // Menejerlar rahbar bergan LOGIN bilan kiradi (FR-04) — email maydoni uni rad etardi.
+              type={mode === 'register' ? 'email' : 'text'}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required

@@ -361,6 +361,36 @@ async function main(): Promise<void> {
     const again = await markOverdueCommitments();
     check('takroriy ishga tushirish hech narsa qilmaydi', again === 0, `soni: ${again}`);
 
+    /*
+     * Sozlamada «Muddati o'tgan va'da» o'chirilgan bo'lsa: va'da baribir
+     * 'missed' bo'ladi (hisobot uchun), lekin ogohlantirish yaratilmaydi.
+     */
+    await app.inject({
+      method: 'PUT',
+      url: `${base}/alert-prefs`,
+      cookies: auth,
+      payload: { kinds: { broken_commitment: false } },
+    });
+    const [jimVada] = await withoutTenantIsolation('test: muddati o\'tgan va\'da', (tx) =>
+      tx
+        .insert(commitment)
+        .values({ businessId, conversationId: conv1, byParty: 'manager', what: 'Jim va\'da', deadline: new Date(Date.now() - 60_000) })
+        .returning({ id: commitment.id }),
+    );
+    const jimSoni = await markOverdueCommitments();
+    const [jimHolat] = await withoutTenantIsolation('test: natijani tekshirish', (tx) =>
+      tx.select({ status: commitment.status }).from(commitment).where(eq(commitment.id, jimVada!.id)),
+    );
+    const jimAlert = await withoutTenantIsolation('test: natijani tekshirish', (tx) =>
+      tx.select().from(alert).where(eq(alert.dedupeKey, `commitment:${jimVada!.id}`)),
+    );
+    check(
+      'tur o\'chirilgan — va\'da missed, lekin ogohlantirish YO\'Q',
+      jimHolat?.status === 'missed' && jimAlert.length === 0 && jimSoni === 0,
+      `holat: ${jimHolat?.status}, alert: ${jimAlert.length}, soni: ${jimSoni}`,
+    );
+    await app.inject({ method: 'PUT', url: `${base}/alert-prefs`, cookies: auth, payload: {} });
+
     const alertList = await app.inject({ method: 'GET', url: `${base}/alerts`, cookies: auth });
     const alertBody = alertList.json() as {
       alerts: { id: string; kind: string }[];

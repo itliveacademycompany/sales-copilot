@@ -5,7 +5,6 @@ import { api, ApiError, type AlertRow, type SeatRow } from '../api';
 import { useAuth } from '../auth';
 import { Ochiluvchi } from '../components/analitika/Ochiluvchi';
 import { MalumotIkon } from '../components/bosh/Korsatkichlar';
-import { sozlamaOl, vebdaKorinadimi } from '../components/sozlama/bildirishnoma';
 import { avatarRang, boshHarf, qachon } from '../components/bosh/malumot';
 
 /**
@@ -66,7 +65,6 @@ export function Alerts() {
   const [loading, setLoading] = useState(true);
   const [band, setBand] = useState<string | null>(null);
   const [xato, setXato] = useState<string | null>(null);
-  const [yashirin, setYashirin] = useState(0);
 
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
   const yopaOladi = business?.permissions.includes('alert:resolve') ?? false;
@@ -77,12 +75,9 @@ export function Alerts() {
     void api
       .get<{ alerts: AlertRow[]; unseenCount: number }>(`${base}/alerts?limit=200`)
       .then((r) => {
-        // Sozlamalar → Bildirishnomalar'da «Veb» o'chirilgan turlar yashiriladi
-        const sozlama = sozlamaOl(business!.businessId);
-        const korsat = r.alerts.filter((a) => vebdaKorinadimi(a.kind, sozlama));
-        setRows(korsat);
-        setYashirin(r.alerts.length - korsat.length);
-        setYangiSoni(Math.max(0, r.unseenCount - r.alerts.filter((a) => a.status === 'new' && !vebdaKorinadimi(a.kind, sozlama)).length));
+        // O'chirilgan turlar serverda umuman yaratilmaydi (Sozlamalar → Bildirishnomalar).
+        setRows(r.alerts);
+        setYangiSoni(r.unseenCount);
       })
       .catch(() => setXato("Ogohlantirishlarni yuklab bo'lmadi."))
       .finally(() => setLoading(false));
@@ -139,11 +134,6 @@ export function Alerts() {
         <Ochiluvchi belgi="Tur" qiymat={tur} variantlar={turlar} onOzgar={setTur} hammasiNomi="Barcha turlar" kenglik={270} />
       </div>
 
-      {yashirin > 0 && (
-        <div className="og-yashirin">
-          {yashirin} ta ogohlantirish bildirishnoma sozlamalariga ko'ra yashirilgan. <Link to="/sozlamalar?b=bildirishnoma">Sozlamalar</Link>
-        </div>
-      )}
       {xato && <div className="xato-qator">{xato}</div>}
 
       {loading ? (
