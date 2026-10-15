@@ -1,7 +1,6 @@
 import {
   ArrowRight,
   BadgeCheck,
-  Building2,
   ChevronLeft,
   LoaderCircle,
   Lock,
@@ -10,14 +9,17 @@ import {
   ShieldCheck,
   Sparkles,
   TrendingUp,
-  UserRound,
 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { api, ApiError } from '../api';
 import { useAuth } from '../auth';
 import { IkonliInput, ParolInput } from '../components/ParolInput';
 
-type Rejim = 'login' | 'register' | 'tiklash';
+/**
+ * Ro'yxatdan o'tish yo'q: mahsulotni sotib olgan mijozga hisobni biz
+ * o'zimiz qo'lda yaratib beramiz. Shuning uchun faqat kirish va tiklash.
+ */
+type Rejim = 'login' | 'tiklash';
 
 /**
  * Mahsulotning asosiy va'dalari — chap paneldagi taqdimot.
@@ -41,15 +43,13 @@ const AFZALLIKLAR = [
   },
 ];
 
-/** Kirish + ro'yxatdan o'tish + parolni tiklash — bitta karta, uch rejim. */
+/** Kirish + parolni tiklash — bitta karta, ikki rejim. */
 export function Login() {
   const { refresh } = useAuth();
   const [mode, setMode] = useState<Rejim>('login');
   const [tiklashYuborildi, setTiklashYuborildi] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [businessName, setBusinessName] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -70,11 +70,7 @@ export function Login() {
         setTiklashYuborildi(true);
         return;
       }
-      if (mode === 'login') {
-        await api.post('/api/v1/auth/login', { email, password });
-      } else {
-        await api.post('/api/v1/auth/register', { email, password, displayName, businessName });
-      }
+      await api.post('/api/v1/auth/login', { email, password });
       await refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Server bilan bog\'lanib bo\'lmadi');
@@ -83,16 +79,12 @@ export function Login() {
     }
   }
 
-  const sarlavha =
-    mode === 'login' ? 'Xush kelibsiz' : mode === 'register' ? 'Hisob yarating' : 'Parolni tiklash';
+  const sarlavha = mode === 'login' ? 'Xush kelibsiz' : 'Parolni tiklash';
   const izoh =
     mode === 'login'
       ? 'Davom etish uchun hisobingizga kiring'
-      : mode === 'register'
-        ? 'Yangi biznes hisobini yarating — 2 daqiqa'
-        : 'Email yoki loginingizni kiriting — tiklash havolasini yuboramiz';
-  const tugmaMatni =
-    mode === 'login' ? 'Kirish' : mode === 'register' ? 'Ro\'yxatdan o\'tish' : 'Tiklash havolasini yuborish';
+      : 'Email yoki loginingizni kiriting — tiklash havolasini yuboramiz';
+  const tugmaMatni = mode === 'login' ? 'Kirish' : 'Tiklash havolasini yuborish';
 
   return (
     <div className="login-fon">
@@ -175,29 +167,6 @@ export function Login() {
           <h2 className="login-sarlavha">{sarlavha}</h2>
           <div className="kirish-izoh">{izoh}</div>
 
-          {mode !== 'tiklash' && (
-            <div className="tab-qator login-almashtirgich" role="tablist" aria-label="Kirish usuli">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={mode === 'login'}
-                className={`tab${mode === 'login' ? ' active' : ''}`}
-                onClick={() => rejimgaOt('login')}
-              >
-                Kirish
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={mode === 'register'}
-                className={`tab${mode === 'register' ? ' active' : ''}`}
-                onClick={() => rejimgaOt('register')}
-              >
-                Ro'yxatdan o'tish
-              </button>
-            </div>
-          )}
-
           {error && (
             <div className="xato-banner" role="alert">
               {error}
@@ -214,50 +183,15 @@ export function Login() {
             </div>
           )}
 
-          {mode === 'register' && (
-            <>
-              <div className="maydon-blok">
-                <label className="maydon" htmlFor="l-ism">
-                  Ismingiz
-                </label>
-                <IkonliInput
-                  id="l-ism"
-                  ikon={<UserRound />}
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  required
-                  minLength={2}
-                  autoComplete="name"
-                  placeholder="Ism Familiya"
-                />
-              </div>
-              <div className="maydon-blok">
-                <label className="maydon" htmlFor="l-biznes">
-                  Biznes nomi
-                </label>
-                <IkonliInput
-                  id="l-biznes"
-                  ikon={<Building2 />}
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  required
-                  minLength={2}
-                  autoComplete="organization"
-                  placeholder="Masalan: IT Live Academy"
-                />
-              </div>
-            </>
-          )}
-
           <div className="maydon-blok">
             <label className="maydon" htmlFor="l-email">
-              {mode === 'register' ? 'Email' : 'Email yoki login'}
+              Email yoki login
             </label>
             <IkonliInput
               id="l-email"
               ikon={<Mail />}
               // Menejerlar rahbar bergan LOGIN bilan kiradi (FR-04) — email maydoni uni rad etardi.
-              type={mode === 'register' ? 'email' : 'text'}
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -292,7 +226,7 @@ export function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                autoComplete="current-password"
                 placeholder="••••••••"
               />
             </div>
