@@ -54,6 +54,8 @@ export function App() {
           aks holda u jimgina bosh sahifaga otilardi. Aktivatsiya sessiyani
           yangi menejernikiga almashtiradi. */}
       <Route path="/aktivatsiya/:token" element={<Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}><SAHIFA.aktivatsiya /></Suspense>} />
+      {/* Claude (MCP) ulanishiga ruxsat — kirmagan bo'lsa avval kirish ekrani chiqadi, URL saqlanadi */}
+      <Route path="/mcp/ruxsat" element={<Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}><SAHIFA.mcpRuxsat /></Suspense>} />
       <Route element={<Layout />}>
         <Route path="/" element={rahbar ? <SAHIFA.dashboard /> : <SAHIFA.seatCabinet />} />
         <Route path="/sotuvchi/:seatId" element={<SAHIFA.seatCabinet />} />

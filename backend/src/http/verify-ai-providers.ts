@@ -33,6 +33,10 @@ import { buildApp } from './app.js';
  *   • zaxira navbati va `splitFields` (raqam) saqlanadi
  *
  * Platformaning haqiqiy provayderlari (faollik va navbat) test oxirida tiklanadi.
+ *
+ * DIQQAT: dev-server shu bazada ishlab tursa, test davomida uning worker'i
+ * soxta (test) provayderni faol deb ko'rishi mumkin — testni server
+ * to'xtatilgan holda ishga tushiring.
  */
 
 let pass = 0;
@@ -166,6 +170,12 @@ async function main(): Promise<void> {
   const email = `ai-prov-${tag}@test.local`;
   const asl = await withoutTenantIsolation('test: provayderlar holatini eslab qolish', (tx) =>
     tx.select({ id: aiProvider.id, isActive: aiProvider.isActive, fallbackOrder: aiProvider.fallbackOrder }).from(aiProvider),
+  );
+  // Haqiqiy zaxiralar zanjirdan vaqtincha chiqariladi — aks holda test o'z zaxirasini
+  // olib tashlaganda haqiqiy provayder (tarmoq orqali!) javob berib, natijani buzardi.
+  // `finally` da har qator o'z holatiga qaytariladi.
+  await withoutTenantIsolation('test: haqiqiy zaxiralarni vaqtincha chiqarish', (tx) =>
+    tx.update(aiProvider).set({ fallbackOrder: null }),
   );
 
   try {

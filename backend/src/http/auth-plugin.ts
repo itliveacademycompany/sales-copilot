@@ -4,6 +4,7 @@ import { loadAuthContext, type AuthContext, type BusinessAccess } from '../auth/
 import { hasPermission, type Permission } from '../auth/permissions.js';
 import { validateSession } from '../auth/session.js';
 import { keshniTozala } from '../auth/context-cache.js';
+import { accessTekshir, type AccessInfo } from '../mcp/oauth.js';
 import { AppError } from './errors.js';
 
 export const SESSION_COOKIE = 'sid';
@@ -15,7 +16,26 @@ declare module 'fastify' {
     sessionId: string | null;
     /** `requireBusiness` o'rnatadi. */
     business: BusinessAccess | null;
+    /**
+     * OAuth (Claude / MCP) orqali kelgan so'rov — kim nomidan, qaysi ruxsat bilan.
+     * Cookie sessiyasida null.
+     */
+    oauth: AccessInfo | null;
+    /** Shu so'rovning Bearer tokeni — MCP vositalari ichki API chaqiruvida qayta ishlatadi. */
+    bearerToken: string | null;
   }
+}
+
+/**
+ * Bearer token bilan ochiq yo'llar. Hisob amallari (parol, sessiyalar,
+ * admin panel, chiqish) TOKEN bilan qilinmaydi: Claude'ga berilgan ruxsat
+ * biznes ma'lumotlarini boshqarish uchun, hisobni egallash uchun emas.
+ */
+function bearerYoliOchiqmi(method: string, url: string): boolean {
+  const yol = url.split('?')[0]!;
+  if (yol === '/mcp') return true;
+  if (yol.startsWith('/api/v1/businesses/')) return true;
+  return method === 'GET' && yol === '/api/v1/auth/context';
 }
 
 const COOKIE_OPTIONS = {
@@ -47,10 +67,15 @@ export function registerAuth(app: FastifyInstance): void {
   app.decorateRequest('auth', null);
   app.decorateRequest('sessionId', null);
   app.decorateRequest('business', null);
+  app.decorateRequest('oauth', null);
+  app.decorateRequest('bearerToken', null);
 
   app.addHook('onRequest', async (req: FastifyRequest, reply: FastifyReply) => {
     const token = req.cookies[SESSION_COOKIE];
-    if (!token) return;
+    if (!token) {
+      await bearerniAniqla(req);
+      return;
+    }
 
     const meta = { userAgent: req.headers['user-agent'], ip: req.ip };
     const info = await validateSession(token, meta);
@@ -119,6 +144,33 @@ export function registerAuth(app: FastifyInstance): void {
       keshniTozala();
     }
   });
+}
+
+/**
+ * OAuth Bearer (Claude / MCP).
+ *
+ * Token foydalanuvchining O'Z auth kontekstini oladi — ruxsatlar, tenant
+ * izolatsiyasi va validatsiya cookie sessiyasidagi bilan aynan bir xil.
+ * Ustiga ikki cheklov: faqat biznes yo'llari va `read` ruxsatida faqat o'qish.
+ */
+async function bearerniAniqla(req: FastifyRequest): Promise<void> {
+  const h = req.headers.authorization;
+  if (!h || !h.startsWith('Bearer ')) return;
+  const token = h.slice(7).trim();
+  const info = await accessTekshir(token);
+  if (!info) return; // yaroqsiz token — anonim; himoyalangan yo'l 401 qaytaradi
+  if (!bearerYoliOchiqmi(req.method, req.url)) {
+    throw AppError.forbidden("Bu amal Claude ulanishi orqali bajarilmaydi — saytda bajaring");
+  }
+  const yozish = !['GET', 'HEAD', 'OPTIONS'].includes(req.method) && req.url.split('?')[0] !== '/mcp';
+  if (yozish && !info.scope.includes('write')) {
+    throw AppError.forbidden("Claude'ga faqat o'qish ruxsati berilgan — o'zgartirish uchun «O'qish va boshqarish» ruxsati bilan qayta ulang");
+  }
+  const ctx = await loadAuthContext(info.userId);
+  if (!ctx) return;
+  req.auth = ctx;
+  req.oauth = info;
+  req.bearerToken = token;
 }
 
 /** Marshrutga kirish uchun autentifikatsiya talab qiladi. */

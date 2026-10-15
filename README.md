@@ -73,6 +73,10 @@ sabablari**: nega RLS, nega bitta sessiya tokeni, nega navbat Postgres'da,
 nega playbook versiyalanadi. Har qaror ortida uni keltirib chiqargan muammo
 yozilgan.
 
+[`docs/mcp.md`](docs/mcp.md) — **Claude ulanishi (MCP)**: rahbar platformani
+o'z Claude akkauntidan boshqaradi (OAuth 2.1, 19 vosita, xavfsizlik modeli,
+ulash yo'riqnomasi).
+
 ## Holat
 
 **FAZA 1 (Telegram)** — ishlab chiqilmoqda. Audio/STT FAZA 2 da, telefoniya

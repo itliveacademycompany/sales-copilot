@@ -8,3 +8,4 @@ export * from './integration.js';
 export * from './billing.js';
 export * from './ops.js';
 export * from './jobs.js';
+export * from './oauth.js';

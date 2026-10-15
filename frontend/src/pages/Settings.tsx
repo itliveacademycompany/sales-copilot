@@ -17,6 +17,7 @@ import {
   Palette,
   PhoneCall,
   Cpu,
+  Bot,
   AudioLines,
   Share2,
   Pencil,
@@ -48,6 +49,7 @@ import { IshJadvali } from '../components/sozlama/IshJadvali';
 import { Obuna } from '../components/sozlama/Obuna';
 import { CrmEksport, MoiZvonki, SttTanlash } from '../components/sozlama/Integratsiyalar';
 import { AiProvayderlar } from '../components/sozlama/AiProvayderlar';
+import { ClaudeUlanishi } from '../components/sozlama/ClaudeUlanishi';
 import { TanlovMenyu } from '../components/analitika/Ochiluvchi';
 import { ParolInput } from '../components/ParolInput';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -101,6 +103,7 @@ type Bolim =
   | 'crmEksport'
   | 'stt'
   | 'aiProvayder'
+  | 'claude'
   | 'kunlik';
 
 const ROL_NOM: Record<string, string> = {
@@ -145,6 +148,8 @@ export function Settings() {
     { key: 'sotuvchilar', nom: 'Menejerlar', guruh: 'umumiy', ikon: <UsersRound />, korinadi: seatBoshqaradi },
     { key: 'jadval', nom: 'Ish jadvali', guruh: 'umumiy', ikon: <CalendarDays />, korinadi: bizneskoradi },
     { key: 'obuna', nom: 'Obuna', guruh: 'umumiy', ikon: <CreditCard />, korinadi: obunaKoradi },
+    // Claude (MCP) — rahbar platformani o'z Claude'idan boshqaradi
+    { key: 'claude', nom: 'Claude ulanishi', guruh: 'umumiy', ikon: <Bot />, korinadi: user?.systemRole === 'super_admin' || p.includes('analytics:read:all') },
     { key: 'muammo', nom: 'Muammo haqida xabar berish', guruh: 'umumiy', ikon: <MessageSquareWarning />, korinadi: true },
     { key: 'mezonlar', nom: 'Baholash mezonlari', guruh: 'tahlil', ikon: <CircleCheck />, korinadi: playbookKoradi },
     { key: 'anketa', nom: 'Anketa savollari', guruh: 'tahlil', ikon: <CircleHelp />, korinadi: playbookKoradi },
@@ -241,6 +246,7 @@ export function Settings() {
         {bolim.key === 'crmEksport' && business && <CrmEksport businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
         {bolim.key === 'stt' && <SttTanlash />}
         {bolim.key === 'aiProvayder' && <AiProvayderlar />}
+        {bolim.key === 'claude' && <ClaudeUlanishi />}
         {bolim.key === 'kunlik' && <KunlikHisobotSozlama />}
       </div>
     </>

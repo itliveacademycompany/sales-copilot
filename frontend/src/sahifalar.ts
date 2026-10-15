@@ -70,6 +70,7 @@ export const SAHIFA = {
   onboarding: sahifa(() => import('./pages/Onboarding').then((m) => ({ default: m.Onboarding }))),
   passwordReset: sahifa(() => import('./pages/PasswordReset').then((m) => ({ default: m.PasswordReset }))),
   aktivatsiya: sahifa(() => import('./pages/Aktivatsiya').then((m) => ({ default: m.Aktivatsiya }))),
+  mcpRuxsat: sahifa(() => import('./pages/McpRuxsat').then((m) => ({ default: m.McpRuxsat }))),
 };
 
 /**
