@@ -1,18 +1,9 @@
-import {
-  ArrowRight,
-  BadgeCheck,
-  ChevronLeft,
-  LoaderCircle,
-  Lock,
-  Mail,
-  MessagesSquare,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-} from 'lucide-react';
+import { ArrowLeft, ArrowRight, ChevronLeft, LoaderCircle, Lock, Mail, Sparkles } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { useAuth } from '../auth';
+import { LoginSahna } from '../components/login/LoginSahna';
 import { IkonliInput, ParolInput } from '../components/ParolInput';
 
 /**
@@ -21,27 +12,8 @@ import { IkonliInput, ParolInput } from '../components/ParolInput';
  */
 type Rejim = 'login' | 'tiklash';
 
-/**
- * Mahsulotning asosiy va'dalari — chap paneldagi taqdimot.
- * Faqat haqiqatan ishlaydigan imkoniyatlar yozilgan.
- */
-const AFZALLIKLAR = [
-  {
-    ikon: <ShieldCheck />,
-    nom: 'Isbotli baholash',
-    matn: 'Har bir ball yozishmadagi aniq iqtibos bilan tasdiqlanadi.',
-  },
-  {
-    ikon: <MessagesSquare />,
-    nom: 'Telegram yozishmalari',
-    matn: 'Suhbatlar avtomatik yig\'iladi va sizning skriptingiz bo\'yicha tahlil qilinadi.',
-  },
-  {
-    ikon: <TrendingUp />,
-    nom: 'Kouching va o\'sish',
-    matn: 'Har bir sotuvchi uchun eng zaif joy va aniq tavsiya.',
-  },
-];
+/** Logo va strelka yorlig'i (ekran o'quvchilar va sichqoncha uchun). */
+const ORQAGA = 'Bosh sahifaga qaytish';
 
 /** Kirish + parolni tiklash — bitta karta, ikki rejim. */
 export function Login() {
@@ -97,16 +69,24 @@ export function Login() {
         <span className="halqa h2" />
       </div>
 
+      {/* Sahifaning o'ng yuqori burchagi — landing'ga ("Loyiha haqida") qaytish */}
+      <Link to="/" className="login-orqaga" aria-label={ORQAGA} title={ORQAGA}>
+        <ArrowLeft />
+      </Link>
+
       <div className="login-sahna">
         {/* ─── Chap panel: mahsulot taqdimoti (keng ekranda) ─── */}
         <aside className="login-taqdimot">
+          {/* Logo ham landing'ga qaytaradi */}
           <div className="login-brend">
-            <span className="logo-belgi katta" aria-hidden="true">
-              <Sparkles />
-            </span>
-            <span className="logo-matn">
-              Sotuv<em>AI</em>
-            </span>
+            <Link to="/" className="login-logo" aria-label={ORQAGA}>
+              <span className="logo-belgi katta" aria-hidden="true">
+                <Sparkles />
+              </span>
+              <span className="logo-matn">
+                Sotuv<em>AI</em>
+              </span>
+            </Link>
           </div>
 
           <h1 className="taqdimot-sarlavha">
@@ -118,50 +98,21 @@ export function Login() {
             har bir sotuvchiga kouching beradigan platforma.
           </p>
 
-          <ul className="afzalliklar">
-            {AFZALLIKLAR.map((a, i) => (
-              <li key={a.nom} style={{ animationDelay: `${0.25 + i * 0.12}s` }}>
-                <span className="afzallik-ikon" aria-hidden="true">
-                  {a.ikon}
-                </span>
-                <span>
-                  <b>{a.nom}</b>
-                  <span className="afzallik-matn">{a.matn}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          {/* Mahsulot ko'rinishidan namuna — bezak, haqiqiy ma'lumot emas */}
-          <div className="namuna-karta" aria-hidden="true">
-            <div className="namuna-ball">
-              <svg viewBox="0 0 44 44">
-                <circle className="iz" cx="22" cy="22" r="18" />
-                <circle className="qiymat" cx="22" cy="22" r="18" />
-              </svg>
-              <span>87%</span>
-            </div>
-            <div className="namuna-tafsilot">
-              <div className="namuna-qator">
-                <span>Ehtiyojni aniqlash</span>
-                <span className="namuna-chip">3/3</span>
-              </div>
-              <div className="namuna-iqtibos">
-                <BadgeCheck /> "Avval maqsadingizni bilsam…"
-              </div>
-            </div>
-          </div>
+          <LoginSahna />
         </aside>
 
         {/* ─── O'ng panel: forma ─── */}
         <form className="login-card" onSubmit={(e) => void submit(e)}>
+          {/* Tor ekranda chap panel yashirin — logo kartaning o'zida */}
           <div className="login-karta-bosh">
-            <span className="logo-belgi" aria-hidden="true">
-              <Sparkles />
-            </span>
-            <div className="logo">
-              Sotuv<em>AI</em>
-            </div>
+            <Link to="/" className="login-logo" aria-label={ORQAGA}>
+              <span className="logo-belgi" aria-hidden="true">
+                <Sparkles />
+              </span>
+              <span className="logo">
+                Sotuv<em>AI</em>
+              </span>
+            </Link>
           </div>
 
           <h2 className="login-sarlavha">{sarlavha}</h2>

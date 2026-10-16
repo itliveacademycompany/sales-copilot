@@ -1,3 +1,4 @@
+import { LogOut } from 'lucide-react';
 import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
@@ -6,7 +7,7 @@ import { SAHIFA } from './sahifalar';
 import { Login } from './pages/Login';
 
 export function App() {
-  const { loading, user, business } = useAuth();
+  const { loading, user, business, logout } = useAuth();
 
   if (loading) return <div className="yuklanmoqda">Yuklanmoqda…</div>;
 
@@ -22,6 +23,10 @@ export function App() {
         <Route path="/parol-tiklash/:token" element={<SAHIFA.passwordReset />} />
         {/* FR-04: menejer aktivatsiyasi — hisob hali yo'q, shuning uchun bu yerda */}
         <Route path="/aktivatsiya/:token" element={<SAHIFA.aktivatsiya />} />
+        {/* Birinchi navbatda — "Loyiha haqida" landing'i, undan "Kirish" → login.
+            Boshqa har qanday manzil login'ni ochadi: kirgandan keyin odam
+            o'sha sahifada qoladi. */}
+        <Route path="/" element={<SAHIFA.loyiha />} />
         <Route path="*" element={<Login />} />
       </Routes>
       </Suspense>
@@ -31,13 +36,39 @@ export function App() {
   // FR-10/17: onboarding tugamagan bo'lsa, hamma yo'l shu sehrgarga olib
   // boradi — mahsulotni sozlamasdan turib bo'sh dashboard'ga tushish
   // chalkash tajriba bo'lardi.
+  /**
+   * Kirishdan keyin ochiladigan "Loyiha haqida" sahifasi — yon panelsiz,
+   * o'z tepa paneli bilan. Onboarding tugamagan bo'lsa ham ko'rinadi:
+   * aynan yangi mijoz uchun tanishuv eng kerakli.
+   */
+  const loyiha = (
+    <Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}>
+      <SAHIFA.loyiha />
+    </Suspense>
+  );
+
   if (business.onboardingStep !== 'done') {
     return (
-      <div className="main" style={{ marginLeft: 0, maxWidth: 900, margin: '0 auto', paddingTop: 40 }}>
-        <Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}>
-          <SAHIFA.onboarding />
-        </Suspense>
-      </div>
+      <Routes>
+        <Route path="/loyiha" element={loyiha} />
+        <Route
+          path="*"
+          element={
+            <div className="main" style={{ marginLeft: 0, maxWidth: 900, margin: '0 auto', paddingTop: 40 }}>
+              {/* Sehrgardan chiqish yo'li — aks holda boshqa akkauntga o'tib bo'lmaydi */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                <span style={{ fontSize: 13, opacity: 0.7 }}>{user.email}</span>
+                <button className="btn ikkinchi kichik" onClick={() => void logout()}>
+                  <LogOut size={16} /> Chiqish
+                </button>
+              </div>
+              <Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}>
+                <SAHIFA.onboarding />
+              </Suspense>
+            </div>
+          }
+        />
+      </Routes>
     );
   }
 
@@ -54,6 +85,7 @@ export function App() {
           aks holda u jimgina bosh sahifaga otilardi. Aktivatsiya sessiyani
           yangi menejernikiga almashtiradi. */}
       <Route path="/aktivatsiya/:token" element={<Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}><SAHIFA.aktivatsiya /></Suspense>} />
+      <Route path="/loyiha" element={loyiha} />
       <Route element={<Layout />}>
         <Route path="/" element={rahbar ? <SAHIFA.dashboard /> : <SAHIFA.seatCabinet />} />
         <Route path="/sotuvchi/:seatId" element={<SAHIFA.seatCabinet />} />

@@ -142,16 +142,42 @@ const TilCtx = createContext<{ til: Til; setTil: (t: Til) => void; t: (s: string
 
 const normal = (l: string | null | undefined): Til => (l === 'en' ? 'en' : l === 'ru' ? 'ru' : 'uz');
 
+/**
+ * Oxirgi tanlangan til brauzerda ham saqlanadi — tizimga kirmagan odam
+ * (landing) uchun boshqa manba yo'q. Kirgan foydalanuvchida profil
+ * (`user.locale`) baribir ustun turadi.
+ */
+const TIL_KALIT = 'sotuvai-til';
+
+function saqlanganTil(): string | null {
+  try {
+    return localStorage.getItem(TIL_KALIT);
+  } catch {
+    return null;
+  }
+}
+
 export function TilProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [til, setTil] = useState<Til>(() => normal(user?.locale));
-  // Server qiymati kelganda (kirish, profil yangilanishi) — sinxronlash
-  useEffect(() => setTil(normal(user?.locale)), [user?.locale]);
+  const [til, setTilHolat] = useState<Til>(() => normal(user?.locale ?? saqlanganTil()));
+  // Server qiymati kelganda (kirish, profil yangilanishi) — sinxronlash.
+  // Chiqishda (`locale` yo'qoladi) joriy til saqlanib qoladi.
+  useEffect(() => {
+    if (user?.locale) setTilHolat(normal(user.locale));
+  }, [user?.locale]);
+  const setTil = useCallback((yangi: Til) => {
+    setTilHolat(yangi);
+    try {
+      localStorage.setItem(TIL_KALIT, yangi);
+    } catch {
+      /* xotira yopiq bo'lsa ham til joriy sessiyada almashadi */
+    }
+  }, []);
   useEffect(() => {
     document.documentElement.lang = til;
   }, [til]);
   const t = useCallback((s: string) => (til === 'uz' ? s : LUGAT[s]?.[til] ?? s), [til]);
-  const v = useMemo(() => ({ til, setTil, t }), [til, t]);
+  const v = useMemo(() => ({ til, setTil, t }), [til, setTil, t]);
   return <TilCtx.Provider value={v}>{children}</TilCtx.Provider>;
 }
 
