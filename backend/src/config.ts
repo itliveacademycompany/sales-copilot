@@ -42,6 +42,18 @@ const schema = z.object({
 
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
 
+  /**
+   * Backend'ning TASHQI manzili — OAuth issuer va MCP manzili shundan
+   * quriladi (`${PUBLIC_URL}/mcp`). claude.ai ulanishi uchun ommaviy HTTPS
+   * bo'lishi shart; lokal sinovda (Claude Code/Desktop) standart yetadi.
+   * Oxiridagi `/` olib tashlanadi.
+   */
+  PUBLIC_URL: z
+    .string()
+    .url()
+    .optional()
+    .transform((v) => v?.replace(/\/+$/, '')),
+
   // ─── AI tahlil quvuri ───
 
   /** Ichki worker'ni server bilan birga ishga tushirish. */

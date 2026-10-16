@@ -23,6 +23,8 @@ import { registerLeadRoutes } from './routes/leads.js';
 import { registerDashboardRoutes } from './routes/dashboard.js';
 import { registerTaskRoutes } from './routes/tasks.js';
 import { registerMoizvonkiRoutes } from './routes/moizvonki.js';
+import { registerMcpRoutes } from './routes/mcp.js';
+import { registerOauthRoutes } from './routes/oauth.js';
 import { registerMemberRoutes } from './routes/members.js';
 import { registerPlaybookRoutes } from './routes/playbook.js';
 import { registerReportRoutes } from './routes/reports.js';
@@ -62,10 +64,26 @@ export async function buildApp(): Promise<FastifyInstance> {
   // ─── CORS ───
   // Cookie asosidagi sessiya ishlashi uchun `credentials: true` va
   // aniq origin kerak — `*` bilan brauzer cookie yubormaydi.
+  //
+  // Istisno — Claude/MCP yo'llari (`/mcp`, `/oauth/*`, `/.well-known/*`):
+  // ular cookie emas, Bearer token bilan ishlaydi, shuning uchun har qanday
+  // origin'ga ochiq, LEKIN credentials'siz (cookie hech qachon yuborilmaydi).
   await app.register(cors, {
-    origin: [config.WEB_ORIGIN],
-    credentials: true,
-    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    delegator: (req, cb) => {
+      const ochiq = /^\/(mcp(\?|$)|oauth\/|\.well-known\/)/.test(req.url ?? '');
+      cb(
+        null,
+        ochiq
+          ? {
+              origin: true,
+              credentials: false,
+              methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+              allowedHeaders: ['Authorization', 'Content-Type', 'Mcp-Protocol-Version', 'Mcp-Session-Id', 'Last-Event-ID'],
+              exposedHeaders: ['Mcp-Session-Id', 'WWW-Authenticate'],
+            }
+          : { origin: [config.WEB_ORIGIN], credentials: true, methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'] },
+      );
+    },
   });
 
   // ─── Cookie ───
@@ -113,6 +131,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerErrorHandler(app);
   registerAuth(app);
   registerAuthRoutes(app);
+  registerOauthRoutes(app);
+  registerMcpRoutes(app);
   registerAdminRoutes(app);
   registerBusinessRoutes(app);
   registerMemberRoutes(app);
