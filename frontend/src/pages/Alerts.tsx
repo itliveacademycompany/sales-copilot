@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { Link } from 'react-router-dom';
 import { api, ApiError, type AlertRow, type SeatRow } from '../api';
 import { useAuth } from '../auth';
+import { useT } from '../i18n';
 import { Ochiluvchi } from '../components/analitika/Ochiluvchi';
 import { MalumotIkon } from '../components/bosh/Korsatkichlar';
 import { avatarRang, boshHarf, qachon } from '../components/bosh/malumot';
@@ -36,20 +37,24 @@ const TABLAR: { k: Tab; nom: string }[] = [
 ];
 
 /** Har tur uchun body'dan inson o'qiydigan izoh. */
-function izohMatni(a: AlertRow): string | null {
+function izohMatni(a: AlertRow, tr: ReturnType<typeof useT>): string | null {
   const b = a.body ?? {};
   const s = (k: string) => (typeof b[k] === 'string' && (b[k] as string).trim() ? (b[k] as string).trim() : null);
   switch (a.kind) {
     case 'missed_lead': {
       const n = Number(b.unansweredTurns);
-      return n > 0 ? `Mijozning ${n} ta xabari javobsiz qolgan. Tezroq yozing — javobsiz lid tez soviydi.` : 'Mijoz xabariga javob berilmagan.';
+      return n > 0
+        ? tr('Mijozning {n} ta xabari javobsiz qolgan. Tezroq yozing — javobsiz lid tez soviydi.', { n })
+        : tr('Mijoz xabariga javob berilmagan.');
     }
     case 'red_flag':
-      return s('quote') ? `Suhbatdan: «${s('quote')}»` : null;
+      return s('quote') ? tr('Suhbatdan: «{iqtibos}»', { iqtibos: s('quote')! }) : null;
     case 'low_confidence':
-      return s('reason') ? `Sabab: ${s('reason')}` : "AI natijasiga ishonchi past — suhbatni ko'rib chiqing.";
+      return s('reason')
+        ? tr('Sabab: {sabab}', { sabab: s('reason')! })
+        : tr("AI natijasiga ishonchi past — suhbatni ko'rib chiqing.");
     case 'score_appeal':
-      return s('reason') ? `Menejer izohi: «${s('reason')}»` : null;
+      return s('reason') ? tr('Menejer izohi: «{izoh}»', { izoh: s('reason')! }) : null;
     default:
       return s('message') ?? s('reason') ?? null;
   }
@@ -57,6 +62,7 @@ function izohMatni(a: AlertRow): string | null {
 
 export function Alerts() {
   const { business } = useAuth();
+  const tr = useT();
   const [tab, setTab] = useState<Tab>('new');
   const [tur, setTur] = useState('');
   const [rows, setRows] = useState<AlertRow[]>([]);
@@ -79,7 +85,7 @@ export function Alerts() {
         setRows(r.alerts);
         setYangiSoni(r.unseenCount);
       })
-      .catch(() => setXato("Ogohlantirishlarni yuklab bo'lmadi."))
+      .catch(() => setXato(tr("Ogohlantirishlarni yuklab bo'lmadi.")))
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [base]);
@@ -95,7 +101,7 @@ export function Alerts() {
   const soni = (t: Tab) => rows.filter((a) => (t === 'hammasi' || a.status === t) && (!tur || a.kind === tur)).length;
   const turlar = [...new Set([...Object.keys(TUR), ...rows.map((a) => a.kind)])].map((k) => ({
     qiymat: k,
-    nom: TUR[k]?.nom ?? k,
+    nom: TUR[k] ? tr(TUR[k]!.nom) : k,
     soni: rows.filter((a) => a.kind === k && (tab === 'hammasi' || a.status === tab)).length,
   }));
 
@@ -108,7 +114,7 @@ export function Alerts() {
       setRows((r) => r.map((x) => (x.id === a.id ? { ...x, status } : x)));
       if (a.status === 'new') setYangiSoni((n) => Math.max(0, n - 1));
     } catch (e) {
-      setXato(e instanceof ApiError ? e.message : 'Saqlanmadi');
+      setXato(e instanceof ApiError ? e.message : tr('Saqlanmadi'));
     } finally {
       setBand(null);
     }
@@ -118,20 +124,30 @@ export function Alerts() {
     <div className="og-sahifa">
       <div className="og-bosh">
         <h1>
-          Ogohlantirishlar <MalumotIkon matn="Darhol e'tibor talab qiladigan hodisalar: javobsiz mijozlar, qizil bayroqlar, buzilgan va'dalar" />
+          {tr('Ogohlantirishlar')}{' '}
+          <MalumotIkon
+            matn={tr("Darhol e'tibor talab qiladigan hodisalar: javobsiz mijozlar, qizil bayroqlar, buzilgan va'dalar")}
+          />
         </h1>
-        {yangiSoni > 0 && <span className="og-oqilmagan">{yangiSoni} o'qilmagan</span>}
+        {yangiSoni > 0 && <span className="og-oqilmagan">{tr("{n} o'qilmagan", { n: yangiSoni })}</span>}
       </div>
 
       <div className="og-filtrlar">
-        <nav className="sd-tablar og-tablar" role="tablist" aria-label="Holat">
+        <nav className="sd-tablar og-tablar" role="tablist" aria-label={tr('Holat')}>
           {TABLAR.map((t) => (
             <button key={t.k} type="button" role="tab" aria-selected={tab === t.k} className={`sd-tab${tab === t.k ? ' faol' : ''}`} onClick={() => setTab(t.k)}>
-              {t.nom} <small>{soni(t.k)}</small>
+              {tr(t.nom)} <small>{soni(t.k)}</small>
             </button>
           ))}
         </nav>
-        <Ochiluvchi belgi="Tur" qiymat={tur} variantlar={turlar} onOzgar={setTur} hammasiNomi="Barcha turlar" kenglik={270} />
+        <Ochiluvchi
+          belgi={tr('Tur')}
+          qiymat={tur}
+          variantlar={turlar}
+          onOzgar={setTur}
+          hammasiNomi={tr('Barcha turlar')}
+          kenglik={270}
+        />
       </div>
 
       {xato && <div className="xato-qator">{xato}</div>}
@@ -145,22 +161,31 @@ export function Alerts() {
       ) : korinadi.length === 0 ? (
         <div className="card og-bosh-holat">
           <span className="og-bosh-ikon">{tab === 'new' || tab === 'hammasi' ? <CircleCheck /> : <Bell />}</span>
-          <b>{tab === 'new' ? "Yangi ogohlantirish yo'q — hammasi joyida" : tab === 'seen' ? "O'qilgan ogohlantirish yo'q" : tab === 'resolved' ? "Bekor qilingan ogohlantirish yo'q" : "Ogohlantirish yo'q"}</b>
-          {tur && <span>Tur filtri qo'yilgan — «Barcha turlar»ni tanlab ko'ring.</span>}
+          <b>
+            {tab === 'new'
+              ? tr("Yangi ogohlantirish yo'q — hammasi joyida")
+              : tab === 'seen'
+                ? tr("O'qilgan ogohlantirish yo'q")
+                : tab === 'resolved'
+                  ? tr("Bekor qilingan ogohlantirish yo'q")
+                  : tr("Ogohlantirish yo'q")}
+          </b>
+          {tur && <span>{tr("Tur filtri qo'yilgan — «Barcha turlar»ni tanlab ko'ring.")}</span>}
         </div>
       ) : (
         <div className="og-panjara">
           {korinadi.map((a) => {
-            const t = TUR[a.kind] ?? { ikon: <Bell />, nom: a.kind };
-            const izoh = izohMatni(a);
-            const nom = a.seatId ? ism.get(a.seatId) ?? 'Menejer' : null;
+            const tt = TUR[a.kind];
+            const t = tt ? { ikon: tt.ikon, nom: tr(tt.nom) } : { ikon: <Bell />, nom: a.kind };
+            const izoh = izohMatni(a, tr);
+            const nom = a.seatId ? ism.get(a.seatId) ?? tr('Menejer') : null;
             return (
               <article key={a.id} className={`og-karta ${a.severity}${a.status === 'resolved' ? ' yopiq' : ''}`}>
                 <div className="og-karta-bosh">
                   <span className={`og-tur ${a.severity}`}>
                     {t.ikon} {t.nom}
                   </span>
-                  <span className={`og-holat ${a.status}`}>{HOLAT_NOMI[a.status]}</span>
+                  <span className={`og-holat ${a.status}`}>{tr(HOLAT_NOMI[a.status])}</span>
                   <time className="og-vaqt" dateTime={a.createdAt} title={new Date(a.createdAt).toLocaleString('uz')}>
                     {qachon(a.createdAt)}
                   </time>
@@ -179,7 +204,7 @@ export function Alerts() {
                     )}
                     {a.conversationId && (
                       <Link to={`/suhbatlar/${a.conversationId}`} className="og-havola">
-                        Suhbatni ko'rish <ArrowUpRight />
+                        {tr("Suhbatni ko'rish")} <ArrowUpRight />
                       </Link>
                     )}
                   </div>
@@ -188,11 +213,11 @@ export function Alerts() {
                   <div className="og-amallar">
                     {a.status === 'new' && (
                       <button type="button" className="og-tugma" disabled={band === a.id} onClick={() => void holat(a, 'seen')}>
-                        O'qilgan deb belgilash
+                        {tr("O'qilgan deb belgilash")}
                       </button>
                     )}
                     <button type="button" className="og-tugma" disabled={band === a.id} onClick={() => void holat(a, 'resolved')}>
-                      Bekor qilish
+                      {tr('Bekor qilish')}
                     </button>
                   </div>
                 )}

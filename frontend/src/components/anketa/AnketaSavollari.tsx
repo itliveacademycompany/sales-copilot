@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { api, ApiError, type PlaybookBody, type PlaybookVersion } from '../../api';
 import { useAuth } from '../../auth';
 import { TanlovMenyu } from '../analitika/Ochiluvchi';
+import { useT } from '../../i18n';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -98,6 +99,7 @@ const sanaVaqt = (iso: string | null | undefined) => {
 type Korinish = '*' | '' | string; // '*' — hammasi, '' — asosiy, aks holda yo'nalish
 
 export function AnketaSavollari() {
+  const t = useT();
   const { business } = useAuth();
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
   const yozaOladi = business?.permissions.includes('playbook:write') ?? false;
@@ -116,17 +118,17 @@ export function AnketaSavollari() {
     if (!base) return;
     try {
       const [p, vs] = await Promise.all([api.get<PlaybookBody>(`${base}/playbook`), api.get<PlaybookVersion[]>(`${base}/playbook/versions`).catch(() => [])]);
-      const t = tozaBody(p);
-      const s = t.questionnaire.questions.map(oqi);
-      setPb(t);
+      const toza = tozaBody(p);
+      const s = toza.questionnaire.questions.map(oqi);
+      setPb(toza);
       setAsl(s);
       setSavollar(s);
       setVersiya(vs.find((v) => v.isActive) ?? null);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) setYoq(true);
-      else setXabar({ ton: 'xato', matn: "Anketani yuklab bo'lmadi" });
+      else setXabar({ ton: 'xato', matn: t("Anketani yuklab bo'lmadi") });
     }
-  }, [base]);
+  }, [base, t]);
   useEffect(() => void yukla(), [yukla]);
 
   const ozgargan = JSON.stringify(savollar) !== JSON.stringify(asl);
@@ -147,19 +149,19 @@ export function AnketaSavollari() {
   const xatolar = useMemo(() => {
     const x: string[] = [];
     for (const s of savollar) {
-      if (s.matn.trim().length < 5) x.push(`«${s.matn || s.id}» — savol matni kamida 5 belgi`);
-      if (uzunlik(s) > MAKS) x.push(`«${s.matn.slice(0, 40)}…» — juda uzun (variantlar bilan ${uzunlik(s)}/${MAKS})`);
-      if (s.tur === 'list' && s.variantlar.length < 2) x.push(`«${s.matn.slice(0, 40)}» — ro'yxatda kamida 2 variant kerak`);
+      if (s.matn.trim().length < 5) x.push(t('«{savol}» — savol matni kamida 5 belgi', { savol: s.matn || s.id }));
+      if (uzunlik(s) > MAKS) x.push(t('«{savol}…» — juda uzun (variantlar bilan {n}/{maks})', { savol: s.matn.slice(0, 40), n: uzunlik(s), maks: MAKS }));
+      if (s.tur === 'list' && s.variantlar.length < 2) x.push(t("«{savol}» — ro'yxatda kamida 2 variant kerak", { savol: s.matn.slice(0, 40) }));
     }
     return x;
-  }, [savollar]);
+  }, [savollar, t]);
 
   if (yoq)
     return (
       <section className="card bm-karta bm-bosh-holat">
         <ListChecks />
-        <b>Playbook hali yaratilmagan</b>
-        <span>Anketa savollari playbook bilan birga onboarding jarayonida yaratiladi.</span>
+        <b>{t('Playbook hali yaratilmagan')}</b>
+        <span>{t('Anketa savollari playbook bilan birga onboarding jarayonida yaratiladi.')}</span>
       </section>
     );
   if (!pb) return <div className="card skelet" style={{ height: 420 }} aria-busy="true" />;
@@ -176,14 +178,14 @@ export function AnketaSavollari() {
       const body = tozaBody({ ...pb, questionnaire: { ...pb.questionnaire, questions: savollar.map(yoz) } });
       const v = await api.post<{ valid: boolean; errors?: Record<string, string[]> }>(`${base}/playbook/validate`, body);
       if (!v.valid) {
-        bildir('xato', Object.values(v.errors ?? {}).flat()[0] ?? 'Server tekshiruvi xato topdi');
+        bildir('xato', Object.values(v.errors ?? {}).flat()[0] ?? t('Server tekshiruvi xato topdi'));
         return;
       }
       await api.post(`${base}/playbook`, { ...body, changeNote: 'Anketa savollari yangilandi' });
       await yukla();
-      bildir('ok', 'Saqlandi — yangi versiya faollashtirildi');
+      bildir('ok', t('Saqlandi — yangi versiya faollashtirildi'));
     } catch (e) {
-      bildir('xato', e instanceof ApiError ? e.message : "Saqlanmadi — qayta urinib ko'ring");
+      bildir('xato', e instanceof ApiError ? e.message : t("Saqlanmadi — qayta urinib ko'ring"));
     } finally {
       setHolat('tinch');
     }
@@ -192,7 +194,7 @@ export function AnketaSavollari() {
   const tahrirlanadimi = (s: Savol) => yozaOladi && korinish !== '*' && (korinish === '' ? !s.yonalish : s.yonalish === korinish);
   const korinadimi = (s: Savol) => korinish === '*' || !s.yonalish || s.yonalish === korinish;
   const guruhlar: { nom: string; kalit: string; savollar: Savol[] }[] = [
-    { nom: 'Asosiy', kalit: '', savollar: savollar.filter((s) => !s.yonalish) },
+    { nom: t('Asosiy'), kalit: '', savollar: savollar.filter((s) => !s.yonalish) },
     ...yonalishlar.map((y) => ({ nom: y, kalit: y, savollar: savollar.filter((s) => s.yonalish === y) })),
   ].filter((g) => g.savollar.length > 0 && (korinish === '*' || g.kalit === '' || g.kalit === korinish));
   const korinadiganSoni = savollar.filter(korinadimi).length;
@@ -213,25 +215,24 @@ export function AnketaSavollari() {
     });
 
   const korinishVariantlari = [
-    { qiymat: '*', nom: 'Hammasi' },
-    { qiymat: '', nom: 'Asosiy' },
-    ...yonalishlar.map((y) => ({ qiymat: y, nom: `Asosiy + ${y}` })),
+    { qiymat: '*', nom: t('Hammasi') },
+    { qiymat: '', nom: t('Asosiy') },
+    ...yonalishlar.map((y) => ({ qiymat: y, nom: t('Asosiy + {y}', { y }) })),
   ];
 
   return (
     <div className="as">
       <section className="card as-karta">
-        <h2 className="as-sarlavha">Anketa savollari</h2>
+        <h2 className="as-sarlavha">{t('Anketa savollari')}</h2>
         <div className="as-meta">
-          {versiya && <span className="bm-versiya">Versiya {versiya.version}</span>}
-          <span>Yangilangan: {sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt)}</span>
-          {ozgargan && <span className="bm-qoralama">Saqlanmagan o'zgarishlar</span>}
+          {versiya && <span className="bm-versiya">{t('Versiya {n}', { n: versiya.version })}</span>}
+          <span>{t('Yangilangan: {sana}', { sana: sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt) })}</span>
+          {ozgargan && <span className="bm-qoralama">{t("Saqlanmagan o'zgarishlar")}</span>}
         </div>
         <div className="as-diqqat">
           <TriangleAlert aria-hidden="true" />
           <span>
-            Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Katta o'zgarishdan oldin bir nechta suhbatda natijani
-            solishtirib ko'ring.
+            {t("Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Katta o'zgarishdan oldin bir nechta suhbatda natijani solishtirib ko'ring.")}
           </span>
         </div>
       </section>
@@ -239,36 +240,36 @@ export function AnketaSavollari() {
       <section className="card as-karta">
         <div className="as-bosh">
           <div>
-            <h3>Anketa savollari</h3>
-            <p>Hammasi ko'rinishi faqat ko'rish uchun. O'z savollarini tahrirlash uchun Asosiy yoki Asosiy + xizmat yo'nalishini tanlang.</p>
+            <h3>{t('Anketa savollari')}</h3>
+            <p>{t("Hammasi ko'rinishi faqat ko'rish uchun. O'z savollarini tahrirlash uchun Asosiy yoki Asosiy + xizmat yo'nalishini tanlang.")}</p>
           </div>
           {yozaOladi && (
             <div className="as-bosh-amal">
               {ozgargan && (
-                <button type="button" className="btn ikkinchi" onClick={() => window.confirm("O'zgarishlar bekor qilinsinmi?") && setSavollar(asl)}>
-                  Bekor qilish
+                <button type="button" className="btn ikkinchi" onClick={() => window.confirm(t("O'zgarishlar bekor qilinsinmi?")) && setSavollar(asl)}>
+                  {t('Bekor qilish')}
                 </button>
               )}
               <button
                 type="button"
                 className="btn"
                 disabled={!ozgargan || xatolar.length > 0 || holat === 'ketmoqda'}
-                title={!ozgargan ? "O'zgarish yo'q" : xatolar[0]}
+                title={!ozgargan ? t("O'zgarish yo'q") : xatolar[0]}
                 onClick={() => void saqla()}
               >
-                <Save /> {holat === 'ketmoqda' ? 'Saqlanmoqda…' : "O'zgarishlarni saqlash"}
+                <Save /> {holat === 'ketmoqda' ? t('Saqlanmoqda…') : t("O'zgarishlarni saqlash")}
               </button>
             </div>
           )}
         </div>
         <div className="as-filtr">
           <div className="maydon-blok">
-            <label htmlFor="as-korinish">Xizmat yo'nalishi</label>
-            <TanlovMenyu id="as-korinish" aria="Xizmat yo'nalishi" qiymat={korinish} variantlar={korinishVariantlari} onOzgar={setKorinish} kenglik={420} />
+            <label htmlFor="as-korinish">{t("Xizmat yo'nalishi")}</label>
+            <TanlovMenyu id="as-korinish" aria={t("Xizmat yo'nalishi")} qiymat={korinish} variantlar={korinishVariantlari} onOzgar={setKorinish} kenglik={420} />
           </div>
           {yozaOladi && (
             <button type="button" className="btn ikkinchi as-qoshish" onClick={() => setOyna({ savol: null })}>
-              <Plus /> Savol qo'shish
+              <Plus /> {t("Savol qo'shish")}
             </button>
           )}
         </div>
@@ -290,7 +291,7 @@ export function AnketaSavollari() {
 
       {korinadiganSoni === 0 ? (
         <div className="card bn-bosh-holat as-bosh">
-          {savollar.length === 0 ? "Hali savol yo'q — «Savol qo'shish» orqali birinchisini qo'shing." : "Bu ko'rinishda savol yo'q."}
+          {savollar.length === 0 ? t("Hali savol yo'q — «Savol qo'shish» orqali birinchisini qo'shing.") : t("Bu ko'rinishda savol yo'q.")}
         </div>
       ) : (
         guruhlar.map((g) => (
@@ -300,40 +301,40 @@ export function AnketaSavollari() {
             </span>
             <ul className="as-royxat">
               {g.savollar.map((s, i) => {
-                const t = TUR[s.tur];
+                const tr = TUR[s.tur];
                 const tahrir = tahrirlanadimi(s);
                 return (
                   <li key={s.id} className={`as-savol${!tahrir && korinish !== '*' ? ' faqat-oqish' : ''}`}>
                     <span className="as-ikon" aria-hidden="true">
-                      {t.ikon}
+                      {tr.ikon}
                     </span>
                     <div className="as-matn">
                       <div className="as-teglar">
-                        <span className={`as-teg ${t.ton}`}>{QISQA_NOM[s.tur] ?? t.nom}</span>
-                        <span className="as-teg">{s.yonalish ?? 'Asosiy'}</span>
-                        {s.majburiy && <span className="as-teg orta">Majburiy</span>}
+                        <span className={`as-teg ${tr.ton}`}>{t(QISQA_NOM[s.tur] ?? tr.nom)}</span>
+                        <span className="as-teg">{s.yonalish ?? t('Asosiy')}</span>
+                        {s.majburiy && <span className="as-teg orta">{t('Majburiy')}</span>}
                       </div>
                       <b>{s.matn}</b>
-                      {s.tur === 'list' && s.variantlar.length > 0 && <small>Variantlar: {s.variantlar.join(', ')}</small>}
-                      {s.tur === 'client_questions' && <small>AI suhbatdan mijoz bergan savollarni ro'yxat qilib yig'adi</small>}
+                      {s.tur === 'list' && s.variantlar.length > 0 && <small>{t('Variantlar: {v}', { v: s.variantlar.join(', ') })}</small>}
+                      {s.tur === 'client_questions' && <small>{t("AI suhbatdan mijoz bergan savollarni ro'yxat qilib yig'adi")}</small>}
                     </div>
                     {tahrir && (
                       <div className="as-amallar">
-                        <button type="button" className="bm-ikon" aria-label="Yuqoriga" title="Yuqoriga" disabled={i === 0} onClick={() => surish(s.id, -1)}>
+                        <button type="button" className="bm-ikon" aria-label={t('Yuqoriga')} title={t('Yuqoriga')} disabled={i === 0} onClick={() => surish(s.id, -1)}>
                           <ArrowUp />
                         </button>
-                        <button type="button" className="bm-ikon" aria-label="Pastga" title="Pastga" disabled={i === g.savollar.length - 1} onClick={() => surish(s.id, 1)}>
+                        <button type="button" className="bm-ikon" aria-label={t('Pastga')} title={t('Pastga')} disabled={i === g.savollar.length - 1} onClick={() => surish(s.id, 1)}>
                           <ArrowDown />
                         </button>
-                        <button type="button" className="bm-ikon" aria-label="Tahrirlash" title="Tahrirlash" onClick={() => setOyna({ savol: s })}>
+                        <button type="button" className="bm-ikon" aria-label={t('Tahrirlash')} title={t('Tahrirlash')} onClick={() => setOyna({ savol: s })}>
                           <Pencil />
                         </button>
                         <button
                           type="button"
                           className="bm-ikon xavf"
-                          aria-label="O'chirish"
-                          title="O'chirish"
-                          onClick={() => window.confirm(`«${s.matn}» savoli o'chirilsinmi?`) && setSavollar((arr) => arr.filter((x) => x.id !== s.id))}
+                          aria-label={t("O'chirish")}
+                          title={t("O'chirish")}
+                          onClick={() => window.confirm(t("«{savol}» savoli o'chirilsinmi?", { savol: s.matn })) && setSavollar((arr) => arr.filter((x) => x.id !== s.id))}
                         >
                           <Trash2 />
                         </button>
@@ -357,7 +358,7 @@ export function AnketaSavollari() {
           onSaqla={(s) => {
             setSavollar((arr) => (oyna.savol ? arr.map((x) => (x.id === oyna.savol!.id ? s : x)) : [...arr, s]));
             setOyna(null);
-            bildir('ok', oyna.savol ? 'Savol yangilandi — saqlashni unutmang' : "Savol qo'shildi — saqlashni unutmang");
+            bildir('ok', oyna.savol ? t('Savol yangilandi — saqlashni unutmang') : t("Savol qo'shildi — saqlashni unutmang"));
           }}
         />
       )}
@@ -382,6 +383,7 @@ function SavolOynasi({
   onYop: () => void;
   onSaqla: (s: Savol) => void;
 }) {
+  const t = useT();
   const [yonalish, setYonalish] = useState(savol?.yonalish ?? boshYonalish ?? '');
   const [matn, setMatn] = useState(savol?.matn ?? '');
   const [tur, setTur] = useState<Tur>(savol?.tur ?? 'text');
@@ -402,7 +404,13 @@ function SavolOynasi({
   const joriy: Savol = { id, matn, tur, variantlar, yonalish: yonalish || null, majburiy };
   const uz = uzunlik(joriy);
   const xato =
-    matn.trim().length < 5 ? 'Savol matni kamida 5 belgi' : tur === 'list' && variantlar.length < 2 ? "Kamida 2 ta variant qo'shing" : uz > MAKS ? `Juda uzun: ${uz}/${MAKS} belgi (variantlar bilan)` : null;
+    matn.trim().length < 5
+      ? t('Savol matni kamida 5 belgi')
+      : tur === 'list' && variantlar.length < 2
+        ? t("Kamida 2 ta variant qo'shing")
+        : uz > MAKS
+          ? t('Juda uzun: {n}/{maks} belgi (variantlar bilan)', { n: uz, maks: MAKS })
+          : null;
 
   const variantQosh = () => {
     const v = yangiVariant.trim().replace(/[;\]\[]/g, '');
@@ -425,40 +433,40 @@ function SavolOynasi({
         }}
       >
         <div className="vr-oyna-bosh">
-          <h3 id="as-oyna-nom">{savol ? 'Savolni tahrirlash' : "Savol qo'shish"}</h3>
-          <button type="button" className="mj-yop" onClick={onYop} aria-label="Yopish">
+          <h3 id="as-oyna-nom">{savol ? t('Savolni tahrirlash') : t("Savol qo'shish")}</h3>
+          <button type="button" className="mj-yop" onClick={onYop} aria-label={t('Yopish')}>
             <X />
           </button>
         </div>
         <div className="maydon-blok">
-          <label htmlFor="as-yonalish">Qayerda ko'rinsin</label>
+          <label htmlFor="as-yonalish">{t("Qayerda ko'rinsin")}</label>
           <TanlovMenyu
             id="as-yonalish"
-            aria="Qayerda ko'rinsin"
+            aria={t("Qayerda ko'rinsin")}
             qiymat={yonalish}
-            variantlar={[{ qiymat: '', nom: 'Asosiy' }, ...yonalishlar.map((y) => ({ qiymat: y, nom: `Asosiy + ${y}` }))]}
+            variantlar={[{ qiymat: '', nom: t('Asosiy') }, ...yonalishlar.map((y) => ({ qiymat: y, nom: t('Asosiy + {y}', { y }) }))]}
             onOzgar={setYonalish}
             kenglik="100%"
           />
-          <div className="yordam">{yonalish ? `Faqat «${yonalish}» yo'nalishidagi suhbatlarda so'raladi.` : "Barcha suhbatlarda so'raladi."}</div>
+          <div className="yordam">{yonalish ? t("Faqat «{y}» yo'nalishidagi suhbatlarda so'raladi.", { y: yonalish }) : t("Barcha suhbatlarda so'raladi.")}</div>
         </div>
         <div className="maydon-blok">
-          <label htmlFor="as-matn">Savol matni</label>
-          <input id="as-matn" value={matn} onChange={(e) => setMatn(e.target.value)} placeholder="Savol matni" maxLength={MAKS} autoFocus aria-invalid={urindi && matn.trim().length < 5} />
+          <label htmlFor="as-matn">{t('Savol matni')}</label>
+          <input id="as-matn" value={matn} onChange={(e) => setMatn(e.target.value)} placeholder={t('Savol matni')} maxLength={MAKS} autoFocus aria-invalid={urindi && matn.trim().length < 5} />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="as-tur">Savol turi</label>
-          <TanlovMenyu id="as-tur" aria="Savol turi" qiymat={tur} variantlar={TURLAR.map((t) => ({ qiymat: t.k, nom: t.nom }))} onOzgar={(v) => setTur(v as Tur)} kenglik="100%" />
-          {tur === 'client_questions' && <div className="yordam">AI suhbatda mijoz bergan savollarni ro'yxat qilib yig'adi.</div>}
+          <label htmlFor="as-tur">{t('Savol turi')}</label>
+          <TanlovMenyu id="as-tur" aria={t('Savol turi')} qiymat={tur} variantlar={TURLAR.map((x) => ({ qiymat: x.k, nom: t(x.nom) }))} onOzgar={(v) => setTur(v as Tur)} kenglik="100%" />
+          {tur === 'client_questions' && <div className="yordam">{t("AI suhbatda mijoz bergan savollarni ro'yxat qilib yig'adi.")}</div>}
         </div>
         {tur === 'list' && (
           <div className="maydon-blok">
-            <label htmlFor="as-variant">Variantlar</label>
+            <label htmlFor="as-variant">{t('Variantlar')}</label>
             <div className="as-variantlar">
               {variantlar.map((v) => (
                 <span key={v} className="as-variant">
                   {v}
-                  <button type="button" aria-label={`${v} variantini olib tashlash`} onClick={() => setVariantlar((a) => a.filter((x) => x !== v))}>
+                  <button type="button" aria-label={t('{v} variantini olib tashlash', { v })} onClick={() => setVariantlar((a) => a.filter((x) => x !== v))}>
                     <X />
                   </button>
                 </span>
@@ -474,7 +482,7 @@ function SavolOynasi({
                   } else if (e.key === 'Backspace' && !yangiVariant && variantlar.length) setVariantlar((a) => a.slice(0, -1));
                 }}
                 onBlur={variantQosh}
-                placeholder={variantlar.length ? "Yana variant…" : 'Variant yozib Enter bosing'}
+                placeholder={variantlar.length ? t('Yana variant…') : t('Variant yozib Enter bosing')}
                 maxLength={60}
               />
             </div>
@@ -483,20 +491,22 @@ function SavolOynasi({
         <label className="as-majburiy">
           <input type="checkbox" checked={majburiy} onChange={(e) => setMajburiy(e.target.checked)} />
           <span>
-            <b>Majburiy savol</b>
-            <small>AI javobni har suhbatda qidiradi; topilmasa «aniqlanmadi» deb belgilaydi</small>
+            <b>{t('Majburiy savol')}</b>
+            <small>{t('AI javobni har suhbatda qidiradi; topilmasa «aniqlanmadi» deb belgilaydi')}</small>
           </span>
         </label>
         <div className={`yordam as-hisob${uz > MAKS ? ' bzl-xato' : ''}`}>
-          {uz}/{MAKS} belgi{tur === 'list' || yonalish || tur === 'client_questions' ? " — variantlar va yo'nalish savol matniga qo'shib saqlanadi, AI ularni shu matndan o'qiydi" : ''}
+          {tur === 'list' || yonalish || tur === 'client_questions'
+            ? t("{n}/{maks} belgi — variantlar va yo'nalish savol matniga qo'shib saqlanadi, AI ularni shu matndan o'qiydi", { n: uz, maks: MAKS })
+            : t('{n}/{maks} belgi', { n: uz, maks: MAKS })}
         </div>
         {urindi && xato && <div className="yordam bzl-xato">{xato}</div>}
         <div className="vr-oyna-past">
           <button type="button" className="btn ikkinchi" onClick={onYop}>
-            Bekor qilish
+            {t('Bekor qilish')}
           </button>
           <button type="submit" className="btn" disabled={urindi && !!xato}>
-            Saqlash
+            {t('Saqlash')}
           </button>
         </div>
       </form>

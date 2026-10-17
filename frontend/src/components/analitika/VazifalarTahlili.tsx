@@ -3,6 +3,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import type { TaskRow } from '../../api';
 import { useAuth } from '../../auth';
+import { joyla, tarjima, useT } from '../../i18n';
 import { MalumotIkon } from '../bosh/Korsatkichlar';
 import { GuruhliUstunGrafik } from './grafiklar';
 import { bolaklar } from './qoshimcha';
@@ -40,9 +41,9 @@ function manbasi(t: TaskRow): Exclude<Manba, 'hammasi'> {
 function vaqtMatn(ms: number | null): string {
   if (ms === null) return '—';
   const soat = ms / 3600_000;
-  if (soat < 1) return `${Math.max(1, Math.round(soat * 60))} daq`;
-  if (soat < 24) return `${Math.round(soat)} soat`;
-  return `${Math.round(soat / 24)} kun`;
+  if (soat < 1) return tarjima('{n} daq', { n: Math.max(1, Math.round(soat * 60)) });
+  if (soat < 24) return tarjima('{n} soat', { n: Math.round(soat) });
+  return tarjima('{n} kun', { n: Math.round(soat / 24) });
 }
 
 function ichida(iso: string | null, from: number, to: number) {
@@ -83,6 +84,7 @@ function saqlanganManba(biz: string): Manba {
 }
 
 export function VazifalarTahlili({ data, davr, q }: TabProps) {
+  const t = useT();
   // Ro'yxat (drill-down) holati URL'da: brauzerning "orqaga" tugmasi ham ishlaydi
   const [params, setParams] = useSearchParams();
   const royxatOchiq = params.has('royxat');
@@ -160,12 +162,12 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
 
   const holat =
     h.foiz === null
-      ? { nom: "Vazifa yo'q", klass: 'neytral' }
+      ? { nom: t("Vazifa yo'q"), klass: 'neytral' }
       : h.foiz >= 70
-        ? { nom: 'Jamoa ulgurmoqda', klass: 'yaxshi' }
+        ? { nom: t('Jamoa ulgurmoqda'), klass: 'yaxshi' }
         : h.foiz >= 40
-          ? { nom: "Sur'at o'rtacha", klass: 'orta' }
-          : { nom: 'Jamoa ulgurmayapti', klass: 'past' };
+          ? { nom: t("Sur'at o'rtacha"), klass: 'orta' }
+          : { nom: t('Jamoa ulgurmayapti'), klass: 'past' };
 
   // Manba bo'yicha — tanlovdan qat'i nazar hammasi
   const manbalar = (['crm', 'ai', 'qolda'] as const).map((m) => ({
@@ -191,7 +193,7 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
         from,
         to,
       );
-      return { s, nom: s ? ism.get(s) ?? 'Menejer' : 'Biriktirilmagan', ...x };
+      return { s, nom: s ? ism.get(s) ?? t('Menejer') : t('Biriktirilmagan'), ...x };
     })
     .filter((x) => x.ochiq + x.bajarildi + x.yaratildi > 0)
     .sort((a, b) => b.kechikkan - a.kechikkan || b.ochiq - a.ochiq);
@@ -214,34 +216,34 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
   return (
     <div className="an-bolim">
       {q.vazifaCheklangan && (
-        <div className="an-eslatma">Vazifalar ko'p — ba'zi holatlar bo'yicha birinchi 200 tasi olindi, raqamlar "kamida" ma'nosida.</div>
+        <div className="an-eslatma">{t('Vazifalar ko\'p — ba\'zi holatlar bo\'yicha birinchi 200 tasi olindi, raqamlar "kamida" ma\'nosida.')}</div>
       )}
 
       {/* ─── Manba tanlovi ─── */}
       <section className="card an-karta vt-manba">
         <div>
-          <h2>Vazifalar manbasi</h2>
-          <p className="vt-izoh">Manbani tanlang — tanlov shu bo'limdagi barcha raqamlarga qo'llanadi. "Saqlash" uni keyingi safar uchun eslab qoladi.</p>
+          <h2>{t('Vazifalar manbasi')}</h2>
+          <p className="vt-izoh">{t('Manbani tanlang — tanlov shu bo\'limdagi barcha raqamlarga qo\'llanadi. "Saqlash" uni keyingi safar uchun eslab qoladi.')}</p>
         </div>
         <div className="vt-manba-ong">
           <div className="vt-manba-qator">
-            <select className="input vt-select" value={manba} onChange={(e) => setManba(e.target.value as Manba)} aria-label="Vazifalar manbasi">
+            <select className="input vt-select" value={manba} onChange={(e) => setManba(e.target.value as Manba)} aria-label={t('Vazifalar manbasi')}>
               {(Object.keys(MANBA_NOMI) as Manba[]).map((m) => (
                 <option key={m} value={m}>
-                  {MANBA_NOMI[m]}
+                  {t(MANBA_NOMI[m])}
                 </option>
               ))}
             </select>
             <button type="button" className="btn" onClick={saqla} disabled={manba === saqlangan && !yangiSaqlandi}>
-              <Save /> Saqlash
+              <Save /> {t('Saqlash')}
             </button>
           </div>
           <small className={`vt-saqlandi${manba !== saqlangan ? ' ozgargan' : ''}`}>
             {manba !== saqlangan ? (
-              'Saqlanmagan tanlov'
+              t('Saqlanmagan tanlov')
             ) : (
               <>
-                <Check /> Saqlangan: {MANBA_NOMI[saqlangan]}
+                <Check /> {t('Saqlangan: {nom}', { nom: t(MANBA_NOMI[saqlangan]) })}
               </>
             )}
           </small>
@@ -251,7 +253,7 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
       {/* ─── Davr bajarilishi ─── */}
       <section className="card an-karta vt-qahramon">
         <div className="vt-halqa-qism">
-          <div className="vt-halqa" role="img" aria-label={`Davr bajarilishi ${h.foiz ?? 0}%`}>
+          <div className="vt-halqa" role="img" aria-label={t('Davr bajarilishi {n}%', { n: h.foiz ?? 0 })}>
             <svg width="112" height="112" viewBox="0 0 112 112">
               <circle cx="56" cy="56" r={R} fill="none" stroke="var(--bg-sunken)" strokeWidth="10" />
               <circle
@@ -272,18 +274,18 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
           <div>
             <h2 className={`vt-holat ${holat.klass}`}>{holat.nom}</h2>
             <span className="vt-izoh">
-              Davr bajarilishi <MalumotIkon matn="Davrda bajarilgan / (davrda bajarilgan + hozir ochiq). Jamoa qo'lidagi butun yukning yopilgan qismi" />
+              {t('Davr bajarilishi')} <MalumotIkon matn={t("Davrda bajarilgan / (davrda bajarilgan + hozir ochiq). Jamoa qo'lidagi butun yukning yopilgan qismi")} />
             </span>
           </div>
         </div>
         <div className="vt-qahramon-ong">
           <p>
-            Tanlangan davrda {h.yuk} tadan <b>{h.bajarildi}</b> ta vazifa bajarildi.
+            {joyla(t('Tanlangan davrda {jami} tadan {n} ta vazifa bajarildi.'), { jami: h.yuk, n: <b>{h.bajarildi}</b> })}
           </p>
           {h.kechikkan > 0 ? (
-            <span className="sd-pill xavf">Hozir {h.kechikkan} ta kechikkan</span>
+            <span className="sd-pill xavf">{t('Hozir {n} ta kechikkan', { n: h.kechikkan })}</span>
           ) : (
-            <span className="sd-pill yaxshi">Kechikkan vazifa yo'q</span>
+            <span className="sd-pill yaxshi">{t("Kechikkan vazifa yo'q")}</span>
           )}
         </div>
       </section>
@@ -292,24 +294,24 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
       <div className="vt-ikki-guruh">
         <div>
           <h3 className="vt-guruh-nom">
-            Hozir <MalumotIkon matn="Ayni damdagi holat — tanlangan davrga bog'liq emas" />
+            {t('Hozir')} <MalumotIkon matn={t("Ayni damdagi holat — tanlangan davrga bog'liq emas")} />
           </h3>
-          <small className="vt-guruh-izoh">ayni damda</small>
+          <small className="vt-guruh-izoh">{t('ayni damda')}</small>
           <div className="vt-kartalar">
-            <Son qiymat={h.ochiq} nom="Ochiq" izoh="Kutilmoqda, jarayonda yoki to'xtatilgan" onOch={() => ochish('')} />
-            <Son qiymat={h.kechikkan} nom="Muddati o'tgan" izoh="Muddati o'tgan, hali yopilmagan" rang={h.kechikkan > 0 ? 'past' : undefined} onOch={() => ochish('kechikkan')} />
-            <Son qiymat={h.bugun} nom="Bugun uchun" izoh="Muddati bugun tugaydigan ochiq vazifalar" rang={h.bugun > 0 ? 'orta' : undefined} onOch={() => ochish('bugun')} />
+            <Son qiymat={h.ochiq} nom={t('Ochiq')} izoh={t("Kutilmoqda, jarayonda yoki to'xtatilgan")} onOch={() => ochish('')} />
+            <Son qiymat={h.kechikkan} nom={t("Muddati o'tgan")} izoh={t("Muddati o'tgan, hali yopilmagan")} rang={h.kechikkan > 0 ? 'past' : undefined} onOch={() => ochish('kechikkan')} />
+            <Son qiymat={h.bugun} nom={t('Bugun uchun')} izoh={t('Muddati bugun tugaydigan ochiq vazifalar')} rang={h.bugun > 0 ? 'orta' : undefined} onOch={() => ochish('bugun')} />
           </div>
         </div>
         <div>
           <h3 className="vt-guruh-nom">
-            Davr bo'yicha <MalumotIkon matn="Yuqorida tanlangan davr uchun" />
+            {t("Davr bo'yicha")} <MalumotIkon matn={t('Yuqorida tanlangan davr uchun')} />
           </h3>
-          <small className="vt-guruh-izoh">yuqorida tanlangan davr uchun</small>
+          <small className="vt-guruh-izoh">{t('yuqorida tanlangan davr uchun')}</small>
           <div className="vt-kartalar">
-            <Son qiymat={h.yaratildi} nom="Yaratildi" izoh="Davrda yaratilgan vazifalar" />
-            <Son qiymat={h.bajarildi} nom="Bajarildi" izoh="Davrda bajarilgan vazifalar" rang="yuqori" />
-            <Son qiymat={vaqtMatn(h.ortachaVaqt)} nom="O'rtacha bajarilish vaqti" izoh="Yaratilgandan bajarilguncha o'rtacha vaqt (davrda bajarilganlar)" />
+            <Son qiymat={h.yaratildi} nom={t('Yaratildi')} izoh={t('Davrda yaratilgan vazifalar')} />
+            <Son qiymat={h.bajarildi} nom={t('Bajarildi')} izoh={t('Davrda bajarilgan vazifalar')} rang="yuqori" />
+            <Son qiymat={vaqtMatn(h.ortachaVaqt)} nom={t("O'rtacha bajarilish vaqti")} izoh={t("Yaratilgandan bajarilguncha o'rtacha vaqt (davrda bajarilganlar)")} />
           </div>
         </div>
       </div>
@@ -317,24 +319,24 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
       {/* ─── Manba bo'yicha ─── */}
       <section className="card an-karta">
         <div className="karta-bosh">
-          <h2>Vazifalar manbasi bo'yicha</h2>
+          <h2>{t("Vazifalar manbasi bo'yicha")}</h2>
         </div>
-        <p className="vt-izoh vt-izoh-past">CRM bilan bog'langan, SotuvAI yaratgan va qo'lda qo'shilgan vazifalarning joriy hamda tanlangan davrdagi holati.</p>
+        <p className="vt-izoh vt-izoh-past">{t("CRM bilan bog'langan, SotuvAI yaratgan va qo'lda qo'shilgan vazifalarning joriy hamda tanlangan davrdagi holati.")}</p>
         <div className="vt-manbalar">
           {manbalar.map(({ m, h: x }) => (
             <div key={m} className={`vt-manba-karta${manba === m ? ' tanlangan' : ''}`}>
-              <b>{m === 'crm' ? "CRM bilan bog'langan" : MANBA_NOMI[m]}</b>
+              <b>{m === 'crm' ? t("CRM bilan bog'langan") : t(MANBA_NOMI[m])}</b>
               <div className="vt-uchlik">
                 <span>
-                  <small>Ochiq</small>
+                  <small>{t('Ochiq')}</small>
                   <strong>{x.ochiq}</strong>
                 </span>
                 <span>
-                  <small>Yaratildi</small>
+                  <small>{t('Yaratildi')}</small>
                   <strong>{x.yaratildi}</strong>
                 </span>
                 <span>
-                  <small>Bajarildi</small>
+                  <small>{t('Bajarildi')}</small>
                   <strong>{x.bajarildi}</strong>
                 </span>
               </div>
@@ -347,21 +349,21 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
       <section className="card an-karta">
         <div className="karta-bosh">
           <h2>
-            Vazifalar yaratilishi va bajarilishi <MalumotIkon matn="Har bo'lakda yaratilgan va bajarilgan vazifalar soni" />
+            {t('Vazifalar yaratilishi va bajarilishi')} <MalumotIkon matn={t("Har bo'lakda yaratilgan va bajarilgan vazifalar soni")} />
           </h2>
         </div>
-        <p className="vt-izoh vt-izoh-past">Agar «Bajarildi» «Yaratildi»dan ortda qolsa, vazifalar to'planadi.</p>
+        <p className="vt-izoh vt-izoh-past">{t("Agar «Bajarildi» «Yaratildi»dan ortda qolsa, vazifalar to'planadi.")}</p>
         {h.yaratildi + h.bajarildi === 0 ? (
-          <div className="jm-bosh">Bu davrda vazifa yaratilmagan va bajarilmagan.</div>
+          <div className="jm-bosh">{t('Bu davrda vazifa yaratilmagan va bajarilmagan.')}</div>
         ) : (
           <GuruhliUstunGrafik
             ustunlar={ustunlar}
             seriyalar={[
-              { kalit: 'yaratildi', nom: 'Yaratildi', rang: 'var(--s1)' },
-              { kalit: 'bajarildi', nom: 'Bajarildi', rang: 'var(--s3)' },
+              { kalit: 'yaratildi', nom: t('Yaratildi'), rang: 'var(--s1)' },
+              { kalit: 'bajarildi', nom: t('Bajarildi'), rang: 'var(--s3)' },
             ]}
-            nom="Vazifalar yaratilishi va bajarilishi"
-            birlik=" ta"
+            nom={t('Vazifalar yaratilishi va bajarilishi')}
+            birlik={t(' ta')}
           />
         )}
       </section>
@@ -370,23 +372,23 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
       <section className="card an-karta">
         <div className="karta-bosh">
           <h2>
-            Menejerlar bo'yicha vazifalar <MalumotIkon matn="Davr bajarilishi = davrda bajarilgan / (davrda bajarilgan + hozir ochiq)" />
+            {t("Menejerlar bo'yicha vazifalar")} <MalumotIkon matn={t('Davr bajarilishi = davrda bajarilgan / (davrda bajarilgan + hozir ochiq)')} />
           </h2>
         </div>
-        <p className="vt-izoh vt-izoh-past">Kim qancha vazifa olib boryapti va kim ortda qolyapti. Eng ko'p kechikkani yuqorida.</p>
+        <p className="vt-izoh vt-izoh-past">{t("Kim qancha vazifa olib boryapti va kim ortda qolyapti. Eng ko'p kechikkani yuqorida.")}</p>
         {menejerlar.length === 0 ? (
-          <div className="jm-bosh">Vazifa yo'q.</div>
+          <div className="jm-bosh">{t("Vazifa yo'q.")}</div>
         ) : (
           <div className="sn-jadval-qobiq">
             <table className="vt-jadval">
               <thead>
                 <tr>
-                  <th>Menejer</th>
-                  <th>Ochiq</th>
-                  <th>Muddati o'tgan</th>
-                  <th>Davrda bajarildi</th>
-                  <th>Davr bajarilishi</th>
-                  <th aria-label="Ochish" />
+                  <th>{t('Menejer')}</th>
+                  <th>{t('Ochiq')}</th>
+                  <th>{t("Muddati o'tgan")}</th>
+                  <th>{t('Davrda bajarildi')}</th>
+                  <th>{t('Davr bajarilishi')}</th>
+                  <th aria-label={t('Ochish')} />
                 </tr>
               </thead>
               <tbody>
@@ -410,7 +412,7 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
                     </td>
                     <td>
                       {(
-                        <button type="button" className="vt-ochish" onClick={() => ochish('', m.s || '-')} aria-label={`${m.nom} — ochiq vazifalar`} title="Ochiq vazifalarni ko'rish">
+                        <button type="button" className="vt-ochish" onClick={() => ochish('', m.s || '-')} aria-label={t('{nom} — ochiq vazifalar', { nom: m.nom })} title={t("Ochiq vazifalarni ko'rish")}>
                           <ChevronRight />
                         </button>
                       )}
@@ -427,17 +429,17 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
       <section className="card an-karta">
         <div className="karta-bosh">
           <h2>
-            Bitim bosqichlari bo'yicha ochiq vazifalar <MalumotIkon matn="CRM bilan bog'langan ochiq vazifalar — bitim qaysi bosqichda turgani bo'yicha" />
+            {t("Bitim bosqichlari bo'yicha ochiq vazifalar")} <MalumotIkon matn={t("CRM bilan bog'langan ochiq vazifalar — bitim qaysi bosqichda turgani bo'yicha")} />
           </h2>
         </div>
-        <p className="vt-izoh vt-izoh-past">Voronkaning qayerida ochiq vazifalar to'plangani. Kechikkanlar qizil rangda.</p>
+        <p className="vt-izoh vt-izoh-past">{t("Voronkaning qayerida ochiq vazifalar to'plangani. Kechikkanlar qizil rangda.")}</p>
         {bosqichlar.length === 0 ? (
-          <div className="jm-bosh">CRM bosqichiga bog'langan ochiq vazifa yo'q. CRM ulanganda vazifalar bitim bosqichi bilan birga keladi.</div>
+          <div className="jm-bosh">{t("CRM bosqichiga bog'langan ochiq vazifa yo'q. CRM ulanganda vazifalar bitim bosqichi bilan birga keladi.")}</div>
         ) : (
           <>
             <ul className="vt-bosqichlar">
               {bosqichlar.map(([nom, x]) => (
-                <li key={nom} title={`${nom}: ${x.ochiq} ochiq, ${x.kechikkan} kechikkan`}>
+                <li key={nom} title={t('{nom}: {ochiq} ochiq, {kech} kechikkan', { nom, ochiq: x.ochiq, kech: x.kechikkan })}>
                   <span className="vt-bosqich-nom">{nom}</span>
                   <span className="vt-bosqich-chiziq">
                     <span className="ochiq" style={{ width: `${(x.ochiq / bosqichMax) * 100}%` }} />
@@ -451,10 +453,10 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
             </ul>
             <div className="g-legenda g-legenda-doira g-legenda-chap">
               <span>
-                <i style={{ background: 'var(--text-muted)' }} /> Ochiq
+                <i style={{ background: 'var(--text-muted)' }} /> {t('Ochiq')}
               </span>
               <span>
-                <i style={{ background: 'var(--past)' }} /> Muddati o'tgan
+                <i style={{ background: 'var(--past)' }} /> {t("Muddati o'tgan")}
               </span>
             </div>
           </>

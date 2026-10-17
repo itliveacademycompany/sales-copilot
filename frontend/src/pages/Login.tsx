@@ -5,25 +5,30 @@ import { api, ApiError } from '../api';
 import { useAuth } from '../auth';
 import { LoginSahna } from '../components/login/LoginSahna';
 import { IkonliInput, ParolInput } from '../components/ParolInput';
+import { useT } from '../i18n';
 
 /**
  * Ro'yxatdan o'tish yo'q: mahsulotni sotib olgan mijozga hisobni biz
  * o'zimiz qo'lda yaratib beramiz. Shuning uchun faqat kirish va tiklash.
+ *
+ * Til landing'da tanlanganidek (umumiy `useTil` holati) — matnlar
+ * `lugat/kirish.ts` da.
  */
 type Rejim = 'login' | 'tiklash';
-
-/** Logo va strelka yorlig'i (ekran o'quvchilar va sichqoncha uchun). */
-const ORQAGA = 'Bosh sahifaga qaytish';
 
 /** Kirish + parolni tiklash — bitta karta, ikki rejim. */
 export function Login() {
   const { refresh } = useAuth();
+  const t = useT();
   const [mode, setMode] = useState<Rejim>('login');
   const [tiklashYuborildi, setTiklashYuborildi] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  /** Logo va strelka yorlig'i (ekran o'quvchilar va sichqoncha uchun). */
+  const ORQAGA = t('Bosh sahifaga qaytish');
 
   function rejimgaOt(yangi: Rejim) {
     setMode(yangi);
@@ -45,18 +50,18 @@ export function Login() {
       await api.post('/api/v1/auth/login', { email, password });
       await refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Server bilan bog\'lanib bo\'lmadi');
+      setError(err instanceof ApiError ? err.message : t("Server bilan bog'lanib bo'lmadi"));
     } finally {
       setBusy(false);
     }
   }
 
-  const sarlavha = mode === 'login' ? 'Xush kelibsiz' : 'Parolni tiklash';
+  const sarlavha = t(mode === 'login' ? 'Xush kelibsiz' : 'Parolni tiklash');
   const izoh =
     mode === 'login'
-      ? 'Davom etish uchun hisobingizga kiring'
-      : 'Email yoki loginingizni kiriting — tiklash havolasini yuboramiz';
-  const tugmaMatni = mode === 'login' ? 'Kirish' : 'Tiklash havolasini yuborish';
+      ? t('Davom etish uchun hisobingizga kiring')
+      : t('Email yoki loginingizni kiriting — tiklash havolasini yuboramiz');
+  const tugmaMatni = t(mode === 'login' ? 'Kirish' : 'Tiklash havolasini yuborish');
 
   return (
     <div className="login-fon">
@@ -90,12 +95,14 @@ export function Login() {
           </div>
 
           <h1 className="taqdimot-sarlavha">
-            Har bir ball ortida —<br />
-            <span className="urgu">isbot.</span>
+            {t('Har bir ball ortida —')}
+            <br />
+            <span className="urgu">{t('isbot.')}</span>
           </h1>
           <p className="taqdimot-matn">
-            Sotuv bo'limingiz yozishmalarini kompaniyangizning o'z skripti bo'yicha baholaydigan va
-            har bir sotuvchiga kouching beradigan platforma.
+            {t(
+              "Sotuv bo'limingiz yozishmalarini kompaniyangizning o'z skripti bo'yicha baholaydigan va har bir sotuvchiga kouching beradigan platforma.",
+            )}
           </p>
 
           <LoginSahna />
@@ -126,17 +133,18 @@ export function Login() {
 
           {mode === 'tiklash' && tiklashYuborildi && (
             <div className="ok-qator" role="status">
-              Agar bunday hisob mavjud bo'lsa va Telegram bog'langan bo'lsa, tiklash havolasi
-              yuborildi. Havola 30 daqiqa amal qiladi.
+              {t(
+                "Agar bunday hisob mavjud bo'lsa va Telegram bog'langan bo'lsa, tiklash havolasi yuborildi. Havola 30 daqiqa amal qiladi.",
+              )}
               <div style={{ marginTop: 6, fontSize: 12 }}>
-                Telegram bog'lanmagan bo'lsa — rahbaringizdan tiklash havolasini so'rang.
+                {t("Telegram bog'lanmagan bo'lsa — rahbaringizdan tiklash havolasini so'rang.")}
               </div>
             </div>
           )}
 
           <div className="maydon-blok">
             <label className="maydon" htmlFor="l-email">
-              Email yoki login
+              {t('Email yoki login')}
             </label>
             <IkonliInput
               id="l-email"
@@ -147,7 +155,7 @@ export function Login() {
               onChange={(e) => setEmail(e.target.value)}
               required
               autoComplete="username"
-              placeholder="siz@kompaniya.uz"
+              placeholder={t('siz@kompaniya.uz')}
             />
           </div>
 
@@ -155,7 +163,7 @@ export function Login() {
             <div className="maydon-blok">
               <div className="label-qator">
                 <label className="maydon" htmlFor="l-parol">
-                  Parol
+                  {t('Parol')}
                 </label>
                 {mode === 'login' && (
                   <a
@@ -166,7 +174,7 @@ export function Login() {
                       rejimgaOt('tiklash');
                     }}
                   >
-                    Parolni unutdingizmi?
+                    {t('Parolni unutdingizmi?')}
                   </a>
                 )}
               </div>
@@ -189,7 +197,7 @@ export function Login() {
           >
             {busy ? (
               <>
-                <LoaderCircle className="aylanuvchi" /> Kuting…
+                <LoaderCircle className="aylanuvchi" /> {t('Kuting…')}
               </>
             ) : (
               <>
@@ -207,7 +215,7 @@ export function Login() {
                   rejimgaOt('login');
                 }}
               >
-                <ChevronLeft /> Kirishga qaytish
+                <ChevronLeft /> {t('Kirishga qaytish')}
               </a>
             </div>
           )}

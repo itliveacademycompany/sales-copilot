@@ -65,7 +65,7 @@ import {
   type TelegramIntegration,
 } from '../api';
 import { useAuth } from '../auth';
-import { useT } from '../i18n';
+import { joyla, useT } from '../i18n';
 
 /**
  * SOZLAMALAR — TZ 3.11 (FR-160, 161, 162, 164, 165, 166).
@@ -191,7 +191,7 @@ export function Settings() {
       </div>
 
       {/* 1-daraja: guruhlar; 2-daraja: guruhdagi bo'limlar */}
-      <div className="tab-qator sz-guruhlar" role="tablist" aria-label="Sozlamalar guruhlari">
+      <div className="tab-qator sz-guruhlar" role="tablist" aria-label={t('Sozlamalar guruhlari')}>
         {guruhlar.map((g) => {
           const soni = korinadigan.filter((b) => b.guruh === g).length;
           return (
@@ -255,16 +255,17 @@ export function Settings() {
 
 /** Onboarding'dagi profil formasi — saqlangach xabar chiqadi. */
 function BiznesProfili() {
+  const t = useT();
   const [saqlandi, setSaqlandi] = useState(false);
   return (
     <>
       {saqlandi && (
         <div className="ok-qator" style={{ marginBottom: 10 }}>
-          Biznes profili saqlandi <Check />
+          {t('Biznes profili saqlandi')} <Check />
         </div>
       )}
       <ProfileStep
-        tugmaMatni="Saqlash"
+        tugmaMatni={t('Saqlash')}
         onNext={() => {
           setSaqlandi(true);
           setTimeout(() => setSaqlandi(false), 2500);
@@ -276,6 +277,7 @@ function BiznesProfili() {
 
 /** Kichik yordamchi: saqlash holati va xabar. */
 function useSaqlash() {
+  const t = useT();
   const [holat, setHolat] = useState<'tinch' | 'ketmoqda' | 'ok'>('tinch');
   const [xato, setXato] = useState<string | null>(null);
 
@@ -289,17 +291,18 @@ function useSaqlash() {
       return true;
     } catch (e) {
       setHolat('tinch');
-      setXato(e instanceof ApiError ? e.message : 'Saqlab bo\'lmadi');
+      setXato(e instanceof ApiError ? e.message : t("Saqlab bo'lmadi"));
       return false;
     }
-  }, []);
+  }, [t]);
 
   return { holat, xato, bajar, setXato };
 }
 
 function Xabar({ holat, xato }: { holat: string; xato: string | null }) {
+  const t = useT();
   if (xato) return <div className="xato-qator">{xato}</div>;
-  if (holat === 'ok') return <div className="ok-qator">Saqlandi <Check /></div>;
+  if (holat === 'ok') return <div className="ok-qator">{t('Saqlandi')} <Check /></div>;
   return null;
 }
 
@@ -319,6 +322,7 @@ function Profil({
    * data-URL'i. Fayl bo'lsa havola maydoni bo'sh ko'rsatiladi — aks holda
    * 30 KB lik base64 matn input ichida ko'rinib qolardi.
    */
+  const t = useT();
   const serverRasm = user?.avatarUrl ?? '';
   const serverFayl = serverRasm.startsWith('data:') ? serverRasm : null;
   const boshlangich = { ism: user?.displayName ?? '', til: user?.locale ?? 'uz', avatar: serverFayl ? '' : serverRasm };
@@ -341,7 +345,7 @@ function Profil({
     try {
       setYangiLokal(await rasmniTayyorla(f));
     } catch (e) {
-      setFaylXato(e instanceof Error ? e.message : "Rasmni o'qib bo'lmadi");
+      setFaylXato(e instanceof Error ? e.message : t("Rasmni o'qib bo'lmadi"));
     }
   }
   const [tg, setTg] = useState<TelegramIntegration | null>(null);
@@ -370,8 +374,8 @@ function Profil({
     <>
       <section className="card pr-karta">
         <header className="pr-bosh">
-          <h2>Profil</h2>
-          <p>Shaxsiy ma'lumotlaringizni yangilang</p>
+          <h2>{t('Profil')}</h2>
+          <p>{t("Shaxsiy ma'lumotlaringizni yangilang")}</p>
         </header>
 
         <div className="pr-avatar-qator">
@@ -390,13 +394,13 @@ function Profil({
             }}
           >
             {lokal ? (
-              <img src={lokal} alt="Profil rasmi" />
+              <img src={lokal} alt={t('Profil rasmi')} />
             ) : avatar.trim() && avatarTogri && !rasmXato ? (
-              <img src={avatar.trim()} alt="Profil rasmi" onError={() => setRasmXato(true)} />
+              <img src={avatar.trim()} alt={t('Profil rasmi')} onError={() => setRasmXato(true)} />
             ) : (
               <span>{bosh}</span>
             )}
-            <button type="button" className="pr-qalam" onClick={() => faylRef.current?.click()} aria-label="Rasm tanlash">
+            <button type="button" className="pr-qalam" onClick={() => faylRef.current?.click()} aria-label={t('Rasm tanlash')}>
               <Pencil />
             </button>
             <input
@@ -411,14 +415,14 @@ function Profil({
             />
           </div>
           <div className="pr-avatar-matn">
-            <b>Rasmni o'zgartirish</b>
-            <small>JPG, PNG yoki WEBP · 2 MB gacha · avatar ustiga sudrab tashlash ham mumkin</small>
+            <b>{t("Rasmni o'zgartirish")}</b>
+            <small>{t('JPG, PNG yoki WEBP · 2 MB gacha · avatar ustiga sudrab tashlash ham mumkin')}</small>
             <div className="pr-avatar-tugmalar">
               <button type="button" className="btn ikkinchi kichik" onClick={() => faylRef.current?.click()}>
-                <Upload /> Rasm tanlash
+                <Upload /> {t('Rasm tanlash')}
               </button>
               <button type="button" className="btn ikkinchi kichik" onClick={() => setAvatarOchiq((v) => !v)} aria-expanded={avatarOchiq}>
-                <Link2 /> Havola orqali
+                <Link2 /> {t('Havola orqali')}
               </button>
               {(lokal || avatar) && (
                 <button
@@ -429,12 +433,12 @@ function Profil({
                     setAvatar('');
                   }}
                 >
-                  <Trash2 /> Olib tashlash
+                  <Trash2 /> {t('Olib tashlash')}
                 </button>
               )}
             </div>
             {faylXato && <small className="pr-xato">{faylXato}</small>}
-            {lokal && <small>Rasm profilingizda saqlanadi va barcha qurilmalarda ko'rinadi.</small>}
+            {lokal && <small>{t("Rasm profilingizda saqlanadi va barcha qurilmalarda ko'rinadi.")}</small>}
             {avatarOchiq && (
               <div className="pr-avatar-maydon">
                 <input
@@ -447,36 +451,36 @@ function Profil({
                     if (e.target.value.trim()) setYangiLokal(null);
                   }}
                   placeholder="https://…/rasm.jpg"
-                  aria-label="Rasm havolasi"
+                  aria-label={t('Rasm havolasi')}
                   autoFocus
                 />
               </div>
             )}
-            {!avatarTogri && <small className="pr-xato">Havola https:// bilan boshlanishi kerak</small>}
-            {avatarTogri && rasmXato && avatar.trim() && <small className="pr-xato">Rasm ochilmadi — havolani tekshiring</small>}
+            {!avatarTogri && <small className="pr-xato">{t('Havola https:// bilan boshlanishi kerak')}</small>}
+            {avatarTogri && rasmXato && avatar.trim() && <small className="pr-xato">{t('Rasm ochilmadi — havolani tekshiring')}</small>}
           </div>
         </div>
 
         <div className="pr-maydonlar">
           <div className="maydon-blok">
-            <label htmlFor="p-ism">Nom</label>
+            <label htmlFor="p-ism">{t('Nom')}</label>
             <input id="p-ism" value={ism} onChange={(e) => setIsm(e.target.value)} maxLength={120} />
           </div>
           <div className="maydon-blok">
-            <label htmlFor="p-email">Email</label>
-            <input id="p-email" value={user?.email ?? user?.login ?? '—'} disabled title="Email o'zgartirish yangi manzilni tasdiqlashni talab qiladi — hozircha qo'llab-quvvatlanmaydi" />
+            <label htmlFor="p-email">{t('Email')}</label>
+            <input id="p-email" value={user?.email ?? user?.login ?? '—'} disabled title={t("Email o'zgartirish yangi manzilni tasdiqlashni talab qiladi — hozircha qo'llab-quvvatlanmaydi")} />
           </div>
         </div>
         <div className="pr-belgilar">
-          {business && <span className="pr-belgi rol">{ROL_NOM[business.role] ?? business.role}</span>}
-          <span className="pr-belgi kirish">{user?.email ? 'Email' : 'Login'}</span>
+          {business && <span className="pr-belgi rol">{ROL_NOM[business.role] ? t(ROL_NOM[business.role]!) : business.role}</span>}
+          <span className="pr-belgi kirish">{user?.email ? t('Email') : t('Login')}</span>
         </div>
 
         <div className="pr-ajrat" />
 
         <header className="pr-bosh">
-          <h2>Ulangan hisoblar</h2>
-          <p>Ulangan hisoblaringizni boshqaring</p>
+          <h2>{t('Ulangan hisoblar')}</h2>
+          <p>{t('Ulangan hisoblaringizni boshqaring')}</p>
         </header>
         <div className="pr-hisob">
           <span className="pr-hisob-ikon tg" aria-hidden="true">
@@ -486,17 +490,19 @@ function Profil({
             <b>Telegram</b>
             <small>
               {tg?.connected
-                ? `${tgBot ? `@${tgBot.replace(/^@/, '')} boti` : 'Bot'} ulangan — kunlik hisobot va parolni tiklash havolalari shu orqali keladi.`
-                : 'Telegram botni ulash orqali kunlik hisobot va bildirishnomalar olishingiz mumkin.'}
+                ? tgBot
+                  ? t('{bot} boti ulangan — kunlik hisobot va parolni tiklash havolalari shu orqali keladi.', { bot: `@${tgBot.replace(/^@/, '')}` })
+                  : t('Bot ulangan — kunlik hisobot va parolni tiklash havolalari shu orqali keladi.')
+                : t('Telegram botni ulash orqali kunlik hisobot va bildirishnomalar olishingiz mumkin.')}
             </small>
           </div>
           {tg?.connected ? (
             <span className="pr-belgi ulangan">
-              <Check /> Ulangan
+              <Check /> {t('Ulangan')}
             </span>
           ) : (
             <Link to="/sozlamalar?b=integratsiya" className="btn ikkinchi">
-              Botni ulash
+              {t('Botni ulash')}
             </Link>
           )}
         </div>
@@ -517,7 +523,7 @@ function Profil({
               setFaylXato(null);
             }}
           >
-            Bekor qilish
+            {t('Bekor qilish')}
           </button>
           <button
             type="button"
@@ -537,25 +543,25 @@ function Profil({
               })
             }
           >
-            {holat === 'ketmoqda' ? 'Saqlanmoqda…' : 'Saqlash'}
+            {holat === 'ketmoqda' ? t('Saqlanmoqda…') : t('Saqlash')}
           </button>
         </div>
       </section>
 
       <section className="card pr-karta">
         <header className="pr-bosh">
-          <h2>Parolni o'zgartirish</h2>
-          <p>Parol o'zgargach boshqa barcha qurilmalardagi sessiyalar bekor qilinadi.</p>
+          <h2>{t("Parolni o'zgartirish")}</h2>
+          <p>{t("Parol o'zgargach boshqa barcha qurilmalardagi sessiyalar bekor qilinadi.")}</p>
         </header>
         <div className="pr-maydonlar">
           <div className="maydon-blok">
-            <label htmlFor="p-joriy">Joriy parol</label>
+            <label htmlFor="p-joriy">{t('Joriy parol')}</label>
             <ParolInput id="p-joriy" value={joriy} onChange={(e) => setJoriy(e.target.value)} autoComplete="current-password" />
           </div>
           <div className="maydon-blok">
-            <label htmlFor="p-yangi">Yangi parol</label>
+            <label htmlFor="p-yangi">{t('Yangi parol')}</label>
             <ParolInput id="p-yangi" value={yangi} onChange={(e) => setYangi(e.target.value)} autoComplete="new-password" />
-            <div className="yordam">Kamida 10 belgi. Uzunlik murakkablikdan muhimroq.</div>
+            <div className="yordam">{t('Kamida 10 belgi. Uzunlik murakkablikdan muhimroq.')}</div>
           </div>
         </div>
         <Xabar holat={parol.holat} xato={parol.xato} />
@@ -575,7 +581,7 @@ function Profil({
                 })
             }
           >
-            {parol.holat === 'ketmoqda' ? "O'zgartirilmoqda…" : "Parolni o'zgartirish"}
+            {parol.holat === 'ketmoqda' ? t("O'zgartirilmoqda…") : t("Parolni o'zgartirish")}
           </button>
         </div>
       </section>
@@ -630,6 +636,7 @@ function Biznes({
   onSaqlandi: () => Promise<void>;
 }) {
   type Qator = BusinessRow & { createdAt?: string; deletedAt?: string | null; profile?: Partial<BusinessProfile> | null };
+  const t = useT();
   const [asl, setAsl] = useState<Qator | null>(null);
   const [nom, setNom] = useState('');
   const [tavsif, setTavsif] = useState('');
@@ -675,9 +682,9 @@ function Biznes({
   const zonalar = VAQT_ZONALARI.some((z) => z.qiymat === asl.timezone)
     ? VAQT_ZONALARI
     : [{ qiymat: asl.timezone, nom: asl.timezone }, ...VAQT_ZONALARI];
-  const valyutalar = VALYUTALAR.some((v) => v.qiymat === asl.currency)
-    ? VALYUTALAR
-    : [{ qiymat: asl.currency, nom: asl.currency }, ...VALYUTALAR];
+  const valyutalar = (
+    VALYUTALAR.some((v) => v.qiymat === asl.currency) ? VALYUTALAR : [{ qiymat: asl.currency, nom: asl.currency }, ...VALYUTALAR]
+  ).map((v) => ({ ...v, nom: t(v.nom) }));
 
   const bekor = () => {
     setNom(asl.name);
@@ -691,96 +698,96 @@ function Biznes({
   return (
     <section className="card pr-karta bz-karta">
       <header className="pr-bosh">
-        <h2>Umumiy</h2>
-        <p>Biznes sozlamalarini yangilash</p>
+        <h2>{t('Umumiy')}</h2>
+        <p>{t('Biznes sozlamalarini yangilash')}</p>
       </header>
 
       <div className="pr-maydonlar">
         <div className="maydon-blok">
-          <label htmlFor="b-nom">Biznes nomi</label>
+          <label htmlFor="b-nom">{t('Biznes nomi')}</label>
           <input id="b-nom" value={nom} disabled={!yozaOladi} onChange={(e) => setNom(e.target.value)} maxLength={120} />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="b-soha">Soha</label>
+          <label htmlFor="b-soha">{t('Soha')}</label>
           <input
             id="b-soha"
             value={soha}
             disabled={!yozaOladi}
             onChange={(e) => setSoha(e.target.value)}
-            placeholder="Masalan: Ta'lim"
+            placeholder={t("Masalan: Ta'lim")}
             maxLength={80}
           />
-          <div className="yordam">Shu brauzerda saqlanadi — serverda soha maydoni hali yo'q.</div>
+          <div className="yordam">{t("Shu brauzerda saqlanadi — serverda soha maydoni hali yo'q.")}</div>
         </div>
       </div>
       <div className="maydon-blok bz-toliq">
-        <label htmlFor="b-tavsif">Tavsif</label>
+        <label htmlFor="b-tavsif">{t('Tavsif')}</label>
         <textarea
           id="b-tavsif"
           rows={2}
           value={tavsif}
           disabled={!yozaOladi}
           onChange={(e) => setTavsif(e.target.value)}
-          placeholder="Biznesingiz nima bilan shug'ullanadi — AI suhbatlarni shu kontekstda tahlil qiladi"
+          placeholder={t("Biznesingiz nima bilan shug'ullanadi — AI suhbatlarni shu kontekstda tahlil qiladi")}
           maxLength={2000}
         />
       </div>
       <div className="pr-maydonlar">
         <div className="maydon-blok">
-          <label htmlFor="b-til">Biznes tili</label>
+          <label htmlFor="b-til">{t('Biznes tili')}</label>
           <TanlovMenyu
             id="b-til"
-            aria="Biznes tili"
+            aria={t('Biznes tili')}
             qiymat={asl.locale}
-            variantlar={[{ qiymat: asl.locale, nom: TIL_NOMI[asl.locale] ?? asl.locale }]}
+            variantlar={[{ qiymat: asl.locale, nom: TIL_NOMI[asl.locale] ? t(TIL_NOMI[asl.locale]!) : asl.locale }]}
             onOzgar={() => undefined}
             kenglik="100%"
             disabled
           />
-          <div className="yordam">Playbooklar va tizim ishlaydigan asosiy til. Biznes yaratishda bir marta tanlanadi. Bu interfeys tili emas.</div>
+          <div className="yordam">{t('Playbooklar va tizim ishlaydigan asosiy til. Biznes yaratishda bir marta tanlanadi. Bu interfeys tili emas.')}</div>
         </div>
         <div className="maydon-blok">
-          <label htmlFor="b-tz">Vaqt zonasi</label>
-          <TanlovMenyu id="b-tz" aria="Vaqt zonasi" qiymat={tz} variantlar={zonalar} onOzgar={setTz} kenglik="100%" disabled={!yozaOladi} />
-          <div className="yordam">Kunlik hisobot va «bugungi vazifalar» shu zonaga qarab hisoblanadi.</div>
+          <label htmlFor="b-tz">{t('Vaqt zonasi')}</label>
+          <TanlovMenyu id="b-tz" aria={t('Vaqt zonasi')} qiymat={tz} variantlar={zonalar} onOzgar={setTz} kenglik="100%" disabled={!yozaOladi} />
+          <div className="yordam">{t('Kunlik hisobot va «bugungi vazifalar» shu zonaga qarab hisoblanadi.')}</div>
         </div>
       </div>
       <div className="pr-maydonlar">
         <div className="maydon-blok">
-          <label htmlFor="b-valyuta">Valyuta</label>
-          <TanlovMenyu id="b-valyuta" aria="Valyuta" qiymat={valyuta} variantlar={valyutalar} onOzgar={setValyuta} kenglik="100%" disabled={!yozaOladi} />
+          <label htmlFor="b-valyuta">{t('Valyuta')}</label>
+          <TanlovMenyu id="b-valyuta" aria={t('Valyuta')} qiymat={valyuta} variantlar={valyutalar} onOzgar={setValyuta} kenglik="100%" disabled={!yozaOladi} />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="b-logo">Logotip havolasi</label>
+          <label htmlFor="b-logo">{t('Logotip havolasi')}</label>
           <input id="b-logo" value={logo} disabled={!yozaOladi} placeholder="https://…/logo.png" onChange={(e) => setLogo(e.target.value)} />
-          {!logoTogri && <div className="yordam" style={{ color: 'var(--past-text)' }}>Havola https:// bilan boshlanishi kerak</div>}
+          {!logoTogri && <div className="yordam" style={{ color: 'var(--past-text)' }}>{t('Havola https:// bilan boshlanishi kerak')}</div>}
         </div>
       </div>
 
       {/* Server sozlamasi yo'q almashtirgichlar — holati halol ko'rsatiladi */}
       <div className="bz-almash">
         <div>
-          <b>Vazifalarni CRM'ga yuborish</b>
-          <small>Mos keladigan vazifalarni ulangan CRM'ga yuborish. CRM hali ulanmagan — vazifalar SotuvAI ichida yuritiladi.</small>
+          <b>{t("Vazifalarni CRM'ga yuborish")}</b>
+          <small>{t("Mos keladigan vazifalarni ulangan CRM'ga yuborish. CRM hali ulanmagan — vazifalar SotuvAI ichida yuritiladi.")}</small>
         </div>
-        <label className="vr-almash" title="CRM ulanmagan">
+        <label className="vr-almash" title={t('CRM ulanmagan')}>
           <input type="checkbox" role="switch" checked={false} disabled readOnly />
           <span className="vr-almash-yol" aria-hidden="true" />
         </label>
       </div>
       <div className="bz-almash">
         <div>
-          <b>Suhbatlardan AI vazifalar yaratish</b>
-          <small>Suhbatda menejer bergan va'dalardan AI avtomatik vazifa yaratadi. Hozir doim yoqilgan — o'chirish sozlamasi hali qo'shilmagan.</small>
+          <b>{t('Suhbatlardan AI vazifalar yaratish')}</b>
+          <small>{t("Suhbatda menejer bergan va'dalardan AI avtomatik vazifa yaratadi. Hozir doim yoqilgan — o'chirish sozlamasi hali qo'shilmagan.")}</small>
         </div>
-        <label className="vr-almash" title="Doim yoqilgan">
+        <label className="vr-almash" title={t('Doim yoqilgan')}>
           <input type="checkbox" role="switch" checked disabled readOnly />
           <span className="vr-almash-yol" aria-hidden="true" />
         </label>
       </div>
 
       <div className="bz-malumot">
-        <b>Biznes ma'lumotlari</b>
+        <b>{t("Biznes ma'lumotlari")}</b>
         <dl>
           <div>
             <dt>Slug:</dt>
@@ -791,12 +798,12 @@ function Biznes({
             <dd className="bz-id">{asl.id}</dd>
           </div>
           <div>
-            <dt>Yaratilgan sana:</dt>
+            <dt>{t('Yaratilgan sana:')}</dt>
             <dd>{asl.createdAt ? asl.createdAt.slice(0, 10) : '—'}</dd>
           </div>
           <div>
-            <dt>Holat:</dt>
-            <dd className={faol ? 'bz-faol' : 'bz-nofaol'}>{faol ? 'Faol' : "O'chirilgan"}</dd>
+            <dt>{t('Holat:')}</dt>
+            <dd className={faol ? 'bz-faol' : 'bz-nofaol'}>{faol ? t('Faol') : t("O'chirilgan")}</dd>
           </div>
         </dl>
       </div>
@@ -805,7 +812,7 @@ function Biznes({
       {yozaOladi && (
         <div className="pr-past">
           <button type="button" className="btn ikkinchi" disabled={!ozgargan || holat === 'ketmoqda'} onClick={bekor}>
-            Bekor qilish
+            {t('Bekor qilish')}
           </button>
           <button
             type="button"
@@ -835,7 +842,7 @@ function Biznes({
               })
             }
           >
-            {holat === 'ketmoqda' ? 'Saqlanmoqda…' : 'Saqlash'}
+            {holat === 'ketmoqda' ? t('Saqlanmoqda…') : t('Saqlash')}
           </button>
         </div>
       )}
@@ -852,6 +859,7 @@ function Integratsiya({
   businessId: string;
   boshqaraOladi: boolean;
 }) {
+  const t = useT();
   const [tg, setTg] = useState<TelegramIntegration | null>(null);
   const [token, setToken] = useState('');
   const [sozlash, setSozlash] = useState<{ webhookUrl: string; setupCommand: string } | null>(null);
@@ -870,9 +878,9 @@ function Integratsiya({
       <div className="karta-bosh">
         <h2>Telegram bot</h2>
         {tg?.connected ? (
-          <span className="badge ok">ulangan</span>
+          <span className="badge ok">{t('ulangan')}</span>
         ) : (
-          <span className="badge kul">ulanmagan</span>
+          <span className="badge kul">{t('ulanmagan')}</span>
         )}
       </div>
 
@@ -881,17 +889,17 @@ function Integratsiya({
           <table className="jadval">
             <tbody>
               <tr>
-                <td>Bot</td>
+                <td>{t('Bot')}</td>
                 <td>
                   <b>{tg.integration.config.botUsername ?? '—'}</b>
                 </td>
               </tr>
               <tr>
-                <td>Token</td>
+                <td>{t('Token')}</td>
                 <td>{tg.integration.config.tokenHint ?? '—'}</td>
               </tr>
               <tr>
-                <td>Ulangan</td>
+                <td>{t('Ulangan')}</td>
                 <td>
                   {tg.integration.config.connectedAt
                     ? fmtSana(tg.integration.config.connectedAt)
@@ -899,19 +907,19 @@ function Integratsiya({
                 </td>
               </tr>
               <tr>
-                <td>Yig'ish</td>
-                <td>{tg.integration.syncEnabled ? 'yoqilgan' : 'o\'chirilgan'}</td>
+                <td>{t("Yig'ish")}</td>
+                <td>{tg.integration.syncEnabled ? t('yoqilgan') : t("o'chirilgan")}</td>
               </tr>
               {tg.integration.lastError && (
                 <tr>
-                  <td>Oxirgi xato</td>
+                  <td>{t('Oxirgi xato')}</td>
                   <td style={{ color: 'var(--past)' }}>{tg.integration.lastError}</td>
                 </tr>
               )}
             </tbody>
           </table>
           <div className="yordam" style={{ marginTop: 8 }}>
-            To'liq token hech qachon qaytarilmaydi — bazada shifrlangan holda saqlanadi.
+            {t("To'liq token hech qachon qaytarilmaydi — bazada shifrlangan holda saqlanadi.")}
           </div>
           {boshqaraOladi && (
             <button
@@ -924,20 +932,19 @@ function Integratsiya({
                 })
               }
             >
-              Uzish
+              {t('Uzish')}
             </button>
           )}
         </>
       ) : (
         <>
           <div className="yordam" style={{ marginBottom: 10 }}>
-            @BotFather orqali bot yarating va token'ni shu yerga kiriting. Token shifrlangan holda
-            saqlanadi.
+            {t("@BotFather orqali bot yarating va token'ni shu yerga kiriting. Token shifrlangan holda saqlanadi.")}
           </div>
           {boshqaraOladi && (
             <>
               <div className="maydon-blok">
-                <label htmlFor="tg-token">Bot token</label>
+                <label htmlFor="tg-token">{t('Bot token')}</label>
                 <input
                   id="tg-token"
                   value={token}
@@ -960,7 +967,7 @@ function Integratsiya({
                   })
                 }
               >
-                Ulash
+                {t('Ulash')}
               </button>
             </>
           )}
@@ -969,10 +976,9 @@ function Integratsiya({
 
       {sozlash && (
         <div className="card" style={{ marginTop: 12, borderLeft: '4px solid var(--info)' }}>
-          <b>Oxirgi qadam — webhook</b>
+          <b>{t('Oxirgi qadam — webhook')}</b>
           <div className="yordam" style={{ margin: '6px 0' }}>
-            Shu buyruqni bir marta bajaring (server ommaviy HTTPS domenda bo'lgach buni biz
-            avtomatik qilamiz):
+            {t("Shu buyruqni bir marta bajaring (server ommaviy HTTPS domenda bo'lgach buni biz avtomatik qilamiz):")}
           </div>
           <code style={{ wordBreak: 'break-all', display: 'block', fontSize: 12 }}>
             {sozlash.setupCommand}
@@ -994,6 +1000,7 @@ export function KunlikHisobot({
   businessId: string;
   boshqaraOladi: boolean;
 }) {
+  const t = useT();
   const [chatId, setChatId] = useState('');
   const [soat, setSoat] = useState(9);
   const [reports, setReports] = useState<DailyReportRow[]>([]);
@@ -1005,8 +1012,8 @@ export function KunlikHisobot({
   useEffect(() => {
     void api
       .get<TelegramIntegration>(`${base}/integrations/telegram`)
-      .then((t) => {
-        const cfg = t.integration?.config as
+      .then((tg) => {
+        const cfg = tg.integration?.config as
           | { reportChatId?: string | null; reportHour?: number }
           | undefined;
         setChatId(cfg?.reportChatId ?? '');
@@ -1022,29 +1029,29 @@ export function KunlikHisobot({
   return (
     <div className="card" style={{ marginTop: 14 }}>
       <div className="karta-bosh">
-        <h2>Kunlik hisobot</h2>
+        <h2>{t('Kunlik hisobot')}</h2>
       </div>
       <div className="yordam" style={{ marginBottom: 10 }}>
-        Har kuni belgilangan soatda rahbarga Telegram orqali qisqa xulosa yuboriladi: nechta
-        suhbat, o'rtacha ball, kim javob kutmoqda, qaysi vazifa kechikkan. Chat ID ni bilish
-        uchun botni guruhga qo'shing va{' '}
-        <code>@getidsbot</code> yoki shunga o'xshash botdan guruh ID sini oling.
+        {joyla(
+          t("Har kuni belgilangan soatda rahbarga Telegram orqali qisqa xulosa yuboriladi: nechta suhbat, o'rtacha ball, kim javob kutmoqda, qaysi vazifa kechikkan. Chat ID ni bilish uchun botni guruhga qo'shing va {bot} yoki shunga o'xshash botdan guruh ID sini oling."),
+          { bot: <code>@getidsbot</code> },
+        )}
       </div>
 
       {boshqaraOladi && (
         <>
           <div className="maydon-blok">
-            <label htmlFor="h-chat">Qabul qiluvchi chat ID</label>
+            <label htmlFor="h-chat">{t('Qabul qiluvchi chat ID')}</label>
             <input
               id="h-chat"
               value={chatId}
               onChange={(e) => setChatId(e.target.value)}
               placeholder="-1001234567890"
             />
-            <div className="yordam">Guruh ID si manfiy bo'ladi, shaxsiy chat — musbat.</div>
+            <div className="yordam">{t("Guruh ID si manfiy bo'ladi, shaxsiy chat — musbat.")}</div>
           </div>
           <div className="maydon-blok">
-            <label htmlFor="h-soat">Yuborish vaqti</label>
+            <label htmlFor="h-soat">{t('Yuborish vaqti')}</label>
             <select id="h-soat" value={soat} onChange={(e) => setSoat(Number(e.target.value))}>
               {Array.from({ length: 24 }, (_, i) => (
                 <option key={i} value={i}>
@@ -1052,7 +1059,7 @@ export function KunlikHisobot({
                 </option>
               ))}
             </select>
-            <div className="yordam">Biznes vaqt zonasi bo'yicha (Biznes bo'limida sozlanadi).</div>
+            <div className="yordam">{t("Biznes vaqt zonasi bo'yicha (Biznes bo'limida sozlanadi).")}</div>
           </div>
           <Xabar holat={holat} xato={xato} />
           <button
@@ -1067,7 +1074,7 @@ export function KunlikHisobot({
               )
             }
           >
-            Saqlash
+            {t('Saqlash')}
           </button>{' '}
           <button
             className="btn ikkinchi"
@@ -1076,13 +1083,13 @@ export function KunlikHisobot({
                 const r = await api.post<{ sent: boolean; skipped?: string }>(
                   `${base}/reports/daily/send`,
                 );
-                setNatija(r.sent ? 'Hisobot yuborildi ✓' : `Yuborilmadi: ${r.skipped}`);
+                setNatija(r.sent ? t('Hisobot yuborildi ✓') : t('Yuborilmadi: {sabab}', { sabab: r.skipped ?? '' }));
                 const yangi = await api.get<{ reports: DailyReportRow[] }>(`${base}/reports/daily`);
                 setReports(yangi.reports);
               })
             }
           >
-            Hozir yuborish
+            {t('Hozir yuborish')}
           </button>
           {natija && (
             <div className={natija.includes('✓') ? 'ok-qator' : 'xato-qator'} style={{ marginTop: 10 }}>
@@ -1094,11 +1101,11 @@ export function KunlikHisobot({
 
       {reports.length > 0 && (
         <>
-          <h3 style={{ marginTop: 16, fontSize: 14 }}>Oxirgi hisobotlar</h3>
+          <h3 style={{ marginTop: 16, fontSize: 14 }}>{t('Oxirgi hisobotlar')}</h3>
           {reports.slice(0, 5).map((r) => (
             <details key={r.id} style={{ marginTop: 8 }}>
               <summary style={{ cursor: 'pointer', fontSize: 13 }}>
-                {r.summaryDate} · {r.triggeredBy === 'manual' ? 'qo\'lda' : 'avtomatik'} ·{' '}
+                {r.summaryDate} · {r.triggeredBy === 'manual' ? t("qo'lda") : t('avtomatik')} ·{' '}
                 {fmtSana(r.createdAt)}
               </summary>
               <pre

@@ -1,6 +1,7 @@
 import { Clock3 } from 'lucide-react';
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { ConversationDetail, ConversationRow } from '../../api';
+import { tarjima, useT } from '../../i18n';
 import { MalumotIkon } from '../bosh/Korsatkichlar';
 import { davomiylik, davomiylikMatn, oraliqda } from '../bosh/malumot';
 import { GorizontalUstun, KopChiziqliGrafik } from './grafiklar';
@@ -27,9 +28,9 @@ const SOAT = 3600;
 
 function sekundMatn(s: number | null): string {
   if (s === null) return '—';
-  if (s < 60) return `${Math.round(s)} son`;
-  if (s < SOAT) return `${Math.round(s / 60)} daq`;
-  return `${Math.round((s / SOAT) * 10) / 10} soat`;
+  if (s < 60) return tarjima('{n} son', { n: Math.round(s) });
+  if (s < SOAT) return tarjima('{n} daq', { n: Math.round(s / 60) });
+  return tarjima('{n} soat', { n: Math.round((s / SOAT) * 10) / 10 });
 }
 function mediana(v: number[]): number | null {
   if (!v.length) return null;
@@ -40,6 +41,7 @@ function mediana(v: number[]): number | null {
 const tezRang = (s: number | null) => (s === null ? '' : s <= SOAT ? 'yaxshi' : s <= 4 * SOAT ? 'orta' : 'past');
 
 export function FaoliyatTahlili({ data, davr, q }: TabProps) {
+  const t = useT();
   const [menejer, setMenejer] = useState('');
   // null — avtomatik: yo'nalish bo'lsa kiruvchi/chiquvchi, aks holda bog'lanish
   const [trendTanlov, setTrendTuri] = useState<'yonalish' | 'boglanish' | null>(null);
@@ -88,12 +90,12 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
   const trendSeriya =
     trendTuri === 'yonalish'
       ? [
-          { kalit: 'in', nom: 'Kiruvchi', rang: 'var(--s1)', f: (r: ConversationRow) => yon(r) === 'inbound' },
-          { kalit: 'out', nom: 'Chiquvchi', rang: 'var(--s5)', f: (r: ConversationRow) => yon(r) === 'outbound' },
+          { kalit: 'in', nom: t('Kiruvchi'), rang: 'var(--s1)', f: (r: ConversationRow) => yon(r) === 'inbound' },
+          { kalit: 'out', nom: t('Chiquvchi'), rang: 'var(--s5)', f: (r: ConversationRow) => yon(r) === 'outbound' },
         ]
       : [
-          { kalit: 'ul', nom: 'Ulangan', rang: 'var(--s3)', f: ulangan },
-          { kalit: 'yoq', nom: "Bog'lana olmagan", rang: 'var(--s2)', f: (r: ConversationRow) => !ulangan(r) },
+          { kalit: 'ul', nom: t("Ulangan##qo'ng'iroq"), rang: 'var(--s3)', f: ulangan },
+          { kalit: 'yoq', nom: t("Bog'lana olmagan"), rang: 'var(--s2)', f: (r: ConversationRow) => !ulangan(r) },
         ];
 
 
@@ -102,20 +104,20 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
     .map((s) => {
       const bu = joriy.filter((r) => (r.seatId ?? '') === s);
       const u = bu.filter(ulangan);
-      const t = bu.filter((r) => r.status === 'done');
-      const b = t.filter((r) => r.overallScore !== null);
+      const tl = bu.filter((r) => r.status === 'done');
+      const b = tl.filter((r) => r.overallScore !== null);
       const vaqt = u.map(davom).filter((x): x is number => x !== null).reduce((a, x) => a + x, 0);
       const seat = data.seats.find((x) => x.id === s);
       return {
         s,
-        nom: s ? ism.get(s) ?? 'Menejer' : 'Biriktirilmagan',
+        nom: s ? ism.get(s) ?? t('Menejer') : t('Biriktirilmagan'),
         faol: seat?.isActive ?? !!s,
         jami: bu.length,
         ulangan: u.length,
         vaqt,
-        tahlil: t.length,
+        tahlil: tl.length,
         baholangan: b.length,
-        operatsion: t.length - b.length,
+        operatsion: tl.length - b.length,
         yoq: bu.length - u.length,
       };
     })
@@ -140,7 +142,7 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
   const javobsizSeat = [...new Set(javobsiz.map((d) => d.conversation.seatId ?? ''))]
     .map((s) => {
       const bu = javobsiz.filter((d) => (d.conversation.seatId ?? '') === s);
-      return { s, nom: s ? ism.get(s) ?? 'Menejer' : 'Biriktirilmagan', jami: bu.length, ish: bu.filter((d) => !d.conversation.isOffHours).length };
+      return { s, nom: s ? ism.get(s) ?? t('Menejer') : t('Biriktirilmagan'), jami: bu.length, ish: bu.filter((d) => !d.conversation.isOffHours).length };
     })
     .sort((a, b) => b.jami - a.jami);
   const javobsizMax = Math.max(1, ...javobsizSeat.map((x) => x.jami));
@@ -151,10 +153,10 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
   const javobli = yangi.filter((d) => javobVaqti(d) !== null);
   const vaqtlar = javobli.map((d) => javobVaqti(d)!);
   const oraliqlar = [
-    { nom: '0–1 soat', f: (s: number) => s <= SOAT, rang: 'yaxshi' },
-    { nom: '1–4 soat', f: (s: number) => s > SOAT && s <= 4 * SOAT, rang: 'ia' },
-    { nom: '4–24 soat', f: (s: number) => s > 4 * SOAT && s <= 24 * SOAT, rang: 'orta' },
-    { nom: '24+ soat', f: (s: number) => s > 24 * SOAT, rang: 'past' },
+    { nom: t('0–1 soat'), f: (s: number) => s <= SOAT, rang: 'yaxshi' },
+    { nom: t('1–4 soat'), f: (s: number) => s > SOAT && s <= 4 * SOAT, rang: 'ia' },
+    { nom: t('4–24 soat'), f: (s: number) => s > 4 * SOAT && s <= 24 * SOAT, rang: 'orta' },
+    { nom: t('24+ soat'), f: (s: number) => s > 24 * SOAT, rang: 'past' },
   ];
   const yangiSeat = [...new Set(yangi.map((d) => d.conversation.seatId ?? ''))]
     .map((s) => {
@@ -163,7 +165,7 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
       const v = j.map((d) => javobVaqti(d)!);
       return {
         s,
-        nom: s ? ism.get(s) ?? 'Menejer' : 'Biriktirilmagan',
+        nom: s ? ism.get(s) ?? t('Menejer') : t('Biriktirilmagan'),
         lid: bu.length,
         javob: j.length,
         med: mediana(v),
@@ -177,16 +179,16 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
 
   return (
     <div className="an-bolim">
-      {q.tafsilotKutilmoqda > 0 && <div className="an-eslatma">Tahlil tafsilotlari yuklanmoqda — yana {q.tafsilotKutilmoqda} ta…</div>}
+      {q.tafsilotKutilmoqda > 0 && <div className="an-eslatma">{t('Tahlil tafsilotlari yuklanmoqda — yana {n} ta…', { n: q.tafsilotKutilmoqda })}</div>}
 
       <div className="fa-kpi">
-        <Kpi qiymat={joriy.length} nom="Jami suhbatlar" izoh="Davrdagi barcha suhbat va qo'ng'iroqlar" />
-        <Kpi qiymat={engYaxshi ? `${String(engYaxshi.soat).padStart(2, '0')}:00` : '—'} nom="Eng yaxshi javob soati" izoh="Mijoz bilan bog'lanish ulushi eng yuqori bo'lgan soat" rang="yaxshi" />
-        <Kpi qiymat={ul.length} nom="Ulangan" izoh="Mijoz bilan haqiqiy muloqot bo'lgan suhbatlar" rang="yaxshi" />
-        <Kpi qiymat={boglanmagan} nom="Bog'lana olmagan" izoh="Bo'sh, juda qisqa yoki mijoz javob bermagan (filtrlangan)" rang="past" />
-        <Kpi qiymat={tahlil.length} nom="Tahlil qilingan" izoh="AI tahlilidan o'tgan suhbatlar" rang="ia" />
-        <Kpi qiymat={baholangan.length} nom="Baholangan" izoh="Mezonlar bo'yicha ball qo'yilgan suhbatlar" rang="yaxshi" />
-        <Kpi qiymat={davomiylikMatn(ortDavom)} nom="O'rtacha davomiylik" izoh="Ulangan suhbatlarning o'rtacha davomiyligi" />
+        <Kpi qiymat={joriy.length} nom={t('Jami suhbatlar')} izoh={t("Davrdagi barcha suhbat va qo'ng'iroqlar")} />
+        <Kpi qiymat={engYaxshi ? `${String(engYaxshi.soat).padStart(2, '0')}:00` : '—'} nom={t('Eng yaxshi javob soati')} izoh={t("Mijoz bilan bog'lanish ulushi eng yuqori bo'lgan soat")} rang="yaxshi" />
+        <Kpi qiymat={ul.length} nom={t("Ulangan##qo'ng'iroq")} izoh={t("Mijoz bilan haqiqiy muloqot bo'lgan suhbatlar")} rang="yaxshi" />
+        <Kpi qiymat={boglanmagan} nom={t("Bog'lana olmagan")} izoh={t("Bo'sh, juda qisqa yoki mijoz javob bermagan (filtrlangan)")} rang="past" />
+        <Kpi qiymat={tahlil.length} nom={t('Tahlil qilingan')} izoh={t("AI tahlilidan o'tgan suhbatlar")} rang="ia" />
+        <Kpi qiymat={baholangan.length} nom={t('Baholangan')} izoh={t("Mezonlar bo'yicha ball qo'yilgan suhbatlar")} rang="yaxshi" />
+        <Kpi qiymat={davomiylikMatn(ortDavom)} nom={t("O'rtacha davomiylik")} izoh={t("Ulangan suhbatlarning o'rtacha davomiyligi")} />
       </div>
 
       {/* ─── Soatlar bo'yicha ─── */}
@@ -196,10 +198,10 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
             <span className="fa-sarlavha-ikon">
               <Clock3 />
             </span>
-            Mijoz javobi soatlar bo'yicha <MalumotIkon matn="Har soatda boshlangan suhbatlar: mijoz bilan bog'lanilgani va bog'lanib bo'lmagani. Pastdagi foiz — ulangan ulush" />
+            {t("Mijoz javobi soatlar bo'yicha")} <MalumotIkon matn={t("Har soatda boshlangan suhbatlar: mijoz bilan bog'lanilgani va bog'lanib bo'lmagani. Pastdagi foiz — ulangan ulush")} />
           </h2>
-          <select className="input fa-select" value={menejer} onChange={(e) => setMenejer(e.target.value)} aria-label="Menejer">
-            <option value="">Hammasi</option>
+          <select className="input fa-select" value={menejer} onChange={(e) => setMenejer(e.target.value)} aria-label={t('Menejer')}>
+            <option value="">{t('Hammasi')}</option>
             {menejerlar
               .filter((m) => m.s)
               .map((m) => (
@@ -210,7 +212,7 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
           </select>
         </div>
         {soatlar.length === 0 ? (
-          <div className="jm-bosh">Bu davrda suhbat yo'q.</div>
+          <div className="jm-bosh">{t("Bu davrda suhbat yo'q.")}</div>
         ) : (
           <SoatUstunlari soatlar={soatlar} eng={engYaxshi?.soat ?? null} />
         )}
@@ -220,24 +222,24 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
       <section className="card an-karta">
         <div className="karta-bosh">
           <h2>
-            Faollik tendensiyasi <MalumotIkon matn="Kunlar (yoki haftalar) bo'yicha suhbatlar soni" />
+            {t('Faollik tendensiyasi')} <MalumotIkon matn={t("Kunlar (yoki haftalar) bo'yicha suhbatlar soni")} />
           </h2>
           <div className="tab-qator" role="tablist">
             <button type="button" role="tab" aria-selected={trendTuri === 'yonalish'} className={`tab${trendTuri === 'yonalish' ? ' active' : ''}`} onClick={() => setTrendTuri('yonalish')}>
-              Kiruvchi va Chiquvchi
+              {t('Kiruvchi va Chiquvchi')}
             </button>
             <button type="button" role="tab" aria-selected={trendTuri === 'boglanish'} className={`tab${trendTuri === 'boglanish' ? ' active' : ''}`} onClick={() => setTrendTuri('boglanish')}>
-              Bog'lanish
+              {t("Bog'lanish")}
             </button>
           </div>
         </div>
         {trendTuri === 'yonalish' && !yonalishBor ? (
           <div className="jm-bosh">
-            Yo'nalish (kiruvchi/chiquvchi) faqat qo'ng'iroqlarda aniqlanadi — bu davrdagi suhbatlarda yo'nalish yo'q. «Bog'lanish» ko'rinishini tanlang.
+            {t("Yo'nalish (kiruvchi/chiquvchi) faqat qo'ng'iroqlarda aniqlanadi — bu davrdagi suhbatlarda yo'nalish yo'q. «Bog'lanish» ko'rinishini tanlang.")}
           </div>
         ) : (
           <>
-            {trendTuri === 'yonalish' && <p className="vt-izoh vt-izoh-past">Yo'nalish tahlil tafsilotidan olinadi — tafsiloti yuklangan suhbatlar bo'yicha.</p>}
+            {trendTuri === 'yonalish' && <p className="vt-izoh vt-izoh-past">{t("Yo'nalish tahlil tafsilotidan olinadi — tafsiloti yuklangan suhbatlar bo'yicha.")}</p>}
             <KopChiziqliGrafik
               belgilar={royxat.map((b) => b.nom)}
               seriyalar={trendSeriya.map((s) => ({
@@ -247,7 +249,7 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
                 qiymatlar: royxat.map((b) => bolakda(joriy, b).filter(s.f).length),
               }))}
               balandlik={260}
-              nom="Faollik tendensiyasi"
+              nom={t('Faollik tendensiyasi')}
               maydon
             />
           </>
@@ -258,18 +260,17 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
       <section className="card an-karta fa-qamrov">
         <div>
           <h2>
-            Menejerlar va AI qamrovi <MalumotIkon matn="Ro'yxatdagi menejerlar va ulardan qaysilari davrda suhbat olib borgani" />
+            {t('Menejerlar va AI qamrovi')} <MalumotIkon matn={t("Ro'yxatdagi menejerlar va ulardan qaysilari davrda suhbat olib borgani")} />
           </h2>
           <p className="vt-izoh">
-            Bu yerda barcha menejerlar ko'rinadi. AI tahlili suhbati bor menejerlar uchun to'ladi; suhbati bo'lmaganlar ro'yxatda qoladi, lekin
-            tahlilda chiziqcha bilan ko'rsatiladi.
+            {t("Bu yerda barcha menejerlar ko'rinadi. AI tahlili suhbati bor menejerlar uchun to'ladi; suhbati bo'lmaganlar ro'yxatda qoladi, lekin tahlilda chiziqcha bilan ko'rsatiladi.")}
           </p>
         </div>
         <div className="fa-qamrov-kartalar">
-          <Kichik qiymat={data.seats.length} nom="Menejerlar" izoh="Biznesdagi barcha menejer o'rinlari" />
-          <Kichik qiymat={data.seats.filter((s) => faolSeat.has(s.id)).length} nom="AI bilan qamralgan" izoh="Davrda kamida bitta suhbati bor menejerlar" rang="yaxshi" />
-          <Kichik qiymat={data.seats.filter((s) => !faolSeat.has(s.id)).length} nom="Suhbatsiz" izoh="Davrda suhbati bo'lmagan menejerlar" rang="orta" />
-          <Kichik qiymat={joriy.filter((r) => !r.seatId).length} nom="Menejersiz suhbatlar" izoh="Hech bir menejerga biriktirilmagan suhbatlar" rang="ia" />
+          <Kichik qiymat={data.seats.length} nom={t('Menejerlar')} izoh={t("Biznesdagi barcha menejer o'rinlari")} />
+          <Kichik qiymat={data.seats.filter((s) => faolSeat.has(s.id)).length} nom={t('AI bilan qamralgan')} izoh={t('Davrda kamida bitta suhbati bor menejerlar')} rang="yaxshi" />
+          <Kichik qiymat={data.seats.filter((s) => !faolSeat.has(s.id)).length} nom={t('Suhbatsiz')} izoh={t("Davrda suhbati bo'lmagan menejerlar")} rang="orta" />
+          <Kichik qiymat={joriy.filter((r) => !r.seatId).length} nom={t('Menejersiz suhbatlar')} izoh={t('Hech bir menejerga biriktirilmagan suhbatlar')} rang="ia" />
         </div>
       </section>
 
@@ -277,24 +278,24 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
       <section className="card an-karta">
         <div className="karta-bosh">
           <h2>
-            Menejerlar faolligi <MalumotIkon matn="Operatsion — tahlil qilingan, lekin mezonlar bo'yicha baholanmagan suhbatlar (masalan, mavjud mijoz bilan xizmat suhbati)" />
+            {t('Menejerlar faolligi')} <MalumotIkon matn={t("Operatsion — tahlil qilingan, lekin mezonlar bo'yicha baholanmagan suhbatlar (masalan, mavjud mijoz bilan xizmat suhbati)")} />
           </h2>
         </div>
         {menejerlar.length === 0 ? (
-          <div className="jm-bosh">Bu davrda suhbat yo'q.</div>
+          <div className="jm-bosh">{t("Bu davrda suhbat yo'q.")}</div>
         ) : (
           <div className="sn-jadval-qobiq">
             <table className="vt-jadval fa-jadval">
               <thead>
                 <tr>
-                  <th>Menejer</th>
-                  <th>Jami</th>
-                  <th>Ulangan</th>
-                  <th>Jami suhbat vaqti</th>
-                  <th>Tahlil qilingan</th>
-                  <th>Baholangan</th>
-                  <th>Operatsion</th>
-                  <th>Ulanmagan</th>
+                  <th>{t('Menejer')}</th>
+                  <th>{t('Jami')}</th>
+                  <th>{t("Ulangan##qo'ng'iroq")}</th>
+                  <th>{t('Jami suhbat vaqti')}</th>
+                  <th>{t('Tahlil qilingan')}</th>
+                  <th>{t('Baholangan')}</th>
+                  <th>{t('Operatsion')}</th>
+                  <th>{t("Ulanmagan##qo'ng'iroq")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -302,7 +303,7 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
                   <tr key={m.s || '—'}>
                     <td>
                       <b>{m.nom}</b>
-                      {m.s && <span className={`fa-belgi ${m.faol ? 'faol' : ''}`}>{m.faol ? 'AI ulangan' : 'Nofaol'}</span>}
+                      {m.s && <span className={`fa-belgi ${m.faol ? 'faol' : ''}`}>{m.faol ? t('AI ulangan') : t('Nofaol')}</span>}
                     </td>
                     <td className="an-son">{m.jami}</td>
                     <td className="an-son fa-yashil">{m.ulangan}</td>
@@ -322,11 +323,11 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
       <section className="card an-karta">
         <div className="karta-bosh">
           <h2>
-            Bog'lana olmagan <MalumotIkon matn="Har menejerda mijoz bilan muloqot bo'lmagan (filtrlangan) suhbatlar" />
+            {t("Bog'lana olmagan")} <MalumotIkon matn={t("Har menejerda mijoz bilan muloqot bo'lmagan (filtrlangan) suhbatlar")} />
           </h2>
         </div>
         {boglanmagan === 0 ? (
-          <div className="jm-bosh">Bog'lana olmagan suhbat yo'q.</div>
+          <div className="jm-bosh">{t("Bog'lana olmagan suhbat yo'q.")}</div>
         ) : (
           <GorizontalUstun royxat={menejerlar.filter((m) => m.yoq > 0).map((m) => ({ nom: m.nom, soni: m.yoq }))} rang="var(--s2)" />
         )}
@@ -337,16 +338,15 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
         <div className="fa-blok-bosh">
           <div>
             <h2 className="sn-bolim-sarlavha">
-              Javob berilmagan va qayta bog'lanilmagan murojaatlar{' '}
-              <MalumotIkon matn="Suhbat mijoz xabari bilan tugagan (javob kutib qolgan) va tanlangan muddat ichida shu mijoz bilan yangi suhbat bo'lmagan" />
+              {t("Javob berilmagan va qayta bog'lanilmagan murojaatlar")}{' '}
+              <MalumotIkon matn={t("Suhbat mijoz xabari bilan tugagan (javob kutib qolgan) va tanlangan muddat ichida shu mijoz bilan yangi suhbat bo'lmagan")} />
             </h2>
             <p className="vt-izoh">
-              Murojaat tanlangan muddat tugagandan keyingina hisoblanadi; agar shu vaqt ichida o'sha mijoz bilan qayta suhbat bo'lsa, hisoblanmaydi.
-              Tahlil tafsilotlari bo'yicha.
+              {t("Murojaat tanlangan muddat tugagandan keyingina hisoblanadi; agar shu vaqt ichida o'sha mijoz bilan qayta suhbat bo'lsa, hisoblanmaydi. Tahlil tafsilotlari bo'yicha.")}
             </p>
           </div>
           <div className="fa-oyna">
-            <span>Qayta bog'lanish muddati</span>
+            <span>{t("Qayta bog'lanish muddati")}</span>
             <div className="tab-qator">
               {[
                 [30, '30 daqiqa'],
@@ -354,16 +354,16 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
                 [180, '3 soat'],
               ].map(([m, nom]) => (
                 <button key={m} type="button" className={`tab${oyna === m ? ' active' : ''}`} onClick={() => setOyna(m as number)}>
-                  {nom}
+                  {t(nom as string)}
                 </button>
               ))}
             </div>
           </div>
         </div>
         <div className="fa-uchlik">
-          <Kpi qiymat={javobsiz.length} nom="Javobsiz va qayta bog'lanilmagan" izoh="Jami" rang="past" />
-          <Kpi qiymat={ishVaqtida} nom={`Ish vaqtida (${Math.round(foiz(ishVaqtida, javobsiz.length))}%)`} izoh="Ish vaqtida kelgan, lekin javobsiz qolgan" rang="past" />
-          <Kpi qiymat={javobsiz.length - ishVaqtida} nom={`Ish tashqarisida (${Math.round(foiz(javobsiz.length - ishVaqtida, javobsiz.length))}%)`} izoh="Ish vaqtidan tashqari kelgan murojaatlar" />
+          <Kpi qiymat={javobsiz.length} nom={t("Javobsiz va qayta bog'lanilmagan")} izoh={t('Jami')} rang="past" />
+          <Kpi qiymat={ishVaqtida} nom={t('Ish vaqtida ({n}%)', { n: Math.round(foiz(ishVaqtida, javobsiz.length)) })} izoh={t('Ish vaqtida kelgan, lekin javobsiz qolgan')} rang="past" />
+          <Kpi qiymat={javobsiz.length - ishVaqtida} nom={t('Ish tashqarisida ({n}%)', { n: Math.round(foiz(javobsiz.length - ishVaqtida, javobsiz.length)) })} izoh={t('Ish vaqtidan tashqari kelgan murojaatlar')} />
         </div>
         {javobsizSeat.length > 0 && (
           <div className="card an-karta fa-javobsiz">
@@ -372,7 +372,7 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
                 <div className="mt-hayoq-bosh">
                   <b>{x.nom}</b>
                   <small>
-                    <em>{x.jami}</em> (ish vaqtida: {x.ish} | ish tashqarisida: {x.jami - x.ish})
+                    <em>{x.jami}</em> {t('(ish vaqtida: {ish} | ish tashqarisida: {tashqari})', { ish: x.ish, tashqari: x.jami - x.ish })}
                   </small>
                 </div>
                 <div className="fa-javobsiz-chiziq" style={{ width: `${(x.jami / javobsizMax) * 100}%` }}>
@@ -383,10 +383,10 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
             ))}
             <div className="g-legenda g-legenda-doira g-legenda-chap">
               <span>
-                <i style={{ background: 'var(--past)' }} /> Ish vaqtida
+                <i style={{ background: 'var(--past)' }} /> {t('Ish vaqtida')}
               </span>
               <span>
-                <i style={{ background: 'var(--text-muted)' }} /> Ish tashqarisida
+                <i style={{ background: 'var(--text-muted)' }} /> {t('Ish tashqarisida')}
               </span>
             </div>
           </div>
@@ -396,16 +396,16 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
       {/* ─── Yangi lid ─── */}
       <section className="fa-blok">
         <h2 className="sn-bolim-sarlavha">
-          Yangi lidga birinchi javob tezligi{' '}
-          <MalumotIkon matn="Yangi lid — shu mijoz bilan birinchi qayd etilgan suhbat. Tezlik — mijozning birinchi xabaridan menejer javobigacha" />
+          {t('Yangi lidga birinchi javob tezligi')}{' '}
+          <MalumotIkon matn={t('Yangi lid — shu mijoz bilan birinchi qayd etilgan suhbat. Tezlik — mijozning birinchi xabaridan menejer javobigacha')} />
         </h2>
         <div className="fa-tortlik">
-          <Kpi qiymat={yangi.length} nom="Jami yangi lidlar" izoh="Tahlil qilingan, avval suhbati bo'lmagan mijozlar" />
-          <Kpi qiymat={`${javobli.length} (${foiz(javobli.length, yangi.length)}%)`} nom="Javob berilgan" izoh="Menejer javob bergan yangi lidlar" rang="yaxshi" />
-          <Kpi qiymat={yangi.length - javobli.length} nom="Javob berilmagan" izoh="Menejer javobi qayd etilmagan" rang="past" />
-          <Kpi qiymat={sekundMatn(mediana(vaqtlar))} nom="Median javob tezligi" izoh="Yarmi shundan tezroq javob olgan" rang="orta" />
+          <Kpi qiymat={yangi.length} nom={t('Jami yangi lidlar')} izoh={t("Tahlil qilingan, avval suhbati bo'lmagan mijozlar")} />
+          <Kpi qiymat={`${javobli.length} (${foiz(javobli.length, yangi.length)}%)`} nom={t('Javob berilgan')} izoh={t('Menejer javob bergan yangi lidlar')} rang="yaxshi" />
+          <Kpi qiymat={yangi.length - javobli.length} nom={t('Javob berilmagan')} izoh={t('Menejer javobi qayd etilmagan')} rang="past" />
+          <Kpi qiymat={sekundMatn(mediana(vaqtlar))} nom={t('Median javob tezligi')} izoh={t('Yarmi shundan tezroq javob olgan')} rang="orta" />
           {oraliqlar.map((o) => (
-            <Kpi key={o.nom} qiymat={vaqtlar.filter(o.f).length} nom={o.nom} izoh={`Birinchi javob ${o.nom} ichida`} rang={o.rang as 'yaxshi'} />
+            <Kpi key={o.nom} qiymat={vaqtlar.filter(o.f).length} nom={o.nom} izoh={t('Birinchi javob {oraliq} ichida', { oraliq: o.nom })} rang={o.rang as 'yaxshi'} />
           ))}
         </div>
         {yangiSeat.length > 0 && (
@@ -413,11 +413,11 @@ export function FaoliyatTahlili({ data, davr, q }: TabProps) {
             <table className="vt-jadval">
               <thead>
                 <tr>
-                  <th>Menejer</th>
-                  <th>Lidlar</th>
-                  <th>Javob berilgan</th>
-                  <th>Median javob tezligi</th>
-                  <th>0–1 soat</th>
+                  <th>{t('Menejer')}</th>
+                  <th>{t('Lidlar')}</th>
+                  <th>{t('Javob berilgan')}</th>
+                  <th>{t('Median javob tezligi')}</th>
+                  <th>{t('0–1 soat')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -478,6 +478,7 @@ function Kichik({ qiymat, nom, izoh, rang }: { qiymat: number; nom: string; izoh
 
 /** Soat bo'yicha ustma-ust ustunlar: ulangan (pastda) + bog'lana olmagan, ostida ulangan foizi. */
 function SoatUstunlari({ soatlar, eng }: { soatlar: { soat: number; ulangan: number; yoq: number; jami: number }[]; eng: number | null }) {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const [kenglik, setKenglik] = useState(0);
   const [faol, setFaol] = useState<number | null>(null);
@@ -509,7 +510,7 @@ function SoatUstunlari({ soatlar, eng }: { soatlar: { soat: number; ulangan: num
   return (
     <div className="g-qobiq" ref={ref}>
       {kenglik > 0 && (
-        <svg width={kenglik} height={BAL} role="img" aria-label="Mijoz javobi soatlar bo'yicha" onMouseLeave={() => setFaol(null)}>
+        <svg width={kenglik} height={BAL} role="img" aria-label={t("Mijoz javobi soatlar bo'yicha")} onMouseLeave={() => setFaol(null)}>
           {chiziqlar.map((v) => (
             <g key={v}>
               <line className="g-tor" x1={CHAP} x2={CHAP + w} y1={y(v)} y2={y(v)} />
@@ -557,21 +558,23 @@ function SoatUstunlari({ soatlar, eng }: { soatlar: { soat: number; ulangan: num
           role="tooltip"
           style={{ left: Math.min(Math.max(90, CHAP + qadam * faol + qadam / 2), kenglik - 90), top: y(fs.jami) }}
         >
-          <b>{String(fs.soat).padStart(2, '0')}:00 — {fs.jami} ta</b>
+          <b>
+            {String(fs.soat).padStart(2, '0')}:00 — {t('{n} ta', { n: fs.jami })}
+          </b>
           <span>
-            <i className="g-belgi" style={{ background: 'var(--s3)' }} /> Ulangan: {fs.ulangan}
+            <i className="g-belgi" style={{ background: 'var(--s3)' }} /> {t('Ulangan: {n}', { n: fs.ulangan })}
           </span>
           <span>
-            <i className="g-belgi" style={{ background: 'var(--text-muted)' }} /> Bog'lana olmagan: {fs.yoq}
+            <i className="g-belgi" style={{ background: 'var(--text-muted)' }} /> {t("Bog'lana olmagan: {n}", { n: fs.yoq })}
           </span>
         </div>
       )}
       <div className="g-legenda g-legenda-doira g-legenda-chap" style={{ marginTop: 6 }}>
         <span>
-          <i style={{ background: 'var(--s3)' }} /> Mijoz bilan bog'lanildi
+          <i style={{ background: 'var(--s3)' }} /> {t("Mijoz bilan bog'lanildi")}
         </span>
         <span>
-          <i style={{ background: 'var(--text-muted)' }} /> Bog'lana olmadi
+          <i style={{ background: 'var(--text-muted)' }} /> {t("Bog'lana olmadi")}
         </span>
       </div>
     </div>

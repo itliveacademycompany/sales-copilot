@@ -24,11 +24,12 @@ import { useT } from '../i18n';
 
 const MENYU_KALIT = 'sotuvai-menyu';
 
-const BANNER: Record<string, { klass: string; matn: (d: number | null) => string }> = {
-  grace: { klass: 'toq', matn: (d) => `To'lov kechikdi — ${d ?? '?'} kundan keyin tahlil to'xtaydi` },
+/** Matn — lug'at kaliti (`lugat/umumiy.ts`); `{kun}` o'rniga qolgan kunlar soni qo'yiladi. */
+const BANNER: Record<string, { klass: string; matn: string }> = {
+  grace: { klass: 'toq', matn: "To'lov kechikdi — {kun} kundan keyin tahlil to'xtaydi" },
   degraded: {
     klass: 'qizil',
-    matn: () => 'Obuna faol emas — yangi tahlil to\'xtatilgan. Balansni to\'ldiring.',
+    matn: "Obuna faol emas — yangi tahlil to'xtatilgan. Balansni to'ldiring.",
   },
 };
 
@@ -155,7 +156,7 @@ export function Layout() {
         </div>
       </div>
       {menyu && (
-        <button className="fon-parda" aria-label="Menyuni yopish" onClick={() => setMenyu(false)} />
+        <button className="fon-parda" aria-label={t('Menyuni yopish')} onClick={() => setMenyu(false)} />
       )}
       <aside className={`sidebar${menyu ? ' ochiq' : ''}${keng ? ' keng' : ''}`}>
         <div className="logo">
@@ -196,8 +197,8 @@ export function Layout() {
               <button
                 className="kengaytir chiqish-tor"
                 onClick={() => void logout()}
-                aria-label="Chiqish"
-                title={`Chiqish (${user?.displayName ?? ''})`}
+                aria-label={t('Chiqish')}
+                title={`${t('Chiqish')} (${user?.displayName ?? ''})`}
               >
                 <LogOut />
               </button>
@@ -227,15 +228,15 @@ export function Layout() {
               borderRadius: 8,
             }}
           >
-            {banner.matn(billing!.daysLeft)}{' '}
+            {t(banner.matn, { kun: billing!.daysLeft ?? '?' })}{' '}
             {canBilling && (
               <>
-                — boshqarish <ChevronRight />
+                — {t('boshqarish')} <ChevronRight />
               </>
             )}
           </NavLink>
         )}
-        <Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}>
+        <Suspense fallback={<div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}>
           <Outlet />
         </Suspense>
       </main>

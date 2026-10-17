@@ -2,6 +2,7 @@ import { Gauge, Info, RefreshCw, ScanSearch, Sparkles, UsersRound } from 'lucide
 import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { BALL_CHEGARA, ballRang, type ConversationDetail, type ConversationRow, type Rubric } from '../../api';
+import { useT } from '../../i18n';
 import { MalumotIkon } from '../bosh/Korsatkichlar';
 import { avatarRang, boshHarf, davomiylik, oraliqda, ortacha, type BoshMalumot } from '../bosh/malumot';
 import { KopChiziqliGrafik } from './grafiklar';
@@ -62,6 +63,7 @@ function rubrikaKerak(r: Rubric | null | undefined): string | null {
 // ─── Hisob ──────────────────────────────────────────────────────────────────
 
 function useHisob(data: BoshMalumot, davr: TabProps['davr'], q: TabProps['q']) {
+  const tr = useT();
   return useMemo(() => {
     const ism: Record<string, string> = {};
     for (const s of data.seats) ism[s.id] = s.displayName;
@@ -113,7 +115,7 @@ function useHisob(data: BoshMalumot, davr: TabProps['davr'], q: TabProps['q']) {
       const engYomon = [...ts].sort((a, b) => a.ball! - b.ball!);
       // Ustuvorlik: jamoadan orqada qolish + zaif mezonlar soni
       const ustuvorlik = (jamoaOrt ?? ort) - ort + zaif.length * 5 + (ort < ZAIF ? 10 : 0);
-      return { seat, nom: ism[seat] ?? 'Menejer', ort, soni: ts.length, mezon, zaif, tavsiya, songgiGap, engYomon, ustuvorlik };
+      return { seat, nom: ism[seat] ?? tr('Menejer'), ort, soni: ts.length, mezon, zaif, tavsiya, songgiGap, engYomon, ustuvorlik };
     });
     const etiborKerak = seatlar
       .filter((s) => s.ort < ZAIF || s.zaif.length > 0)
@@ -171,7 +173,7 @@ function useHisob(data: BoshMalumot, davr: TabProps['davr'], q: TabProps['q']) {
       javobsiz,
       oxirgi,
     };
-  }, [data, davr, q.tafsilot, q.vazifalar]);
+  }, [data, davr, q.tafsilot, q.vazifalar, tr]);
 }
 
 type Hisob = ReturnType<typeof useHisob>;
@@ -179,6 +181,7 @@ type Hisob = ReturnType<typeof useHisob>;
 // ─── Bo'lim ─────────────────────────────────────────────────────────────────
 
 export function JamoaMalakasi({ data, davr, q, qaytaYukla, yuklanmoqda }: TabProps) {
+  const t = useT();
   const h = useHisob(data, davr, q);
   const kutilmoqda = q.tafsilotKutilmoqda > 0;
 
@@ -195,30 +198,38 @@ export function JamoaMalakasi({ data, davr, q, qaytaYukla, yuklanmoqda }: TabPro
   ]).slice(0, 5);
   const kuchliTomonlar = yagona([
     ...h.kuchli.slice(0, 3).map((x) => x.matn),
-    ...kuchliMezon.slice(0, 2).map((m) => `«${m.nom}» — jamoada ${Math.round(m.foiz)}% bajarilmoqda`),
+    ...kuchliMezon.slice(0, 2).map((m) => t('«{nom}» — jamoada {n}% bajarilmoqda', { nom: m.nom, n: Math.round(m.foiz) })),
   ]).slice(0, 5);
 
   const qaytaAloqa: string[] = [];
   if (h.bajarilmaganVada.length > 0) {
     const misol = h.bajarilmaganVada[0]!.what;
-    qaytaAloqa.push(`Mijozga berilgan ${h.bajarilmaganVada.length} ta va'da bajarilmay qolgan — masalan: «${misol}».`);
+    qaytaAloqa.push(t("Mijozga berilgan {n} ta va'da bajarilmay qolgan — masalan: «{misol}».", { n: h.bajarilmaganVada.length, misol }));
   }
-  if (h.kechikkan.length > 0) qaytaAloqa.push(`${h.kechikkan.length} ta vazifa muddati o'tgan — mijoz bilan aloqa uzilib qolishi mumkin.`);
-  if (h.javobsiz > 0) qaytaAloqa.push(`${h.javobsiz} ta mijoz yozgan, lekin javob olmagan.`);
+  if (h.kechikkan.length > 0) qaytaAloqa.push(t("{n} ta vazifa muddati o'tgan — mijoz bilan aloqa uzilib qolishi mumkin.", { n: h.kechikkan.length }));
+  if (h.javobsiz > 0) qaytaAloqa.push(t('{n} ta mijoz yozgan, lekin javob olmagan.', { n: h.javobsiz }));
 
   const birinchi = h.etiborKerak[0];
   const engYaxshi = h.engYaxshi[0];
   const qadamlar: string[] = [];
   if (birinchi)
     qadamlar.push(
-      `${birinchi.nom} bilan ${birinchi.zaif[0] ? `«${birinchi.zaif[0].nom}»` : 'eng zaif qo\'ng\'iroqlari'} bo'yicha 1:1 kouching — 2 ta zaif qo'ng'iroqni birga tinglang.`,
+      birinchi.zaif[0]
+        ? t("{nom} bilan «{mezon}» bo'yicha 1:1 kouching — 2 ta zaif qo'ng'iroqni birga tinglang.", { nom: birinchi.nom, mezon: birinchi.zaif[0].nom })
+        : t("{nom} bilan eng zaif qo'ng'iroqlari bo'yicha 1:1 kouching — 2 ta zaif qo'ng'iroqni birga tinglang.", { nom: birinchi.nom }),
     );
-  if (zaifMezon[0]) qadamlar.push(`Jamoa bilan «${zaifMezon[0].nom}» bo'yicha rolli o'yin o'tkazing.`);
-  if (h.kechikkan.length > 0) qadamlar.push(`${h.kechikkan.length} ta kechikkan vazifani bugun yoping yoki muddatini yangilang.`);
-  if (h.iboralar[0]) qadamlar.push(`Skriptga qo'shing: «${h.iboralar[0].matn}».`);
-  if (engYaxshi) qadamlar.push(`${engYaxshi.d.conversation.managerName ?? h.ism[engYaxshi.seat] ?? 'Eng yaxshi'} qo'ng'irog'ini (${Math.round(engYaxshi.ball!)}%) jamoa yig'ilishida namuna sifatida tahlil qiling.`);
+  if (zaifMezon[0]) qadamlar.push(t("Jamoa bilan «{nom}» bo'yicha rolli o'yin o'tkazing.", { nom: zaifMezon[0].nom }));
+  if (h.kechikkan.length > 0) qadamlar.push(t('{n} ta kechikkan vazifani bugun yoping yoki muddatini yangilang.', { n: h.kechikkan.length }));
+  if (h.iboralar[0]) qadamlar.push(t("Skriptga qo'shing: «{ibora}».", { ibora: h.iboralar[0].matn }));
+  if (engYaxshi)
+    qadamlar.push(
+      t("{nom} qo'ng'irog'ini ({n}%) jamoa yig'ilishida namuna sifatida tahlil qiling.", {
+        nom: engYaxshi.d.conversation.managerName ?? h.ism[engYaxshi.seat] ?? t('Eng yaxshi'),
+        n: Math.round(engYaxshi.ball!),
+      }),
+    );
 
-  const xulosa = xulosaMatni(h, zaifMezon, kuchliMezon);
+  const xulosa = xulosaMatni(h, zaifMezon, kuchliMezon, t);
 
   return (
     <div className="an-bolim">
@@ -227,70 +238,70 @@ export function JamoaMalakasi({ data, davr, q, qaytaYukla, yuklanmoqda }: TabPro
         <div className="jm-qahramon-ust">
           <div>
             <span className="jm-yorliq">
-              <Sparkles /> AI malaka oshirish tavsiyalari
+              <Sparkles /> {t('AI malaka oshirish tavsiyalari')}
             </span>
             <h2 className="jm-katta-sarlavha">
-              Hozir kimning malakasini oshirish kerak{' '}
-              <MalumotIkon matn="Har qo'ng'iroq bo'yicha AI tahlillari (kuchli tomonlar, kamchiliklar, mezon ballari) tanlangan davr bo'yicha yig'iladi" />
+              {t('Hozir kimning malakasini oshirish kerak')}{' '}
+              <MalumotIkon matn={t("Har qo'ng'iroq bo'yicha AI tahlillari (kuchli tomonlar, kamchiliklar, mezon ballari) tanlangan davr bo'yicha yig'iladi")} />
             </h2>
             <p className="jm-tavsif">
-              Bu sahifa qaysi menejer bilan birinchi navbatda ishlash kerakligini, qaysi muammo takrorlanayotganini va qaysi
-              qo'ng'iroqlarni birga ko'rib chiqish kerakligini ko'rsatadi.
+              {t("Bu sahifa qaysi menejer bilan birinchi navbatda ishlash kerakligini, qaysi muammo takrorlanayotganini va qaysi qo'ng'iroqlarni birga ko'rib chiqish kerakligini ko'rsatadi.")}
             </p>
           </div>
           <div className="jm-yangilash">
             <div className="jm-yangilash-quti">
-              <span className="jm-yorliq-kichik">So'nggi AI tahlili</span>
+              <span className="jm-yorliq-kichik">{t("So'nggi AI tahlili")}</span>
               <b>{h.oxirgi ? vaqt(h.oxirgi) : '—'}</b>
-              <small>{h.tahlillar.length} ta tahlil asosida</small>
+              <small>{t('{n} ta tahlil asosida', { n: h.tahlillar.length })}</small>
             </div>
             {qaytaYukla && (
               <button type="button" className="btn jm-yangila-tugma" onClick={qaytaYukla} disabled={yuklanmoqda}>
-                <RefreshCw className={yuklanmoqda ? 'aylanuvchi' : ''} /> {yuklanmoqda ? 'Yangilanmoqda…' : 'AI tavsiyasini yangilash'}
+                <RefreshCw className={yuklanmoqda ? 'aylanuvchi' : ''} /> {yuklanmoqda ? t('Yangilanmoqda…') : t('AI tavsiyasini yangilash')}
               </button>
             )}
           </div>
         </div>
         <div className="jm-xulosa">
           <span className="jm-yorliq-kichik">
-            AI xulosa <MalumotIkon matn="Raqamlar va iboralar shu davrdagi AI tahlillaridan avtomatik yig'ilgan" />
+            {t('AI xulosa')} <MalumotIkon matn={t("Raqamlar va iboralar shu davrdagi AI tahlillaridan avtomatik yig'ilgan")} />
           </span>
           <p>{xulosa}</p>
         </div>
-        {kutilmoqda && <div className="an-eslatma">Tahlil tafsilotlari yuklanmoqda — yana {q.tafsilotKutilmoqda} ta…</div>}
+        {kutilmoqda && <div className="an-eslatma">{t('Tahlil tafsilotlari yuklanmoqda — yana {n} ta…', { n: q.tafsilotKutilmoqda })}</div>}
       </section>
 
       {/* ─── Hozir ishlash kerak ─── */}
-      <Blok rang="qizil" sarlavha="Hozir ishlash kerak" izoh="Jamoa o'rtachasidan eng ko'p orqada qolgan va zaif mezonlari bor menejerlar — ustuvorlik tartibida">
+      <Blok rang="qizil" sarlavha={t('Hozir ishlash kerak')} izoh={t("Jamoa o'rtachasidan eng ko'p orqada qolgan va zaif mezonlari bor menejerlar — ustuvorlik tartibida")}>
         {h.etiborKerak.length === 0 ? (
-          <div className="jm-bosh">Hozir alohida e'tibor talab qiladigan menejer yo'q — barchasi {ZAIF}% dan yuqori.</div>
+          <div className="jm-bosh">{t("Hozir alohida e'tibor talab qiladigan menejer yo'q — barchasi {n}% dan yuqori.", { n: ZAIF })}</div>
         ) : (
           <div className="jm-prioritetlar">
             {h.etiborKerak.slice(0, 3).map((s, i) => (
               <article key={s.seat} className="jm-prioritet">
                 <div className="jm-prioritet-bosh">
                   <div>
-                    <span className="jm-prioritet-raqam">{i + 1}-prioritet</span>
+                    <span className="jm-prioritet-raqam">{t('{n}-prioritet', { n: i + 1 })}</span>
                     <h3>
                       {s.nom} <span className="jm-ort" style={{ color: ballRang(s.ort) }}>{Math.round(s.ort)}%</span>
                     </h3>
                   </div>
                   <Link to={`/sotuvchi/${s.seat}`} className="jm-tugma">
-                    Menejerni ochish
+                    {t('Menejerni ochish')}
                   </Link>
                 </div>
-                {s.zaif.length > 0 && <b className="jm-mavzu">{s.zaif.slice(0, 2).map((m) => m.nom).join(' va ')}</b>}
+                {s.zaif.length > 0 && <b className="jm-mavzu">{s.zaif.slice(0, 2).map((m) => m.nom).join(t(' va '))}</b>}
                 <p className="jm-matn">
-                  O'rtacha baho {Math.round(s.ort)}%{h.jamoaOrt !== null && ` (jamoada ${Math.round(h.jamoaOrt)}%)`}, {s.soni} ta
-                  baholangan qo'ng'iroq.
-                  {s.zaif[0] && ` Eng zaif: «${s.zaif[0].nom}» — ${Math.round(s.zaif[0].foiz)}%.`}
-                  {s.tavsiya[0] && ` AI ko'p takrorlagan tavsiya: «${s.tavsiya[0].matn}».`}
-                  {s.songgiGap && ` Oxirgi asosiy kamchilik: «${s.songgiGap}».`}
+                  {h.jamoaOrt !== null
+                    ? t("O'rtacha baho {ort}% (jamoada {jamoa}%), {n} ta baholangan qo'ng'iroq.", { ort: Math.round(s.ort), jamoa: Math.round(h.jamoaOrt), n: s.soni })
+                    : t("O'rtacha baho {ort}%, {n} ta baholangan qo'ng'iroq.", { ort: Math.round(s.ort), n: s.soni })}
+                  {s.zaif[0] && ` ${t('Eng zaif: «{nom}» — {n}%.', { nom: s.zaif[0].nom, n: Math.round(s.zaif[0].foiz) })}`}
+                  {s.tavsiya[0] && ` ${t("AI ko'p takrorlagan tavsiya: «{matn}».", { matn: s.tavsiya[0].matn })}`}
+                  {s.songgiGap && ` ${t('Oxirgi asosiy kamchilik: «{matn}».', { matn: s.songgiGap })}`}
                 </p>
                 <div className="jm-chiplar">
-                  {s.engYomon.slice(0, 2).map((t) => (
-                    <Link key={t.row.id} to={`/suhbatlar/${t.row.id}`} className="jm-chip">
-                      Ko'rib chiqish qo'ng'irog'ini ochish <em style={{ color: ballRang(t.ball) }}>{Math.round(t.ball!)}%</em>
+                  {s.engYomon.slice(0, 2).map((x) => (
+                    <Link key={x.row.id} to={`/suhbatlar/${x.row.id}`} className="jm-chip">
+                      {t("Ko'rib chiqish qo'ng'irog'ini ochish")} <em style={{ color: ballRang(x.ball) }}>{Math.round(x.ball!)}%</em>
                     </Link>
                   ))}
                 </div>
@@ -300,39 +311,39 @@ export function JamoaMalakasi({ data, davr, q, qaytaYukla, yuklanmoqda }: TabPro
         )}
       </Blok>
 
-      <Blok rang="teal" sarlavha="Jamoa fokuslari" izoh="Jamoada eng zaif mezonlar (rubrikadagi to'g'ri bajarilish bilan) va AI eng ko'p takrorlagan tavsiyalar">
-        <Royxat qatorlar={fokuslar} bosh="Jamoa uchun umumiy zaif nuqta topilmadi." />
+      <Blok rang="teal" sarlavha={t('Jamoa fokuslari')} izoh={t("Jamoada eng zaif mezonlar (rubrikadagi to'g'ri bajarilish bilan) va AI eng ko'p takrorlagan tavsiyalar")}>
+        <Royxat qatorlar={fokuslar} bosh={t('Jamoa uchun umumiy zaif nuqta topilmadi.')} />
       </Blok>
 
-      <Blok rang="yashil" sarlavha="Kengaytirish kerak bo'lgan kuchli tomonlar" izoh="AI kuchli deb belgilagan xatti-harakatlar va jamoada 80% dan yuqori bajarilayotgan mezonlar">
-        <Royxat qatorlar={kuchliTomonlar} bosh="Hali kuchli tomon sifatida belgilangan narsa yo'q." />
+      <Blok rang="yashil" sarlavha={t("Kengaytirish kerak bo'lgan kuchli tomonlar")} izoh={t('AI kuchli deb belgilagan xatti-harakatlar va jamoada 80% dan yuqori bajarilayotgan mezonlar')}>
+        <Royxat qatorlar={kuchliTomonlar} bosh={t("Hali kuchli tomon sifatida belgilangan narsa yo'q.")} />
       </Blok>
 
       <div className="an-grid-2 jm-teng">
-        <Blok rang="binafsha" sarlavha="Mijozga qayta aloqa muammolari" izoh="Bajarilmagan va'dalar, muddati o'tgan vazifalar va javobsiz mijozlar">
-          <Royxat qatorlar={qaytaAloqa} bosh="Qayta aloqa bo'yicha muammo topilmadi." />
+        <Blok rang="binafsha" sarlavha={t('Mijozga qayta aloqa muammolari')} izoh={t("Bajarilmagan va'dalar, muddati o'tgan vazifalar va javobsiz mijozlar")}>
+          <Royxat qatorlar={qaytaAloqa} bosh={t("Qayta aloqa bo'yicha muammo topilmadi.")} />
         </Blok>
-        <Blok rang="oddiy" sarlavha="Keyingi qadamlar" izoh="Yuqoridagi topilmalardan kelib chiqadigan aniq harakatlar">
-          <Royxat qatorlar={qadamlar} bosh="Hozircha qo'shimcha qadam kerak emas." />
+        <Blok rang="oddiy" sarlavha={t('Keyingi qadamlar')} izoh={t('Yuqoridagi topilmalardan kelib chiqadigan aniq harakatlar')}>
+          <Royxat qatorlar={qadamlar} bosh={t("Hozircha qo'shimcha qadam kerak emas.")} />
         </Blok>
       </div>
 
-      <Blok rang="teal" sarlavha="Ko'rib chiqiladigan qo'ng'iroqlar" izoh="AI ko'rikka belgilagan yoki 60% dan past baholangan va aniq kamchiligi yozilgan qo'ng'iroqlar">
+      <Blok rang="teal" sarlavha={t("Ko'rib chiqiladigan qo'ng'iroqlar")} izoh={t("AI ko'rikka belgilagan yoki 60% dan past baholangan va aniq kamchiligi yozilgan qo'ng'iroqlar")}>
         {h.korib.length === 0 ? (
-          <div className="jm-bosh">Ko'rib chiqish talab qiladigan qo'ng'iroq yo'q.</div>
+          <div className="jm-bosh">{t("Ko'rib chiqish talab qiladigan qo'ng'iroq yo'q.")}</div>
         ) : (
           <div className="jm-korib">
-            {h.korib.slice(0, 5).map((t) => (
-              <div key={t.row.id} className="jm-korib-qator">
+            {h.korib.slice(0, 5).map((x) => (
+              <div key={x.row.id} className="jm-korib-qator">
                 <div>
                   <b>
-                    {t.d.conversation.managerName ?? h.ism[t.seat] ?? 'Menejer'}{' '}
-                    <span className="jm-ort" style={{ color: ballRang(t.ball) }}>{Math.round(t.ball!)}%</span>
+                    {x.d.conversation.managerName ?? h.ism[x.seat] ?? t('Menejer')}{' '}
+                    <span className="jm-ort" style={{ color: ballRang(x.ball) }}>{Math.round(x.ball!)}%</span>
                   </b>
-                  <p>{t.d.analysis!.primaryGap ?? t.d.analysis!.flaggedReason ?? t.row.summary ?? 'Ko\'rik talab qilinadi'}</p>
+                  <p>{x.d.analysis!.primaryGap ?? x.d.analysis!.flaggedReason ?? x.row.summary ?? t("Ko'rik talab qilinadi")}</p>
                 </div>
-                <Link to={`/suhbatlar/${t.row.id}`} className="jm-tugma">
-                  Ko'rish
+                <Link to={`/suhbatlar/${x.row.id}`} className="jm-tugma">
+                  {t("Ko'rish")}
                 </Link>
               </div>
             ))}
@@ -342,49 +353,49 @@ export function JamoaMalakasi({ data, davr, q, qaytaYukla, yuklanmoqda }: TabPro
 
       {/* ─── Ko'rsatkichlar ─── */}
       <div className="an-kpi-grid">
-        <Kpi ikon={<UsersRound />} rang="past" nom="Hozir e'tibor kerak menejerlar" izoh={`O'rtacha bahosi ${ZAIF}% dan past yoki zaif mezoni bor`} qiymat={h.etiborKerak.length} />
-        <Kpi ikon={<Sparkles />} rang="info" nom="Hozir ko'rib chiqiladigan qo'ng'iroqlar" izoh="AI belgilagan yoki zaif va kamchiligi aniq qo'ng'iroqlar" qiymat={h.korib.length} />
-        <Kpi ikon={<Gauge />} rang="orta" nom="Baholangan qo'ng'iroqlar" izoh="Umumiy ball qo'yilgan tahlillar" qiymat={h.baholangan.length} />
-        <Kpi ikon={<ScanSearch />} rang="ia" nom="Tahlil qilingan" izoh="Davrda AI tahlilidan o'tgan barcha suhbatlar" qiymat={h.tahlilQilingan} />
+        <Kpi ikon={<UsersRound />} rang="past" nom={t("Hozir e'tibor kerak menejerlar")} izoh={t("O'rtacha bahosi {n}% dan past yoki zaif mezoni bor", { n: ZAIF })} qiymat={h.etiborKerak.length} />
+        <Kpi ikon={<Sparkles />} rang="info" nom={t("Hozir ko'rib chiqiladigan qo'ng'iroqlar")} izoh={t("AI belgilagan yoki zaif va kamchiligi aniq qo'ng'iroqlar")} qiymat={h.korib.length} />
+        <Kpi ikon={<Gauge />} rang="orta" nom={t("Baholangan qo'ng'iroqlar")} izoh={t("Umumiy ball qo'yilgan tahlillar")} qiymat={h.baholangan.length} />
+        <Kpi ikon={<ScanSearch />} rang="ia" nom={t('Tahlil qilingan')} izoh={t("Davrda AI tahlilidan o'tgan barcha suhbatlar")} qiymat={h.tahlilQilingan} />
       </div>
 
       <div className="an-grid-2 jm-teng">
         <section className="card an-karta">
           <div className="karta-bosh">
             <h2>
-              Yaxshilash kerak <MalumotIkon matn="AI tahlillarida takrorlangan kamchilik va tavsiyalar — necha qo'ng'iroqda uchragani bilan" />
+              {t('Yaxshilash kerak')} <MalumotIkon matn={t("AI tahlillarida takrorlangan kamchilik va tavsiyalar — necha qo'ng'iroqda uchragani bilan")} />
             </h2>
           </div>
-          <p className="jm-izoh">Keyingi jamoaviy malaka oshirish uchrashuvining asosiga aylanishi kerak bo'lgan takrorlanayotgan zaif xatti-harakatlar.</p>
-          <Sanoq royxat={h.yaxshilash.slice(0, 8)} turi="yomon" bosh="Takrorlanayotgan kamchilik yo'q" />
+          <p className="jm-izoh">{t("Keyingi jamoaviy malaka oshirish uchrashuvining asosiga aylanishi kerak bo'lgan takrorlanayotgan zaif xatti-harakatlar.")}</p>
+          <Sanoq royxat={h.yaxshilash.slice(0, 8)} turi="yomon" bosh={t("Takrorlanayotgan kamchilik yo'q")} />
         </section>
         <section className="card an-karta">
           <div className="karta-bosh">
             <h2>
-              Yaxshi bajarilgan narsalar <MalumotIkon matn="AI kuchli tomon deb belgilagan xatti-harakatlar — necha qo'ng'iroqda uchragani bilan" />
+              {t('Yaxshi bajarilgan narsalar')} <MalumotIkon matn={t("AI kuchli tomon deb belgilagan xatti-harakatlar — necha qo'ng'iroqda uchragani bilan")} />
             </h2>
           </div>
-          <p className="jm-izoh">Jamoa bo'ylab mustahkamlash kerak bo'lgan kuchli patternlar.</p>
-          <Sanoq royxat={h.kuchli.slice(0, 8)} turi="yaxshi" bosh="Hali kuchli tomon belgilanmagan" />
+          <p className="jm-izoh">{t("Jamoa bo'ylab mustahkamlash kerak bo'lgan kuchli patternlar.")}</p>
+          <Sanoq royxat={h.kuchli.slice(0, 8)} turi="yaxshi" bosh={t('Hali kuchli tomon belgilanmagan')} />
         </section>
       </div>
 
       <div className="an-grid-2 jm-teng">
         <NamunaRoyxat
-          sarlavha="Hozir ko'rib chiqish kerak"
-          izoh="Darhol birga ko'rib chiqilishi kerak bo'lgan, davomiyligi bir daqiqadan uzun eng zaif baholangan qo'ng'iroqlar."
+          sarlavha={t("Hozir ko'rib chiqish kerak")}
+          izoh={t("Darhol birga ko'rib chiqilishi kerak bo'lgan, davomiyligi bir daqiqadan uzun eng zaif baholangan qo'ng'iroqlar.")}
           royxat={h.engZaif.slice(0, 4)}
           ism={h.ism}
           eng="past"
-          bosh="Zaif baholangan qo'ng'iroq yo'q"
+          bosh={t("Zaif baholangan qo'ng'iroq yo'q")}
         />
         <NamunaRoyxat
-          sarlavha="Mustahkamlash uchun eng yaxshi namunalar"
-          izoh="Jamoaviy malaka oshirishda misol sifatida ishlatish mumkin bo'lgan, davomiyligi bir daqiqadan uzun kuchli qo'ng'iroqlar."
+          sarlavha={t('Mustahkamlash uchun eng yaxshi namunalar')}
+          izoh={t("Jamoaviy malaka oshirishda misol sifatida ishlatish mumkin bo'lgan, davomiyligi bir daqiqadan uzun kuchli qo'ng'iroqlar.")}
           royxat={h.engYaxshi.slice(0, 4)}
           ism={h.ism}
           eng="yuqori"
-          bosh="Hali 70% dan yuqori baholangan qo'ng'iroq yo'q"
+          bosh={t("Hali 70% dan yuqori baholangan qo'ng'iroq yo'q")}
         />
       </div>
 
@@ -394,18 +405,18 @@ export function JamoaMalakasi({ data, davr, q, qaytaYukla, yuklanmoqda }: TabPro
         <section className="card an-karta">
           <div className="karta-bosh">
             <h2>
-              E'tirozlar — AI aniqligi <MalumotIkon matn="Menejerlar AI bahosiga e'tiroz bildirgan mezonlar. Qabul qilingani ko'p mezon — AI shu joyda adashadi" />
+              {t("E'tirozlar — AI aniqligi")} <MalumotIkon matn={t("Menejerlar AI bahosiga e'tiroz bildirgan mezonlar. Qabul qilingani ko'p mezon — AI shu joyda adashadi")} />
             </h2>
           </div>
           <table className="jadval an-jadval">
             <thead>
               <tr>
-                <th>Mezon</th>
-                <th>Jami</th>
-                <th>Qabul</th>
-                <th>Rad</th>
-                <th>Ochiq</th>
-                <th>O'rt. tuzatish</th>
+                <th>{t('Mezon')}</th>
+                <th>{t('Jami')}</th>
+                <th>{t('Qabul')}</th>
+                <th>{t('Rad')}</th>
+                <th>{t('Ochiq')}</th>
+                <th>{t("O'rt. tuzatish")}</th>
               </tr>
             </thead>
             <tbody>
@@ -439,24 +450,41 @@ function yagona(qatorlar: string[]): string[] {
   });
 }
 
-function xulosaMatni(h: Hisob, zaif: Hisob['jamoaMezon'], kuchli: Hisob['jamoaMezon']): string {
-  if (h.baholangan.length === 0) return "Bu davrda baholangan qo'ng'iroq yo'q — xulosa uchun kamida bitta tahlil kerak.";
+function xulosaMatni(
+  h: Hisob,
+  zaif: Hisob['jamoaMezon'],
+  kuchli: Hisob['jamoaMezon'],
+  t: ReturnType<typeof useT>,
+): string {
+  if (h.baholangan.length === 0) return t("Bu davrda baholangan qo'ng'iroq yo'q — xulosa uchun kamida bitta tahlil kerak.");
   const q: string[] = [];
   q.push(
-    `${h.baholangan.length} ta baholangan qo'ng'iroq bo'yicha jamoa o'rtachasi ${Math.round(h.jamoaOrt!)}%.`,
+    t("{n} ta baholangan qo'ng'iroq bo'yicha jamoa o'rtachasi {ort}%.", { n: h.baholangan.length, ort: Math.round(h.jamoaOrt!) }),
   );
   if (zaif.length > 0)
     q.push(
-      `Eng ko'p ball «${zaif[0]!.nom}» bosqichida yo'qotilmoqda (${Math.round(zaif[0]!.foiz)}%)` +
-        (zaif[1] ? `, keyin «${zaif[1].nom}» (${Math.round(zaif[1].foiz)}%).` : '.'),
+      zaif[1]
+        ? t("Eng ko'p ball «{nom}» bosqichida yo'qotilmoqda ({n}%), keyin «{nom2}» ({n2}%).", {
+            nom: zaif[0]!.nom,
+            n: Math.round(zaif[0]!.foiz),
+            nom2: zaif[1].nom,
+            n2: Math.round(zaif[1].foiz),
+          })
+        : t("Eng ko'p ball «{nom}» bosqichida yo'qotilmoqda ({n}%).", { nom: zaif[0]!.nom, n: Math.round(zaif[0]!.foiz) }),
     );
-  else q.push(`Barcha mezonlar ${ZAIF}% dan yuqori bajarilmoqda.`);
-  if (h.yaxshilash[0]) q.push(`AI eng ko'p takrorlagan kamchilik: «${h.yaxshilash[0].matn}».`);
-  if (h.kuchli[0]) q.push(`Kuchli tomon: «${h.kuchli[0].matn}».`);
-  else if (kuchli[0]) q.push(`Kuchli tomon: «${kuchli[0].nom}» (${Math.round(kuchli[0].foiz)}%).`);
+  else q.push(t('Barcha mezonlar {n}% dan yuqori bajarilmoqda.', { n: ZAIF }));
+  if (h.yaxshilash[0]) q.push(t("AI eng ko'p takrorlagan kamchilik: «{matn}».", { matn: h.yaxshilash[0].matn }));
+  if (h.kuchli[0]) q.push(t('Kuchli tomon: «{matn}».', { matn: h.kuchli[0].matn }));
+  else if (kuchli[0]) q.push(t('Kuchli tomon: «{matn}» ({n}%).', { matn: kuchli[0].nom, n: Math.round(kuchli[0].foiz) }));
   if (h.etiborKerak.length > 0)
-    q.push(`Hozir ${h.etiborKerak.length} menejerga e'tibor kerak: ${h.etiborKerak.slice(0, 3).map((s) => s.nom).join(', ')}.`);
-  if (h.bajarilmaganVada.length > 0) q.push(`${h.bajarilmaganVada.length} ta va'da bajarilmay qolgan — qayta aloqani kuchaytirish zarur.`);
+    q.push(
+      t("Hozir {n} menejerga e'tibor kerak: {ismlar}.", {
+        n: h.etiborKerak.length,
+        ismlar: h.etiborKerak.slice(0, 3).map((s) => s.nom).join(', '),
+      }),
+    );
+  if (h.bajarilmaganVada.length > 0)
+    q.push(t("{n} ta va'da bajarilmay qolgan — qayta aloqani kuchaytirish zarur.", { n: h.bajarilmaganVada.length }));
   return q.join(' ');
 }
 
@@ -529,6 +557,7 @@ function NamunaRoyxat({
   eng: 'past' | 'yuqori';
   bosh: string;
 }) {
+  const tr = useT();
   return (
     <section className="card an-karta jm-namunalar">
       <div className="karta-bosh">
@@ -542,7 +571,7 @@ function NamunaRoyxat({
       ) : (
         <div className="jm-namuna-royxat">
           {royxat.map((t) => {
-            const nom = t.d.conversation.managerName ?? ism[t.seat] ?? 'Menejer';
+            const nom = t.d.conversation.managerName ?? ism[t.seat] ?? tr('Menejer');
             // Iqtibos: eng past (yoki eng yuqori) baholangan mezon isboti
             const ballar = t.d.scores.filter((s) => s.score !== null && s.evidenceQuote);
             const isbot = ballar.sort((a, b) => (eng === 'past' ? a.score! - b.score! : b.score! - a.score!))[0];
@@ -562,7 +591,7 @@ function NamunaRoyxat({
                     <b style={{ color: ballRang(t.ball) }}>{Math.round(t.ball! * 10) / 10}%</b>
                   </span>
                 </div>
-                <p className="jm-namuna-matn">{t.row.summary ?? t.d.analysis!.summary ?? 'Xulosa yo\'q'}</p>
+                <p className="jm-namuna-matn">{t.row.summary ?? t.d.analysis!.summary ?? tr("Xulosa yo'q")}</p>
                 {isbot && (
                   <blockquote className="jm-iqtibos" title={isbot.criterionName}>
                     {isbot.evidenceQuote}
@@ -571,7 +600,7 @@ function NamunaRoyxat({
                 <div className="jm-namuna-past">
                   <span>{sana(t.row.startedAt)}</span>
                   <Link to={`/suhbatlar/${t.row.id}`} className="jm-tugma">
-                    Ko'rish
+                    {tr("Ko'rish")}
                   </Link>
                 </div>
               </article>
@@ -584,6 +613,7 @@ function NamunaRoyxat({
 }
 
 function JamoaTrendi({ h, davr, data }: { h: Hisob; davr: TabProps['davr']; data: BoshMalumot }) {
+  const tr = useT();
   const { royxat } = bolaklar(davr);
   // Rang menejerga bog'liq, tartibga emas: seats ro'yxatidagi o'rni bo'yicha
   const tartib = data.seats.map((s) => s.id);
@@ -602,7 +632,7 @@ function JamoaTrendi({ h, davr, data }: { h: Hisob; davr: TabProps['davr']; data
       nom: s.nom,
       rang: SERIYA[i]!,
       qiymatlar: bolakBo.map((bu) => ortacha(bu.map((t) => t.ball!))),
-      izohlar: bolakBo.map((bu) => (bu.length ? `${bu.length} ta qo'ng'iroq` : null)),
+      izohlar: bolakBo.map((bu) => (bu.length ? tr("{n} ta qo'ng'iroq", { n: bu.length }) : null)),
     };
   });
 
@@ -610,16 +640,16 @@ function JamoaTrendi({ h, davr, data }: { h: Hisob; davr: TabProps['davr']; data
     <section className="card an-karta">
       <div className="karta-bosh">
         <h2>
-          Jamoa rivoji trendi <MalumotIkon matn="Har menejerning baholangan qo'ng'iroqlari o'rtacha bahosi. Qo'ng'iroq bo'lmagan kunda chiziq uziladi" />
+          {tr('Jamoa rivoji trendi')} <MalumotIkon matn={tr("Har menejerning baholangan qo'ng'iroqlari o'rtacha bahosi. Qo'ng'iroq bo'lmagan kunda chiziq uziladi")} />
         </h2>
       </div>
-      <p className="jm-izoh">Tanlangan davr bo'yicha baholangan qo'ng'iroqlar sifati trendi. Jamoa to'g'ri tomonga ketyaptimi, shuni ko'ring.</p>
+      <p className="jm-izoh">{tr("Tanlangan davr bo'yicha baholangan qo'ng'iroqlar sifati trendi. Jamoa to'g'ri tomonga ketyaptimi, shuni ko'ring.")}</p>
       {seriyalar.length === 0 ? (
         <div className="jm-bosh">
-          <Info /> Bu davrda baholangan qo'ng'iroq yo'q
+          <Info /> {tr("Bu davrda baholangan qo'ng'iroq yo'q")}
         </div>
       ) : (
-        <KopChiziqliGrafik belgilar={royxat.map((b) => b.nom)} seriyalar={seriyalar} birlik="%" yMax={100} nom="Jamoa rivoji trendi" />
+        <KopChiziqliGrafik belgilar={royxat.map((b) => b.nom)} seriyalar={seriyalar} birlik="%" yMax={100} nom={tr('Jamoa rivoji trendi')} />
       )}
     </section>
   );

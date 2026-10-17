@@ -8,6 +8,8 @@
  * olib tashlanadi.
  */
 
+import { tarjima } from '../../i18n';
+
 export type Muhimlik = 'oddiy' | 'muhim' | 'shoshilinch';
 export interface VazifaMeta {
   muhimlik?: Muhimlik;
@@ -56,7 +58,12 @@ export const HARAKATLAR: { qiymat: string; nom: string }[] = [
 ];
 /** Avvalgi nomlar (oldin saqlangan vazifalar uchun). */
 const ESKI: Record<string, string> = { send_info: 'Material yuborish' };
-export const harakatNomi = (k: string | null | undefined) => (k ? HARAKATLAR.find((h) => h.qiymat === k)?.nom ?? ESKI[k] ?? k : null);
+/** Tarjima qilingan nom; ro'yxatda yo'q (CRM'dan kelgan) qiymat o'zgarishsiz qaytadi. */
+export const harakatNomi = (k: string | null | undefined) => {
+  if (!k) return null;
+  const nom = HARAKATLAR.find((h) => h.qiymat === k)?.nom ?? ESKI[k];
+  return nom ? tarjima(nom) : k;
+};
 
 export const MUHIMLIK: { qiymat: Muhimlik; nom: string }[] = [
   { qiymat: 'oddiy', nom: 'Oddiy' },

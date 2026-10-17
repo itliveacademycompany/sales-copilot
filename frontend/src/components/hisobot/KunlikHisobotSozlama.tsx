@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, ApiError, type PlaybookBody, type SeatRow, type TelegramIntegration } from '../../api';
 import { useAuth } from '../../auth';
+import { joyla, useT } from '../../i18n';
 import { TanlovMenyu } from '../analitika/Ochiluvchi';
 import { savolMatni } from '../anketa/savolMatni';
 import { leadQualityYoz, tozaBody, voronkalarniOl, type CrmVoronka } from '../crm/crmMalumot';
@@ -29,7 +30,11 @@ const TILLAR = [
   { qiymat: 'ru', nom: 'Русский' },
 ];
 
+/** Standart lid guruhlari — tarjima qilinadi; playbook bosqichlari nomi o'zgarishsiz. */
+const STANDART_GURUH = ['Issiq', 'Iliq', 'Sovuq', 'Yaroqsiz lid'];
+
 export function KunlikHisobotSozlama() {
+  const t = useT();
   const { business } = useAuth();
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
   const p = business?.permissions ?? [];
@@ -91,7 +96,7 @@ export function KunlikHisobotSozlama() {
 
   if (!aslServer) return <div className="card skelet" style={{ height: 520 }} aria-busy="true" />;
 
-  const chatXato = holat && !/^-?\d{3,}$/.test(chat.trim()) ? "Chat ID faqat raqamlardan iborat bo'lsin (guruhda -100 bilan boshlanadi)" : null;
+  const chatXato = holat && !/^-?\d{3,}$/.test(chat.trim()) ? t("Chat ID faqat raqamlardan iborat bo'lsin (guruhda -100 bilan boshlanadi)") : null;
   const daqiqaXato = s.vazifaEslatma.yoqilgan && !(Number.isInteger(s.vazifaEslatma.daqiqa) && s.vazifaEslatma.daqiqa >= 2 && s.vazifaEslatma.daqiqa <= 5);
   const bildir = (ton: 'ok' | 'xato', matn: string) => {
     setXabar({ ton, matn });
@@ -104,7 +109,7 @@ export function KunlikHisobotSozlama() {
     setXabar(null);
     try {
       if (serverOzgargan) {
-        if (!aslServer!.botUlangan) throw new Error('Avval Telegram botni ulang — hisobot shu bot orqali yuboriladi');
+        if (!aslServer!.botUlangan) throw new Error(t('Avval Telegram botni ulang — hisobot shu bot orqali yuboriladi'));
         await api.put(`${base}/reports/daily/settings`, { reportChatId: holat ? chat.trim() : null, reportHour: Number(soat) });
       }
       // O'chirilganda chat ID yo'qolmasin — qayta yoqilganda tiklanadi
@@ -112,13 +117,13 @@ export function KunlikHisobotSozlama() {
       if (pb && (hisobotOzgargan || JSON.stringify(yangi) !== JSON.stringify(asl))) {
         const body = tozaBody(leadQualityYoz(pb, { hisobot: yangi }));
         const v = await api.post<{ valid: boolean; errors?: Record<string, string[]> }>(`${base}/playbook/validate`, body);
-        if (!v.valid) throw new Error(Object.values(v.errors ?? {}).flat()[0] ?? 'Server tekshiruvi xato topdi');
+        if (!v.valid) throw new Error(Object.values(v.errors ?? {}).flat()[0] ?? t('Server tekshiruvi xato topdi'));
         await api.post(`${base}/playbook`, { ...body, changeNote: 'Kunlik hisobot sozlamalari yangilandi' });
       }
       await yukla();
-      bildir('ok', 'Saqlandi');
+      bildir('ok', t('Saqlandi'));
     } catch (e) {
-      bildir('xato', e instanceof ApiError || e instanceof Error ? e.message : 'Saqlanmadi');
+      bildir('xato', e instanceof ApiError || e instanceof Error ? e.message : t('Saqlanmadi'));
     } finally {
       setBand(null);
     }
@@ -128,9 +133,9 @@ export function KunlikHisobotSozlama() {
     setBand('yuborish');
     try {
       const r = await api.post<{ sent: boolean; skipped?: string }>(`${base}/reports/daily/send`, {});
-      bildir(r.sent ? 'ok' : 'xato', r.sent ? 'Hisobot hozir yuborildi — Telegram’ni tekshiring' : `Yuborilmadi: ${r.skipped ?? 'nomaʼlum sabab'}`);
+      bildir(r.sent ? 'ok' : 'xato', r.sent ? t('Hisobot hozir yuborildi — Telegram’ni tekshiring') : t('Yuborilmadi: {sabab}', { sabab: r.skipped ?? t('nomaʼlum sabab') }));
     } catch (e) {
-      bildir('xato', e instanceof ApiError ? e.message : 'Yuborilmadi');
+      bildir('xato', e instanceof ApiError ? e.message : t('Yuborilmadi'));
     } finally {
       setBand(null);
     }
@@ -146,14 +151,14 @@ export function KunlikHisobotSozlama() {
           {xabar.ton === 'ok' ? <CircleCheck /> : <TriangleAlert />} {xabar.matn}
         </span>
       )}
-      {!xabar && ozgargan && <span className="kr-holat">Saqlanmagan o'zgarishlar bor</span>}
+      {!xabar && ozgargan && <span className="kr-holat">{t("Saqlanmagan o'zgarishlar bor")}</span>}
       {ozgargan && (
         <button type="button" className="btn ikkinchi" disabled={!!band} onClick={() => void yukla()}>
-          Bekor qilish
+          {t('Bekor qilish')}
         </button>
       )}
       <button type="button" className="btn" disabled={!ozgargan || !!band || !!chatXato || daqiqaXato || ruxsatYoq} onClick={() => void saqla()}>
-        {band === 'saqlash' ? 'Saqlanmoqda…' : 'Saqlash'}
+        {band === 'saqlash' ? t('Saqlanmoqda…') : t('Saqlash')}
       </button>
     </div>
   );
@@ -178,42 +183,44 @@ export function KunlikHisobotSozlama() {
   return (
     <section className="card kh-karta">
       <header className="kh-bosh">
-        <h2>Kunlik hisobot sozlamalari</h2>
-        <p>Har kuni avtomatik hisobot yuborishni sozlang.</p>
+        <h2>{t('Kunlik hisobot sozlamalari')}</h2>
+        <p>{t('Har kuni avtomatik hisobot yuborishni sozlang.')}</p>
       </header>
 
       {!aslServer.botUlangan && (
         <div className="cn-info">
           <Info aria-hidden="true" />
           <span>
-            Telegram bot ulanmagan — hisobot bot orqali yuboriladi. <Link to="/sozlamalar?b=integratsiya">Botni ulash</Link>
+            {t('Telegram bot ulanmagan — hisobot bot orqali yuboriladi.')} <Link to="/sozlamalar?b=integratsiya">{t('Botni ulash')}</Link>
           </span>
         </div>
       )}
 
       <div className="kh-guruh">
         <div className="kh-guruh-nom">
-          <Sparkles /> <b>Yuborish va til</b>
+          <Sparkles /> <b>{t('Yuborish va til')}</b>
         </div>
         <div className="kh-forma">
-          <span className="ij-yorliq">Holat</span>
+          <span className="ij-yorliq">{t('Holat')}</span>
           <label className="vr-almash ij-almash">
-            <input type="checkbox" role="switch" aria-label="Kunlik hisobot holati" checked={holat} disabled={!integratsiya} onChange={(e) => setHolat(e.target.checked)} />
+            <input type="checkbox" role="switch" aria-label={t('Kunlik hisobot holati')} checked={holat} disabled={!integratsiya} onChange={(e) => setHolat(e.target.checked)} />
             <span className="vr-almash-yol" aria-hidden="true" />
-            <span className={holat ? 'ij-holat yoq' : 'ij-holat'}>{holat ? 'Yoqilgan' : "O'chirilgan"}</span>
+            <span className={holat ? 'ij-holat yoq' : 'ij-holat'}>{holat ? t('Yoqilgan') : t("O'chirilgan")}</span>
           </label>
 
           {holat && (
             <>
               <label className="ij-yorliq" htmlFor="kh-chat">
-                Qabul qiluvchi chat
+                {t('Qabul qiluvchi chat')}
               </label>
               <div>
                 <input id="kh-chat" className="kh-input" value={chat} onChange={(e) => setChat(e.target.value.replace(/\s/g, ''))} placeholder="-1001234567890" disabled={!integratsiya} aria-invalid={!!chatXato} />
                 <div className={`yordam${chatXato ? ' bzl-xato' : ''}`}>
                   {chatXato ?? (
                     <>
-                      Telegram guruh yoki shaxsiy chat ID. Guruhni bog'lash yo'riqnomasi — <Link to="/sozlamalar?b=bildirishnoma">Bildirishnomalar</Link> bo'limida.
+                      {joyla(t("Telegram guruh yoki shaxsiy chat ID. Guruhni bog'lash yo'riqnomasi — {havola} bo'limida."), {
+                        havola: <Link to="/sozlamalar?b=bildirishnoma">{t('Bildirishnomalar')}</Link>,
+                      })}
                     </>
                   )}
                 </div>
@@ -222,20 +229,21 @@ export function KunlikHisobotSozlama() {
           )}
 
           <label className="ij-yorliq" htmlFor="kh-soat">
-            Yuborish vaqti
+            {t('Yuborish vaqti')}
           </label>
           <div>
-            <TanlovMenyu id="kh-soat" aria="Yuborish vaqti" qiymat={soat} variantlar={SOATLAR} onOzgar={setSoat} kenglik={160} disabled={!integratsiya} />
-            <div className="yordam">Biznes vaqt zonasi bo'yicha. Server hisobotni soat boshida yuboradi.</div>
+            <TanlovMenyu id="kh-soat" aria={t('Yuborish vaqti')} qiymat={soat} variantlar={SOATLAR} onOzgar={setSoat} kenglik={160} disabled={!integratsiya} />
+            <div className="yordam">{t("Biznes vaqt zonasi bo'yicha. Server hisobotni soat boshida yuboradi.")}</div>
           </div>
 
           <label className="ij-yorliq" htmlFor="kh-til">
-            Hisobot tili
+            {t('Hisobot tili')}
           </label>
           <div>
-            <TanlovMenyu id="kh-til" aria="Hisobot tili" qiymat={s.til} variantlar={TILLAR} onOzgar={(v) => ozgar({ til: v as HisobotSozlama['til'] })} kenglik={480} disabled={!playbookYoz} />
+            <TanlovMenyu id="kh-til" aria={t('Hisobot tili')} qiymat={s.til} variantlar={TILLAR.map((v) => ({ ...v, nom: t(v.nom) }))} onOzgar={(v) => ozgar({ til: v as HisobotSozlama['til'] })} kenglik={480} disabled={!playbookYoz} />
             <div className="yordam">
-              Kunlik hisobot va Telegram xabari shu tilda yuboriladi.{s.til !== 'uz' && ' Hozircha server hisobotni o\'zbek tilida yaratadi — tanlov saqlanadi va til qo\'shilganda qo\'llanadi.'}
+              {t('Kunlik hisobot va Telegram xabari shu tilda yuboriladi.')}
+              {s.til !== 'uz' && ` ${t("Hozircha server hisobotni o'zbek tilida yaratadi — tanlov saqlanadi va til qo'shilganda qo'llanadi.")}`}
             </div>
           </div>
         </div>
@@ -243,9 +251,9 @@ export function KunlikHisobotSozlama() {
 
       <div className="kh-guruh">
         <div className="kh-guruh-nom">
-          <Bell /> <b>Telegram vazifa bildirishnomalari</b>
+          <Bell /> <b>{t('Telegram vazifa bildirishnomalari')}</b>
         </div>
-        <p className="kh-izoh">Faqat Telegram botiga ulangan sotuv menejerlariga shaxsiy xabar yuboradi. Bu sozlamalar yuqoridagi kunlik hisobotdan mustaqil.</p>
+        <p className="kh-izoh">{t('Faqat Telegram botiga ulangan sotuv menejerlariga shaxsiy xabar yuboradi. Bu sozlamalar yuqoridagi kunlik hisobotdan mustaqil.')}</p>
         <label className="vr-almash ij-almash kh-almash">
           <input
             type="checkbox"
@@ -255,12 +263,12 @@ export function KunlikHisobotSozlama() {
             onChange={(e) => ozgar({ vazifaEslatma: { ...s.vazifaEslatma, yoqilgan: e.target.checked } })}
           />
           <span className="vr-almash-yol" aria-hidden="true" />
-          <b>Vazifa muddati eslatmalari</b>
+          <b>{t('Vazifa muddati eslatmalari')}</b>
         </label>
-        <p className="kh-izoh">Kontakt, vazifa va oldingi tegishli qo'ng'iroq xulosasini «Qo'ng'iroq qilish» va «Bajarildi» amallari bilan yuboradi.</p>
+        <p className="kh-izoh">{t("Kontakt, vazifa va oldingi tegishli qo'ng'iroq xulosasini «Qo'ng'iroq qilish» va «Bajarildi» amallari bilan yuboradi.")}</p>
         {s.vazifaEslatma.yoqilgan && (
           <div className="kh-qator">
-            <label htmlFor="kh-daqiqa">Muddatdan necha daqiqa oldin</label>
+            <label htmlFor="kh-daqiqa">{t('Muddatdan necha daqiqa oldin')}</label>
             <div>
               <input
                 id="kh-daqiqa"
@@ -273,7 +281,7 @@ export function KunlikHisobotSozlama() {
                 aria-invalid={daqiqaXato}
                 onChange={(e) => ozgar({ vazifaEslatma: { ...s.vazifaEslatma, daqiqa: e.target.value === '' ? NaN : Number(e.target.value) } })}
               />
-              <div className={`yordam${daqiqaXato ? ' bzl-xato' : ''}`}>2 dan 5 gacha butun son tanlang.</div>
+              <div className={`yordam${daqiqaXato ? ' bzl-xato' : ''}`}>{t('2 dan 5 gacha butun son tanlang.')}</div>
             </div>
           </div>
         )}
@@ -281,39 +289,37 @@ export function KunlikHisobotSozlama() {
         <label className="vr-almash ij-almash kh-almash">
           <input type="checkbox" role="switch" checked={s.ertalabki.yoqilgan} disabled={!playbookYoz} onChange={(e) => ozgar({ ertalabki: { yoqilgan: e.target.checked } })} />
           <span className="vr-almash-yol" aria-hidden="true" />
-          <b>Ertalabki vazifalar qisqacha hisoboti</b>
+          <b>{t('Ertalabki vazifalar qisqacha hisoboti')}</b>
         </label>
-        <p className="kh-izoh">Har bir ish kuni lidlar va vazifalar soni hamda eng yaqin beshta ochiq vazifani yuboradi.</p>
+        <p className="kh-izoh">{t('Har bir ish kuni lidlar va vazifalar soni hamda eng yaqin beshta ochiq vazifani yuboradi.')}</p>
         {s.ertalabki.yoqilgan && (
           <div className="kh-moviy">
-            Menejerning ish kuni boshlanishidan 5 daqiqa oldin yuboriladi. Ish vaqti «Ish jadvali» bo'limidan olinadi: alohida menejer jadvali yoqilgan bo'lsa —
-            menejerniki, aks holda biznesniki.
+            {t("Menejerning ish kuni boshlanishidan 5 daqiqa oldin yuboriladi. Ish vaqti «Ish jadvali» bo'limidan olinadi: alohida menejer jadvali yoqilgan bo'lsa — menejerniki, aks holda biznesniki.")}
           </div>
         )}
         <div className="kh-server">
-          <Info /> Bu ikki xabarni yuboruvchi xizmat serverda hali yo'q — sozlamalar saqlanadi va xizmat qo'shilganda shu qiymatlar bilan ishlaydi.
+          <Info /> {t("Bu ikki xabarni yuboruvchi xizmat serverda hali yo'q — sozlamalar saqlanadi va xizmat qo'shilganda shu qiymatlar bilan ishlaydi.")}
         </div>
       </div>
 
       <div className="kh-guruh kh-tarkib-karta">
         <div>
           <div className="kh-guruh-nom">
-            <FileText /> <b>Hisobot tarkibi sozlamalari</b>
+            <FileText /> <b>{t('Hisobot tarkibi sozlamalari')}</b>
           </div>
           <p className="kh-izoh">
-            Yuborish sozlamalarini band qilmasdan, hisobot qismlari, kiritiladigan menejerlar, CRM voronkalari, lid sifati guruhlari, anketa javoblari va bosqich
-            o'tishlarini alohida ekranda tanlang.
+            {t("Yuborish sozlamalarini band qilmasdan, hisobot qismlari, kiritiladigan menejerlar, CRM voronkalari, lid sifati guruhlari, anketa javoblari va bosqich o'tishlarini alohida ekranda tanlang.")}
           </p>
         </div>
         <button type="button" className="btn" onClick={() => setParams((x) => (x.set('tarkib', '1'), x))}>
-          Hisobot tarkibini sozlash <ArrowRight />
+          {t('Hisobot tarkibini sozlash')} <ArrowRight />
         </button>
       </div>
 
       <div className="kh-amallar">
         {integratsiya && aslServer.chat && (
-          <button type="button" className="btn ikkinchi" disabled={!!band || serverOzgargan} title={serverOzgargan ? 'Avval saqlang' : undefined} onClick={() => void hozirYubor()}>
-            <Send /> {band === 'yuborish' ? 'Yuborilmoqda…' : 'Sinov uchun hozir yuborish'}
+          <button type="button" className="btn ikkinchi" disabled={!!band || serverOzgargan} title={serverOzgargan ? t('Avval saqlang') : undefined} onClick={() => void hozirYubor()}>
+            <Send /> {band === 'yuborish' ? t('Yuborilmoqda…') : t('Sinov uchun hozir yuborish')}
           </button>
         )}
         {past}
@@ -349,17 +355,22 @@ function HisobotTarkibi({
   onOrqaga: () => void;
   past: ReactNode;
 }) {
+  const t = useT();
   const [tanlov, setTanlov] = useState<Tanlov>(null);
   const manbalar = {
-    menejerlar: { sarlavha: 'Menejerlarni tanlash', tugma: 'Menejerlarni tanlash', items: seatlar.map((x) => ({ id: x.id, nom: x.displayName })) },
-    voronkalar: { sarlavha: 'Voronkalarni tanlash', tugma: 'Voronkalarni tanlash', items: katalog.map((v) => ({ id: v.nom, nom: v.nom })) },
-    lidGuruhlar: { sarlavha: 'Lid sifati guruhlarini tanlash', tugma: 'Lid sifati guruhlarini tanlash', items: lidGuruhlari.map((g) => ({ id: g, nom: g })) },
-    savollar: { sarlavha: 'Anketa savollarini tanlash', tugma: 'Savollarni tanlash', items: savollar },
+    menejerlar: { sarlavha: t('Menejerlarni tanlash'), tugma: t('Menejerlarni tanlash'), items: seatlar.map((x) => ({ id: x.id, nom: x.displayName })) },
+    voronkalar: { sarlavha: t('Voronkalarni tanlash'), tugma: t('Voronkalarni tanlash'), items: katalog.map((v) => ({ id: v.nom, nom: v.nom })) },
+    lidGuruhlar: {
+      sarlavha: t('Lid sifati guruhlarini tanlash'),
+      tugma: t('Lid sifati guruhlarini tanlash'),
+      items: lidGuruhlari.map((g) => ({ id: g, nom: STANDART_GURUH.includes(g) ? t(g) : g })),
+    },
+    savollar: { sarlavha: t('Anketa savollarini tanlash'), tugma: t('Savollarni tanlash'), items: savollar },
   } as const;
   const tanlovQismi: Partial<Record<Qism, keyof typeof manbalar>> = { menejerlar: 'menejerlar', lidlar: 'voronkalar', lidSifati: 'lidGuruhlar', anketa: 'savollar' };
   const soni = (k: keyof typeof manbalar) => {
     const ids = manbalar[k].items.map((i) => i.id);
-    return `${tanlanganlar(s[k], ids).length}/${ids.length} tanlangan`;
+    return t('{n}/{jami} tanlangan', { n: tanlanganlar(s[k], ids).length, jami: ids.length });
   };
   const nomlar = (k: keyof typeof manbalar) => {
     const ids = tanlanganlar(s[k], manbalar[k].items.map((i) => i.id));
@@ -369,43 +380,43 @@ function HisobotTarkibi({
   return (
     <section className="card kh-karta">
       <button type="button" className="kh-orqaga" onClick={onOrqaga}>
-        <ArrowLeft /> Kunlik hisobot sozlamalariga qaytish
+        <ArrowLeft /> {t('Kunlik hisobot sozlamalariga qaytish')}
       </button>
       <header className="kh-bosh">
-        <h2>Kunlik hisobot tarkibi</h2>
-        <p>Yaratiladigan kunlik hisobotga qaysi bo'limlar, menejerlar, CRM voronkalari, lid sifati guruhlari, anketa javoblari va bosqich o'tishlari kirishini tanlang.</p>
+        <h2>{t('Kunlik hisobot tarkibi')}</h2>
+        <p>{t("Yaratiladigan kunlik hisobotga qaysi bo'limlar, menejerlar, CRM voronkalari, lid sifati guruhlari, anketa javoblari va bosqich o'tishlari kirishini tanlang.")}</p>
       </header>
       <div className="kh-server">
-        <Info /> Server hozircha kunlik hisobotni qat'iy shablonda yaratadi. Tanlangan tarkib saqlanadi va shablon kengaytirilganda shu bo'yicha qo'llanadi.
+        <Info /> {t("Server hozircha kunlik hisobotni qat'iy shablonda yaratadi. Tanlangan tarkib saqlanadi va shablon kengaytirilganda shu bo'yicha qo'llanadi.")}
       </div>
 
       <div className="kh-ikki">
         <div className="kh-guruh">
           <div className="kh-guruh-nom">
-            <FileText /> <b>Hisobot qismlari</b>
+            <FileText /> <b>{t('Hisobot qismlari')}</b>
           </div>
-          <p className="kh-izoh">Rahbarlar va sotuvchilar uchun kunlik hisobotga qaysi qismlar kirishini tanlang.</p>
+          <p className="kh-izoh">{t('Rahbarlar va sotuvchilar uchun kunlik hisobotga qaysi qismlar kirishini tanlang.')}</p>
           <ul className="kh-qismlar">
             {QISMLAR.map((q) => {
-              const t = tanlovQismi[q.k];
+              const tq = tanlovQismi[q.k];
               return (
                 <li key={q.k}>
                   <div className="kh-qism-bosh">
                     <div>
-                      <b>{q.nom}</b>
-                      <p>{q.izoh}</p>
+                      <b>{t(q.nom)}</b>
+                      <p>{t(q.izoh)}</p>
                     </div>
                     <label className="vr-almash ij-almash">
-                      <input type="checkbox" role="switch" aria-label={q.nom} checked={s.qismlar[q.k]} disabled={!yozaOladi} onChange={(e) => ozgar({ qismlar: { ...s.qismlar, [q.k]: e.target.checked } })} />
+                      <input type="checkbox" role="switch" aria-label={t(q.nom)} checked={s.qismlar[q.k]} disabled={!yozaOladi} onChange={(e) => ozgar({ qismlar: { ...s.qismlar, [q.k]: e.target.checked } })} />
                       <span className="vr-almash-yol" aria-hidden="true" />
-                      <span className={s.qismlar[q.k] ? 'ij-holat yoq' : 'ij-holat'}>{s.qismlar[q.k] ? 'Yoqilgan' : "O'chirilgan"}</span>
+                      <span className={s.qismlar[q.k] ? 'ij-holat yoq' : 'ij-holat'}>{s.qismlar[q.k] ? t('Yoqilgan') : t("O'chirilgan")}</span>
                     </label>
                   </div>
-                  {t && s.qismlar[q.k] && (
+                  {tq && s.qismlar[q.k] && (
                     <div className="kh-tanlov">
-                      <span className="ak-pill">{soni(t)}</span>
-                      <button type="button" className="btn ikkinchi" disabled={!yozaOladi || manbalar[t].items.length === 0} title={manbalar[t].items.length === 0 ? "Tanlash uchun ma'lumot yo'q" : undefined} onClick={() => setTanlov({ tur: t })}>
-                        {manbalar[t].tugma}
+                      <span className="ak-pill">{soni(tq)}</span>
+                      <button type="button" className="btn ikkinchi" disabled={!yozaOladi || manbalar[tq].items.length === 0} title={manbalar[tq].items.length === 0 ? t("Tanlash uchun ma'lumot yo'q") : undefined} onClick={() => setTanlov({ tur: tq })}>
+                        {manbalar[tq].tugma}
                       </button>
                     </div>
                   )}
@@ -416,22 +427,22 @@ function HisobotTarkibi({
               <div className="kh-qism-bosh">
                 <div>
                   <b className="kh-otish-nom">
-                    <FileText /> Voronka bosqichlari harakati
+                    <FileText /> {t('Voronka bosqichlari harakati')}
                   </b>
-                  <p>Hisobotda alohida ko'rinishi kerak bo'lgan CRM bosqich o'tishlarini tanlang: qaysi menejer, qaysi voronka va qaysi bosqichdan qaysi bosqichga.</p>
+                  <p>{t("Hisobotda alohida ko'rinishi kerak bo'lgan CRM bosqich o'tishlarini tanlang: qaysi menejer, qaysi voronka va qaysi bosqichdan qaysi bosqichga.")}</p>
                 </div>
                 <button type="button" className="btn ikkinchi" disabled={!yozaOladi} onClick={() => setTanlov({ tur: 'otishlar' })}>
-                  Sozlash
+                  {t('Sozlash')}
                 </button>
               </div>
               {s.otishlar.length === 0 ? (
-                <p className="kh-izoh">Hali bosqich o'tishi qoidasi qo'shilmagan.</p>
+                <p className="kh-izoh">{t("Hali bosqich o'tishi qoidasi qo'shilmagan.")}</p>
               ) : (
                 <ul className="kh-otishlar">
                   {s.otishlar.map((o) => (
                     <li key={o.id}>
                       {o.voronka}: {o.dan} → {o.ga}
-                      <small>{o.menejer === '*' ? 'barcha menejerlar' : seatlar.find((x) => x.id === o.menejer)?.displayName ?? 'menejer'}</small>
+                      <small>{o.menejer === '*' ? t('barcha menejerlar') : seatlar.find((x) => x.id === o.menejer)?.displayName ?? t('menejer')}</small>
                     </li>
                   ))}
                 </ul>
@@ -482,6 +493,7 @@ function HisobotTarkibi({
 // ─── Modallar ───────────────────────────────────────────────────────────────
 
 function Modal({ sarlavha, onYop, children }: { sarlavha: string; onYop: () => void; children: ReactNode }) {
+  const t = useT();
   useEffect(() => {
     const f = (e: KeyboardEvent) => e.key === 'Escape' && onYop();
     window.addEventListener('keydown', f);
@@ -492,7 +504,7 @@ function Modal({ sarlavha, onYop, children }: { sarlavha: string; onYop: () => v
       <div className="vr-oyna xy-oyna" role="dialog" aria-modal="true" aria-labelledby="kh-oyna-nom">
         <div className="vr-oyna-bosh">
           <h3 id="kh-oyna-nom">{sarlavha}</h3>
-          <button type="button" className="mj-yop" onClick={onYop} aria-label="Yopish">
+          <button type="button" className="mj-yop" onClick={onYop} aria-label={t('Yopish')}>
             <X />
           </button>
         </div>
@@ -516,6 +528,7 @@ function TanlashOynasi({
   onYop: () => void;
   onSaqla: (v: string[] | null) => void;
 }) {
+  const t = useT();
   const ids = items.map((i) => i.id);
   const [hammasi, setHammasi] = useState(tanlov === null);
   const [belgilar, setBelgilar] = useState<string[]>(tanlanganlar(tanlov, ids));
@@ -525,8 +538,8 @@ function TanlashOynasi({
       <label className="kh-hammasi">
         <input type="checkbox" checked={hammasi} onChange={(e) => (setHammasi(e.target.checked), e.target.checked && setBelgilar(ids))} />
         <span>
-          <b>Hammasi</b>
-          <small>Keyin qo'shiladiganlari ham avtomatik kiradi</small>
+          <b>{t('Hammasi')}</b>
+          <small>{t("Keyin qo'shiladiganlari ham avtomatik kiradi")}</small>
         </span>
       </label>
       <ul className="kh-belgilar">
@@ -546,16 +559,16 @@ function TanlashOynasi({
           </li>
         ))}
       </ul>
-      {!hammasi && belgilar.length === 0 && <div className="yordam bm-ogoh">Hech narsa tanlanmagan — bu qism hisobotda bo'sh bo'ladi.</div>}
+      {!hammasi && belgilar.length === 0 && <div className="yordam bm-ogoh">{t("Hech narsa tanlanmagan — bu qism hisobotda bo'sh bo'ladi.")}</div>}
       <div className="vr-oyna-past">
         <span className="kh-soni">
-          {tanlangan.length}/{ids.length} tanlangan
+          {t('{n}/{jami} tanlangan', { n: tanlangan.length, jami: ids.length })}
         </span>
         <button type="button" className="btn ikkinchi" onClick={onYop}>
-          Bekor qilish
+          {t('Bekor qilish')}
         </button>
         <button type="button" className="btn" onClick={() => onSaqla(hammasi ? null : belgilar)}>
-          <Check /> Tayyor
+          <Check /> {t('Tayyor')}
         </button>
       </div>
     </Modal>
@@ -575,19 +588,28 @@ function OtishlarOynasi({
   onYop: () => void;
   onSaqla: (o: Otish[]) => void;
 }) {
+  const t = useT();
   const [royxat, setRoyxat] = useState(otishlar);
   const [menejer, setMenejer] = useState('*');
   const [voronka, setVoronka] = useState(katalog[0]?.nom ?? '');
   const bosqichlar = katalog.find((v) => v.nom === voronka)?.bosqichlar ?? [];
   const [dan, setDan] = useState(bosqichlar[0] ?? '');
   const [ga, setGa] = useState(bosqichlar[1] ?? '');
-  const xato = !voronka ? "Avval «Faol CRM voronkalari»da voronka qo'shing" : !dan || !ga ? 'Bosqichlarni tanlang' : dan === ga ? "«Qaysi bosqichdan» va «qaysi bosqichga» bir xil bo'lmasin" : royxat.some((o) => o.menejer === menejer && o.voronka === voronka && o.dan === dan && o.ga === ga) ? "Bu qoida allaqachon qo'shilgan" : null;
+  const xato = !voronka
+    ? t("Avval «Faol CRM voronkalari»da voronka qo'shing")
+    : !dan || !ga
+      ? t('Bosqichlarni tanlang')
+      : dan === ga
+        ? t("«Qaysi bosqichdan» va «qaysi bosqichga» bir xil bo'lmasin")
+        : royxat.some((o) => o.menejer === menejer && o.voronka === voronka && o.dan === dan && o.ga === ga)
+          ? t("Bu qoida allaqachon qo'shilgan")
+          : null;
   const v = (a: string[]) => a.map((x) => ({ qiymat: x, nom: x }));
 
   return (
-    <Modal sarlavha="Voronka bosqichlari harakati" onYop={onYop}>
+    <Modal sarlavha={t('Voronka bosqichlari harakati')} onYop={onYop}>
       {royxat.length === 0 ? (
-        <div className="cn-bosh-holat">Hali qoida yo'q.</div>
+        <div className="cn-bosh-holat">{t("Hali qoida yo'q.")}</div>
       ) : (
         <ul className="cn-royxat">
           {royxat.map((o) => (
@@ -595,13 +617,13 @@ function OtishlarOynasi({
               <span className="cn-nuqta" aria-hidden="true" />
               <div>
                 <small>
-                  {o.voronka} · {o.menejer === '*' ? 'barcha menejerlar' : seatlar.find((x) => x.id === o.menejer)?.displayName ?? 'menejer'}
+                  {o.voronka} · {o.menejer === '*' ? t('barcha menejerlar') : seatlar.find((x) => x.id === o.menejer)?.displayName ?? t('menejer')}
                 </small>
                 <b>
                   {o.dan} → {o.ga}
                 </b>
               </div>
-              <button type="button" className="bm-ikon xavf" aria-label="Qoidani o'chirish" onClick={() => setRoyxat((r) => r.filter((x) => x.id !== o.id))}>
+              <button type="button" className="bm-ikon xavf" aria-label={t("Qoidani o'chirish")} onClick={() => setRoyxat((r) => r.filter((x) => x.id !== o.id))}>
                 <Trash2 />
               </button>
             </li>
@@ -611,14 +633,14 @@ function OtishlarOynasi({
       <div className="cn-forma">
         <div className="cn-forma-panjara">
           <div className="maydon-blok">
-            <label htmlFor="kh-o-men">Menejer</label>
-            <TanlovMenyu id="kh-o-men" aria="Menejer" qiymat={menejer} variantlar={[{ qiymat: '*', nom: 'Barcha menejerlar' }, ...seatlar.map((x) => ({ qiymat: x.id, nom: x.displayName }))]} onOzgar={setMenejer} kenglik="100%" />
+            <label htmlFor="kh-o-men">{t('Menejer')}</label>
+            <TanlovMenyu id="kh-o-men" aria={t('Menejer')} qiymat={menejer} variantlar={[{ qiymat: '*', nom: t('Barcha menejerlar') }, ...seatlar.map((x) => ({ qiymat: x.id, nom: x.displayName }))]} onOzgar={setMenejer} kenglik="100%" />
           </div>
           <div className="maydon-blok">
-            <label htmlFor="kh-o-vor">Voronka</label>
+            <label htmlFor="kh-o-vor">{t('Voronka')}</label>
             <TanlovMenyu
               id="kh-o-vor"
-              aria="Voronka"
+              aria={t('Voronka')}
               qiymat={voronka}
               variantlar={v(katalog.map((x) => x.nom))}
               onOzgar={(x) => {
@@ -632,12 +654,12 @@ function OtishlarOynasi({
             />
           </div>
           <div className="maydon-blok">
-            <label htmlFor="kh-o-dan">Qaysi bosqichdan</label>
-            <TanlovMenyu id="kh-o-dan" aria="Qaysi bosqichdan" qiymat={dan} variantlar={v(bosqichlar)} onOzgar={setDan} kenglik="100%" disabled={!bosqichlar.length} />
+            <label htmlFor="kh-o-dan">{t('Qaysi bosqichdan')}</label>
+            <TanlovMenyu id="kh-o-dan" aria={t('Qaysi bosqichdan')} qiymat={dan} variantlar={v(bosqichlar)} onOzgar={setDan} kenglik="100%" disabled={!bosqichlar.length} />
           </div>
           <div className="maydon-blok">
-            <label htmlFor="kh-o-ga">Qaysi bosqichga</label>
-            <TanlovMenyu id="kh-o-ga" aria="Qaysi bosqichga" qiymat={ga} variantlar={v(bosqichlar)} onOzgar={setGa} kenglik="100%" disabled={!bosqichlar.length} />
+            <label htmlFor="kh-o-ga">{t('Qaysi bosqichga')}</label>
+            <TanlovMenyu id="kh-o-ga" aria={t('Qaysi bosqichga')} qiymat={ga} variantlar={v(bosqichlar)} onOzgar={setGa} kenglik="100%" disabled={!bosqichlar.length} />
           </div>
         </div>
         {xato && <div className="yordam bzl-xato">{xato}</div>}
@@ -648,16 +670,16 @@ function OtishlarOynasi({
             disabled={!!xato}
             onClick={() => setRoyxat((r) => [...r, { id: `o_${Date.now().toString(36)}`, menejer, voronka, dan, ga }])}
           >
-            <Plus /> Qoida qo'shish
+            <Plus /> {t("Qoida qo'shish")}
           </button>
         </div>
       </div>
       <div className="vr-oyna-past">
         <button type="button" className="btn ikkinchi" onClick={onYop}>
-          Bekor qilish
+          {t('Bekor qilish')}
         </button>
         <button type="button" className="btn" onClick={() => onSaqla(royxat)}>
-          <Check /> Tayyor
+          <Check /> {t('Tayyor')}
         </button>
       </div>
     </Modal>

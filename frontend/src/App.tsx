@@ -2,14 +2,16 @@ import { LogOut } from 'lucide-react';
 import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
+import { useT } from './i18n';
 import { Layout } from './components/Layout';
 import { SAHIFA } from './sahifalar';
 import { Login } from './pages/Login';
 
 export function App() {
   const { loading, user, business, logout } = useAuth();
+  const t = useT();
 
-  if (loading) return <div className="yuklanmoqda">Yuklanmoqda…</div>;
+  if (loading) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
 
   /**
    * FR-06: parol tiklash havolasi auth tekshiruvidan OLDIN keladi.
@@ -18,7 +20,7 @@ export function App() {
    */
   if (!user || !business) {
     return (
-      <Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}>
+      <Suspense fallback={<div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}>
       <Routes>
         <Route path="/parol-tiklash/:token" element={<SAHIFA.passwordReset />} />
         {/* FR-04: menejer aktivatsiyasi — hisob hali yo'q, shuning uchun bu yerda */}
@@ -42,7 +44,7 @@ export function App() {
    * aynan yangi mijoz uchun tanishuv eng kerakli.
    */
   const loyiha = (
-    <Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}>
+    <Suspense fallback={<div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}>
       <SAHIFA.loyiha />
     </Suspense>
   );
@@ -59,10 +61,10 @@ export function App() {
               <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12, marginBottom: 16 }}>
                 <span style={{ fontSize: 13, opacity: 0.7 }}>{user.email}</span>
                 <button className="btn ikkinchi kichik" onClick={() => void logout()}>
-                  <LogOut size={16} /> Chiqish
+                  <LogOut size={16} /> {t('Chiqish')}
                 </button>
               </div>
-              <Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}>
+              <Suspense fallback={<div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}>
                 <SAHIFA.onboarding />
               </Suspense>
             </div>
@@ -84,10 +86,10 @@ export function App() {
       {/* Kirgan odam (masalan rahbar) havolani ochsa ham sahifa ko'rinsin —
           aks holda u jimgina bosh sahifaga otilardi. Aktivatsiya sessiyani
           yangi menejernikiga almashtiradi. */}
-      <Route path="/aktivatsiya/:token" element={<Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}><SAHIFA.aktivatsiya /></Suspense>} />
+      <Route path="/aktivatsiya/:token" element={<Suspense fallback={<div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}><SAHIFA.aktivatsiya /></Suspense>} />
       <Route path="/loyiha" element={loyiha} />
       {/* Claude (MCP) ulanishiga ruxsat — kirmagan bo'lsa avval kirish ekrani chiqadi, URL saqlanadi */}
-      <Route path="/mcp/ruxsat" element={<Suspense fallback={<div className="yuklanmoqda">Yuklanmoqda…</div>}><SAHIFA.mcpRuxsat /></Suspense>} />
+      <Route path="/mcp/ruxsat" element={<Suspense fallback={<div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}><SAHIFA.mcpRuxsat /></Suspense>} />
       <Route element={<Layout />}>
         <Route path="/" element={rahbar ? <SAHIFA.dashboard /> : <SAHIFA.seatCabinet />} />
         <Route path="/sotuvchi/:seatId" element={<SAHIFA.seatCabinet />} />

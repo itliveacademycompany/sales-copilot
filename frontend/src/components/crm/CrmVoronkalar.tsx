@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { api, ApiError, type PlaybookBody, type PlaybookVersion } from '../../api';
 import { useAuth } from '../../auth';
 import { leadQualityYoz, natijaniOl, sanaVaqt, tozaBody, voronkalarniOl, type CrmNatijaSozlama, type CrmVoronka } from './crmMalumot';
+import { useT } from '../../i18n';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -19,6 +20,7 @@ import { leadQualityYoz, natijaniOl, sanaVaqt, tozaBody, voronkalarniOl, type Cr
 type Lq = { crmFaqatTanlangan?: boolean };
 
 export function CrmVoronkalar() {
+  const t = useT();
   const { business } = useAuth();
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
   const yozaOladi = business?.permissions.includes('playbook:write') ?? false;
@@ -40,14 +42,14 @@ export function CrmVoronkalar() {
     if (!base) return;
     try {
       const [p, vs] = await Promise.all([api.get<PlaybookBody>(`${base}/playbook`), api.get<PlaybookVersion[]>(`${base}/playbook/versions`).catch(() => [])]);
-      const t = tozaBody(p);
-      const v = voronkalarniOl(t).map((x) => ({ ...x, faol: x.faol !== false }));
-      const f = !!((t.leadQuality ?? {}) as Lq).crmFaqatTanlangan;
-      setPb(t);
+      const toza = tozaBody(p);
+      const v = voronkalarniOl(toza).map((x) => ({ ...x, faol: x.faol !== false }));
+      const f = !!((toza.leadQuality ?? {}) as Lq).crmFaqatTanlangan;
+      setPb(toza);
       setAsl({ faqat: f, v });
       setFaqat(f);
       setVoronkalar(v);
-      setNatija(natijaniOl(t));
+      setNatija(natijaniOl(toza));
       setNomlar({});
       setVersiya(vs.find((x) => x.isActive) ?? null);
     } catch (e) {
@@ -64,7 +66,7 @@ export function CrmVoronkalar() {
     return () => window.removeEventListener('beforeunload', f);
   }, [ozgargan]);
 
-  if (yoq) return <section className="card bm-karta bm-bosh-holat"><b>Playbook hali yaratilmagan</b></section>;
+  if (yoq) return <section className="card bm-karta bm-bosh-holat"><b>{t('Playbook hali yaratilmagan')}</b></section>;
   if (!pb || !natija) return <div className="card skelet" style={{ height: 420 }} aria-busy="true" />;
 
   const hisobda = (v: CrmVoronka) => !faqat || v.faol !== false;
@@ -73,7 +75,7 @@ export function CrmVoronkalar() {
 
   async function saqla() {
     if (!pb || !natija) return;
-    if (faqat && tanlangan === 0 && voronkalar.length > 0 && !window.confirm("Birorta voronka tanlanmagan — hech bir voronka hisobga olinmaydi. Davom etasizmi?")) return;
+    if (faqat && tanlangan === 0 && voronkalar.length > 0 && !window.confirm(t('Birorta voronka tanlanmagan — hech bir voronka hisobga olinmaydi. Davom etasizmi?'))) return;
     setBand(true);
     try {
       // O'chirilgan voronkalar CRM natija sozlamalaridan ham olib tashlanadi
@@ -85,15 +87,15 @@ export function CrmVoronkalar() {
       const body = tozaBody(leadQualityYoz(pb, { crmVoronkalar: voronkalar, crmNatija: n, crmFaqatTanlangan: faqat }));
       const v = await api.post<{ valid: boolean; errors?: Record<string, string[]> }>(`${base}/playbook/validate`, body);
       if (!v.valid) {
-        setXabar({ ton: 'xato', matn: Object.values(v.errors ?? {}).flat()[0] ?? 'Server tekshiruvi xato topdi' });
+        setXabar({ ton: 'xato', matn: Object.values(v.errors ?? {}).flat()[0] ?? t('Server tekshiruvi xato topdi') });
         return;
       }
       await api.post(`${base}/playbook`, { ...body, changeNote: 'Faol CRM voronkalari yangilandi' });
       await yukla();
-      setXabar({ ton: 'ok', matn: 'Saqlandi — yangi versiya faollashtirildi' });
+      setXabar({ ton: 'ok', matn: t('Saqlandi — yangi versiya faollashtirildi') });
       setTimeout(() => setXabar((x) => (x?.ton === 'ok' ? null : x)), 3500);
     } catch (e) {
-      setXabar({ ton: 'xato', matn: e instanceof ApiError ? e.message : "Saqlanmadi — qayta urinib ko'ring" });
+      setXabar({ ton: 'xato', matn: e instanceof ApiError ? e.message : t("Saqlanmadi — qayta urinib ko'ring") });
     } finally {
       setBand(false);
     }
@@ -104,22 +106,22 @@ export function CrmVoronkalar() {
   return (
     <div className="as">
       <section className="card as-karta">
-        <h2 className="as-sarlavha">Faol CRM voronkalari</h2>
+        <h2 className="as-sarlavha">{t('Faol CRM voronkalari')}</h2>
         <div className="as-meta">
-          {versiya && <span className="bm-versiya">Versiya {versiya.version}</span>}
-          <span>Yangilangan: {sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt)}</span>
-          {ozgargan && <span className="bm-qoralama">Saqlanmagan o'zgarishlar</span>}
+          {versiya && <span className="bm-versiya">{t('Versiya {n}', { n: versiya.version })}</span>}
+          <span>{t('Yangilangan: {sana}', { sana: sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt) })}</span>
+          {ozgargan && <span className="bm-qoralama">{t("Saqlanmagan o'zgarishlar")}</span>}
         </div>
         <div className="as-diqqat">
           <TriangleAlert aria-hidden="true" />
-          <span>Bu sozlamalar hisobot va tahlilda qaysi voronkalar hisobga olinishini belgilaydi. Har bir saqlash yangi playbook versiyasini yaratadi.</span>
+          <span>{t('Bu sozlamalar hisobot va tahlilda qaysi voronkalar hisobga olinishini belgilaydi. Har bir saqlash yangi playbook versiyasini yaratadi.')}</span>
         </div>
       </section>
 
       <div className="cn-bosh">
         <div>
-          <h3>Faol CRM voronkalari</h3>
-          <p>CRM sahifalari, hisobotlar va qo'ng'iroq tahlilida hisobga olinadigan voronkalarni tanlang.</p>
+          <h3>{t('Faol CRM voronkalari')}</h3>
+          <p>{t("CRM sahifalari, hisobotlar va qo'ng'iroq tahlilida hisobga olinadigan voronkalarni tanlang.")}</p>
         </div>
         {yozaOladi && (
           <div className="as-bosh-amal">
@@ -135,11 +137,11 @@ export function CrmVoronkalar() {
                   setNomlar({});
                 }}
               >
-                <RefreshCcw /> Bekor qilish
+                <RefreshCcw /> {t('Bekor qilish')}
               </button>
             )}
             <button type="button" className="btn" disabled={!ozgargan || band} onClick={() => void saqla()}>
-              <Check /> {band ? 'Saqlanmoqda…' : 'Saqlash'}
+              <Check /> {band ? t('Saqlanmoqda…') : t('Saqlash')}
             </button>
           </div>
         )}
@@ -153,18 +155,16 @@ export function CrmVoronkalar() {
       <div className="cn-ogoh">
         <TriangleAlert aria-hidden="true" />
         <div>
-          <b>O'chirilgan voronkalar hisobga olinmaydi</b>
+          <b>{t("O'chirilgan voronkalar hisobga olinmaydi")}</b>
           <p>
-            Saqlagandan keyin bu voronkalardagi lidlar va bog'langan qo'ng'iroqlar CRM sahifalari, hisobotlar va qo'ng'iroq tahlilida ko'rinmaydi. Voronkani
-            istalgan vaqtda qayta yoqish mumkin.
+            {t("Saqlagandan keyin bu voronkalardagi lidlar va bog'langan qo'ng'iroqlar CRM sahifalari, hisobotlar va qo'ng'iroq tahlilida ko'rinmaydi. Voronkani istalgan vaqtda qayta yoqish mumkin.")}
           </p>
         </div>
       </div>
       <div className="cn-info">
         <Info aria-hidden="true" />
         <span>
-          CRM hali ulanmagan — voronkalar CRM'dan avtomatik kelmaydi, ularni shu yerda qo'shasiz. Bu katalog «CRM natija bosqichlari» bilan umumiy. Lidlar
-          soni CRM ulanganda paydo bo'ladi.
+          {t("CRM hali ulanmagan — voronkalar CRM'dan avtomatik kelmaydi, ularni shu yerda qo'shasiz. Bu katalog «CRM natija bosqichlari» bilan umumiy. Lidlar soni CRM ulanganda paydo bo'ladi.")}
         </span>
       </div>
 
@@ -172,56 +172,57 @@ export function CrmVoronkalar() {
         <div className="cv-sozlama-bosh">
           <div>
             <div className="cv-nom">
-              <b>Faqat tanlangan voronkalar bilan ishlash</b>
-              <span className={`qo-teg ${faqat ? 'yaxshi' : ''}`}>{faqat ? 'Faqat tanlanganlar' : 'Barcha voronkalar hisobga olinadi'}</span>
+              <b>{t('Faqat tanlangan voronkalar bilan ishlash')}</b>
+              <span className={`qo-teg ${faqat ? 'yaxshi' : ''}`}>{faqat ? t('Faqat tanlanganlar') : t('Barcha voronkalar hisobga olinadi')}</span>
             </div>
-            <p>Bu sozlama o'chirilgan bo'lsa, CRMdan kelgan barcha voronkalar hisobga olinadi.</p>
+            <p>{t("Bu sozlama o'chirilgan bo'lsa, CRMdan kelgan barcha voronkalar hisobga olinadi.")}</p>
           </div>
           <label className="vr-almash bn-almash">
-            <input type="checkbox" role="switch" aria-label="Faqat tanlangan voronkalar bilan ishlash" checked={faqat} disabled={!yozaOladi} onChange={(e) => setFaqat(e.target.checked)} />
+            <input type="checkbox" role="switch" aria-label={t('Faqat tanlangan voronkalar bilan ishlash')} checked={faqat} disabled={!yozaOladi} onChange={(e) => setFaqat(e.target.checked)} />
             <span className="vr-almash-yol" aria-hidden="true" />
           </label>
         </div>
         <div className="cv-statlar">
           <div className="cn-stat">
-            <span>Tanlangan voronkalar</span>
+            <span>{t('Tanlangan voronkalar')}</span>
             <b>
               {tanlangan} / {voronkalar.length}
             </b>
           </div>
           <div className="cn-stat">
-            <span>Hisobga olinadigan ochiq lidlar</span>
+            <span>{t('Hisobga olinadigan ochiq lidlar')}</span>
             <b>0</b>
-            <small>CRM ulanmagan</small>
+            <small>{t('CRM ulanmagan')}</small>
           </div>
           <div className="cn-stat">
-            <span>Hisobotga kirmaydigan ochiq lidlar</span>
+            <span>{t('Hisobotga kirmaydigan ochiq lidlar')}</span>
             <b>0</b>
-            <small>CRM ulanmagan</small>
+            <small>{t('CRM ulanmagan')}</small>
           </div>
         </div>
       </section>
 
       {ochiriladigan.length > 0 && (
         <div className="ls-ogoh">
-          <TriangleAlert /> Saqlanganda katalogdan olib tashlanadi: {ochiriladigan.join(', ')} — ularga bog'langan CRM natija bosqichlari ham o'chadi.
+          <TriangleAlert />{' '}
+          {t("Saqlanganda katalogdan olib tashlanadi: {r} — ularga bog'langan CRM natija bosqichlari ham o'chadi.", { r: ochiriladigan.join(', ') })}
         </div>
       )}
 
       <div className="cv-royxat">
-        {voronkalar.length === 0 && <div className="cn-bosh-holat">Hali voronka yo'q — «Voronka qo'shish» orqali CRM voronkalaringizni kiriting.</div>}
+        {voronkalar.length === 0 && <div className="cn-bosh-holat">{t("Hali voronka yo'q — «Voronka qo'shish» orqali CRM voronkalaringizni kiriting.")}</div>}
         {voronkalar.map((v) => {
           const h = hisobda(v);
           return (
             <article key={v.nom} className={`cv-voronka${h ? '' : ' ochiq-emas'}`}>
               <div className="cv-voronka-bosh">
-                <label className={`cv-belgi${faqat ? '' : ' qulf'}`} title={faqat ? undefined : "Avval «Faqat tanlangan voronkalar bilan ishlash»ni yoqing"}>
+                <label className={`cv-belgi${faqat ? '' : ' qulf'}`} title={faqat ? undefined : t('Avval «Faqat tanlangan voronkalar bilan ishlash»ni yoqing')}>
                   <input
                     type="checkbox"
                     checked={v.faol !== false}
                     disabled={!faqat || !yozaOladi}
                     onChange={(e) => setVoronkalar((arr) => arr.map((x) => (x.nom === v.nom ? { ...x, faol: e.target.checked } : x)))}
-                    aria-label={`${v.nom} — hisobga olish`}
+                    aria-label={t('{nom} — hisobga olish', { nom: v.nom })}
                   />
                   <span aria-hidden="true">
                     <Check />
@@ -229,20 +230,23 @@ export function CrmVoronkalar() {
                   <b>{v.nom}</b>
                 </label>
                 <div className="cv-o">
-                  <span className={`qo-teg ${h ? 'yaxshi' : ''}`}>{h ? 'Hisobga olinadi' : 'Hisobga olinmaydi'}</span>
+                  <span className={`qo-teg ${h ? 'yaxshi' : ''}`}>{h ? t('Hisobga olinadi') : t('Hisobga olinmaydi')}</span>
                   {yozaOladi && (
                     <>
-                      <button type="button" className="bm-ikon" aria-label={`${v.nom} — tahrirlash`} title="Tahrirlash" onClick={() => setOyna({ v })}>
+                      <button type="button" className="bm-ikon" aria-label={t('{nom} — tahrirlash', { nom: v.nom })} title={t('Tahrirlash')} onClick={() => setOyna({ v })}>
                         <Pencil />
                       </button>
                       <button
                         type="button"
                         className="bm-ikon xavf"
-                        aria-label={`${v.nom} — o'chirish`}
-                        title="Katalogdan o'chirish"
+                        aria-label={t("{nom} — o'chirish", { nom: v.nom })}
+                        title={t("Katalogdan o'chirish")}
                         onClick={() => {
                           const n = natijadagi(v.nom);
-                          if (window.confirm(`«${v.nom}» katalogdan o'chirilsinmi?${n ? `\n${n} ta CRM natija bosqichi ham o'chadi.` : ''}\nO'zgarish «Saqlash» bosilganda kuchga kiradi.`))
+                          const savol = n
+                            ? t("«{nom}» katalogdan o'chirilsinmi?\n{n} ta CRM natija bosqichi ham o'chadi.\nO'zgarish «Saqlash» bosilganda kuchga kiradi.", { nom: v.nom, n })
+                            : t("«{nom}» katalogdan o'chirilsinmi?\nO'zgarish «Saqlash» bosilganda kuchga kiradi.", { nom: v.nom });
+                          if (window.confirm(savol))
                             setVoronkalar((arr) => arr.filter((x) => x.nom !== v.nom));
                         }}
                       >
@@ -254,15 +258,15 @@ export function CrmVoronkalar() {
               </div>
               <div className="cv-qiymatlar">
                 <div>
-                  <small>Bosqichlar</small>
+                  <small>{t('Bosqichlar')}</small>
                   <b>{v.bosqichlar.length}</b>
                 </div>
                 <div>
-                  <small>Jami lidlar</small>
+                  <small>{t('Jami lidlar')}</small>
                   <b>0</b>
                 </div>
                 <div>
-                  <small>Ochiq lidlar</small>
+                  <small>{t('Ochiq lidlar')}</small>
                   <b>0</b>
                 </div>
               </div>
@@ -280,7 +284,7 @@ export function CrmVoronkalar() {
         })}
         {yozaOladi && (
           <button type="button" className="cn-qoshish" onClick={() => setOyna({ v: null })}>
-            <Plus /> Voronka qo'shish
+            <Plus /> {t("Voronka qo'shish")}
           </button>
         )}
       </div>
@@ -319,6 +323,7 @@ export function CrmVoronkalar() {
 }
 
 function VoronkaOynasi({ v, boshqaNomlar, onYop, onSaqla }: { v: CrmVoronka | null; boshqaNomlar: string[]; onYop: () => void; onSaqla: (v: CrmVoronka) => void }) {
+  const t = useT();
   const [nom, setNom] = useState(v?.nom ?? '');
   const [bosqichlar, setBosqichlar] = useState<string[]>(v?.bosqichlar ?? []);
   const [yangi, setYangi] = useState('');
@@ -330,10 +335,10 @@ function VoronkaOynasi({ v, boshqaNomlar, onYop, onSaqla }: { v: CrmVoronka | nu
   }, [onYop]);
 
   const n = nom.trim();
-  const xato = n.length < 2 ? 'Voronka nomi kamida 2 belgi' : boshqaNomlar.some((x) => x.toLowerCase() === n.toLowerCase()) ? 'Bunday voronka allaqachon bor' : null;
+  const xato = n.length < 2 ? t('Voronka nomi kamida 2 belgi') : boshqaNomlar.some((x) => x.toLowerCase() === n.toLowerCase()) ? t('Bunday voronka allaqachon bor') : null;
   const qosh = () => {
-    const t = yangi.trim().slice(0, 80);
-    if (t && !bosqichlar.some((x) => x.toLowerCase() === t.toLowerCase())) setBosqichlar((a) => [...a, t]);
+    const b = yangi.trim().slice(0, 80);
+    if (b && !bosqichlar.some((x) => x.toLowerCase() === b.toLowerCase())) setBosqichlar((a) => [...a, b]);
     setYangi('');
   };
 
@@ -352,24 +357,24 @@ function VoronkaOynasi({ v, boshqaNomlar, onYop, onSaqla }: { v: CrmVoronka | nu
         }}
       >
         <div className="vr-oyna-bosh">
-          <h3 id="cv-oyna-nom">{v ? 'Voronkani tahrirlash' : "Voronka qo'shish"}</h3>
-          <button type="button" className="mj-yop" onClick={onYop} aria-label="Yopish">
+          <h3 id="cv-oyna-nom">{v ? t('Voronkani tahrirlash') : t("Voronka qo'shish")}</h3>
+          <button type="button" className="mj-yop" onClick={onYop} aria-label={t('Yopish')}>
             <X />
           </button>
         </div>
         <div className="maydon-blok">
-          <label htmlFor="cv-nom">Voronka nomi</label>
-          <input id="cv-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Masalan: Call-Center" maxLength={80} autoFocus aria-invalid={urindi && !!xato} />
+          <label htmlFor="cv-nom">{t('Voronka nomi')}</label>
+          <input id="cv-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder={t('Masalan: Call-Center')} maxLength={80} autoFocus aria-invalid={urindi && !!xato} />
         </div>
         <div className="xy-kiritish">
-          <label htmlFor="cv-bosqich">Bosqichlar (CRM'dagi tartibda)</label>
-          <small>Bosqich nomini yozib Enter bosing. Tartib CRM'dagidek bo'lsin.</small>
+          <label htmlFor="cv-bosqich">{t("Bosqichlar (CRM'dagi tartibda)")}</label>
+          <small>{t("Bosqich nomini yozib Enter bosing. Tartib CRM'dagidek bo'lsin.")}</small>
           {bosqichlar.length > 0 && (
             <div className="xy-tahrir-teglar">
               {bosqichlar.map((b, i) => (
                 <span key={b} className="as-variant">
                   {i + 1}. {b}
-                  <button type="button" aria-label={`${b} — olib tashlash`} onClick={() => setBosqichlar((a) => a.filter((x) => x !== b))}>
+                  <button type="button" aria-label={t('{teg} — olib tashlash', { teg: b })} onClick={() => setBosqichlar((a) => a.filter((x) => x !== b))}>
                     <X />
                   </button>
                 </span>
@@ -387,21 +392,21 @@ function VoronkaOynasi({ v, boshqaNomlar, onYop, onSaqla }: { v: CrmVoronka | nu
                   qosh();
                 }
               }}
-              placeholder="Masalan: YANGI MUROJAT"
+              placeholder={t('Masalan: YANGI MUROJAT')}
               maxLength={80}
             />
             <button type="button" className="btn ikkinchi" onClick={qosh} disabled={!yangi.trim()}>
-              Qo'shish
+              {t("Qo'shish")}
             </button>
           </div>
         </div>
         {urindi && xato && <div className="yordam bzl-xato">{xato}</div>}
         <div className="vr-oyna-past">
           <button type="button" className="btn ikkinchi" onClick={onYop}>
-            Bekor qilish
+            {t('Bekor qilish')}
           </button>
           <button type="submit" className="btn">
-            Tayyor
+            {t('Tayyor')}
           </button>
         </div>
       </form>

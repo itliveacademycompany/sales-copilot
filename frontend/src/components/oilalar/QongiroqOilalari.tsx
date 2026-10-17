@@ -5,6 +5,7 @@ import { api, ApiError, type CallFamily, type ConversationRow, type PlaybookBody
 import { useAuth } from '../../auth';
 import { TanlovMenyu } from '../analitika/Ochiluvchi';
 import { tafsilotOl } from '../tafsilotKesh';
+import { joyla, tarjima, useT } from '../../i18n';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -109,6 +110,7 @@ const sanaVaqt = (iso: string | null | undefined) => {
 type Namuna = { kim: string; matn: string };
 
 export function QongiroqOilalari() {
+  const t = useT();
   const { business } = useAuth();
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
   const yozaOladi = business?.permissions.includes('playbook:write') ?? false;
@@ -129,9 +131,9 @@ export function QongiroqOilalari() {
       setVersiya(vs.find((v) => v.isActive) ?? null);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) setYoq(true);
-      else setXabar({ ton: 'xato', matn: "Ma'lumotni yuklab bo'lmadi" });
+      else setXabar({ ton: 'xato', matn: t("Ma'lumotni yuklab bo'lmadi") });
     }
-  }, [base]);
+  }, [base, t]);
   useEffect(() => void yukla(), [yukla]);
 
   // So'nggi tahlil qilingan suhbatlardan har oila uchun 2 tadan haqiqiy namuna
@@ -149,12 +151,12 @@ export function QongiroqOilalari() {
         const navbat = r.conversations.filter((c) => c.summary);
         for (let i = 0; i < navbat.length; i += 6) {
           const d = await Promise.all(navbat.slice(i, i + 6).map((c) => tafsilotOl(base, c.id).catch(() => null)));
-          for (const t of d) {
-            const k = t?.analysis?.callFamily;
-            const matn = t?.analysis?.summary ?? t?.conversation.summary;
+          for (const tf of d) {
+            const k = tf?.analysis?.callFamily;
+            const matn = tf?.analysis?.summary ?? tf?.conversation.summary;
             if (!k || !matn) continue;
             const ro = m.get(k) ?? [];
-            if (ro.length < 2) ro.push({ kim: t.conversation.managerName ?? (t.conversation.seatId ? ism.get(t.conversation.seatId) : null) ?? 'Menejer', matn });
+            if (ro.length < 2) ro.push({ kim: tf.conversation.managerName ?? (tf.conversation.seatId ? ism.get(tf.conversation.seatId) : null) ?? tarjima('Menejer'), matn });
             m.set(k, ro);
           }
           if (tirik) setNamunalar(new Map(m));
@@ -174,8 +176,8 @@ export function QongiroqOilalari() {
     return (
       <section className="card bm-karta bm-bosh-holat">
         <MessagesSquare />
-        <b>Playbook hali yaratilmagan</b>
-        <span>Qo'ng'iroq oilalari playbook bilan birga onboarding jarayonida yaratiladi.</span>
+        <b>{t('Playbook hali yaratilmagan')}</b>
+        <span>{t("Qo'ng'iroq oilalari playbook bilan birga onboarding jarayonida yaratiladi.")}</span>
       </section>
     );
   if (!pb) return <div className="card skelet" style={{ height: 380 }} aria-busy="true" />;
@@ -191,7 +193,7 @@ export function QongiroqOilalari() {
       const body = tozaBody(yangi);
       const v = await api.post<{ valid: boolean; errors?: Record<string, string[]> }>(`${base}/playbook/validate`, body);
       if (!v.valid) {
-        bildir('xato', Object.values(v.errors ?? {}).flat()[0] ?? 'Server tekshiruvi xato topdi');
+        bildir('xato', Object.values(v.errors ?? {}).flat()[0] ?? t('Server tekshiruvi xato topdi'));
         return false;
       }
       await api.post(`${base}/playbook`, { ...body, changeNote: izoh });
@@ -199,7 +201,7 @@ export function QongiroqOilalari() {
       bildir('ok', muvaffaqiyat);
       return true;
     } catch (e) {
-      bildir('xato', e instanceof ApiError ? e.message : "Saqlanmadi — qayta urinib ko'ring");
+      bildir('xato', e instanceof ApiError ? e.message : t("Saqlanmadi — qayta urinib ko'ring"));
       return false;
     } finally {
       setBand(false);
@@ -234,20 +236,20 @@ export function QongiroqOilalari() {
         <div className="qo-bosh">
           <div className="qo-nom">
             <h3>{o.nom}</h3>
-            <span className={`qo-teg ${o.scored ? 'yaxshi' : 'orta'}`}>{o.scored ? "Baholash mezoni bo'yicha baholanadi" : "Baholash mezoni bo'yicha baholanmaydi"}</span>
-            <span className="qo-teg info">{o.guruh}</span>
-            {mezonSoni(o.key) > 0 && <span className="qo-teg">{mezonSoni(o.key)} ta maxsus mezon</span>}
+            <span className={`qo-teg ${o.scored ? 'yaxshi' : 'orta'}`}>{o.scored ? t("Baholash mezoni bo'yicha baholanadi") : t("Baholash mezoni bo'yicha baholanmaydi")}</span>
+            <span className="qo-teg info">{t(o.guruh)}</span>
+            {mezonSoni(o.key) > 0 && <span className="qo-teg">{t('{n} ta maxsus mezon', { n: mezonSoni(o.key) })}</span>}
           </div>
           {yozaOladi && (
             <div className="xy-amallar">
-              <button type="button" className="bm-ikon" aria-label={`${o.nom} — tahrirlash`} title="Tahrirlash" disabled={band} onClick={() => setOyna({ tur: 'forma', o })}>
+              <button type="button" className="bm-ikon" aria-label={t('{nom} — tahrirlash', { nom: o.nom })} title={t('Tahrirlash')} disabled={band} onClick={() => setOyna({ tur: 'forma', o })}>
                 <Pencil />
               </button>
               <button
                 type="button"
                 className="bm-ikon xavf"
-                aria-label={`${o.nom} — o'chirish`}
-                title={oilalar.length <= 1 ? "Oxirgi oilani o'chirib bo'lmaydi" : "O'chirish"}
+                aria-label={t("{nom} — o'chirish", { nom: o.nom })}
+                title={oilalar.length <= 1 ? t("Oxirgi oilani o'chirib bo'lmaydi") : t("O'chirish")}
                 disabled={band || oilalar.length <= 1}
                 onClick={() => setOyna({ tur: 'ochir', o })}
               >
@@ -256,15 +258,15 @@ export function QongiroqOilalari() {
             </div>
           )}
         </div>
-        <p className={o.tavsif ? 'xy-tavsif' : 'xy-tavsif bosh'}>{o.tavsif || "Tavsif kiritilmagan — AI faqat nom bo'yicha ajratadi."}</p>
+        <p className={o.tavsif ? 'xy-tavsif' : 'xy-tavsif bosh'}>{o.tavsif || t("Tavsif kiritilmagan — AI faqat nom bo'yicha ajratadi.")}</p>
         <div className="qo-qutilar">
-          {o.oqim && <Quti nom="Ish oqimi oilasi" qiymat={o.oqim} />}
-          {o.domen && <Quti nom="Suhbat domeni" qiymat={o.domen} />}
-          {!o.scored && <Quti nom="Chiqarish sababi" qiymat={chiqarishSababi(o)} />}
+          {o.oqim && <Quti nom={t('Ish oqimi oilasi')} qiymat={t(o.oqim)} />}
+          {o.domen && <Quti nom={t('Suhbat domeni')} qiymat={t(o.domen)} />}
+          {!o.scored && <Quti nom={t('Chiqarish sababi')} qiymat={t(chiqarishSababi(o))} />}
         </div>
         {nm.length > 0 && (
           <div className="qo-namunalar">
-            <span className="bm-yuqori">Namuna iboralar</span>
+            <span className="bm-yuqori">{t('Namuna iboralar')}</span>
             <div>
               {nm.map((n, i) => (
                 <figure key={i} className="qo-namuna">
@@ -282,16 +284,15 @@ export function QongiroqOilalari() {
   return (
     <div className="as">
       <section className="card as-karta">
-        <h2 className="as-sarlavha">Qo'ng'iroq oilalari</h2>
+        <h2 className="as-sarlavha">{t("Qo'ng'iroq oilalari")}</h2>
         <div className="as-meta">
-          {versiya && <span className="bm-versiya">Versiya {versiya.version}</span>}
-          <span>Yangilangan: {sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt)}</span>
+          {versiya && <span className="bm-versiya">{t('Versiya {n}', { n: versiya.version })}</span>}
+          <span>{t('Yangilangan: {sana}', { sana: sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt) })}</span>
         </div>
         <div className="as-diqqat">
           <TriangleAlert aria-hidden="true" />
           <span>
-            Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Har bir saqlash yangi playbook versiyasini yaratadi —
-            eski baholar o'zgarmaydi.
+            {t("Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Har bir saqlash yangi playbook versiyasini yaratadi — eski baholar o'zgarmaydi.")}
           </span>
         </div>
       </section>
@@ -299,18 +300,18 @@ export function QongiroqOilalari() {
       <section className="card as-karta">
         <div className="as-bosh">
           <div>
-            <h3>Qo'ng'iroq oilalari</h3>
-            <p>AI qo'ng'iroqlarni to'g'ri turga ajratishi va qaysi suhbatlar baholash mezoni bilan baholanishini belgilovchi ro'yxat.</p>
+            <h3>{t("Qo'ng'iroq oilalari")}</h3>
+            <p>{t("AI qo'ng'iroqlarni to'g'ri turga ajratishi va qaysi suhbatlar baholash mezoni bilan baholanishini belgilovchi ro'yxat.")}</p>
           </div>
           {yozaOladi && (
             <div className="as-bosh-amal">
               <button type="button" className="btn" disabled={band} onClick={() => setOyna({ tur: 'forma', o: null })}>
-                <Plus /> Qo'ng'iroq oilasini qo'shish
+                <Plus /> {t("Qo'ng'iroq oilasini qo'shish")}
               </button>
             </div>
           )}
         </div>
-        <div className="xy-soni">{oilalar.length ? `${oilalar.length} ta qo'ng'iroq oilasi sozlangan` : "Hali qo'ng'iroq oilasi yo'q"}</div>
+        <div className="xy-soni">{oilalar.length ? t("{n} ta qo'ng'iroq oilasi sozlangan", { n: oilalar.length }) : t("Hali qo'ng'iroq oilasi yo'q")}</div>
         {xabar && (
           <div className={`bm-xabar as-xabar ${xabar.ton}`} role={xabar.ton === 'xato' ? 'alert' : 'status'}>
             {xabar.ton === 'ok' ? <CircleCheck /> : <TriangleAlert />} {xabar.matn}
@@ -320,10 +321,10 @@ export function QongiroqOilalari() {
 
       {oilalar.length > 0 && (
         <section className="card qo-royxat">
-          <Guruh ton="yaxshi" nom="Baholanadigan qo'ng'iroqlar" izoh="Baholash mezonlari bilan baholanadigan qo'ng'iroq oilalari shu yerda ko'rinadi." soni={baholanadi.length} />
-          {baholanadi.length ? baholanadi.map(qator) : <div className="qo-bosh-guruh">Baholanadigan oila yo'q — hech bir suhbat baholanmaydi.</div>}
-          <Guruh nom="Baholanmaydigan qo'ng'iroqlar" izoh="Baholash mezonidan chiqarilgan operatsion yoki boshqa oqimlarga tegishli oilalar shu yerda ko'rinadi." soni={baholanmaydi.length} />
-          {baholanmaydi.length ? baholanmaydi.map(qator) : <div className="qo-bosh-guruh">Baholanmaydigan oila yo'q.</div>}
+          <Guruh ton="yaxshi" nom={t("Baholanadigan qo'ng'iroqlar")} izoh={t("Baholash mezonlari bilan baholanadigan qo'ng'iroq oilalari shu yerda ko'rinadi.")} soni={baholanadi.length} />
+          {baholanadi.length ? baholanadi.map(qator) : <div className="qo-bosh-guruh">{t("Baholanadigan oila yo'q — hech bir suhbat baholanmaydi.")}</div>}
+          <Guruh nom={t("Baholanmaydigan qo'ng'iroqlar")} izoh={t("Baholash mezonidan chiqarilgan operatsion yoki boshqa oqimlarga tegishli oilalar shu yerda ko'rinadi.")} soni={baholanmaydi.length} />
+          {baholanmaydi.length ? baholanmaydi.map(qator) : <div className="qo-bosh-guruh">{t("Baholanmaydigan oila yo'q.")}</div>}
         </section>
       )}
 
@@ -341,7 +342,7 @@ export function QongiroqOilalari() {
             const ok = await nashr(
               oilalarniYoz(os),
               eski ? `Qo'ng'iroq oilasi tahrirlandi: ${yangi.nom}` : `Qo'ng'iroq oilasi qo'shildi: ${yangi.nom}`,
-              eski ? 'Saqlandi — yangi versiya faollashtirildi' : `«${yangi.nom}» qo'shildi`,
+              eski ? t('Saqlandi — yangi versiya faollashtirildi') : t("«{nom}» qo'shildi", { nom: yangi.nom }),
             );
             if (ok) setOyna(null);
           }}
@@ -355,7 +356,7 @@ export function QongiroqOilalari() {
           onYop={() => setOyna(null)}
           bosqichlar={bosQolganBosqichlar(ochirilgandan(oyna.o.key))}
           onOchir={async () => {
-            const ok = await nashr(ochirilgandan(oyna.o.key), `Qo'ng'iroq oilasi o'chirildi: ${oyna.o.nom}`, `«${oyna.o.nom}» o'chirildi`);
+            const ok = await nashr(ochirilgandan(oyna.o.key), `Qo'ng'iroq oilasi o'chirildi: ${oyna.o.nom}`, t("«{nom}» o'chirildi", { nom: oyna.o.nom }));
             if (ok) setOyna(null);
           }}
         />
@@ -365,13 +366,14 @@ export function QongiroqOilalari() {
 }
 
 function Guruh({ nom, izoh, soni, ton }: { nom: string; izoh: string; soni: number; ton?: string }) {
+  const t = useT();
   return (
     <header className={`qo-guruh${ton ? ` ${ton}` : ''}`}>
       <div>
         <h4>{nom}</h4>
         <p>{izoh}</p>
       </div>
-      <span className="qo-soni">{soni} ta oila</span>
+      <span className="qo-soni">{t('{n} ta oila', { n: soni })}</span>
     </header>
   );
 }
@@ -388,6 +390,7 @@ function Quti({ nom, qiymat }: { nom: string; qiymat: string }) {
 // ─── Modal asosi ────────────────────────────────────────────────────────────
 
 function Modal({ children, onYop, sarlavha, keng, onSubmit }: { children: ReactNode; onYop: () => void; sarlavha: string; keng?: boolean; onSubmit?: (e: FormEvent) => void }) {
+  const t = useT();
   useEffect(() => {
     const f = (e: KeyboardEvent) => e.key === 'Escape' && onYop();
     window.addEventListener('keydown', f);
@@ -400,7 +403,7 @@ function Modal({ children, onYop, sarlavha, keng, onSubmit }: { children: ReactN
         <div className="vr-oyna-bosh">
           <h3 id="qo-oyna-nom">{sarlavha}</h3>
           {keng && (
-            <button type="button" className="mj-yop" onClick={onYop} aria-label="Yopish">
+            <button type="button" className="mj-yop" onClick={onYop} aria-label={t('Yopish')}>
               <X />
             </button>
           )}
@@ -415,6 +418,7 @@ function Modal({ children, onYop, sarlavha, keng, onSubmit }: { children: ReactN
 // ─── Qo'shish / tahrirlash ──────────────────────────────────────────────────
 
 function OilaOynasi({ o, boshqaNomlar, band, onYop, onSaqla }: { o: Oila | null; boshqaNomlar: string[]; band: boolean; onYop: () => void; onSaqla: (o: Oila) => void }) {
+  const t = useT();
   const [nom, setNom] = useState(o?.nom ?? '');
   const [guruh, setGuruh] = useState(o?.guruh ?? 'Baholanadigan');
   const [scored, setScored] = useState(o?.scored ?? true);
@@ -425,8 +429,8 @@ function OilaOynasi({ o, boshqaNomlar, band, onYop, onSaqla }: { o: Oila | null;
 
   const maks = TAVSIF_MAKS - (belgilar({ guruh, oqim, domen }).length + 1);
   const n = nom.trim();
-  const nomXato = n.length < 2 ? 'Oila nomi kamida 2 belgi' : boshqaNomlar.some((b) => b.toLowerCase() === n.toLowerCase()) ? 'Bunday oila allaqachon bor' : null;
-  const tavsifXato = tavsif.trim().length > maks ? `Tavsif ${maks} belgidan oshmasin` : null;
+  const nomXato = n.length < 2 ? t('Oila nomi kamida 2 belgi') : boshqaNomlar.some((b) => b.toLowerCase() === n.toLowerCase()) ? t('Bunday oila allaqachon bor') : null;
+  const tavsifXato = tavsif.trim().length > maks ? t('Tavsif {n} belgidan oshmasin', { n: maks }) : null;
   const xato = nomXato ?? tavsifXato;
 
   // Guruh tanlanganda baholash rejimi mantiqan moslashadi (foydalanuvchi keyin o'zgartira oladi)
@@ -437,7 +441,7 @@ function OilaOynasi({ o, boshqaNomlar, band, onYop, onSaqla }: { o: Oila | null;
 
   return (
     <Modal
-      sarlavha={o ? "Qo'ng'iroq oilasini tahrirlash" : "Qo'ng'iroq oilasini qo'shish"}
+      sarlavha={o ? t("Qo'ng'iroq oilasini tahrirlash") : t("Qo'ng'iroq oilasini qo'shish")}
       keng
       onYop={onYop}
       onSubmit={(e) => {
@@ -448,54 +452,54 @@ function OilaOynasi({ o, boshqaNomlar, band, onYop, onSaqla }: { o: Oila | null;
     >
       <div className="qo-forma">
         <div className="maydon-blok">
-          <label htmlFor="qo-nom">Oila nomi</label>
-          <input id="qo-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Masalan: Yopish" maxLength={120} autoFocus aria-invalid={urindi && !!nomXato} />
+          <label htmlFor="qo-nom">{t('Oila nomi')}</label>
+          <input id="qo-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder={t('Masalan: Yopish')} maxLength={120} autoFocus aria-invalid={urindi && !!nomXato} />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="qo-guruh">Guruh</label>
-          <TanlovMenyu id="qo-guruh" aria="Guruh" qiymat={guruh} variantlar={GURUHLAR.map((g) => ({ qiymat: g, nom: g }))} onOzgar={guruhniOzgar} kenglik="100%" />
+          <label htmlFor="qo-guruh">{t('Guruh')}</label>
+          <TanlovMenyu id="qo-guruh" aria={t('Guruh')} qiymat={guruh} variantlar={GURUHLAR.map((g) => ({ qiymat: g, nom: t(g) }))} onOzgar={guruhniOzgar} kenglik="100%" />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="qo-rejim">Baholash rejimi</label>
+          <label htmlFor="qo-rejim">{t('Baholash rejimi')}</label>
           <TanlovMenyu
             id="qo-rejim"
-            aria="Baholash rejimi"
+            aria={t('Baholash rejimi')}
             qiymat={scored ? '1' : '0'}
             variantlar={[
-              { qiymat: '1', nom: "Baholash mezoni bo'yicha baholanadi" },
-              { qiymat: '0', nom: "Baholash mezoni bo'yicha baholanmaydi" },
+              { qiymat: '1', nom: t("Baholash mezoni bo'yicha baholanadi") },
+              { qiymat: '0', nom: t("Baholash mezoni bo'yicha baholanmaydi") },
             ]}
             onOzgar={(v) => setScored(v === '1')}
             kenglik="100%"
           />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="qo-oqim">Ish oqimi oilasi</label>
-          <TanlovMenyu id="qo-oqim" aria="Ish oqimi oilasi" qiymat={oqim} variantlar={[{ qiymat: '', nom: 'Tanlash' }, ...OQIMLAR.map((x) => ({ qiymat: x, nom: x }))]} onOzgar={setOqim} kenglik="100%" />
+          <label htmlFor="qo-oqim">{t('Ish oqimi oilasi')}</label>
+          <TanlovMenyu id="qo-oqim" aria={t('Ish oqimi oilasi')} qiymat={oqim} variantlar={[{ qiymat: '', nom: t('Tanlash') }, ...OQIMLAR.map((x) => ({ qiymat: x, nom: t(x) }))]} onOzgar={setOqim} kenglik="100%" />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="qo-domen">Suhbat domeni</label>
-          <TanlovMenyu id="qo-domen" aria="Suhbat domeni" qiymat={domen} variantlar={[{ qiymat: '', nom: 'Tanlash' }, ...DOMENLAR.map((x) => ({ qiymat: x, nom: x }))]} onOzgar={setDomen} kenglik="100%" />
+          <label htmlFor="qo-domen">{t('Suhbat domeni')}</label>
+          <TanlovMenyu id="qo-domen" aria={t('Suhbat domeni')} qiymat={domen} variantlar={[{ qiymat: '', nom: t('Tanlash') }, ...DOMENLAR.map((x) => ({ qiymat: x, nom: t(x) }))]} onOzgar={setDomen} kenglik="100%" />
         </div>
       </div>
-      {guruh === 'Baholanadigan' && !scored && <div className="yordam bm-ogoh">Guruh «Baholanadigan», lekin rejim «baholanmaydi» — bu oiladagi suhbatlar baholanmaydi.</div>}
+      {guruh === 'Baholanadigan' && !scored && <div className="yordam bm-ogoh">{t("Guruh «Baholanadigan», lekin rejim «baholanmaydi» — bu oiladagi suhbatlar baholanmaydi.")}</div>}
       <div className="maydon-blok">
         <label htmlFor="qo-tavsif" className="qo-tavsif-yorliq">
-          <span>Tavsif</span>
+          <span>{t('Tavsif')}</span>
           <span className={tavsifXato ? 'bzl-xato' : ''}>
             {tavsif.trim().length}/{maks}
           </span>
         </label>
-        <textarea id="qo-tavsif" rows={3} value={tavsif} onChange={(e) => setTavsif(e.target.value)} placeholder="AI bu oilaga qo'ng'iroqlarni qachon yo'naltirishi kerak?" aria-invalid={!!tavsifXato} />
-        <div className="yordam">Guruh, ish oqimi va domen tavsif oxiriga qo'shib saqlanadi — AI ularni ham ko'radi.</div>
+        <textarea id="qo-tavsif" rows={3} value={tavsif} onChange={(e) => setTavsif(e.target.value)} placeholder={t("AI bu oilaga qo'ng'iroqlarni qachon yo'naltirishi kerak?")} aria-invalid={!!tavsifXato} />
+        <div className="yordam">{t("Guruh, ish oqimi va domen tavsif oxiriga qo'shib saqlanadi — AI ularni ham ko'radi.")}</div>
       </div>
       {urindi && xato && <div className="yordam bzl-xato">{xato}</div>}
       <div className="vr-oyna-past">
         <button type="button" className="btn ikkinchi" onClick={onYop} disabled={band}>
-          Bekor qilish
+          {t('Bekor qilish')}
         </button>
         <button type="submit" className="btn" disabled={band || (urindi && !!xato)}>
-          {band ? 'Saqlanmoqda…' : 'Saqlash'}
+          {band ? t('Saqlanmoqda…') : t('Saqlash')}
         </button>
       </div>
     </Modal>
@@ -519,23 +523,24 @@ function OchirishOynasi({
   onYop: () => void;
   onOchir: () => void;
 }) {
+  const t = useT();
   return (
-    <Modal sarlavha="O'chirmoqchimisiz?" onYop={onYop}>
+    <Modal sarlavha={t("O'chirmoqchimisiz?")} onYop={onYop}>
       <p className="xy-tasdiq-matn">
-        <b>«{o.nom}»</b> qo'ng'iroq oilasi faol playbookdan olib tashlanadi. Yangi suhbatlar bu turga ajratilmaydi.
+        {joyla(t("{nom} qo'ng'iroq oilasi faol playbookdan olib tashlanadi. Yangi suhbatlar bu turga ajratilmaydi."), { nom: <b>«{o.nom}»</b> })}
       </p>
       {bosqichlar.length > 0 && <BloklashIzohi bosqichlar={bosqichlar} />}
       <ul className="xy-oqibat">
-        {mezonlar > 0 && <li>{mezonlar} ta mezon shu oilaga bog'langan — faqat shu oila uchun bo'lganlari nofaol qilinadi.</li>}
-        <li>O'tgan suhbatlarda bu tur nomi o'rniga uning kaliti («{o.key}») ko'rinadi.</li>
-        {o.scored && <li>Faqat baholashdan chiqarmoqchi bo'lsangiz, o'chirish o'rniga rejimni «baholanmaydi» qiling.</li>}
+        {mezonlar > 0 && <li>{t("{n} ta mezon shu oilaga bog'langan — faqat shu oila uchun bo'lganlari nofaol qilinadi.", { n: mezonlar })}</li>}
+        <li>{t("O'tgan suhbatlarda bu tur nomi o'rniga uning kaliti («{kalit}») ko'rinadi.", { kalit: o.key })}</li>
+        {o.scored && <li>{t("Faqat baholashdan chiqarmoqchi bo'lsangiz, o'chirish o'rniga rejimni «baholanmaydi» qiling.")}</li>}
       </ul>
       <div className="vr-oyna-past">
         <button type="button" className="btn ikkinchi" onClick={onYop} disabled={band} autoFocus>
-          Bekor qilish
+          {t('Bekor qilish')}
         </button>
         <button type="button" className="btn xy-ochir" onClick={onOchir} disabled={band || bosqichlar.length > 0}>
-          {band ? "O'chirilmoqda…" : "O'chirish"}
+          {band ? t("O'chirilmoqda…") : t("O'chirish")}
         </button>
       </div>
     </Modal>
@@ -548,12 +553,14 @@ export function bosQolganBosqichlar(p: PlaybookBody): string[] {
 }
 
 export function BloklashIzohi({ bosqichlar }: { bosqichlar: string[] }) {
+  const t = useT();
   return (
     <div className="xy-blok" role="alert">
       <TriangleAlert />
       <span>
-        Hozir o'chirib bo'lmaydi: {bosqichlar.map((b) => `«${b}»`).join(', ')} bosqichida birorta faol mezon qolmaydi. Avval «Baholash mezonlari» bo'limida shu
-        bosqichga umumiy mezon qo'shing yoki mezonning doirasini o'zgartiring.
+        {t("Hozir o'chirib bo'lmaydi: {bosqichlar} bosqichida birorta faol mezon qolmaydi. Avval «Baholash mezonlari» bo'limida shu bosqichga umumiy mezon qo'shing yoki mezonning doirasini o'zgartiring.", {
+          bosqichlar: bosqichlar.map((b) => `«${b}»`).join(', '),
+        })}
       </span>
     </div>
   );

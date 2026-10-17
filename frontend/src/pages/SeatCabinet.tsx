@@ -12,6 +12,7 @@ import {
   type TaskRow,
 } from '../api';
 import { useAuth } from '../auth';
+import { useT } from '../i18n';
 
 /**
  * SOTUVCHI KABINETI — TZ 3.6, FR-112.
@@ -41,6 +42,7 @@ const DAVRLAR = [
 export function SeatCabinet() {
   const { business } = useAuth();
   const navigate = useNavigate();
+  const tr = useT();
   const params = useParams<{ seatId?: string }>();
 
   // URL da seatId bo'lmasa — foydalanuvchining o'z kabineti.
@@ -75,7 +77,7 @@ export function SeatCabinet() {
         setTasks(t.tasks.filter((x) => x.status !== 'done' && x.status !== 'cancelled'));
         setConvs(c.conversations.filter((r) => r.status !== 'filtered').slice(0, 8));
       })
-      .catch((e: unknown) => setXato(e instanceof Error ? e.message : 'Yuklab bo\'lmadi'))
+      .catch((e: unknown) => setXato(e instanceof Error ? e.message : tr("Yuklab bo'lmadi")))
       .finally(() => setLoading(false));
   }, [business, seatId, days]);
 
@@ -83,12 +85,12 @@ export function SeatCabinet() {
     return (
       <div className="card">
         <div className="hech-narsa">
-          Sizning hisobingiz sotuvchi o'rniga bog'lanmagan — kabinet ko'rsatib bo'lmaydi.
+          {tr("Sizning hisobingiz sotuvchi o'rniga bog'lanmagan — kabinet ko'rsatib bo'lmaydi.")}
         </div>
       </div>
     );
   }
-  if (loading && !d) return <div className="yuklanmoqda">Yuklanmoqda…</div>;
+  if (loading && !d) return <div className="yuklanmoqda">{tr('Yuklanmoqda…')}</div>;
   if (xato) return <div className="card"><div className="hech-narsa">{xato}</div></div>;
 
   const c = d?.current;
@@ -97,7 +99,7 @@ export function SeatCabinet() {
   const delta = (cur: number | null, prev: number | null, teskari = false) => {
     if (cur === null || prev === null || prev === 0) return null;
     const diff = cur - prev;
-    if (Math.abs(diff) < 0.05) return <span className="delta flat">o'zgarmadi</span>;
+    if (Math.abs(diff) < 0.05) return <span className="delta flat">{tr("o'zgarmadi")}</span>;
     const yaxshi = teskari ? diff < 0 : diff > 0;
     return (
       <span className={`delta ${yaxshi ? 'up' : 'down'}`}>
@@ -114,14 +116,14 @@ export function SeatCabinet() {
         <div>
           {!oziniki && (
             <Link to="/" style={{ color: 'var(--kul-dark)', fontSize: 13 }}>
-              <ChevronLeft /> Dashboard
+              <ChevronLeft /> {tr('Dashboard')}
             </Link>
           )}
-          <h1>{oziniki ? 'Mening kabinetim' : (d?.seat.displayName ?? 'Sotuvchi')}</h1>
+          <h1>{oziniki ? tr('Mening kabinetim') : (d?.seat.displayName ?? tr('Sotuvchi'))}</h1>
           <div className="izoh">
             {oziniki
-              ? 'O\'sishingiz, kuchli va zaif tomonlaringiz'
-              : `${d?.seat.displayName ?? ''} — shaxsiy ko'rsatkichlar`}
+              ? tr("O'sishingiz, kuchli va zaif tomonlaringiz")
+              : tr("{nom} — shaxsiy ko'rsatkichlar", { nom: d?.seat.displayName ?? '' })}
           </div>
         </div>
         <div className="tab-qator">
@@ -131,7 +133,7 @@ export function SeatCabinet() {
               className={`tab${days === x.key ? ' active' : ''}`}
               onClick={() => setDays(x.key)}
             >
-              {x.nom}
+              {tr(x.nom)}
             </button>
           ))}
         </div>
@@ -139,37 +141,37 @@ export function SeatCabinet() {
 
       <div className="card kpi-chiziq">
         <div className="katak">
-          <div className="nom">Suhbatlar</div>
+          <div className="nom">{tr('Suhbatlar')}</div>
           <div className="qiymat">{c?.conversations ?? 0}</div>
-          <div className="ost">{c?.analyzed ?? 0} tahlil qilindi</div>
+          <div className="ost">{tr('{n} tahlil qilindi', { n: c?.analyzed ?? 0 })}</div>
         </div>
         <div className="katak">
-          <div className="nom">O'rtacha ball</div>
+          <div className="nom">{tr("O'rtacha ball")}</div>
           <div className="qiymat" style={{ color: ballRang(c?.avgScore ?? null) }}>
             {c?.avgScore === null || c?.avgScore === undefined ? '—' : `${c.avgScore}%`}
           </div>
-          <div className="ost">{delta(c?.avgScore ?? null, p?.avgScore ?? null) ?? 'oldingi davrga nisbatan'}</div>
+          <div className="ost">{delta(c?.avgScore ?? null, p?.avgScore ?? null) ?? tr('oldingi davrga nisbatan')}</div>
         </div>
         <div className="katak">
-          <div className="nom">Javob tezligi</div>
+          <div className="nom">{tr('Javob tezligi')}</div>
           <div className="qiymat">{fmtSoniya(c?.medianFirstResponseSeconds)}</div>
           <div className="ost">
-            {delta(c?.medianFirstResponseSeconds ?? null, p?.medianFirstResponseSeconds ?? null, true) ?? 'median'}
+            {delta(c?.medianFirstResponseSeconds ?? null, p?.medianFirstResponseSeconds ?? null, true) ?? tr('median')}
           </div>
         </div>
         <div className="katak">
-          <div className="nom">Ochiq vazifa</div>
+          <div className="nom">{tr('Ochiq vazifa')}</div>
           <div className="qiymat" style={{ color: kechikkan > 0 ? 'var(--past)' : undefined }}>
             {tasks.length}
           </div>
-          <div className="ost">{kechikkan > 0 ? `${kechikkan} tasi kechikkan` : 'kechikkani yo\'q'}</div>
+          <div className="ost">{kechikkan > 0 ? tr('{n} tasi kechikkan', { n: kechikkan }) : tr("kechikkani yo'q")}</div>
         </div>
         <div className="katak">
-          <div className="nom">Bayroqlangan</div>
+          <div className="nom">{tr('Bayroqlangan')}</div>
           <div className="qiymat" style={{ color: (c?.flagged ?? 0) > 0 ? 'var(--orta)' : undefined }}>
             {c?.flagged ?? 0}
           </div>
-          <div className="ost">ko'rik talab qiladi</div>
+          <div className="ost">{tr("ko'rik talab qiladi")}</div>
         </div>
       </div>
 
@@ -190,14 +192,17 @@ export function SeatCabinet() {
           <div>
             <b>
               {oziniki
-                ? `Sizning eng zaif joyingiz: ${d.weakestCriterion.name}`
-                : `Eng zaif joyi: ${d.weakestCriterion.name}`}
+                ? tr('Sizning eng zaif joyingiz: {nom}', { nom: d.weakestCriterion.name })
+                : tr('Eng zaif joyi: {nom}', { nom: d.weakestCriterion.name })}
             </b>{' '}
-            ({d.weakestCriterion.code}) — o'rtacha {d.weakestCriterion.avgScore}/3,{' '}
-            {d.weakestCriterion.scored} ta suhbatda baholangan.{' '}
+            {tr("({kod}) — o'rtacha {ball}/3, {n} ta suhbatda baholangan.", {
+              kod: d.weakestCriterion.code,
+              ball: String(d.weakestCriterion.avgScore),
+              n: d.weakestCriterion.scored,
+            })}{' '}
             {oziniki
-              ? 'Keyingi hafta faqat shu bosqichga e\'tibor bering.'
-              : 'Kouchingni shu bosqichdan boshlang.'}
+              ? tr("Keyingi hafta faqat shu bosqichga e'tibor bering.")
+              : tr('Kouchingni shu bosqichdan boshlang.')}
           </div>
         </div>
       )}
@@ -206,20 +211,22 @@ export function SeatCabinet() {
       <div className="card">
         <div className="karta-bosh">
           <h2>
-            Mezonlar — {oziniki ? 'siz' : (d?.seat.displayName ?? 'sotuvchi')} va jamoa
+            {oziniki
+              ? tr('Mezonlar — siz va jamoa')
+              : tr('Mezonlar — {nom} va jamoa', { nom: d?.seat.displayName ?? tr('sotuvchi') })}
           </h2>
         </div>
         {(d?.criteria.length ?? 0) === 0 ? (
-          <div className="hech-narsa">Bu davrda baholangan suhbat yo'q</div>
+          <div className="hech-narsa">{tr("Bu davrda baholangan suhbat yo'q")}</div>
         ) : (
           <table className="jadval">
             <thead>
               <tr>
-                <th>Mezon</th>
-                <th>{oziniki ? 'Siz' : (d?.seat.displayName ?? 'Sotuvchi')}</th>
-                <th>Jamoa</th>
-                <th>Farq</th>
-                <th>Baholandi</th>
+                <th>{tr('Mezon')}</th>
+                <th>{oziniki ? tr('Siz') : (d?.seat.displayName ?? tr('Sotuvchi'))}</th>
+                <th>{tr('Jamoa')}</th>
+                <th>{tr('Farq')}</th>
+                <th>{tr('Baholandi')}</th>
               </tr>
             </thead>
             <tbody>
@@ -245,7 +252,7 @@ export function SeatCabinet() {
                       {farq === null ? (
                         '—'
                       ) : Math.abs(farq) < 0.05 ? (
-                        <span className="delta flat">teng</span>
+                        <span className="delta flat">{tr('teng')}</span>
                       ) : (
                         <span className={`delta ${farq > 0 ? 'up' : 'down'}`}>
                           {farq > 0 ? <ArrowUp /> : <ArrowDown />} {Math.abs(Math.round(farq * 100) / 100)}
@@ -254,7 +261,7 @@ export function SeatCabinet() {
                     </td>
                     <td style={{ color: 'var(--text-secondary)' }}>
                       {m.myScored}
-                      {m.myUnknown > 0 && ` (+${m.myUnknown} aniqlanmadi)`}
+                      {m.myUnknown > 0 && ` ${tr('(+{n} aniqlanmadi)', { n: m.myUnknown })}`}
                     </td>
                   </tr>
                 );
@@ -263,23 +270,22 @@ export function SeatCabinet() {
           </table>
         )}
         <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 8 }}>
-          "Jamoa" ustuni — shu davrda boshqa sotuvchilarning o'rtachasi. "Aniqlanmadi" ballari
-          o'rtachaga qo'shilmaydi.
+          {tr(`"Jamoa" ustuni — shu davrda boshqa sotuvchilarning o'rtachasi. "Aniqlanmadi" ballari o'rtachaga qo'shilmaydi.`)}
         </div>
       </div>
 
       <div className="grid-2" style={{ marginTop: 14 }}>
         <div className="card">
           <div className="karta-bosh">
-            <h2>Ochiq vazifalar</h2>
+            <h2>{tr('Ochiq vazifalar')}</h2>
             <Link to="/vazifalar" className="havola">
-              Hammasi <ChevronRight />
+              {tr('Hammasi')} <ChevronRight />
             </Link>
           </div>
           {tasks.length === 0 ? (
             <div className="hech-narsa">
               <div className="katta-ikon"><CircleCheck /></div>
-              Ochiq vazifa yo'q
+              {tr("Ochiq vazifa yo'q")}
             </div>
           ) : (
             tasks.slice(0, 8).map((t) => (
@@ -287,8 +293,8 @@ export function SeatCabinet() {
                 <div className="matn">
                   <div className="sarlavha">{t.title}</div>
                   <div className="sana">
-                    {t.dueAt ? fmtSana(t.dueAt) : 'muddatsiz'}
-                    {t.isOverdue && ' · kechikkan'}
+                    {t.dueAt ? fmtSana(t.dueAt) : tr('muddatsiz')}
+                    {t.isOverdue && ` · ${tr('kechikkan')}`}
                   </div>
                 </div>
               </div>
@@ -298,10 +304,10 @@ export function SeatCabinet() {
 
         <div className="card">
           <div className="karta-bosh">
-            <h2>So'nggi suhbatlar</h2>
+            <h2>{tr("So'nggi suhbatlar")}</h2>
           </div>
           {convs.length === 0 ? (
-            <div className="hech-narsa">Bu davrda suhbat yo'q</div>
+            <div className="hech-narsa">{tr("Bu davrda suhbat yo'q")}</div>
           ) : (
             convs.map((r) => {
               const ball = r.overallScore === null ? null : Number(r.overallScore);
@@ -317,12 +323,12 @@ export function SeatCabinet() {
                       <span className="vaqt">{fmtSana(r.startedAt)}</span>
                       {r.isFlagged && (
                         <span className="badge qizil">
-                          <Flag /> bayroq
+                          <Flag /> {tr('bayroq')}
                         </span>
                       )}
-                      <span className="vaqt">· {r.segmentCount} xabar</span>
+                      <span className="vaqt">· {tr('{n} xabar', { n: r.segmentCount })}</span>
                     </div>
-                    <div className="xulosa">{r.summary ?? 'Xulosa yo\'q'}</div>
+                    <div className="xulosa">{r.summary ?? tr("Xulosa yo'q")}</div>
                     {r.primaryGap && (
                       <div className="zaif">
                         <span className="belgi"><ArrowUpRight /></span>

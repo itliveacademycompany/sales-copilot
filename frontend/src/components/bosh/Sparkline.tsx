@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { useT } from '../../i18n';
 
 /**
  * Kichik chiziqli grafik — trend bir qarashda. Qiymatlar `title` orqali ham
@@ -19,6 +20,7 @@ export function Sparkline({
   maydon?: boolean;
   nom?: string;
 }) {
+  const t = useT();
   const gradId = `sp${useId().replace(/:/g, '')}`;
   const nuqtalar = qiymatlar.filter((v): v is number => v !== null);
   const max = nuqtalar.length ? Math.max(...nuqtalar) : 1;
@@ -48,7 +50,7 @@ export function Sparkline({
       height={balandlik}
       viewBox={`0 0 ${kenglik} ${balandlik}`}
       role="img"
-      aria-label={nom ?? 'Trend grafigi'}
+      aria-label={nom ?? t('Trend grafigi')}
     >
       <title>{nom ?? nuqtalar.map((v) => Math.round(v * 10) / 10).join(', ')}</title>
       {maydon && (

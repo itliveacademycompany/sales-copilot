@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { api, ballKlass, fmtSana, lidTuri, type ConversationRow, type SeatRow } from '../api';
 import { useAuth } from '../auth';
+import { useT } from '../i18n';
 
 const KANAL: Record<string, string> = {
   telegram: 'Telegram',
@@ -34,6 +35,7 @@ const FILTRLAR = [
  */
 export function LidXulosalari() {
   const { business } = useAuth();
+  const tr = useT();
   const [rows, setRows] = useState<ConversationRow[]>([]);
   const [seats, setSeats] = useState<Record<string, string>>({});
   const [filtr, setFiltr] = useState<string>('');
@@ -70,8 +72,8 @@ export function LidXulosalari() {
     <>
       <div className="sahifa-bosh">
         <div>
-          <h1>Lid xulosalari</h1>
-          <div className="izoh">Har bir mijoz bo'yicha AI xulosasi — kim issiq, kim kutmoqda</div>
+          <h1>{tr('Lid xulosalari')}</h1>
+          <div className="izoh">{tr("Har bir mijoz bo'yicha AI xulosasi — kim issiq, kim kutmoqda")}</div>
         </div>
         <div className="tab-qator">
           {FILTRLAR.map((f) => (
@@ -80,7 +82,7 @@ export function LidXulosalari() {
               className={`tab${filtr === f.key ? ' active' : ''}`}
               onClick={() => setFiltr(f.key)}
             >
-              {f.nom}
+              {tr(f.nom)}
               {f.key && ` · ${soni[f.key] ?? 0}`}
             </button>
           ))}
@@ -99,22 +101,22 @@ export function LidXulosalari() {
             <span className="lid-stat-ikon">{LID[k]!.ikon}</span>
             <span>
               <span className="lid-stat-son">{soni[k]}</span>
-              <span className="lid-stat-nom">{LID[k]!.nom} lid</span>
+              <span className="lid-stat-nom">{tr(`${LID[k]!.nom} lid`)}</span>
             </span>
           </button>
         ))}
       </div>
 
       {loading ? (
-        <div className="yuklanmoqda">Yuklanmoqda…</div>
+        <div className="yuklanmoqda">{tr('Yuklanmoqda…')}</div>
       ) : korinadi.length === 0 ? (
         <div className="card hech-narsa">
           <div className="katta-ikon">
             <FileText />
           </div>
           {rows.length === 0
-            ? 'Hali tahlil qilingan suhbat yo\'q — xulosalar tahlildan keyin shu yerda paydo bo\'ladi'
-            : 'Bu turdagi lid yo\'q'}
+            ? tr("Hali tahlil qilingan suhbat yo'q — xulosalar tahlildan keyin shu yerda paydo bo'ladi")
+            : tr("Bu turdagi lid yo'q")}
         </div>
       ) : (
         <div className="lid-grid">
@@ -127,14 +129,14 @@ export function LidXulosalari() {
                 <div className="lid-bosh">
                   {lid ? (
                     <span className={`badge ${lid.klass}`}>
-                      {lid.ikon} {lid.nom} lid
+                      {lid.ikon} {tr(`${lid.nom} lid`)}
                     </span>
                   ) : (
-                    <span className="badge kul">Lid baholanmagan</span>
+                    <span className="badge kul">{tr('Lid baholanmagan')}</span>
                   )}
                   {r.isFlagged && (
                     <span className="badge qizil">
-                      <Flag /> ko'rik
+                      <Flag /> {tr("ko'rik")}
                     </span>
                   )}
                   <span className={`ball ${ballKlass(ball)}`} style={{ marginLeft: 'auto' }}>
@@ -149,11 +151,11 @@ export function LidXulosalari() {
                 )}
                 <div className="lid-pastki">
                   <span>
-                    {fmtSana(r.startedAt)} · {KANAL[r.channel] ?? r.channel}
+                    {fmtSana(r.startedAt)} · {KANAL[r.channel] ? tr(KANAL[r.channel]!) : r.channel}
                     {r.seatId && seats[r.seatId] && ` · ${seats[r.seatId]}`}
                   </span>
                   <Link to={`/suhbatlar/${r.id}`} className="lid-havola">
-                    Batafsil <ChevronRight />
+                    {tr('Batafsil')} <ChevronRight />
                   </Link>
                 </div>
               </article>

@@ -125,7 +125,7 @@ export function Analitika() {
       <div className="an-bosh">
         <h1>{tr('Analitika')}</h1>
         <div className="an-davr">
-          <div className="tab-qator" role="tablist" aria-label="Davr">
+          <div className="tab-qator" role="tablist" aria-label={tr('Davr')}>
             {TAYYOR.map((t) => (
               <button
                 key={t.kalit}
@@ -154,7 +154,7 @@ export function Analitika() {
         </div>
       </div>
 
-      <nav className="an-tablar" role="tablist" aria-label="Analitika bo'limlari">
+      <nav className="an-tablar" role="tablist" aria-label={tr("Analitika bo'limlari")}>
         {TABLAR.map((t) => (
           <button
             key={t.kalit}

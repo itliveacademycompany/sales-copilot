@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { api, lidTuri, type BusinessProfile, type ConversationDetail, type LidTuri } from '../../api';
 import { useAuth } from '../../auth';
+import { joyla, useT } from '../../i18n';
 import { Farq, MalumotIkon } from '../bosh/Korsatkichlar';
 import { oldingiDavr, oraliqda } from '../bosh/malumot';
 import { LidRoyxati, type LidFiltr } from './LidRoyxati';
@@ -43,6 +44,7 @@ const toliq = (iso: string) => {
 };
 
 export function LidAnalitikasi({ data, davr, q }: TabProps) {
+  const t = useT();
   const [rejim, setRejim] = useState<'holat' | 'yangi'>('holat');
   const [xizmat, setXizmat] = useState('');
   const [menejer, setMenejer] = useState('');
@@ -97,8 +99,8 @@ export function LidAnalitikasi({ data, davr, q }: TabProps) {
       ...profilXizmat,
       ...barcha.map((x) => x.d.analysis!.serviceLine ?? ''),
     ]) {
-      const t = s.trim();
-      if (t && !m.has(kichik(t))) m.set(kichik(t), t);
+      const nom = s.trim();
+      if (nom && !m.has(kichik(nom))) m.set(kichik(nom), nom);
     }
     return [...m.values()];
   }, [data.playbook, profilXizmat, barcha]);
@@ -119,7 +121,7 @@ export function LidAnalitikasi({ data, davr, q }: TabProps) {
   const baholangan = lidlar.filter((x) => tur(x) !== null).length;
   const bitimlar = lidlar.filter((x) => (x.d.analysis!.deal?.amount ?? 0) > 0);
   const summa = bitimlar.reduce((s, x) => s + (x.d.analysis!.deal!.amount ?? 0), 0);
-  const valyuta = bitimlar[0]?.d.analysis!.deal!.currency ?? "so'm";
+  const valyuta = bitimlar[0]?.d.analysis!.deal!.currency ?? t("so'm");
   // Tsikl — mijoz bilan birinchi suhbatdan shu suhbatgacha (qaytgan mijozlar)
   const tsikllar = lidlar
     .filter((x) => x.d.previousConversations.length > 0)
@@ -176,39 +178,41 @@ export function LidAnalitikasi({ data, davr, q }: TabProps) {
 
   return (
     <div className="an-bolim">
-      {q.tafsilotKutilmoqda > 0 && <div className="an-eslatma">Tahlil tafsilotlari yuklanmoqda — yana {q.tafsilotKutilmoqda} ta…</div>}
+      {q.tafsilotKutilmoqda > 0 && <div className="an-eslatma">{t('Tahlil tafsilotlari yuklanmoqda — yana {n} ta…', { n: q.tafsilotKutilmoqda })}</div>}
 
       {/* ─── Filtrlar ─── */}
       <div className="la-filtrlar">
-        <div className="tab-qator" role="tablist" aria-label="Lidlar">
+        <div className="tab-qator" role="tablist" aria-label={t('Lidlar')}>
           <button type="button" role="tab" aria-selected={rejim === 'holat'} className={`tab${rejim === 'holat' ? ' active' : ''}`} onClick={() => setRejim('holat')}>
-            Holat <MalumotIkon matn="Davrdagi barcha lidlar" />
+            {t('Holat')} <MalumotIkon matn={t('Davrdagi barcha lidlar')} />
           </button>
           <button type="button" role="tab" aria-selected={rejim === 'yangi'} className={`tab${rejim === 'yangi' ? ' active' : ''}`} onClick={() => setRejim('yangi')}>
-            Faqat yangi <MalumotIkon matn="Shu mijoz bilan birinchi qayd etilgan suhbat" />
+            {t('Faqat yangi')} <MalumotIkon matn={t('Shu mijoz bilan birinchi qayd etilgan suhbat')} />
           </button>
         </div>
         <div className="la-filtrlar-ong">
           <Filter className={`la-filtr-ikon${filtrlangan ? ' faol' : ''}`} aria-hidden="true" />
           <Ochiluvchi
-            belgi="Xizmat yo'nalishi"
+            belgi={t("Xizmat yo'nalishi")}
             qiymat={xizmat}
             onOzgar={setXizmat}
             variantlar={xizmatlar.map((x) => ({ qiymat: x, nom: x, soni: barcha.filter((y) => kichik(y.d.analysis!.serviceLine) === kichik(x)).length }))}
             kenglik={290}
             boshMatn={
               <>
-                Xizmat yo'nalishlari hali kiritilmagan. <Link to="/playbook">Mezonlar → Xizmat yo'nalishlari</Link> bo'limida qo'shing.
+                {joyla(t("Xizmat yo'nalishlari hali kiritilmagan. {havola} bo'limida qo'shing."), {
+                  havola: <Link to="/playbook">{t("Mezonlar → Xizmat yo'nalishlari")}</Link>,
+                })}
               </>
             }
           />
           <Ochiluvchi
-            belgi="Menejer"
+            belgi={t('Menejer')}
             qiymat={menejer}
             onOzgar={setMenejer}
             variantlar={[...new Set(barcha.map((x) => x.r.seatId).filter((s): s is string => !!s))].map((s) => ({
               qiymat: s,
-              nom: ism.get(s) ?? 'Menejer',
+              nom: ism.get(s) ?? t('Menejer'),
               soni: barcha.filter((x) => x.r.seatId === s).length,
             }))}
             kenglik={250}
@@ -218,14 +222,14 @@ export function LidAnalitikasi({ data, davr, q }: TabProps) {
 
       {/* ─── Ko'rsatkichlar ─── */}
       <div className="la-kpi">
-        <Kpi ikon={<UsersRound />} qiymat={lidlar.length} nom={rejim === 'yangi' ? 'Jami yangi lidlar' : 'Jami lidlar'} izoh="Tahlil qilingan suhbatlar (tanlangan filtr bo'yicha)" farq={farq} onOch={() => lrOch('hammasi')} />
-        <Kpi ikon={<Flame />} qiymat={issiq} nom="Issiq lidlar" izoh="AI yopilishga yaqin deb baholagan lidlar" rang="yaxshi" onOch={() => lrOch('hot')} />
-        <Kpi ikon={<Snowflake />} qiymat={sovuq} nom="Sovuq lidlar" izoh="Hozircha sotib olishga tayyor emas" rang="past" onOch={() => lrOch('cold')} />
-        <Kpi ikon={<Zap />} qiymat={faol} nom="Faol" izoh="Menejer keyingi qadamni kelishgan va u hali bajarilmagan" rang="ia" onOch={() => lrOch('faol')} />
-        <Kpi ikon={<BarChart3 />} qiymat={baholangan ? `${((issiq / baholangan) * 100).toFixed(2)}%` : '—'} nom="Issiq lid ulushi" izoh="Lid sifati baholanganlar ichida issiqlar ulushi" />
-        <Kpi ikon={<Wallet />} qiymat={bitimlar.length ? `${Math.round(summa).toLocaleString('uz').replace(/,/g, ' ')} ${valyuta}` : '0'} nom="Bitim summasi" izoh="Suhbatlarda aytilgan bitim summalari" rang="yaxshi" />
-        <Kpi ikon={<Clock3 />} qiymat={tsikl === null ? '—' : `${Math.round(tsikl)} kun`} nom="O'rtacha tsikl" izoh="Qaytgan mijozlar: birinchi suhbatdan shu suhbatgacha o'tgan kunlar" />
-        <Kpi ikon={<Star />} qiymat={sifat === null ? '—' : `${Math.round(sifat)}%`} nom="Lid sifati" izoh="Lidlar bilan suhbatlarning o'rtacha bahosi" rang={sifat === null ? undefined : sifat >= CHEGARA.yaxshi ? 'yaxshi' : sifat >= CHEGARA.past ? 'orta' : 'past'} />
+        <Kpi ikon={<UsersRound />} qiymat={lidlar.length} nom={rejim === 'yangi' ? t('Jami yangi lidlar') : t('Jami lidlar')} izoh={t("Tahlil qilingan suhbatlar (tanlangan filtr bo'yicha)")} farq={farq} onOch={() => lrOch('hammasi')} />
+        <Kpi ikon={<Flame />} qiymat={issiq} nom={t('Issiq lidlar')} izoh={t('AI yopilishga yaqin deb baholagan lidlar')} rang="yaxshi" onOch={() => lrOch('hot')} />
+        <Kpi ikon={<Snowflake />} qiymat={sovuq} nom={t('Sovuq lidlar')} izoh={t('Hozircha sotib olishga tayyor emas')} rang="past" onOch={() => lrOch('cold')} />
+        <Kpi ikon={<Zap />} qiymat={faol} nom={t('Faol')} izoh={t('Menejer keyingi qadamni kelishgan va u hali bajarilmagan')} rang="ia" onOch={() => lrOch('faol')} />
+        <Kpi ikon={<BarChart3 />} qiymat={baholangan ? `${((issiq / baholangan) * 100).toFixed(2)}%` : '—'} nom={t('Issiq lid ulushi')} izoh={t('Lid sifati baholanganlar ichida issiqlar ulushi')} />
+        <Kpi ikon={<Wallet />} qiymat={bitimlar.length ? `${Math.round(summa).toLocaleString('uz').replace(/,/g, ' ')} ${valyuta}` : '0'} nom={t('Bitim summasi')} izoh={t('Suhbatlarda aytilgan bitim summalari')} rang="yaxshi" />
+        <Kpi ikon={<Clock3 />} qiymat={tsikl === null ? '—' : t('{n} kun', { n: Math.round(tsikl) })} nom={t("O'rtacha tsikl")} izoh={t("Qaytgan mijozlar: birinchi suhbatdan shu suhbatgacha o'tgan kunlar")} />
+        <Kpi ikon={<Star />} qiymat={sifat === null ? '—' : `${Math.round(sifat)}%`} nom={t('Lid sifati')} izoh={t("Lidlar bilan suhbatlarning o'rtacha bahosi")} rang={sifat === null ? undefined : sifat >= CHEGARA.yaxshi ? 'yaxshi' : sifat >= CHEGARA.past ? 'orta' : 'past'} />
       </div>
 
       {/* ─── Sifat taqsimoti ─── */}
@@ -236,42 +240,48 @@ export function LidAnalitikasi({ data, davr, q }: TabProps) {
               <span className="la-ikon sariq">
                 <Star />
               </span>
-              Lid sifati taqsimoti <MalumotIkon matn="Lid bilan suhbatning umumiy bahosi bo'yicha taqsimot" />
+              {t('Lid sifati taqsimoti')} <MalumotIkon matn={t("Lid bilan suhbatning umumiy bahosi bo'yicha taqsimot")} />
             </h2>
             <p className="vt-izoh">
-              {jamiB} ta lid sifat taqsimotiga kirdi: {past} tasi past sifatli ({pf(past)}%)
-              {pastJavobsiz > 0 && `, shu jumladan ${pastJavobsiz} tasi javob kutib qolgan`}.
+              {pastJavobsiz > 0
+                ? t('{jami} ta lid sifat taqsimotiga kirdi: {past} tasi past sifatli ({f}%), shu jumladan {kutgan} tasi javob kutib qolgan.', {
+                    jami: jamiB,
+                    past,
+                    f: pf(past),
+                    kutgan: pastJavobsiz,
+                  })
+                : t('{jami} ta lid sifat taqsimotiga kirdi: {past} tasi past sifatli ({f}%).', { jami: jamiB, past, f: pf(past) })}
             </p>
           </div>
           <div className="la-ortacha">
-            <span>O'rtacha</span>
+            <span>{t("O'rtacha")}</span>
             <b className={sifat === null ? '' : sifat >= CHEGARA.yaxshi ? 'yaxshi' : sifat >= CHEGARA.past ? 'orta' : 'past'}>{sifat === null ? '—' : `${Math.round(sifat)}%`}</b>
           </div>
         </div>
         {jamiB === 0 ? (
-          <div className="jm-bosh">Bu davrda baholangan lid yo'q.</div>
+          <div className="jm-bosh">{t("Bu davrda baholangan lid yo'q.")}</div>
         ) : (
           <>
-            <div className="la-polosa" role="img" aria-label={`Past ${past}, o'rtacha ${orta}, yaxshi ${yaxshi}`}>
-              {past > 0 && <span className="past" style={{ flexGrow: past }} title={`Past: ${past}`} />}
-              {orta > 0 && <span className="orta" style={{ flexGrow: orta }} title={`O'rtacha: ${orta}`} />}
-              {yaxshi > 0 && <span className="yaxshi" style={{ flexGrow: yaxshi }} title={`Yaxshi: ${yaxshi}`} />}
+            <div className="la-polosa" role="img" aria-label={t("Past {past}, o'rtacha {orta}, yaxshi {yaxshi}", { past, orta, yaxshi })}>
+              {past > 0 && <span className="past" style={{ flexGrow: past }} title={t('Past: {n}', { n: past })} />}
+              {orta > 0 && <span className="orta" style={{ flexGrow: orta }} title={t("O'rtacha: {n}", { n: orta })} />}
+              {yaxshi > 0 && <span className="yaxshi" style={{ flexGrow: yaxshi }} title={t('Yaxshi: {n}', { n: yaxshi })} />}
             </div>
             <div className="la-uchlik">
               <div>
-                <span>Past sifatli lidlar</span>
+                <span>{t('Past sifatli lidlar')}</span>
                 <b className="past">
                   {past} <small>{pf(past)}%</small>
                 </b>
               </div>
               <div>
-                <span>O'rtacha lidlar</span>
+                <span>{t("O'rtacha lidlar")}</span>
                 <b className="orta">
                   {orta} <small>{pf(orta)}%</small>
                 </b>
               </div>
               <div>
-                <span>Yaxshi lidlar</span>
+                <span>{t('Yaxshi lidlar')}</span>
                 <b className="yaxshi">
                   {yaxshi} <small>{pf(yaxshi)}%</small>
                 </b>
@@ -280,13 +290,13 @@ export function LidAnalitikasi({ data, davr, q }: TabProps) {
           </>
         )}
         <div className="la-kichiklar">
-          <Kichik nom="Taqsimotdagi lidlar" izoh="Umumiy bahosi bor lidlar" qiymat={jamiB} />
-          <Kichik nom="AI lid bahosi berilgan" izoh="Issiq / iliq / sovuq deb baholangan lidlar" qiymat={baholangan} />
-          <Kichik nom="Javob kutayotgan" izoh="Suhbat mijoz xabari bilan tugagan" qiymat={javobKutyapti} rang="past" />
-          <Kichik nom="Taqsimotga kirmagan" izoh="Umumiy bahosi yo'q (baholanmagan tur yoki ishonch past)" qiymat={lidlar.length - jamiB} />
+          <Kichik nom={t('Taqsimotdagi lidlar')} izoh={t('Umumiy bahosi bor lidlar')} qiymat={jamiB} />
+          <Kichik nom={t('AI lid bahosi berilgan')} izoh={t('Issiq / iliq / sovuq deb baholangan lidlar')} qiymat={baholangan} />
+          <Kichik nom={t('Javob kutayotgan')} izoh={t('Suhbat mijoz xabari bilan tugagan')} qiymat={javobKutyapti} rang="past" />
+          <Kichik nom={t('Taqsimotga kirmagan')} izoh={t("Umumiy bahosi yo'q (baholanmagan tur yoki ishonch past)")} qiymat={lidlar.length - jamiB} />
         </div>
         <small className="la-chegara">
-          Sifat chegaralari: past &lt;{CHEGARA.past}, o'rtacha {CHEGARA.past}–{CHEGARA.yaxshi - 1}, yaxshi ≥{CHEGARA.yaxshi}.
+          {t("Sifat chegaralari: past <{a}, o'rtacha {a}–{b}, yaxshi ≥{c}.", { a: CHEGARA.past, b: CHEGARA.yaxshi - 1, c: CHEGARA.yaxshi })}
         </small>
       </section>
 
@@ -297,46 +307,48 @@ export function LidAnalitikasi({ data, davr, q }: TabProps) {
             <span className="la-ikon yashil">
               <RefreshCw />
             </span>
-            Qayta bog'lanish mumkin bo'lgan lidlar{' '}
-            <MalumotIkon matn="Issiq va iliq lidlar: menejer kelishgan, lekin hali bajarilmagan keyingi qadam bor yoki mijoz javob kutib qolgan" />
+            {t("Qayta bog'lanish mumkin bo'lgan lidlar")}{' '}
+            <MalumotIkon matn={t('Issiq va iliq lidlar: menejer kelishgan, lekin hali bajarilmagan keyingi qadam bor yoki mijoz javob kutib qolgan')} />
           </h2>
         </div>
         <div className="la-qayta-ost">
           <span>
-            {qayta.length} ta lid bilan qayta bog'lanish mumkin, {yuqoriImk} tasi yuqori imkoniyatli
+            {t("{n} ta lid bilan qayta bog'lanish mumkin, {yuqori} tasi yuqori imkoniyatli", { n: qayta.length, yuqori: yuqoriImk })}
           </span>
           {qayta.length > 8 && (
             <button type="button" className="sn-havola" onClick={() => setHammasi((v) => !v)}>
-              {hammasi ? 'Kamroq ko\'rsatish' : 'Barchasini ko\'rish'} <ArrowRight />
+              {hammasi ? t("Kamroq ko'rsatish") : t("Barchasini ko'rish")} <ArrowRight />
             </button>
           )}
         </div>
         {qayta.length === 0 ? (
-          <div className="card hech-narsa">Hozircha qayta bog'lanish kerak bo'lgan lid yo'q.</div>
+          <div className="card hech-narsa">{t("Hozircha qayta bog'lanish kerak bo'lgan lid yo'q.")}</div>
         ) : (
           <div className="la-royxat">
             {korinadi.map(({ x, v }) => {
-              const t = tur(x) ?? 'warm';
+              const lt = tur(x) ?? 'warm';
               const a = x.d.analysis!;
-              const nom = a.clientExtracted?.name ?? x.d.contact?.name ?? x.d.conversation.phoneFrom ?? `Suhbat #${x.r.id.slice(0, 8)}`;
+              const nom = a.clientExtracted?.name ?? x.d.contact?.name ?? x.d.conversation.phoneFrom ?? t('Suhbat #{id}', { id: x.r.id.slice(0, 8) });
               const kunlar = v?.deadline ? Math.max(0, Math.round((+new Date(v.deadline) - +new Date(x.r.startedAt)) / KUN)) : null;
               return (
-                <Link key={x.r.id + (v?.id ?? '')} to={`/suhbatlar/${x.r.id}`} className={`la-lid ${IMKONIYAT[t].klass}`}>
+                <Link key={x.r.id + (v?.id ?? '')} to={`/suhbatlar/${x.r.id}`} className={`la-lid ${IMKONIYAT[lt].klass}`}>
                   <div className="la-lid-bosh">
                     <b>{nom}</b>
-                    <span className={`la-imk ${IMKONIYAT[t].klass}`}>{IMKONIYAT[t].nom}</span>
-                    {a.signals?.urgency && <span className="la-kayfiyat">{SHOSHILINCH[a.signals.urgency]}</span>}
-                    {v?.status === 'missed' && <span className="la-belgi xavf">muddati o'tgan</span>}
-                    {!v && <span className="la-belgi">javob kutmoqda</span>}
+                    <span className={`la-imk ${IMKONIYAT[lt].klass}`}>{t(IMKONIYAT[lt].nom)}</span>
+                    {a.signals?.urgency && <span className="la-kayfiyat">{SHOSHILINCH[a.signals.urgency] ? t(SHOSHILINCH[a.signals.urgency]!) : undefined}</span>}
+                    {v?.status === 'missed' && <span className="la-belgi xavf">{t("muddati o'tgan")}</span>}
+                    {!v && <span className="la-belgi">{t('javob kutmoqda')}</span>}
                     <span className="la-lid-ong">
-                      {x.r.seatId ? ism.get(x.r.seatId) ?? 'Menejer' : 'Biriktirilmagan'} <span>{toliq(x.r.startedAt)}</span>
+                      {x.r.seatId ? ism.get(x.r.seatId) ?? t('Menejer') : t('Biriktirilmagan')} <span>{toliq(x.r.startedAt)}</span>
                     </span>
                   </div>
                   <div className="la-lid-matn">
                     <span className="la-muddat">
-                      {v?.deadline ? `Muddat: ${dd(x.r.startedAt)} – ${dd(v.deadline)} (${kunlar} kun)` : 'Muddat belgilanmagan'}
+                      {v?.deadline
+                        ? t('Muddat: {dan} – {gacha} ({n} kun)', { dan: dd(x.r.startedAt), gacha: dd(v.deadline), n: kunlar ?? 0 })
+                        : t('Muddat belgilanmagan')}
                     </span>
-                    <span>{v?.what ?? a.primaryGap ?? a.summary ?? 'Mijoz javob kutib qolgan — qayta yozing.'}</span>
+                    <span>{v?.what ?? a.primaryGap ?? a.summary ?? t('Mijoz javob kutib qolgan — qayta yozing.')}</span>
                     <ChevronRight className="la-lid-strelka" aria-hidden="true" />
                   </div>
                 </Link>
@@ -367,6 +379,7 @@ function Kpi({
   /** Bosilganda shu bo'yicha lidlar ro'yxati ochiladi. */
   onOch?: () => void;
 }) {
+  const t = useT();
   return (
     <div className="la-kpi-karta">
       <span className="la-kpi-ikon" aria-hidden="true">
@@ -384,7 +397,7 @@ function Kpi({
         </span>
       )}
       {onOch && (
-        <button type="button" className="vt-ochish la-kpi-strelka" onClick={onOch} aria-label={`${nom} — lidlar ro'yxati`}>
+        <button type="button" className="vt-ochish la-kpi-strelka" onClick={onOch} aria-label={t("{nom} — lidlar ro'yxati", { nom })}>
           <ChevronRight />
         </button>
       )}

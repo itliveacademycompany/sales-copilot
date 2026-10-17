@@ -1,6 +1,7 @@
 import { TriangleAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, ApiError, type SeatRow } from '../api';
+import { joyla, useT } from '../i18n';
 import { getSttModel, setSttModel, STT_MODELLAR, type SttModelKey } from '../sttModels';
 
 /**
@@ -80,7 +81,7 @@ export function SuhbatYuklash({
   businessId,
   onYuklandi,
   kanal = 'telegram',
-  tugmaMatni = 'Suhbat yuklash',
+  tugmaMatni,
 }: {
   businessId: string;
   onYuklandi: (conversationId: string) => void;
@@ -88,6 +89,8 @@ export function SuhbatYuklash({
   kanal?: 'telegram' | 'phone';
   tugmaMatni?: string;
 }) {
+  const tr = useT();
+  const namuna = tr(NAMUNA);
   const [ochiq, setOchiq] = useState(false);
   const [seats, setSeats] = useState<SeatRow[]>([]);
   const [seatId, setSeatId] = useState('');
@@ -123,7 +126,7 @@ export function SuhbatYuklash({
   async function audioYubor(file: File) {
     setBand(true);
     setXato(null);
-    setHolat('Transkript qilinmoqda va AI orqali rollarga ajratilmoqda... bu bir necha daqiqa olishi mumkin.');
+    setHolat(tr('Transkript qilinmoqda va AI orqali rollarga ajratilmoqda... bu bir necha daqiqa olishi mumkin.'));
     try {
       const fd = new FormData();
       fd.append('speakerCount', '2');
@@ -135,7 +138,7 @@ export function SuhbatYuklash({
       );
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { title?: string; detail?: string };
-        throw new Error(j.detail ?? j.title ?? `Xato ${res.status}`);
+        throw new Error(j.detail ?? j.title ?? tr('Xato {kod}', { kod: res.status }));
       }
       const r = (await res.json()) as {
         turns: RefinedTurn[];
@@ -155,13 +158,13 @@ export function SuhbatYuklash({
       setPreview(r.preview ?? null);
       setAnalysisPayload(r.analysisPayload ?? null);
       setSttMalumot(
-        `${Math.round(r.durationSeconds)} soniya · ${r.speakerCount} so'zlovchi · ` +
-          `${r.language} · $${r.costUsd.toFixed(3)}` +
+        tr("{s} soniya · {n} so'zlovchi", { s: Math.round(r.durationSeconds), n: r.speakerCount }) +
+          ` · ${r.language} · $${r.costUsd.toFixed(3)}` +
           (r.note ? ` · ${r.note}` : ''),
       );
       setHolat(null);
     } catch (e) {
-      setXato(e instanceof Error ? e.message : 'Audioni matnga aylantirib bo\'lmadi');
+      setXato(e instanceof Error ? e.message : tr("Audioni matnga aylantirib bo'lmadi"));
       setHolat(null);
     } finally {
       setBand(false);
@@ -194,7 +197,7 @@ export function SuhbatYuklash({
       setKorish(r.segments);
       setOgohlar(r.warnings);
     } catch (e) {
-      setXato(e instanceof ApiError ? e.message : 'Matnni tahlil qilib bo\'lmadi');
+      setXato(e instanceof ApiError ? e.message : tr("Matnni tahlil qilib bo'lmadi"));
       setKorish(null);
     } finally {
       setBand(false);
@@ -219,7 +222,7 @@ export function SuhbatYuklash({
       setOgohlar([]);
       onYuklandi(r.conversationId);
     } catch (e) {
-      setXato(e instanceof ApiError ? e.message : 'Yuklab bo\'lmadi');
+      setXato(e instanceof ApiError ? e.message : tr("Yuklab bo'lmadi"));
     } finally {
       setBand(false);
     }
@@ -253,7 +256,7 @@ export function SuhbatYuklash({
       setSttMalumot(null);
       onYuklandi(r.conversationId);
     } catch (e) {
-      setXato(e instanceof ApiError ? e.message : 'Saqlab bo\'lmadi');
+      setXato(e instanceof ApiError ? e.message : tr("Saqlab bo'lmadi"));
     } finally {
       setBand(false);
     }
@@ -262,7 +265,7 @@ export function SuhbatYuklash({
   if (!ochiq) {
     return (
       <button className="btn ikkinchi" onClick={() => setOchiq(true)}>
-        ＋ {tugmaMatni}
+        ＋ {tugmaMatni ?? tr('Suhbat yuklash')}
       </button>
     );
   }
@@ -270,7 +273,7 @@ export function SuhbatYuklash({
   return (
     <div className="card" style={{ marginBottom: 14, borderLeft: '4px solid var(--ia)' }}>
       <div className="karta-bosh">
-        <h2>Qo'lda suhbat yuklash</h2>
+        <h2>{tr("Qo'lda suhbat yuklash")}</h2>
         <button
           className="btn ikkinchi kichik"
           onClick={() => {
@@ -279,14 +282,17 @@ export function SuhbatYuklash({
             setAudioInputKey((k) => k + 1);
           }}
         >
-          Yopish
+          {tr('Yopish')}
         </button>
       </div>
 
       <div className="yordam" style={{ marginBottom: 10 }}>
-        Yuklangan suhbat xuddi Telegram'dan kelgani kabi <b>o'sha quvurdan</b> o'tadi:
-        pre-filter → ekstraksiya → isbotli baholash. Ya'ni bu yerda ko'rgan natijangiz
-        haqiqiy natija.
+        {joyla(
+          tr(
+            "Yuklangan suhbat xuddi Telegram'dan kelgani kabi {quvur} o'tadi: pre-filter → ekstraksiya → isbotli baholash. Ya'ni bu yerda ko'rgan natijangiz haqiqiy natija.",
+          ),
+          { quvur: <b>{tr("o'sha quvurdan")}</b> },
+        )}
       </div>
 
       <div className="tab-qator" style={{ marginBottom: 12 }}>
@@ -294,19 +300,19 @@ export function SuhbatYuklash({
           className={`tab${rejim === 'matn' ? ' active' : ''}`}
           onClick={() => setRejim('matn')}
         >
-          Matn
+          {tr('Matn')}
         </button>
         <button
           className={`tab${rejim === 'audio' ? ' active' : ''}`}
           onClick={() => setRejim('audio')}
         >
-          Audio yozuv
+          {tr('Audio yozuv')}
         </button>
       </div>
 
       {rejim === 'audio' && !turns && (
         <div className="maydon-blok">
-          <label htmlFor="y-stt-model">Transkript modeli</label>
+          <label htmlFor="y-stt-model">{tr('Transkript modeli')}</label>
           <select
             id="y-stt-model"
             value={sttModel}
@@ -326,7 +332,7 @@ export function SuhbatYuklash({
           <div className="yordam" style={{ marginBottom: 10 }}>
             {STT_MODELLAR.find((m) => m.key === sttModel)?.note}
           </div>
-          <label htmlFor="y-audio">Audio fayl</label>
+          <label htmlFor="y-audio">{tr('Audio fayl')}</label>
           <input
             key={audioInputKey}
             id="y-audio"
@@ -348,20 +354,23 @@ export function SuhbatYuklash({
           />
           {audioFile && (
             <div className="yordam" style={{ marginTop: 6 }}>
-              Fayl tanlandi: <b>{audioFile.name}</b>. Ma'lumotlarni tekshirib, tayyor bo'lganda boshlang.
+              {joyla(tr("Fayl tanlandi: {nom}. Ma'lumotlarni tekshirib, tayyor bo'lganda boshlang."), {
+                nom: <b>{audioFile.name}</b>,
+              })}
             </div>
           )}
           <div className="yordam">
-            MP3, WAV, OGG yoki FLAC — 10 MB gacha. M4A qo'llab-quvvatlanmaydi.
-            Yozuvda ikkala tomon ham eshitilishi kerak, aks holda so'zlovchilar ajralmaydi.
+            {tr(
+              "MP3, WAV, OGG yoki FLAC — 10 MB gacha. M4A qo'llab-quvvatlanmaydi. Yozuvda ikkala tomon ham eshitilishi kerak, aks holda so'zlovchilar ajralmaydi.",
+            )}
           </div>
           <div className="yordam" style={{ marginTop: 6 }}>
-            <b>Bulutli STT sozlanmagan bo'lsa</b> — kompyuteringizda lokal aylantiring
-            (kalit ham, karta ham kerak emas):
+            <b>{tr("Bulutli STT sozlanmagan bo'lsa")}</b> —{' '}
+            {tr('kompyuteringizda lokal aylantiring (kalit ham, karta ham kerak emas):')}
             <br />
             <code>npm run stt:local -- "C:\yozuvlar\qongiroq.mp3"</code>
             <br />
-            Natijani <b>Matn</b> bo'limiga joylashtiring.
+            {joyla(tr("Natijani {matn} bo'limiga joylashtiring."), { matn: <b>{tr('Matn')}</b> })}
           </div>
           <button
             className="btn"
@@ -371,7 +380,7 @@ export function SuhbatYuklash({
               if (audioFile) void audioYubor(audioFile);
             }}
           >
-            {band ? 'Transkript qilinmoqda...' : 'Boshlash'}
+            {band ? tr('Transkript qilinmoqda...') : tr('Boshlash')}
           </button>
         </div>
       )}
@@ -381,25 +390,30 @@ export function SuhbatYuklash({
       {/* AI natijasi — rol va bo'linish avtomatik, lekin ODAM tasdiqlaydi (FR-84) */}
       {turns && (
         <div className="card" style={{ marginBottom: 10, background: 'var(--bg-base)' }}>
-          <b>AI natijasi — tekshiring va tasdiqlang</b>
+          <b>{tr('AI natijasi — tekshiring va tasdiqlang')}</b>
           <div className="yordam" style={{ marginBottom: 8 }}>
             {sttMalumot}
             <br />
-            AI kim gapirganini va matn xatolarini tuzatishga urindi. Noto'g'ri joy
-            bo'lsa — "Matnni tahrirlash" orqali keyingi qadamda qo'lda to'g'rilang.
+            {tr(
+              `AI kim gapirganini va matn xatolarini tuzatishga urindi. Noto'g'ri joy bo'lsa — "Matnni tahrirlash" orqali keyingi qadamda qo'lda to'g'rilang.`,
+            )}
           </div>
 
           {aiDegraded && (
             <div className="etiroz-holat open" style={{ marginBottom: 10 }}>
-              ⚠ AI ishlamadi, oddiy kalit-so'z qoidalari bilan taxminiy ajratildi.
-              Bu ancha xato bo'lishi mumkin — diqqat bilan tekshiring.
+              ⚠{' '}
+              {tr(
+                "AI ishlamadi, oddiy kalit-so'z qoidalari bilan taxminiy ajratildi. Bu ancha xato bo'lishi mumkin — diqqat bilan tekshiring.",
+              )}
             </div>
           )}
           {!aiDegraded && aiConfidence !== null && aiConfidence < 0.75 && (
             <div className="etiroz-holat open" style={{ marginBottom: 10 }}>
-              ⚠ AI o'zi ham bu suhbatni ajratishga unchalik ishonmadi (ishonch:{' '}
-              {Math.round(aiConfidence * 100)}%) — suhbatdoshlar bir-birini tez-tez
-              bo'lib gapirgan bo'lishi mumkin. Har qatorni diqqat bilan tekshiring.
+              ⚠{' '}
+              {tr(
+                "AI o'zi ham bu suhbatni ajratishga unchalik ishonmadi (ishonch: {foiz}%) — suhbatdoshlar bir-birini tez-tez bo'lib gapirgan bo'lishi mumkin. Har qatorni diqqat bilan tekshiring.",
+                { foiz: Math.round(aiConfidence * 100) },
+              )}
             </div>
           )}
 
@@ -410,7 +424,7 @@ export function SuhbatYuklash({
                   className={`badge ${t.speaker === 'manager' ? 'navy' : 'kul'}`}
                   style={{ flexShrink: 0 }}
                 >
-                  {t.speaker === 'manager' ? 'MENEJER' : 'MIJOZ'}
+                  {t.speaker === 'manager' ? tr('MENEJER') : tr('MIJOZ')}
                 </span>
                 <span>{t.text}</span>
               </div>
@@ -420,16 +434,18 @@ export function SuhbatYuklash({
           {/* Birlashtirilgan oqim: baho transkript BILAN BIRGA keldi — LLM qayta chaqirilmaydi. */}
           {preview && (
             <div className="card" style={{ marginBottom: 10 }}>
-              <b>AI bahosi (oldindan ko'rish)</b>
+              <b>{tr("AI bahosi (oldindan ko'rish)")}</b>
               <div className="yordam" style={{ marginBottom: 8 }}>
                 {preview.summary}
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8, fontSize: 12 }}>
                 <span className="badge kul">{preview.businessRelevance}</span>
                 {preview.callFamily && <span className="badge kul">{preview.callFamily}</span>}
-                {preview.leadQuality && <span className="badge kul">lid: {preview.leadQuality}</span>}
+                {preview.leadQuality && (
+                  <span className="badge kul">{tr('lid: {qiymat}', { qiymat: preview.leadQuality })}</span>
+                )}
                 {preview.compliance && preview.compliance !== 'ok' && (
-                  <span className="badge kul">muvofiqlik: {preview.compliance}</span>
+                  <span className="badge kul">{tr('muvofiqlik: {qiymat}', { qiymat: preview.compliance })}</span>
                 )}
               </div>
               <div style={{ maxHeight: 200, overflowY: 'auto', fontSize: 13 }}>
@@ -444,19 +460,20 @@ export function SuhbatYuklash({
               </div>
               {preview.redFlags.length > 0 && (
                 <div className="etiroz-holat open" style={{ marginTop: 8 }}>
-                  ⚠ Qizil bayroq: {preview.redFlags.map((f) => f.key).join(', ')}
+                  ⚠ {tr('Qizil bayroq: {royxat}', { royxat: preview.redFlags.map((f) => f.key).join(', ') })}
                 </div>
               )}
               <div className="yordam" style={{ marginTop: 8 }}>
-                Bu — yakuniy emas, dastlabki baho. Tasdiqlagach isbot (iqtibos) kod darajasida
-                tekshiriladi; isbotsiz ballar bekor qilinadi.
+                {tr(
+                  'Bu — yakuniy emas, dastlabki baho. Tasdiqlagach isbot (iqtibos) kod darajasida tekshiriladi; isbotsiz ballar bekor qilinadi.',
+                )}
               </div>
             </div>
           )}
 
           {analysisPayload ? (
             <button className="btn" disabled={band || !seatId} onClick={() => void saqlaTasdiqlangan()}>
-              {band ? 'Saqlanmoqda...' : 'Tasdiqlash va saqlash'}
+              {band ? tr('Saqlanmoqda...') : tr('Tasdiqlash va saqlash')}
             </button>
           ) : (
             <button
@@ -470,7 +487,7 @@ export function SuhbatYuklash({
                 setKorish(null);
               }}
             >
-              Tasdiqlash va matnga o'tish
+              {tr("Tasdiqlash va matnga o'tish")}
             </button>
           )}{' '}
           <button
@@ -485,15 +502,15 @@ export function SuhbatYuklash({
               setSttMalumot(null);
             }}
           >
-            Bekor
+            {tr('Bekor')}
           </button>
         </div>
       )}
 
       <div className="maydon-blok">
-        <label htmlFor="y-seat">Sotuvchi</label>
+        <label htmlFor="y-seat">{tr('Sotuvchi')}</label>
         <select id="y-seat" value={seatId} onChange={(e) => setSeatId(e.target.value)}>
-          {seats.length === 0 && <option value="">Avval sotuvchi qo'shing</option>}
+          {seats.length === 0 && <option value="">{tr("Avval sotuvchi qo'shing")}</option>}
           {seats.map((s) => (
             <option key={s.id} value={s.id}>
               {s.displayName}
@@ -503,18 +520,18 @@ export function SuhbatYuklash({
       </div>
 
       <div className="maydon-blok">
-        <label htmlFor="y-sana">Suhbat sanasi (ixtiyoriy)</label>
+        <label htmlFor="y-sana">{tr('Suhbat sanasi (ixtiyoriy)')}</label>
         <input
           id="y-sana"
           type="datetime-local"
           value={sana}
           onChange={(e) => setSana(e.target.value)}
         />
-        <div className="yordam">Bo'sh qoldirilsa — hozirgi vaqt.</div>
+        <div className="yordam">{tr("Bo'sh qoldirilsa — hozirgi vaqt.")}</div>
       </div>
 
       <div className="maydon-blok" style={{ display: rejim === 'matn' && !turns ? undefined : 'none' }}>
-        <label htmlFor="y-matn">Suhbat matni</label>
+        <label htmlFor="y-matn">{tr('Suhbat matni')}</label>
         <textarea
           id="y-matn"
           value={matn}
@@ -523,21 +540,28 @@ export function SuhbatYuklash({
             setKorish(null);
           }}
           rows={10}
-          placeholder={NAMUNA}
+          placeholder={namuna}
           style={{ fontFamily: 'inherit', lineHeight: 1.5 }}
         />
         <div className="yordam">
-          Har qatorni <b>Mijoz:</b> yoki <b>Menejer:</b> bilan boshlang. Vaqt belgisi
-          (<code>[10:05]</code>) bo'lsa — javob tezligi ham hisoblanadi. Ruscha va inglizcha
-          yorliqlar ham tushuniladi.
+          {joyla(
+            tr(
+              "Har qatorni {mijoz} yoki {menejer} bilan boshlang. Vaqt belgisi ({vaqt}) bo'lsa — javob tezligi ham hisoblanadi. Ruscha va inglizcha yorliqlar ham tushuniladi.",
+            ),
+            {
+              mijoz: <b>{tr('Mijoz:')}</b>,
+              menejer: <b>{tr('Menejer:')}</b>,
+              vaqt: <code>[10:05]</code>,
+            },
+          )}
         </div>
         {matn.trim().length === 0 && (
           <button
             className="btn ikkinchi kichik"
             style={{ marginTop: 6 }}
-            onClick={() => setMatn(NAMUNA)}
+            onClick={() => setMatn(namuna)}
           >
-            Namuna matnni qo'yish
+            {tr("Namuna matnni qo'yish")}
           </button>
         )}
       </div>
@@ -552,9 +576,9 @@ export function SuhbatYuklash({
 
       {korish && (
         <div className="card" style={{ marginBottom: 10, background: 'var(--bg-base)' }}>
-          <b>Shunday tushunildi — {korish.length} ta xabar</b>
+          <b>{tr('Shunday tushunildi — {n} ta xabar', { n: korish.length })}</b>
           <div className="yordam" style={{ marginBottom: 8 }}>
-            Rollar to'g'rimi? Noto'g'ri bo'lsa tahlil ham teskari chiqadi.
+            {tr("Rollar to'g'rimi? Noto'g'ri bo'lsa tahlil ham teskari chiqadi.")}
           </div>
           <div style={{ maxHeight: 240, overflowY: 'auto' }}>
             {korish.map((s) => (
@@ -563,7 +587,7 @@ export function SuhbatYuklash({
                   className={`badge ${s.speaker === 'manager' ? 'navy' : 'kul'}`}
                   style={{ flexShrink: 0 }}
                 >
-                  {s.speaker === 'manager' ? 'MENEJER' : 'MIJOZ'}
+                  {s.speaker === 'manager' ? tr('MENEJER') : tr('MIJOZ')}
                 </span>
                 <span>{s.text}</span>
               </div>
@@ -584,15 +608,15 @@ export function SuhbatYuklash({
             disabled={band || matn.trim().length < 20 || !seatId}
             onClick={() => void korib()}
           >
-            {band ? 'Tekshirilmoqda…' : 'Ko\'rib chiqish'}
+            {band ? tr('Tekshirilmoqda…') : tr("Ko'rib chiqish")}
           </button>
         ) : (
           <>
             <button className="btn" disabled={band} onClick={() => void yukla()}>
-              {band ? 'Yuklanmoqda…' : 'To\'g\'ri — yuklash va tahlil qilish'}
+              {band ? tr('Yuklanmoqda…') : tr("To'g'ri — yuklash va tahlil qilish")}
             </button>
             <button className="btn ikkinchi" onClick={() => setKorish(null)}>
-              Matnni tahrirlash
+              {tr('Matnni tahrirlash')}
             </button>
           </>
         )}

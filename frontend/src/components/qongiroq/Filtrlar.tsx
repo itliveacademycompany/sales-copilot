@@ -1,5 +1,6 @@
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useT } from '../../i18n';
 
 /**
  * Qo'ng'iroqlar sahifasi filtrlari: umumiy ochiluvchi panel, ko'p tanlovli
@@ -157,6 +158,7 @@ export function TanlovRoyxat({
   /** Tanlovlar bo'sh bo'lganda ko'rsatiladigan matn yoki element. */
   bosh?: ReactNode;
 }) {
+  const tr = useT();
   const almashtir = (q: string) =>
     onOzgar(tanlangan.includes(q) ? tanlangan.filter((x) => x !== q) : [...tanlangan, q]);
   const jami = guruhlar.reduce((s, g) => s + g.tanlovlar.length, 0);
@@ -167,12 +169,12 @@ export function TanlovRoyxat({
         <b>{sarlavha}</b>
         {tanlangan.length > 0 && (
           <button type="button" className="tanlov-tozala" onClick={() => onOzgar([])}>
-            Tozalash
+            {tr('Tozalash')}
           </button>
         )}
       </div>
       {jami === 0 ? (
-        <div className="tanlov-bosh-matn">{bosh ?? 'Tanlov yo\'q'}</div>
+        <div className="tanlov-bosh-matn">{bosh ?? tr("Tanlov yo'q")}</div>
       ) : (
         guruhlar.map((g, gi) =>
           g.tanlovlar.length === 0 ? null : (
@@ -279,6 +281,7 @@ export function SanaTanlagich({
   to: Date;
   onTanla: (turi: SanaTuri, from: Date, to: Date) => void;
 }) {
+  const tr = useT();
   const [oy, setOy] = useState(() => new Date(from.getFullYear(), from.getMonth(), 1));
   /** Kalendar faqat "Maxsus" tanlanganda ochiladi — avval ixcham ro'yxat. */
   const [kalendar, setKalendar] = useState(turi === 'maxsus');
@@ -313,7 +316,7 @@ export function SanaTanlagich({
 
   return (
     <div className={`sana-tanlagich${kalendar ? ' kalendarli' : ''}`}>
-      <div className="sana-sarlavha">Sana</div>
+      <div className="sana-sarlavha">{tr('Sana')}</div>
       <div className="sana-ichki">
         <div className="sana-tayyor">
           {(Object.keys(SANA_NOMLARI) as SanaTuri[]).map((t) => (
@@ -333,7 +336,7 @@ export function SanaTanlagich({
                 onTanla(t, o.from, o.to);
               }}
             >
-              {SANA_NOMLARI[t]}
+              {tr(SANA_NOMLARI[t])}
             </button>
           ))}
         </div>
@@ -345,7 +348,7 @@ export function SanaTanlagich({
                 type="button"
                 className="kalendar-strelka"
                 onClick={() => setOy(new Date(oy.getFullYear(), oy.getMonth() - 1, 1))}
-                aria-label="Oldingi oy"
+                aria-label={tr('Oldingi oy')}
               >
                 <ChevronLeft />
               </button>
@@ -353,19 +356,19 @@ export function SanaTanlagich({
               <span className="kalendar-oy-yil">
                 <select
                   className="kalendar-tanla"
-                  aria-label="Oy"
+                  aria-label={tr('Oy')}
                   value={oy.getMonth()}
                   onChange={(e) => setOy(new Date(oy.getFullYear(), Number(e.target.value), 1))}
                 >
                   {OYLAR.map((nom, i) => (
                     <option key={nom} value={i} disabled={new Date(oy.getFullYear(), i, 1) > bugun}>
-                      {nom}
+                      {tr(nom)}
                     </option>
                   ))}
                 </select>
                 <select
                   className="kalendar-tanla"
-                  aria-label="Yil"
+                  aria-label={tr('Yil')}
                   value={oy.getFullYear()}
                   onChange={(e) => {
                     const yil = Number(e.target.value);
@@ -385,7 +388,7 @@ export function SanaTanlagich({
                 type="button"
                 className="kalendar-strelka"
                 onClick={() => setOy(new Date(oy.getFullYear(), oy.getMonth() + 1, 1))}
-                aria-label="Keyingi oy"
+                aria-label={tr('Keyingi oy')}
                 disabled={new Date(oy.getFullYear(), oy.getMonth() + 1, 1) > bugun}
               >
                 <ChevronRight />
@@ -394,7 +397,7 @@ export function SanaTanlagich({
             <div className="kalendar-grid" role="grid">
               {HAFTA.map((h) => (
                 <span key={h} className="kalendar-hafta">
-                  {h}
+                  {tr(h)}
                 </span>
               ))}
               {kataklar.map((d, i) => {
@@ -423,7 +426,7 @@ export function SanaTanlagich({
                       .join(' ')}
                     onClick={() => bos(d)}
                     onMouseEnter={() => boshlanish && setUstida(d)}
-                    aria-label={`${d.getDate()} ${OYLAR[d.getMonth()]}`}
+                    aria-label={tr(`{kun} ${OYLAR[d.getMonth()]}`, { kun: d.getDate() })}
                     aria-pressed={chet}
                   >
                     <span className="kalendar-raqam">{d.getDate()}</span>
@@ -432,7 +435,7 @@ export function SanaTanlagich({
               })}
             </div>
             <div className="kalendar-izoh">
-              {boshlanish ? 'Tugash sanasini tanlang' : sanaMatn(from, to)}
+              {boshlanish ? tr('Tugash sanasini tanlang') : sanaMatn(from, to)}
             </div>
           </div>
         )}

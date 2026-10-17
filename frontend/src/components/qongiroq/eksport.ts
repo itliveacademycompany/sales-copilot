@@ -1,4 +1,5 @@
 import { strToU8, zipSync } from 'fflate';
+import { tarjima } from '../../i18n';
 
 /**
  * Jadvalni faylga eksport qilish — CSV va haqiqiy Excel (.xlsx).
@@ -104,7 +105,7 @@ export function xlsxYukla(
     'xl/workbook.xml': strToU8(
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +
         '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">' +
-        '<sheets><sheet name="Qo\'ng\'iroqlar" sheetId="1" r:id="rId1"/></sheets></workbook>',
+        `<sheets><sheet name="${xml(tarjima("Qo'ng'iroqlar"))}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
     ),
     'xl/_rels/workbook.xml.rels': strToU8(
       '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>' +

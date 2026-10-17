@@ -3,6 +3,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, ApiError, type TelegramIntegration } from '../../api';
 import { useAuth } from '../../auth';
+import { joyla, useT } from '../../i18n';
 import {
   KATEGORIYALAR,
   MOS_TUR,
@@ -40,6 +41,7 @@ function Almash({ yoqilgan, onOzgar, aria, disabled, title }: { yoqilgan: boolea
 }
 
 export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: string; boshqaraOladi: boolean }) {
+  const t = useT();
   const base = `/api/v1/businesses/${businessId}`;
   const { business } = useAuth();
   const yozaOladi = !!business?.permissions.includes('business:write');
@@ -53,11 +55,11 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
   const [saqlashXato, setSaqlashXato] = useState<string | null>(null);
 
   const manzillarniYukla = useCallback(async () => {
-    const [t, m] = await Promise.all([
+    const [tgR, m] = await Promise.all([
       api.get<TelegramIntegration>(`${base}/integrations/telegram`).catch(() => null),
       api.get<{ targets: TelegramTargets }>(`${base}/integrations/telegram/targets`),
     ]);
-    setTg(t);
+    setTg(tgR);
     setManzillar(m.targets);
   }, [base]);
 
@@ -68,9 +70,9 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
       setAsl(p.alertPrefs);
       setPrefs(p.alertPrefs);
     } catch (e) {
-      setYuklashXato(xatoMatni(e, "Sozlamalarni yuklab bo'lmadi"));
+      setYuklashXato(xatoMatni(e, t("Sozlamalarni yuklab bo'lmadi")));
     }
-  }, [base, manzillarniYukla]);
+  }, [base, manzillarniYukla, t]);
 
   useEffect(() => {
     void yukla();
@@ -82,7 +84,7 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
         <div className="yordam bzl-xato">{yuklashXato}</div>
         <div className="pr-past">
           <button type="button" className="btn ikkinchi" onClick={() => void yukla()}>
-            Qayta urinish
+            {t('Qayta urinish')}
           </button>
         </div>
       </section>
@@ -116,7 +118,7 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
       setTimeout(() => setSaqlash('tinch'), 2200);
     } catch (e) {
       setSaqlash('tinch');
-      setSaqlashXato(xatoMatni(e, 'Saqlanmadi'));
+      setSaqlashXato(xatoMatni(e, t('Saqlanmadi')));
     }
   };
 
@@ -124,9 +126,9 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
     const turOchiq = k === 'daily_report' || prefs.kinds[k];
     const manzilBor = !!manzillar[ch];
     const title = !turOchiq
-      ? "Bu tur o'chirilgan — ogohlantirish yaratilmaydi, shuning uchun yuborilmaydi ham"
+      ? t("Bu tur o'chirilgan — ogohlantirish yaratilmaydi, shuning uchun yuborilmaydi ham")
       : !manzilBor
-        ? `${nom} manzili ulanmagan — quyida ulang, aks holda hech narsa yuborilmaydi`
+        ? t('{nom} manzili ulanmagan — quyida ulang, aks holda hech narsa yuborilmaydi', { nom: t(TG_KANALLAR.find((c) => c.k === ch)!.nom) })
         : undefined;
     return (
       <span className={manzilBor ? undefined : 'bn-manzilsiz'}>
@@ -145,23 +147,23 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
     <section className="card sz-karta bn-karta">
       <div className="sz-karta-bosh">
         <div>
-          <h2>Bildirishnomalar</h2>
-          <p>Qaysi ogohlantirishlar yaratilishi va qayerga yuborilishini tanlang.</p>
+          <h2>{t('Bildirishnomalar')}</h2>
+          <p>{t('Qaysi ogohlantirishlar yaratilishi va qayerga yuborilishini tanlang.')}</p>
         </div>
       </div>
 
       <div className="bn-bolim">
-        <b className="bn-sarlavha">Bildirishnoma kanallari</b>
+        <b className="bn-sarlavha">{t('Bildirishnoma kanallari')}</b>
         <div className="bn-jadval-oram">
           <table className="bn-jadval">
             <thead>
               <tr>
-                <th scope="col">Ogohlantirish turi</th>
-                <th scope="col">Ilovada</th>
+                <th scope="col">{t('Ogohlantirish turi')}</th>
+                <th scope="col">{t('Ilovada')}</th>
                 {TG_KANALLAR.map((u) => (
                   <th key={u.k} scope="col">
-                    {u.nom}
-                    {!manzillar[u.k] && <small className="bn-ustun-izoh">ulanmagan</small>}
+                    {t(u.nom)}
+                    {!manzillar[u.k] && <small className="bn-ustun-izoh">{t('ulanmagan')}</small>}
                   </th>
                 ))}
               </tr>
@@ -171,34 +173,34 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
                 <Fragment key={kat.nom}>
                   <tr className="bn-kategoriya">
                     <th scope="rowgroup" colSpan={5}>
-                      <b>{kat.nom}</b>
-                      <small>{kat.izoh}</small>
+                      <b>{t(kat.nom)}</b>
+                      <small>{t(kat.izoh)}</small>
                     </th>
                   </tr>
                   {kat.turlar.map((tur) => (
                     <Fragment key={tur.k}>
                       <tr className={tur.k === 'quality_drop' ? 'bn-ochiq' : undefined}>
                         <th scope="row">
-                          <b>{tur.nom}</b>
-                          <small>{tur.izoh}</small>
+                          <b>{t(tur.nom)}</b>
+                          <small>{t(tur.izoh)}</small>
                         </th>
                         <td>
                           {tur.k === 'daily_report' ? (
-                            <span className="bn-yoq" title="Kunlik hisobot «Kunlik hisobot» sahifasida doim ko'rinadi">
+                            <span className="bn-yoq" title={t("Kunlik hisobot «Kunlik hisobot» sahifasida doim ko'rinadi")}>
                               —
                             </span>
                           ) : (
                             <Almash
                               yoqilgan={prefs.kinds[tur.k]}
                               disabled={!yozaOladi}
-                              aria={`${tur.nom} — yaratilsin`}
-                              title={prefs.kinds[tur.k] ? "O'chirilsa, bu ogohlantirish umuman yaratilmaydi" : undefined}
+                              aria={t('{nom} — yaratilsin', { nom: t(tur.nom) })}
+                              title={prefs.kinds[tur.k] ? t("O'chirilsa, bu ogohlantirish umuman yaratilmaydi") : undefined}
                               onOzgar={(v) => turYoq(tur.k as AlertTuri, v)}
                             />
                           )}
                         </td>
                         {TG_KANALLAR.map((u) => (
-                          <td key={u.k}>{katak(tur.k, u.k, `${tur.nom} — ${u.nom}`)}</td>
+                          <td key={u.k}>{katak(tur.k, u.k, `${t(tur.nom)} — ${t(u.nom)}`)}</td>
                         ))}
                       </tr>
                       {tur.k === 'quality_drop' && (
@@ -208,19 +210,19 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
                               <div className="bn-ichki-karta">
                                 <div className="bn-ichki-bosh">
                                   <div>
-                                    <b>Past baho ogohlantirishi</b>
-                                    <small>Tahlildan keyin suhbat bahosi chegaradan past chiqsa, «Past baho» ogohlantirishi yaratiladi.</small>
+                                    <b>{t('Past baho ogohlantirishi')}</b>
+                                    <small>{t('Tahlildan keyin suhbat bahosi chegaradan past chiqsa, «Past baho» ogohlantirishi yaratiladi.')}</small>
                                   </div>
                                   <Almash
                                     yoqilgan={ls.enabled}
                                     disabled={!yozaOladi || !prefs.kinds.quality_drop}
                                     onOzgar={(v) => pastBaho({ enabled: v })}
-                                    aria="Past baho ogohlantirishi"
+                                    aria={t('Past baho ogohlantirishi')}
                                   />
                                 </div>
                                 <div className="bn-ichki-maydonlar">
                                   <div className="maydon-blok">
-                                    <label htmlFor="bn-chegara">Baho chegarasi, % (0–100)</label>
+                                    <label htmlFor="bn-chegara">{t('Baho chegarasi, % (0–100)')}</label>
                                     <input
                                       id="bn-chegara"
                                       type="number"
@@ -232,10 +234,10 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
                                       aria-invalid={!chegaraTogri}
                                       onChange={(e) => pastBaho({ threshold: e.target.value === '' ? NaN : Number(e.target.value) })}
                                     />
-                                    {!chegaraTogri && <div className="yordam bzl-xato">0 dan 100 gacha butun son</div>}
+                                    {!chegaraTogri && <div className="yordam bzl-xato">{t('0 dan 100 gacha butun son')}</div>}
                                   </div>
                                   <div className="maydon-blok">
-                                    <label htmlFor="bn-replika">Kamida nechta replika (1–100)</label>
+                                    <label htmlFor="bn-replika">{t('Kamida nechta replika (1–100)')}</label>
                                     <input
                                       id="bn-replika"
                                       type="number"
@@ -247,12 +249,11 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
                                       aria-invalid={!repTogri}
                                       onChange={(e) => pastBaho({ minTurns: e.target.value === '' ? NaN : Number(e.target.value) })}
                                     />
-                                    {!repTogri && <div className="yordam bzl-xato">1 dan 100 gacha butun son</div>}
+                                    {!repTogri && <div className="yordam bzl-xato">{t('1 dan 100 gacha butun son')}</div>}
                                   </div>
                                 </div>
                                 <small className="yordam">
-                                  Qisqa suhbat (bir-ikki replika) tabiiy ravishda past baho oladi — shuning uchun undan qisqasi hisobga olinmaydi. AI ishonchi past
-                                  bo'lgan tahlil uchun «Past baho» chiqmaydi: unga «AI ishonchi past» ogohlantirishi beriladi.
+                                  {t("Qisqa suhbat (bir-ikki replika) tabiiy ravishda past baho oladi — shuning uchun undan qisqasi hisobga olinmaydi. AI ishonchi past bo'lgan tahlil uchun «Past baho» chiqmaydi: unga «AI ishonchi past» ogohlantirishi beriladi.")}
                                 </small>
                               </div>
                             </div>
@@ -267,22 +268,22 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
           </table>
         </div>
         <p className="sz-eslatma">
-          «Ilovada» o'chirilgan tur umuman yaratilmaydi — na ilovada, na Telegram'da. Telegram ustunlari yaratilgan ogohlantirishni qo'shimcha ravishda
-          tanlangan manzilga yuboradi. Bahoga e'tiroz ogohlantirishlari doim faqat ilovada ko'rinadi.
+          {t("«Ilovada» o'chirilgan tur umuman yaratilmaydi — na ilovada, na Telegram'da. Telegram ustunlari yaratilgan ogohlantirishni qo'shimcha ravishda tanlangan manzilga yuboradi. Bahoga e'tiroz ogohlantirishlari doim faqat ilovada ko'rinadi.")}
           {kunlikTelegramYoq &&
-            (cfg.reportChatId
-              ? ' Kunlik hisobot uchun Telegram tanlanmagan — u «Kunlik hisobot» bo\'limidagi standart chatga yuboriladi.'
-              : ' Kunlik hisobot hozircha Telegram\'ga yuborilmaydi.')}
-          {!yozaOladi && " Sozlamani faqat biznes sozlamalariga huquqi bor rahbar o'zgartira oladi."}
+            ' ' +
+              (cfg.reportChatId
+                ? t("Kunlik hisobot uchun Telegram tanlanmagan — u «Kunlik hisobot» bo'limidagi standart chatga yuboriladi.")
+                : t("Kunlik hisobot hozircha Telegram'ga yuborilmaydi."))}
+          {!yozaOladi && ' ' + t("Sozlamani faqat biznes sozlamalariga huquqi bor rahbar o'zgartira oladi.")}
         </p>
       </div>
 
       <div className="pr-past">
         {saqlashXato && <span className="kr-holat xato">{saqlashXato}</span>}
-        {!saqlashXato && ozgargan && saqlash === 'tinch' && <span className="kr-holat">Saqlanmagan o'zgarishlar bor</span>}
+        {!saqlashXato && ozgargan && saqlash === 'tinch' && <span className="kr-holat">{t("Saqlanmagan o'zgarishlar bor")}</span>}
         {saqlash === 'saqlandi' && (
           <span className="kr-holat ok">
-            <Check /> Saqlandi
+            <Check /> {t('Saqlandi')}
           </span>
         )}
         <button
@@ -294,18 +295,18 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
             setSaqlashXato(null);
           }}
         >
-          Bekor qilish
+          {t('Bekor qilish')}
         </button>
         <button type="button" className="btn" disabled={!yozaOladi || !ozgargan || !chegaraTogri || !repTogri || saqlash === 'ketmoqda'} onClick={() => void saqla()}>
-          {saqlash === 'ketmoqda' ? 'Saqlanmoqda…' : 'Saqlash'}
+          {saqlash === 'ketmoqda' ? t('Saqlanmoqda…') : t('Saqlash')}
         </button>
       </div>
 
       <div className="bn-bolim">
         <div className="bn-manzil-bosh">
           <div>
-            <b className="bn-sarlavha">Telegram manzillari</b>
-            <small>Ogohlantirishlar yuboriladigan shaxsiy chat, guruh va kanal.</small>
+            <b className="bn-sarlavha">{t('Telegram manzillari')}</b>
+            <small>{t('Ogohlantirishlar yuboriladigan shaxsiy chat, guruh va kanal.')}</small>
           </div>
         </div>
 
@@ -313,29 +314,32 @@ export function Bildirishnomalar({ businessId, boshqaraOladi }: { businessId: st
           <div className="bzl-izoh" role="status">
             <Info aria-hidden="true" />
             <span>
-              Manzil ulash uchun avval Telegram botni ulang. <Link to="/sozlamalar?b=integratsiya">Telegram bot sozlamalari</Link>
+              {t('Manzil ulash uchun avval Telegram botni ulang.')} <Link to="/sozlamalar?b=integratsiya">{t('Telegram bot sozlamalari')}</Link>
             </span>
           </div>
         ) : (
           <>
             <ol className="bn-qadamlar">
               <li>
-                <b>Shaxsiy chat:</b> {botNomi} botiga Telegram'da istalgan xabar yozing.
+                {joyla(t("{nom} {bot} botiga Telegram'da istalgan xabar yozing."), { nom: <b>{t('Shaxsiy chat:')}</b>, bot: botNomi })}
               </li>
               <li>
-                <b>Guruh:</b> botni guruhga qo'shing va guruhda bitta xabar yozing.
+                {joyla(t("{nom} botni guruhga qo'shing va guruhda bitta xabar yozing."), { nom: <b>{t('Guruh:')}</b> })}
               </li>
               <li>
-                <b>Kanal:</b> botni kanalga <b>administrator</b> qilib qo'shing va kanalga bitta post joylang.
+                {joyla(t("{nom} botni kanalga {admin} qilib qo'shing va kanalga bitta post joylang."), {
+                  nom: <b>{t('Kanal:')}</b>,
+                  admin: <b>{t('administrator')}</b>,
+                })}
               </li>
-              <li>Chat quyidagi ro'yxatda paydo bo'ladi — tanlang va «Sinov xabari» bilan tekshiring. Chiqmasa, chat ID'ni qo'lda kiriting.</li>
+              <li>{t("Chat quyidagi ro'yxatda paydo bo'ladi — tanlang va «Sinov xabari» bilan tekshiring. Chiqmasa, chat ID'ni qo'lda kiriting.")}</li>
             </ol>
             {TG_KANALLAR.map((u) => (
               <ManzilKarta
                 key={u.k}
                 base={base}
                 kanal={u.k}
-                nom={u.nom}
+                nom={t(u.nom)}
                 manzillar={manzillar}
                 boshqaraOladi={boshqaraOladi}
                 onYangilandi={setManzillar}
@@ -367,6 +371,7 @@ function ManzilKarta({
   onYangilandi: (t: TelegramTargets) => void;
   onQaytaYukla: () => void;
 }) {
+  const t = useT();
   const joriy = manzillar[kanal];
   const [tahrir, setTahrir] = useState(false);
   const [tanlov, setTanlov] = useState('');
@@ -391,7 +396,7 @@ function ManzilKarta({
       setQoldaId('');
       setQoldaNom('');
     } catch (e) {
-      setXabar({ ok: false, matn: xatoMatni(e, 'Saqlanmadi') });
+      setXabar({ ok: false, matn: xatoMatni(e, t('Saqlanmadi')) });
     } finally {
       setHolat('tinch');
     }
@@ -402,9 +407,13 @@ function ManzilKarta({
     setXabar(null);
     try {
       const r = await api.post<{ ok: boolean; error: string | null }>(`${base}/integrations/telegram/targets/test`, { kanal });
-      setXabar(r.ok ? { ok: true, matn: "Sinov xabari yuborildi — Telegram'ni tekshiring" } : { ok: false, matn: `Yuborilmadi: ${r.error ?? "noma'lum sabab"}` });
+      setXabar(
+        r.ok
+          ? { ok: true, matn: t("Sinov xabari yuborildi — Telegram'ni tekshiring") }
+          : { ok: false, matn: t('Yuborilmadi: {sabab}', { sabab: r.error ?? t("noma'lum sabab") }) },
+      );
     } catch (e) {
-      setXabar({ ok: false, matn: xatoMatni(e, 'Yuborilmadi') });
+      setXabar({ ok: false, matn: xatoMatni(e, t('Yuborilmadi')) });
     } finally {
       setHolat('tinch');
     }
@@ -426,20 +435,20 @@ function ManzilKarta({
         <div className="bn-manzil-matn">
           <div>
             <b>{joriy ? joriy.title ?? nom : nom}</b>
-            <span className={`bzl-pill${joriy ? ' info' : ''}`}>{joriy ? 'Ulangan' : 'Ulanmagan'}</span>
+            <span className={`bzl-pill${joriy ? ' info' : ''}`}>{joriy ? t('Ulangan') : t('Ulanmagan')}</span>
           </div>
-          <small>{joriy ? <code>{joriy.chatId}</code> : 'Bu manzilga hech narsa yuborilmaydi.'}</small>
+          <small>{joriy ? <code>{joriy.chatId}</code> : t('Bu manzilga hech narsa yuborilmaydi.')}</small>
           {xabar && <small className={xabar.ok ? 'bn-ok' : 'bzl-xato'}>{xabar.matn}</small>}
         </div>
         {boshqaraOladi && (
           <div className="bn-manzil-amal">
             {joriy && (
               <button type="button" className="btn ikkinchi" disabled={holat === 'ketmoqda'} onClick={() => void sina()}>
-                <Send /> Sinov xabari
+                <Send /> {t('Sinov xabari')}
               </button>
             )}
             <button type="button" className="btn ikkinchi" aria-expanded={tahrir} onClick={() => setTahrir((v) => !v)}>
-              {tahrir ? 'Yopish' : joriy ? 'Almashtirish' : 'Ulash'}
+              {tahrir ? t('Yopish') : joriy ? t('Almashtirish') : t('Ulash')}
             </button>
             {joriy && (
               <button
@@ -447,10 +456,10 @@ function ManzilKarta({
                 className="bzl-amal bn-uz"
                 disabled={holat === 'ketmoqda'}
                 onClick={() => {
-                  if (window.confirm(`${nom} manzilini uzasizmi? Unga ogohlantirishlar yuborilmay qoladi.`)) void yoz(null);
+                  if (window.confirm(t('{nom} manzilini uzasizmi? Unga ogohlantirishlar yuborilmay qoladi.', { nom }))) void yoz(null);
                 }}
               >
-                Uzish
+                {t('Uzish')}
               </button>
             )}
           </div>
@@ -468,7 +477,7 @@ function ManzilKarta({
         >
           <div className="bzl-forma-panjara bn-ulash-panjara">
             <div className="maydon-blok">
-              <label htmlFor={`bn-korilgan-${kanal}`}>Bot ko'rgan chatlar</label>
+              <label htmlFor={`bn-korilgan-${kanal}`}>{t("Bot ko'rgan chatlar")}</label>
               <select
                 id={`bn-korilgan-${kanal}`}
                 value={tanlov}
@@ -477,7 +486,7 @@ function ManzilKarta({
                   if (e.target.value) setQoldaId('');
                 }}
               >
-                <option value="">{korilgan.length ? '— tanlang —' : "Hali hech narsa yo'q"}</option>
+                <option value="">{korilgan.length ? t('— tanlang —') : t("Hali hech narsa yo'q")}</option>
                 {korilgan.map((d) => (
                   <option key={d.chatId} value={d.chatId}>
                     {d.title ?? d.chatId}
@@ -486,7 +495,7 @@ function ManzilKarta({
               </select>
             </div>
             <div className="maydon-blok">
-              <label htmlFor={`bn-chat-${kanal}`}>yoki chat ID</label>
+              <label htmlFor={`bn-chat-${kanal}`}>{t('yoki chat ID')}</label>
               <input
                 id={`bn-chat-${kanal}`}
                 value={qoldaId}
@@ -502,23 +511,23 @@ function ManzilKarta({
             </div>
             {!tanlov && (
               <div className="maydon-blok">
-                <label htmlFor={`bn-nom-${kanal}`}>Nomi</label>
-                <input id={`bn-nom-${kanal}`} value={qoldaNom} onChange={(e) => setQoldaNom(e.target.value)} placeholder="Masalan: Sotuv bo'limi" maxLength={200} />
+                <label htmlFor={`bn-nom-${kanal}`}>{t('Nomi')}</label>
+                <input id={`bn-nom-${kanal}`} value={qoldaNom} onChange={(e) => setQoldaNom(e.target.value)} placeholder={t("Masalan: Sotuv bo'limi")} maxLength={200} />
               </div>
             )}
           </div>
           {!!qoldaId && !qoldaTogri && (
             <div className="bzl-izoh xato" role="alert">
               <TriangleAlert aria-hidden="true" />
-              <span>Chat ID faqat raqamlardan iborat (guruh va kanallarda odatda -100 bilan boshlanadi).</span>
+              <span>{t('Chat ID faqat raqamlardan iborat (guruh va kanallarda odatda -100 bilan boshlanadi).')}</span>
             </div>
           )}
           <div className="bn-manzil-amal">
             <button type="submit" className="btn" disabled={!saqlanadigan || holat === 'ketmoqda'}>
-              {holat === 'ketmoqda' ? 'Saqlanmoqda…' : 'Saqlash'}
+              {holat === 'ketmoqda' ? t('Saqlanmoqda…') : t('Saqlash')}
             </button>
             <button type="button" className="btn ikkinchi" onClick={onQaytaYukla}>
-              Ro'yxatni yangilash
+              {t("Ro'yxatni yangilash")}
             </button>
           </div>
         </form>

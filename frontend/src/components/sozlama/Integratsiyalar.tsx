@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, fmtSana } from '../../api';
 import { getSttModel, setSttModel, STT_MODELLAR, type SttModelKey } from '../../sttModels';
+import { joyla, useT } from '../../i18n';
 import './integratsiyalar.css';
 
 /**
@@ -75,6 +76,7 @@ interface MzXodimlar {
 }
 
 export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; boshqaraOladi: boolean }) {
+  const t = useT();
   const [h, setH] = useState<MzHolat | null>(null);
   const [domain, setDomain] = useState('');
   const [email, setEmail] = useState('');
@@ -123,13 +125,13 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
   const ulangan = !!h?.connected;
   useEffect(() => {
     if (!ulangan) return;
-    const t = setInterval(() => {
+    const taymer = setInterval(() => {
       void api.get<MzHolat>(base).then(setH).catch(() => undefined);
     }, 20_000);
-    return () => clearInterval(t);
+    return () => clearInterval(taymer);
   }, [ulangan, base]);
 
-  if (!h) return <div className="yuklanmoqda">Yuklanmoqda…</div>;
+  if (!h) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
 
   const c = h.counts;
   const limitTogri = limit.trim() === '' || (/^\d+$/.test(limit.trim()) && Number(limit) >= 1 && Number(limit) <= 5000);
@@ -139,30 +141,33 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="karta-bosh">
-        <h2>Moi Zvonki — telefon qo'ng'iroqlari</h2>
+        <h2>{t("Moi Zvonki — telefon qo'ng'iroqlari")}</h2>
         <span className={`badge ${h.connected ? 'ok' : 'kul'}`}>
-          {h.connected ? 'ulangan' : 'ulanmagan'}
+          {h.connected ? t('ulangan') : t('ulanmagan')}
         </span>
       </div>
       <div className="yordam" style={{ marginBottom: 12 }}>
-        Menejerlar telefonidagi qo'ng'iroqlar yozuvi avtomatik olinadi, matnga aylantiriladi va
-        playbook bo'yicha baholanadi. Har 2 daqiqada yangilari tekshiriladi.
+        {t("Menejerlar telefonidagi qo'ng'iroqlar yozuvi avtomatik olinadi, matnga aylantiriladi va playbook bo'yicha baholanadi. Har 2 daqiqada yangilari tekshiriladi.")}
       </div>
 
       <details className="crm-hujjat" open={!h.connected}>
-        <summary>API ma'lumotlari qayerda?</summary>
+        <summary>{t("API ma'lumotlari qayerda?")}</summary>
         <div className="yordam" style={{ marginTop: 8 }}>
-          Moi Zvonki kabinetida: <b>Настройки → Интеграция → Параметры API</b>. U yerda «Ваш адрес
-          API» (masalan <code>kompaniya.moizvonki.ru</code>) va «Ваш ключ API» turadi. Email — shu
-          kabinetga kiradigan foydalanuvchi emaili. Barcha menejerlarning qo'ng'iroqlari kelishi
-          uchun bu foydalanuvchi <b>rahbar (supervisor yoki admin)</b> bo'lishi kerak.
+          {joyla(
+            t("Moi Zvonki kabinetida: {yol}. U yerda «Ваш адрес API» (masalan {misol}) va «Ваш ключ API» turadi. Email — shu kabinetga kiradigan foydalanuvchi emaili. Barcha menejerlarning qo'ng'iroqlari kelishi uchun bu foydalanuvchi {rol} bo'lishi kerak."),
+            {
+              yol: <b>Настройки → Интеграция → Параметры API</b>,
+              misol: <code>kompaniya.moizvonki.ru</code>,
+              rol: <b>{t('rahbar (supervisor yoki admin)')}</b>,
+            },
+          )}
         </div>
       </details>
 
       {/* ─── Ulash ─── */}
       <div className="soat-qator">
         <div className="maydon-blok">
-          <label htmlFor="mz-domain">API manzili</label>
+          <label htmlFor="mz-domain">{t('API manzili')}</label>
           <input
             id="mz-domain"
             value={domain}
@@ -173,12 +178,12 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
           />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="mz-email">Foydalanuvchi emaili</label>
+          <label htmlFor="mz-email">{t('Foydalanuvchi emaili')}</label>
           <input
             id="mz-email"
             type="email"
             value={email}
-            placeholder="rahbar@kompaniya.uz"
+            placeholder={t('rahbar@kompaniya.uz')}
             disabled={!boshqaraOladi}
             maxLength={200}
             onChange={(e) => setEmail(e.target.value)}
@@ -186,27 +191,27 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
         </div>
       </div>
       <div className="maydon-blok">
-        <label htmlFor="mz-kalit">API kalit</label>
+        <label htmlFor="mz-kalit">{t('API kalit')}</label>
         <input
           id="mz-kalit"
           type="password"
           autoComplete="off"
           value={kalit}
-          placeholder={h.keyHint ?? 'Moi Zvonki kabinetidagi kalit'}
+          placeholder={h.keyHint ?? t('Moi Zvonki kabinetidagi kalit')}
           disabled={!boshqaraOladi}
           maxLength={200}
           onChange={(e) => setKalit(e.target.value)}
         />
         <div className="yordam">
           {h.keyHint
-            ? `O'rnatilgan (${h.keyHint}). Bo'sh qoldirsangiz o'zgarmaydi.`
-            : 'Kalit shifrlangan holda saqlanadi va keyin hech qachon to\'liq ko\'rsatilmaydi.'}
+            ? t("O'rnatilgan ({belgi}). Bo'sh qoldirsangiz o'zgarmaydi.", { belgi: h.keyHint })
+            : t("Kalit shifrlangan holda saqlanadi va keyin hech qachon to'liq ko'rsatilmaydi.")}
         </div>
       </div>
 
       <div className="soat-qator">
         <div className="maydon-blok">
-          <label htmlFor="mz-min">Eng qisqa qo'ng'iroq (soniya)</label>
+          <label htmlFor="mz-min">{t("Eng qisqa qo'ng'iroq (soniya)")}</label>
           <input
             id="mz-min"
             type="number"
@@ -217,12 +222,11 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
             onChange={(e) => setMinDavom(Number(e.target.value))}
           />
           <div className="yordam">
-            Bundan qisqasi olinmaydi — «allo, keyinroq» kabi qo'ng'iroqlarni baholash pul
-            sarflaydi, lekin hech narsa demaydi.
+            {t("Bundan qisqasi olinmaydi — «allo, keyinroq» kabi qo'ng'iroqlarni baholash pul sarflaydi, lekin hech narsa demaydi.")}
           </div>
         </div>
         <div className="maydon-blok">
-          <label htmlFor="mz-orqaga">Birinchi ulanishda necha kun orqaga</label>
+          <label htmlFor="mz-orqaga">{t('Birinchi ulanishda necha kun orqaga')}</label>
           <input
             id="mz-orqaga"
             type="number"
@@ -232,36 +236,36 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
             disabled={!boshqaraOladi}
             onChange={(e) => setOrqaga(Number(e.target.value))}
           />
-          <div className="yordam">Faqat birinchi sinxronlashga ta'sir qiladi.</div>
+          <div className="yordam">{t("Faqat birinchi sinxronlashga ta'sir qiladi.")}</div>
         </div>
       </div>
 
       <div className="maydon-blok">
-        <label htmlFor="mz-limit">Kuniga ko'pi bilan nechta qo'ng'iroq baholansin</label>
+        <label htmlFor="mz-limit">{t("Kuniga ko'pi bilan nechta qo'ng'iroq baholansin")}</label>
         <input
           id="mz-limit"
           type="number"
           min={1}
           max={5000}
           value={limit}
-          placeholder="cheksiz"
+          placeholder={t('cheksiz')}
           disabled={!boshqaraOladi}
           aria-invalid={!limitTogri}
           onChange={(e) => setLimit(e.target.value)}
         />
         <div className="yordam" style={!limitTogri ? { color: 'var(--past)' } : undefined}>
           {limitTogri
-            ? "Har baho — STT va AI so'rovi (pul yoki bepul kvota). Limitdan oshgani yo'qolmaydi: navbatda qoladi va ertasi kuni baholanadi. Bo'sh — cheksiz."
-            : '1 dan 5000 gacha butun son yoki bo\'sh (cheksiz)'}
+            ? t("Har baho — STT va AI so'rovi (pul yoki bepul kvota). Limitdan oshgani yo'qolmaydi: navbatda qoladi va ertasi kuni baholanadi. Bo'sh — cheksiz.")
+            : t("1 dan 5000 gacha butun son yoki bo'sh (cheksiz)")}
         </div>
       </div>
 
       <div className="ogoh-sozlama" style={{ marginBottom: 12 }}>
         <label className="sozlama-satr">
           <span className="matn">
-            <b>Avtomatik baholash</b>
+            <b>{t('Avtomatik baholash')}</b>
             <span className="izoh">
-              O'chiq bo'lsa qo'ng'iroqlar faqat ro'yxatga tushadi — STT va AI pul sarflamaydi.
+              {t("O'chiq bo'lsa qo'ng'iroqlar faqat ro'yxatga tushadi — STT va AI pul sarflamaydi.")}
             </span>
           </span>
           <input
@@ -297,7 +301,7 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
               })
             }
           >
-            {holat === 'ketmoqda' ? 'Tekshirilmoqda…' : 'Saqlash va tekshirish'}
+            {holat === 'ketmoqda' ? t('Tekshirilmoqda…') : t('Saqlash va tekshirish')}
           </button>
           {h.connected && (
             <>
@@ -313,26 +317,26 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
                     }>(`${base}/sync`);
                     setSinxXabar(
                       r.xato
-                        ? `Xato: ${r.xato}`
-                        : `${r.olindi} ta qo'ng'iroq ko'rildi, ${r.saqlandi} tasi yangi.`,
+                        ? t('Xato: {xato}', { xato: r.xato })
+                        : t("{n} ta qo'ng'iroq ko'rildi, {yangi} tasi yangi.", { n: r.olindi, yangi: r.saqlandi }),
                     );
                     yukla();
                   })
                 }
               >
-                Hozir sinxronlash
+                {t('Hozir sinxronlash')}
               </button>
               <button
                 className="btn ikkinchi"
                 onClick={() => {
-                  if (!window.confirm('Moi Zvonki uzilsinmi? Olingan qo\'ng\'iroqlar va baholar qoladi.')) return;
+                  if (!window.confirm(t("Moi Zvonki uzilsinmi? Olingan qo'ng'iroqlar va baholar qoladi."))) return;
                   void amal.bajar(async () => {
                     await api.del(base);
                     yukla();
                   });
                 }}
               >
-                Uzish
+                {t('Uzish')}
               </button>
             </>
           )}
@@ -344,53 +348,59 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
       {/* ─── Holat ─── */}
       {h.connected && (
         <>
-          <h3 style={{ marginTop: 6, marginBottom: 8 }}>Holat</h3>
+          <h3 style={{ marginTop: 6, marginBottom: 8 }}>{t('Holat')}</h3>
           <div className="jamoa-raqam">
             <div className="katak ok">
               <div className="son">{c.baholandi}</div>
-              <div className="nom">Baholandi</div>
+              <div className="nom">{t('Baholandi')}</div>
             </div>
             <div className="katak">
               <div className="son">{c.kutmoqda + c.ishlanmoqda}</div>
-              <div className="nom">Navbatda</div>
+              <div className="nom">{t('Navbatda')}</div>
             </div>
             <div className={`katak${c.boglanmagan > 0 ? ' sariq' : ''}`}>
               <div className="son">{c.boglanmagan}</div>
-              <div className="nom">Menejer bog'lanmagan</div>
+              <div className="nom">{t("Menejer bog'lanmagan")}</div>
             </div>
             <div className="katak">
               <div className="son">{c.filtrlangan}</div>
-              <div className="nom">Filtrlangan</div>
+              <div className="nom">{t('Filtrlangan')}</div>
             </div>
             <div className={`katak${c.xato > 0 ? ' sariq' : ''}`}>
               <div className="son">{c.xato}</div>
-              <div className="nom">Xato</div>
+              <div className="nom">{t('Xato')}</div>
             </div>
           </div>
           <div className="yordam" style={{ marginBottom: 10 }}>
-            Oxirgi sinxronlash: {h.lastSyncAt ? fmtSana(h.lastSyncAt) : 'hali bo\'lmagan'}
+            {t('Oxirgi sinxronlash: {vaqt}', { vaqt: h.lastSyncAt ? fmtSana(h.lastSyncAt) : t("hali bo'lmagan") })}
             {h.config?.lastStats &&
-              ` · ${h.config.lastStats.olindi} ta ko'rildi: ${h.config.lastStats.saqlandi} yangi, ` +
-                `${h.config.lastStats.javobsiz} javobsiz, ${h.config.lastStats.qisqa} qisqa`}
-            {!h.config?.autoAnalyze && ' · avtomatik baholash o\'chiq'}
-            {` · bugun baholandi: ${h.bugunBaholandi}${kunlikLimit !== null ? ` / ${kunlikLimit}` : ''}`}
+              ' · ' +
+                t("{n} ta ko'rildi: {yangi} yangi, {javobsiz} javobsiz, {qisqa} qisqa", {
+                  n: h.config.lastStats.olindi,
+                  yangi: h.config.lastStats.saqlandi,
+                  javobsiz: h.config.lastStats.javobsiz,
+                  qisqa: h.config.lastStats.qisqa,
+                })}
+            {!h.config?.autoAnalyze && ' · ' + t("avtomatik baholash o'chiq")}
+            {' · ' + t('bugun baholandi: {n}', { n: `${h.bugunBaholandi}${kunlikLimit !== null ? ` / ${kunlikLimit}` : ''}` })}
           </div>
           {h.pauza && (
             <div className="xato-qator">
-              AI limiti: baholash {new Date(h.pauza.gacha).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })} gacha
-              to'xtatildi. Qo'ng'iroqlar yo'qolmaydi — navbatda kutib turibdi va keyin o'zi davom etadi.
+              {t("AI limiti: baholash {vaqt} gacha to'xtatildi. Qo'ng'iroqlar yo'qolmaydi — navbatda kutib turibdi va keyin o'zi davom etadi.", {
+                vaqt: new Date(h.pauza.gacha).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' }),
+              })}
             </div>
           )}
           {limitTugadi && (
             <div className="yordam" style={{ marginBottom: 10, color: 'var(--orta-text)' }}>
-              Bugungi limit tugadi ({kunlikLimit} ta). Qolgan {c.kutmoqda} ta qo'ng'iroq ertaga navbat bilan baholanadi.
+              {t("Bugungi limit tugadi ({limit} ta). Qolgan {n} ta qo'ng'iroq ertaga navbat bilan baholanadi.", { limit: kunlikLimit ?? 0, n: c.kutmoqda })}
             </div>
           )}
-          {h.lastError && <div className="xato-qator">Oxirgi xato: {h.lastError}</div>}
+          {h.lastError && <div className="xato-qator">{t('Oxirgi xato: {xato}', { xato: h.lastError })}</div>}
 
           {c.xato > 0 && (
             <div className="yordam" style={{ marginBottom: 10 }}>
-              {h.recentErrors[0]?.reason && <>Masalan: «{h.recentErrors[0].reason}». </>}
+              {h.recentErrors[0]?.reason && <>{t('Masalan: «{sabab}».', { sabab: h.recentErrors[0].reason })} </>}
               {boshqaraOladi && (
                 <button
                   className="matn-tugma"
@@ -400,17 +410,16 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
                       .then(yukla)
                   }
                 >
-                  Xatolilarni qayta urinish
+                  {t('Xatolilarni qayta urinish')}
                 </button>
               )}
             </div>
           )}
 
           {/* ─── Xodimlar ─── */}
-          <h3 style={{ marginTop: 14, marginBottom: 6 }}>Xodimlar → menejerlar</h3>
+          <h3 style={{ marginTop: 14, marginBottom: 6 }}>{t('Xodimlar → menejerlar')}</h3>
           <div className="yordam" style={{ marginBottom: 8 }}>
-            Faqat menejerga bog'langan xodimning qo'ng'iroqlari baholanadi. Bog'lagan zahoti
-            kutib turgan qo'ng'iroqlari ham o'sha menejerga o'tadi.
+            {t("Faqat menejerga bog'langan xodimning qo'ng'iroqlari baholanadi. Bog'lagan zahoti kutib turgan qo'ng'iroqlari ham o'sha menejerga o'tadi.")}
           </div>
           {xodimlar?.izoh && (
             <div className="yordam" style={{ marginBottom: 8, color: 'var(--orta-text)' }}>
@@ -418,28 +427,28 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
             </div>
           )}
           {!xodimlar ? (
-            <div className="yuklanmoqda">Yuklanmoqda…</div>
+            <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>
           ) : xodimlar.employees.length === 0 ? (
-            <div className="hech-narsa">Hali xodim topilmadi</div>
+            <div className="hech-narsa">{t('Hali xodim topilmadi')}</div>
           ) : (
             <div className="menejer-jadval">
               {xodimlar.employees.map((x) => (
                 <div className="qator" key={x.id}>
                   <div className="bosh">
                     <div className="matn">
-                      <div className="ism">{x.name ?? `Xodim #${x.id}`}</div>
+                      <div className="ism">{x.name ?? t('Xodim #{id}', { id: x.id })}</div>
                       <div className="izoh">
-                        {x.email ?? `ID ${x.id}`} · {x.calls} ta qo'ng'iroq
+                        {x.email ?? `ID ${x.id}`} · {t("{n} ta qo'ng'iroq", { n: x.calls })}
                       </div>
                     </div>
                     <div className="amal">
                       {!x.seatId && x.suggestedSeatId && (
-                        <span className="badge sariq">email mos</span>
+                        <span className="badge sariq">{t('email mos')}</span>
                       )}
                       <select
                         value={x.seatId ?? ''}
                         disabled={!boshqaraOladi}
-                        aria-label={`${x.name ?? x.id} uchun menejer`}
+                        aria-label={t('{nom} uchun menejer', { nom: x.name ?? x.id })}
                         onChange={(e) => {
                           const yangi = e.target.value || null;
                           /*
@@ -453,9 +462,10 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
                           const tarixniKochir =
                             !!x.seatId && !!yangi && x.seatId !== yangi && x.calls > 0
                               ? window.confirm(
-                                  `«${x.name ?? x.id}» ning OLDINGI qo'ng'iroqlari ham (baholari bilan) ${yangiNom} ga o'tkazilsinmi?\n\n` +
-                                    `OK — xato bog'langan edi, bu hisob aslida ${yangiNom}niki.\n` +
-                                    `Bekor qilish — hisob endi ${yangiNom}ga berildi, eski suhbatlar ${eski}da qolsin.`,
+                                  t(
+                                    "«{xodim}» ning OLDINGI qo'ng'iroqlari ham (baholari bilan) {yangi} ga o'tkazilsinmi?\n\nOK — xato bog'langan edi, bu hisob aslida {yangi}niki.\nBekor qilish — hisob endi {yangi}ga berildi, eski suhbatlar {eski}da qolsin.",
+                                    { xodim: x.name ?? x.id, yangi: yangiNom ?? '', eski: eski ?? '' },
+                                  ),
                                 )
                               : false;
                           void amal.bajar(async () => {
@@ -465,19 +475,21 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
                               tarixniKochir,
                             });
                             if (r.kochirildi > 0) {
-                              setSinxXabar(`${r.kochirildi} ta qo'ng'iroq (baholari, vazifalari va ogohlantirishlari bilan) ${yangiNom}ga ko'chirildi.`);
+                              setSinxXabar(
+                                t("{n} ta qo'ng'iroq (baholari, vazifalari va ogohlantirishlari bilan) {nom}ga ko'chirildi.", { n: r.kochirildi, nom: yangiNom ?? '' }),
+                              );
                             } else if (r.otkazildi > 0) {
-                              setSinxXabar(`${r.otkazildi} ta kutayotgan qo'ng'iroq menejerga o'tdi.`);
+                              setSinxXabar(t("{n} ta kutayotgan qo'ng'iroq menejerga o'tdi.", { n: r.otkazildi }));
                             }
                             yukla();
                           });
                         }}
                       >
-                        <option value="">— bog'lanmagan —</option>
+                        <option value="">{t("— bog'lanmagan —")}</option>
                         {xodimlar.seats.map((s) => (
                           <option key={s.id} value={s.id}>
                             {s.name}
-                            {s.id === x.suggestedSeatId ? ' (taklif)' : ''}
+                            {s.id === x.suggestedSeatId ? ` (${t('taklif')})` : ''}
                           </option>
                         ))}
                       </select>
@@ -520,6 +532,7 @@ export function CrmEksport({
   businessId: string;
   boshqaraOladi: boolean;
 }) {
+  const t = useT();
   const [h, setH] = useState<CrmHolat | null>(null);
   const [url, setUrl] = useState('');
   const [yoq, setYoq] = useState(false);
@@ -542,30 +555,31 @@ export function CrmEksport({
 
   useEffect(yukla, [yukla]);
 
-  if (!h) return <div className="yuklanmoqda">Yuklanmoqda…</div>;
+  if (!h) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
 
   const xatolilar = h.recent.filter((r) => r.exportError).length;
 
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="karta-bosh">
-        <h2>Vazifalarni CRM'ga yuborish</h2>
+        <h2>{t("Vazifalarni CRM'ga yuborish")}</h2>
         <span className={`badge ${h.config.exportTasks ? 'ok' : 'kul'}`}>
-          {h.config.exportTasks ? 'yoqilgan' : 'o\'chirilgan'}
+          {h.config.exportTasks ? t('yoqilgan') : t("o'chirilgan")}
         </span>
       </div>
       <div className="yordam" style={{ marginBottom: 12 }}>
-        Har yangi vazifa siz ko'rsatgan manzilga <b>imzolangan</b> so'rov bo'lib yuboriladi.
-        amoCRM va Bitrix24 ning kiruvchi webhooki, n8n/Make yoki o'z backendingiz — hammasi
-        ishlaydi.
+        {joyla(
+          t("Har yangi vazifa siz ko'rsatgan manzilga {imzolangan} so'rov bo'lib yuboriladi. amoCRM va Bitrix24 ning kiruvchi webhooki, n8n/Make yoki o'z backendingiz — hammasi ishlaydi."),
+          { imzolangan: <b>{t('imzolangan')}</b> },
+        )}
       </div>
 
       <div className="ogoh-sozlama" style={{ marginBottom: 12 }}>
         <label className="sozlama-satr">
           <span className="matn">
-            <b>Eksport yoqilsin</b>
+            <b>{t('Eksport yoqilsin')}</b>
             <span className="izoh">
-              O'chirilganda vazifalar faqat shu ilovada qoladi — hech qayerga yuborilmaydi.
+              {t("O'chirilganda vazifalar faqat shu ilovada qoladi — hech qayerga yuborilmaydi.")}
             </span>
           </span>
           <input
@@ -580,7 +594,7 @@ export function CrmEksport({
       </div>
 
       <div className="maydon-blok">
-        <label htmlFor="crm-url">Webhook manzili</label>
+        <label htmlFor="crm-url">{t('Webhook manzili')}</label>
         <input
           id="crm-url"
           value={url}
@@ -592,14 +606,14 @@ export function CrmEksport({
       </div>
 
       <div className="maydon-blok">
-        <label htmlFor="crm-sir">Imzo siri</label>
+        <label htmlFor="crm-sir">{t('Imzo siri')}</label>
         <div className="qolda-qator">
           <input
             id="crm-sir"
             value={sir}
             type="password"
             autoComplete="off"
-            placeholder={h.secretHint ?? 'kamida 16 belgi'}
+            placeholder={h.secretHint ?? t('kamida 16 belgi')}
             disabled={!boshqaraOladi}
             maxLength={200}
             onChange={(e) => setSir(e.target.value)}
@@ -615,29 +629,28 @@ export function CrmEksport({
                   .then((r) => setSir(r.secret))
               }
             >
-              Yaratish
+              {t('Yaratish')}
             </button>
           )}
         </div>
         <div className="yordam">
           {h.config.hasSecret
-            ? `O'rnatilgan (${h.secretHint}). Bo'sh qoldirsangiz o'zgarmaydi.`
-            : 'Imzosiz eksportni yoqib bo\'lmaydi — manzilni bilgan har kim soxta vazifa yuborishi mumkin.'}
+            ? t("O'rnatilgan ({belgi}). Bo'sh qoldirsangiz o'zgarmaydi.", { belgi: h.secretHint ?? '' })
+            : t("Imzosiz eksportni yoqib bo'lmaydi — manzilni bilgan har kim soxta vazifa yuborishi mumkin.")}
         </div>
       </div>
 
       <details className="crm-hujjat">
-        <summary>Qabul qiluvchi tomonda imzoni qanday tekshirish kerak</summary>
+        <summary>{t('Qabul qiluvchi tomonda imzoni qanday tekshirish kerak')}</summary>
         <div className="yordam" style={{ marginTop: 8 }}>
-          Har so'rovda ikki sarlavha keladi:
+          {t("Har so'rovda ikki sarlavha keladi:")}
         </div>
         <pre className="kod-blok">{`X-Sotuv-Timestamp: 1767225600
 X-Sotuv-Signature: v1=<hex>
 
 imzo = HMAC_SHA256(sir, timestamp + "." + tana)`}</pre>
         <div className="yordam">
-          Timestamp'ni ham tekshiring (masalan 5 daqiqadan eski so'rovni rad eting) — aks holda
-          ushlab olingan so'rovni qayta yuborish mumkin bo'ladi.
+          {t("Timestamp'ni ham tekshiring (masalan 5 daqiqadan eski so'rovni rad eting) — aks holda ushlab olingan so'rovni qayta yuborish mumkin bo'ladi.")}
         </div>
       </details>
 
@@ -645,10 +658,12 @@ imzo = HMAC_SHA256(sir, timestamp + "." + tana)`}</pre>
 
       {sinov &&
         (sinov.ok ? (
-          <div className="ok-qator">Sinov so'rovi qabul qilindi ✓</div>
+          <div className="ok-qator">{t("Sinov so'rovi qabul qilindi ✓")}</div>
         ) : (
           <div className="xato-qator">
-            Sinov muvaffaqiyatsiz{sinov.status ? ` (HTTP ${sinov.status})` : ''}: {sinov.error}
+            {sinov.status
+              ? t('Sinov muvaffaqiyatsiz (HTTP {status}): {xato}', { status: sinov.status, xato: sinov.error ?? '' })
+              : t('Sinov muvaffaqiyatsiz: {xato}', { xato: sinov.error ?? '' })}
           </div>
         ))}
 
@@ -669,7 +684,7 @@ imzo = HMAC_SHA256(sir, timestamp + "." + tana)`}</pre>
               })
             }
           >
-            {holat === 'ketmoqda' ? 'Saqlanmoqda…' : 'Saqlash'}
+            {holat === 'ketmoqda' ? t('Saqlanmoqda…') : t('Saqlash')}
           </button>
           <button
             className="btn ikkinchi"
@@ -684,22 +699,22 @@ imzo = HMAC_SHA256(sir, timestamp + "." + tana)`}</pre>
                   setSinov({
                     ok: false,
                     status: 0,
-                    error: e instanceof ApiError ? e.message : 'yuborilmadi',
+                    error: e instanceof ApiError ? e.message : t('yuborilmadi'),
                   }),
                 )
             }
           >
-            Sinov so'rovi
+            {t("Sinov so'rovi")}
           </button>
         </div>
       )}
 
       {h.recent.length > 0 && (
         <>
-          <h3 style={{ marginTop: 18, marginBottom: 6 }}>Oxirgi yuborishlar</h3>
+          <h3 style={{ marginTop: 18, marginBottom: 6 }}>{t('Oxirgi yuborishlar')}</h3>
           {xatolilar > 0 && boshqaraOladi && (
             <div className="yordam" style={{ marginBottom: 8 }}>
-              {xatolilar} ta yuborishda xato bor.{' '}
+              {t('{n} ta yuborishda xato bor.', { n: xatolilar })}{' '}
               <button
                 className="matn-tugma"
                 onClick={() =>
@@ -710,7 +725,7 @@ imzo = HMAC_SHA256(sir, timestamp + "." + tana)`}</pre>
                     .then(yukla)
                 }
               >
-                Xatolilarni qayta yuborish
+                {t('Xatolilarni qayta yuborish')}
               </button>
             </div>
           )}
@@ -720,10 +735,10 @@ imzo = HMAC_SHA256(sir, timestamp + "." + tana)`}</pre>
                 <span className="nom">{r.title}</span>
                 {r.exportError ? (
                   <span className="badge qizil" title={r.exportError}>
-                    xato
+                    {t('xato')}
                   </span>
                 ) : (
-                  <span className="badge ok">yuborildi</span>
+                  <span className="badge ok">{t('yuborildi')}</span>
                 )}
                 <span className="vaqt">{r.exportedAt ? fmtSana(r.exportedAt) : '—'}</span>
               </div>
@@ -736,16 +751,18 @@ imzo = HMAC_SHA256(sir, timestamp + "." + tana)`}</pre>
 }
 
 export function SttTanlash() {
+  const t = useT();
   const [model, setModel] = useState<SttModelKey>(() => getSttModel());
+  const izoh = STT_MODELLAR.find((m) => m.key === model)?.note;
 
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="karta-bosh">
-        <h2>Transkript modeli</h2>
-        <span className="badge kul">sinov</span>
+        <h2>{t('Transkript modeli')}</h2>
+        <span className="badge kul">{t('sinov')}</span>
       </div>
       <div className="maydon-blok">
-        <label htmlFor="stt-model">Audio yuklashda ishlatiladigan model</label>
+        <label htmlFor="stt-model">{t('Audio yuklashda ishlatiladigan model')}</label>
         <select
           id="stt-model"
           value={model}
@@ -761,7 +778,7 @@ export function SttTanlash() {
             </option>
           ))}
         </select>
-        <div className="yordam">{STT_MODELLAR.find((m) => m.key === model)?.note}</div>
+        <div className="yordam">{izoh && t(izoh)}</div>
       </div>
     </div>
   );
@@ -769,6 +786,7 @@ export function SttTanlash() {
 
 /** Kichik yordamchi: saqlash holati va xabar. */
 function useSaqlash() {
+  const t = useT();
   const [holat, setHolat] = useState<'tinch' | 'ketmoqda' | 'ok'>('tinch');
   const [xato, setXato] = useState<string | null>(null);
 
@@ -782,17 +800,18 @@ function useSaqlash() {
       return true;
     } catch (e) {
       setHolat('tinch');
-      setXato(e instanceof ApiError ? e.message : 'Saqlab bo\'lmadi');
+      setXato(e instanceof ApiError ? e.message : t("Saqlab bo'lmadi"));
       return false;
     }
-  }, []);
+  }, [t]);
 
   return { holat, xato, bajar, setXato };
 }
 
 function Xabar({ holat, xato }: { holat: string; xato: string | null }) {
+  const t = useT();
   if (xato) return <div className="xato-qator">{xato}</div>;
-  if (holat === 'ok') return <div className="ok-qator">Saqlandi ✓</div>;
+  if (holat === 'ok') return <div className="ok-qator">{t('Saqlandi')} ✓</div>;
   return null;
 }
 

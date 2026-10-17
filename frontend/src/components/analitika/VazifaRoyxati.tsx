@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { api, ApiError, type TaskRow } from '../../api';
 import { useAuth } from '../../auth';
+import { oyNomi, tarjima, useT } from '../../i18n';
 import { avatarRang, boshHarf, type BoshMalumot } from '../bosh/malumot';
 import { FiltrTugma, SanaTanlagich, TanlovRoyxat, sanaMatn, type SanaTuri, type Tanlov } from '../qongiroq/Filtrlar';
 import { TanlovMenyu } from './Ochiluvchi';
@@ -47,11 +48,15 @@ const MANBA: Record<Manba, string> = { crm: "CRM bilan bog'langan", ai: 'SotuvAI
 const manbasi = (t: TaskRow): Manba => (t.crmTaskId ? 'crm' : t.source === 'manual' ? 'qolda' : 'ai');
 const KUN = 86400_000;
 const SAHIFA = 20;
-const OYLAR = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
 
 const muddatMatn = (iso: string) => {
   const d = new Date(iso);
-  return `${d.getDate()} ${OYLAR[d.getMonth()]}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return tarjima('{kun} {oy}, {vaqt}', {
+    kun: d.getDate(),
+    // Kun bilan birga — rus tilida qaratqich kelishigi ("5 января")
+    oy: oyNomi(d.getMonth(), true),
+    vaqt: `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`,
+  });
 };
 /** PATCH javobida isOverdue yo'q — server bilan bir xil qoida bo'yicha hisoblaymiz. */
 const kechikkanmi = (t: TaskRow) => !!t.dueAt && new Date(t.dueAt).getTime() < Date.now() && OCHIQ.has(t.status);
@@ -77,6 +82,7 @@ export function VazifaRoyxati({
   boshMenejer: string | null;
   onOrqaga: () => void;
 }) {
+  const t = useT();
   const { business } = useAuth();
   const bizId = business?.businessId ?? '';
   const biz = bizId ? `/api/v1/businesses/${bizId}` : '';
@@ -155,13 +161,13 @@ export function VazifaRoyxati({
   const ochiqlar = barcha.filter((v) => bajarilgan || OCHIQ.has(v.status));
   const menejerTanlov: Tanlov[] = [...new Set(barcha.map((v) => v.seatId ?? ''))].map((s) => ({
     qiymat: s,
-    nom: s ? ism.get(s) ?? 'Menejer' : 'Biriktirilmagan',
+    nom: s ? ism.get(s) ?? t('Menejer') : t('Biriktirilmagan'),
     soni: ochiqlar.filter((v) => (v.seatId ?? '') === s).length,
   }));
-  const manbaTanlov: Tanlov[] = (Object.keys(MANBA) as Manba[]).map((m) => ({ qiymat: m, nom: MANBA[m], soni: ochiqlar.filter((v) => manbasi(v) === m).length }));
+  const manbaTanlov: Tanlov[] = (Object.keys(MANBA) as Manba[]).map((m) => ({ qiymat: m, nom: t(MANBA[m]), soni: ochiqlar.filter((v) => manbasi(v) === m).length }));
   const holatTanlov: Tanlov[] = (Object.keys(HOLAT) as TaskRow['status'][])
     .filter((h) => bajarilgan || OCHIQ.has(h))
-    .map((h) => ({ qiymat: h, nom: HOLAT[h], soni: ochiqlar.filter((v) => v.status === h).length }));
+    .map((h) => ({ qiymat: h, nom: t(HOLAT[h]), soni: ochiqlar.filter((v) => v.status === h).length }));
 
   // Mijoz yoki lid — suhbat tafsilotidan nom, bo'lmasa xulosa
   const mijoz = (v: TaskRow) => {
@@ -173,7 +179,7 @@ export function VazifaRoyxati({
       d?.contact?.name ??
       d?.conversation.phoneFrom ??
       r?.summary?.slice(0, 48) ??
-      `Suhbat #${v.conversationId.slice(0, 8)}`
+      t('Suhbat #{id}', { id: v.conversationId.slice(0, 8) })
     );
   };
 
@@ -184,7 +190,7 @@ export function VazifaRoyxati({
       const row = await api.patch<TaskRow>(`${biz}/tasks/${v.id}`, { status: yangi });
       q.vazifaniYangila({ ...v, ...row, isOverdue: kechikkanmi({ ...v, ...row }) });
     } catch (e) {
-      setXato(e instanceof ApiError ? e.message : "Holat saqlanmadi — qayta urinib ko'ring.");
+      setXato(e instanceof ApiError ? e.message : t("Holat saqlanmadi — qayta urinib ko'ring."));
     } finally {
       setBand(null);
     }
@@ -195,21 +201,21 @@ export function VazifaRoyxati({
   return (
     <section className="card vr-karta" ref={tepaRef}>
       <button type="button" className="vr-orqaga" onClick={onOrqaga}>
-        <ArrowLeft /> Vazifalar tahliliga qaytish
+        <ArrowLeft /> {t('Vazifalar tahliliga qaytish')}
       </button>
 
       <div className="vr-bosh">
         <div>
-          <h2>{s.nom}</h2>
-          <p>{s.izoh}</p>
+          <h2>{t(s.nom)}</h2>
+          <p>{t(s.izoh)}</p>
         </div>
         <div className="vr-bosh-ong">
-          <span className="vr-soni" title="Filtrga mos vazifalar">
+          <span className="vr-soni" title={t('Filtrga mos vazifalar')}>
             {royxat.length}
           </span>
           {boshqaraOladi && (
             <button type="button" className="btn" onClick={() => setTahrir('yangi')}>
-              <Plus /> Vazifa qo'shish
+              <Plus /> {t("Vazifa qo'shish")}
             </button>
           )}
         </div>
@@ -217,10 +223,10 @@ export function VazifaRoyxati({
 
       <div className="vr-filtrlar">
         <div className="vr-filtrlar-chap">
-          <FiltrTugma ikon={<UserRound />} nom="Menejer" qiymat={menejer.length === 1 ? (menejer[0] ? ism.get(menejer[0]) ?? 'Menejer' : 'Biriktirilmagan') : undefined} soni={menejer.length > 1 ? menejer.length : undefined} faol={menejer.length > 0}>
-            {() => <TanlovRoyxat sarlavha="Menejer" guruhlar={[{ tanlovlar: menejerTanlov }]} tanlangan={menejer} onOzgar={setMenejer} />}
+          <FiltrTugma ikon={<UserRound />} nom={t('Menejer')} qiymat={menejer.length === 1 ? (menejer[0] ? ism.get(menejer[0]) ?? t('Menejer') : t('Biriktirilmagan')) : undefined} soni={menejer.length > 1 ? menejer.length : undefined} faol={menejer.length > 0}>
+            {() => <TanlovRoyxat sarlavha={t('Menejer')} guruhlar={[{ tanlovlar: menejerTanlov }]} tanlangan={menejer} onOzgar={setMenejer} />}
           </FiltrTugma>
-          <FiltrTugma ikon={<CalendarDays />} nom="Yaratilgan" qiymat={sana ? sanaMatn(sana.from, sana.to) : undefined} faol={!!sana}>
+          <FiltrTugma ikon={<CalendarDays />} nom={t('Yaratilgan')} qiymat={sana ? sanaMatn(sana.from, sana.to) : undefined} faol={!!sana}>
             {(yop) => (
               <SanaTanlagich
                 turi={sana?.turi ?? '30kun'}
@@ -233,14 +239,14 @@ export function VazifaRoyxati({
               />
             )}
           </FiltrTugma>
-          <FiltrTugma ikon={<Timer />} nom="Muddat" qiymat={muddat ? MUDDAT.find((m) => m.qiymat === muddat)!.nom : undefined} faol={!!muddat}>
+          <FiltrTugma ikon={<Timer />} nom={t('Muddat')} qiymat={muddat ? t(MUDDAT.find((m) => m.qiymat === muddat)!.nom) : undefined} faol={!!muddat}>
             {(yop) => (
               <div className="tanlov">
                 <div className="tanlov-bosh">
-                  <b>Muddat</b>
+                  <b>{t('Muddat')}</b>
                   {muddat && (
                     <button type="button" className="tanlov-tozala" onClick={() => setMuddat('')}>
-                      Tozalash
+                      {t('Tozalash')}
                     </button>
                   )}
                 </div>
@@ -254,56 +260,56 @@ export function VazifaRoyxati({
                       yop();
                     }}
                   >
-                    {m.nom}
+                    {t(m.nom)}
                   </button>
                 ))}
               </div>
             )}
           </FiltrTugma>
-          <FiltrTugma ikon={<Database />} nom="Manba" soni={manba.length || undefined} faol={manba.length > 0}>
-            {() => <TanlovRoyxat sarlavha="Manba" guruhlar={[{ tanlovlar: manbaTanlov }]} tanlangan={manba} onOzgar={setManba} />}
+          <FiltrTugma ikon={<Database />} nom={t('Manba')} soni={manba.length || undefined} faol={manba.length > 0}>
+            {() => <TanlovRoyxat sarlavha={t('Manba')} guruhlar={[{ tanlovlar: manbaTanlov }]} tanlangan={manba} onOzgar={setManba} />}
           </FiltrTugma>
-          <FiltrTugma ikon={<Filter />} nom="Holat" soni={holat.length || undefined} faol={holat.length > 0}>
-            {() => <TanlovRoyxat sarlavha="Holat" guruhlar={[{ tanlovlar: holatTanlov }]} tanlangan={holat} onOzgar={setHolat} />}
+          <FiltrTugma ikon={<Filter />} nom={t('Holat')} soni={holat.length || undefined} faol={holat.length > 0}>
+            {() => <TanlovRoyxat sarlavha={t('Holat')} guruhlar={[{ tanlovlar: holatTanlov }]} tanlangan={holat} onOzgar={setHolat} />}
           </FiltrTugma>
           {filtrBor && (
             <button type="button" className="vr-tozala" onClick={tozala}>
-              <X /> Filtrlarni tozalash
+              <X /> {t('Filtrlarni tozalash')}
             </button>
           )}
         </div>
         <label className="vr-almash">
           <input type="checkbox" role="switch" checked={bajarilgan} onChange={(e) => setBajarilgan(e.target.checked)} />
           <span className="vr-almash-yol" aria-hidden="true" />
-          Bajarilganlarni ham ko'rsatish
+          {t("Bajarilganlarni ham ko'rsatish")}
         </label>
       </div>
 
       {xato && <div className="xato-qator vr-xato">{xato}</div>}
-      {q.vazifaCheklangan && <div className="an-eslatma">Vazifalar ko'p — ba'zi holatlar bo'yicha birinchi 200 tasi olindi.</div>}
+      {q.vazifaCheklangan && <div className="an-eslatma">{t("Vazifalar ko'p — ba'zi holatlar bo'yicha birinchi 200 tasi olindi.")}</div>}
 
       {royxat.length === 0 ? (
         <div className="vr-bosh-holat">
-          <b>{filtrBor ? 'Filtrga mos vazifa yo\'q' : 'Ochiq vazifa yo\'q'}</b>
-          <span>{filtrBor ? "Filtrlarni o'zgartiring yoki tozalang." : 'Hamma vazifalar bajarilgan — ajoyib.'}</span>
+          <b>{filtrBor ? t("Filtrga mos vazifa yo'q") : t("Ochiq vazifa yo'q")}</b>
+          <span>{filtrBor ? t("Filtrlarni o'zgartiring yoki tozalang.") : t('Hamma vazifalar bajarilgan — ajoyib.')}</span>
         </div>
       ) : (
         <div className="vr-jadval-qobiq">
           <table className="vr-jadval">
             <thead>
               <tr>
-                <th>Vazifa</th>
-                <th>Mijoz yoki lid</th>
-                <th>Menejer</th>
-                <th>Muddat</th>
-                <th>Holat</th>
-                <th className="vr-amal-th">Amallar</th>
+                <th>{t('Vazifa')}</th>
+                <th>{t('Mijoz yoki lid')}</th>
+                <th>{t('Menejer')}</th>
+                <th>{t('Muddat')}</th>
+                <th>{t('Holat')}</th>
+                <th className="vr-amal-th">{t('Amallar')}</th>
               </tr>
             </thead>
             <tbody>
               {korinadi.map((v) => {
                 const kech = kechikkanmi(v);
-                const nom = v.seatId ? ism.get(v.seatId) ?? 'Menejer' : null;
+                const nom = v.seatId ? ism.get(v.seatId) ?? t('Menejer') : null;
                 const m = mijoz(v);
                 const meta = metaOl(bizId, v.id);
                 const harakat = harakatNomi(meta.harakat ?? v.action);
@@ -321,7 +327,7 @@ export function VazifaRoyxati({
                           v.title
                         )}
                         {meta.muhimlik && meta.muhimlik !== 'oddiy' && (
-                          <span className={`vr-muhim ${meta.muhimlik}`}>{MUHIMLIK.find((x) => x.qiymat === meta.muhimlik)!.nom}</span>
+                          <span className={`vr-muhim ${meta.muhimlik}`}>{t(MUHIMLIK.find((x) => x.qiymat === meta.muhimlik)!.nom)}</span>
                         )}
                       </b>
                       {(harakat ?? v.description) && <small>{harakat ?? v.description}</small>}
@@ -345,30 +351,30 @@ export function VazifaRoyxati({
                           </span>
                         )
                       ) : (
-                        <span className="vr-xira">Biriktirilmagan</span>
+                        <span className="vr-xira">{t('Biriktirilmagan')}</span>
                       )}
                     </td>
                     <td>
                       {v.dueAt ? (
                         lidUrl ? (
-                          <Link to={lidUrl} className={`vr-muddat havolali${kech ? ' kech' : ''}`} title={kech ? "Muddati o'tgan — lid tafsilotlari" : 'Lid tafsilotlari'}>
+                          <Link to={lidUrl} className={`vr-muddat havolali${kech ? ' kech' : ''}`} title={kech ? t("Muddati o'tgan — lid tafsilotlari") : t('Lid tafsilotlari')}>
                             <CalendarDays /> {muddatMatn(v.dueAt)}
                           </Link>
                         ) : (
-                          <span className={`vr-muddat${kech ? ' kech' : ''}`} title={kech ? "Muddati o'tgan" : undefined}>
+                          <span className={`vr-muddat${kech ? ' kech' : ''}`} title={kech ? t("Muddati o'tgan") : undefined}>
                             <CalendarDays /> {muddatMatn(v.dueAt)}
                           </span>
                         )
                       ) : (
-                        <span className="vr-xira">Muddatsiz</span>
+                        <span className="vr-xira">{t('Muddatsiz')}</span>
                       )}
                     </td>
                     <td>
                       <TanlovMenyu
                         qiymat={v.status}
-                        variantlar={HOLAT_TANLOV.concat(v.status === 'cancelled' ? [{ qiymat: 'cancelled', nom: HOLAT.cancelled }] : [])}
+                        variantlar={HOLAT_TANLOV.concat(v.status === 'cancelled' ? [{ qiymat: 'cancelled', nom: HOLAT.cancelled }] : []).map((x) => ({ ...x, nom: t(x.nom) }))}
                         onOzgar={(h) => void holatniOzgartir(v, h as TaskRow['status'])}
-                        aria={`${v.title} — holat`}
+                        aria={t('{nom} — holat', { nom: v.title })}
                         ton={`vr-holat ${v.status}`}
                         kenglik={150}
                         disabled={band === v.id}
@@ -376,12 +382,12 @@ export function VazifaRoyxati({
                     </td>
                     <td className="vr-amallar">
                       {boshqaraOladi && (
-                        <button type="button" className="vr-amal" onClick={() => setTahrir(v)} aria-label="Tahrirlash" title="Tahrirlash">
+                        <button type="button" className="vr-amal" onClick={() => setTahrir(v)} aria-label={t('Tahrirlash')} title={t('Tahrirlash')}>
                           <Pencil />
                         </button>
                       )}
                       {v.conversationId ? (
-                        <Link to={lidUrl!} className="vr-amal" aria-label="Lid tafsilotlari" title="Lid tafsilotlari">
+                        <Link to={lidUrl!} className="vr-amal" aria-label={t('Lid tafsilotlari')} title={t('Lid tafsilotlari')}>
                           <ChevronRight />
                         </Link>
                       ) : (
@@ -419,6 +425,7 @@ export function VazifaRoyxati({
 
 /** 1 2 3 4 5 … 22 — joriy sahifa atrofida 1 tadan, chetlar doim ko'rinadi. */
 function Sahifalash({ joriy, jami, onOt }: { joriy: number; jami: number; onOt: (n: number) => void }) {
+  const t = useT();
   const raqamlar: (number | '…')[] = [];
   const korsat = new Set([1, jami, joriy - 1, joriy, joriy + 1]);
   if (joriy <= 4) [2, 3, 4, 5].forEach((n) => korsat.add(n));
@@ -431,8 +438,8 @@ function Sahifalash({ joriy, jami, onOt }: { joriy: number; jami: number; onOt: 
     oldingi = n;
   }
   return (
-    <nav className="vr-sahifalash" aria-label="Sahifalar">
-      <button type="button" onClick={() => onOt(joriy - 1)} disabled={joriy === 1} aria-label="Oldingi sahifa">
+    <nav className="vr-sahifalash" aria-label={t('Sahifalar')}>
+      <button type="button" onClick={() => onOt(joriy - 1)} disabled={joriy === 1} aria-label={t('Oldingi sahifa')}>
         <ChevronLeft />
       </button>
       {raqamlar.map((n, i) =>
@@ -446,7 +453,7 @@ function Sahifalash({ joriy, jami, onOt }: { joriy: number; jami: number; onOt: 
           </button>
         ),
       )}
-      <button type="button" onClick={() => onOt(joriy + 1)} disabled={joriy === jami} aria-label="Keyingi sahifa">
+      <button type="button" onClick={() => onOt(joriy + 1)} disabled={joriy === jami} aria-label={t('Keyingi sahifa')}>
         <ChevronRight />
       </button>
     </nav>
@@ -471,6 +478,7 @@ function VazifaOyna({
   onYop: () => void;
   onSaqlandi: (t: TaskRow) => void;
 }) {
+  const t = useT();
   const eskiMeta = vazifa ? metaOl(bizId, vazifa.id) : {};
   const [sarlavha, setSarlavha] = useState(vazifa?.title ?? '');
   const [tavsif, setTavsif] = useState(vazifa?.description ?? '');
@@ -495,8 +503,8 @@ function VazifaOyna({
 
   // Ro'yxatda yo'q eski harakat qiymati (CRM'dan kelgan) yo'qolib qolmasin
   const harakatlar = [
-    ...(harakat === '' ? [{ qiymat: '', nom: 'Belgilanmagan' }] : []),
-    ...HARAKATLAR,
+    ...(harakat === '' ? [{ qiymat: '', nom: t('Belgilanmagan') }] : []),
+    ...HARAKATLAR.map((h) => ({ ...h, nom: t(h.nom) })),
     ...(harakat && !HARAKATLAR.some((h) => h.qiymat === harakat) ? [{ qiymat: harakat, nom: harakat }] : []),
   ];
   const tayyor = sarlavha.trim().length >= 3;
@@ -504,7 +512,7 @@ function VazifaOyna({
   async function saqla(e: FormEvent) {
     e.preventDefault();
     if (!tayyor) {
-      setXato("Vazifa nomi kamida 3 belgi bo'lsin.");
+      setXato(t("Vazifa nomi kamida 3 belgi bo'lsin."));
       return;
     }
     setBand(true);
@@ -524,7 +532,7 @@ function VazifaOyna({
       metaSaqla(bizId, row.id, { muhimlik, izoh, harakat: harakat && harakat !== serverHarakat ? harakat : undefined });
       onSaqlandi({ ...(vazifa ?? {}), ...row } as TaskRow);
     } catch (err) {
-      setXato(err instanceof ApiError ? err.message : 'Saqlanmadi');
+      setXato(err instanceof ApiError ? err.message : t('Saqlanmadi'));
     } finally {
       setBand(false);
     }
@@ -534,64 +542,64 @@ function VazifaOyna({
     <div className="vr-fon" onMouseDown={(e) => e.target === e.currentTarget && onYop()}>
       <form className="vr-oyna" role="dialog" aria-modal="true" aria-labelledby="vr-oyna-nom" onSubmit={saqla}>
         <div className="vr-oyna-bosh">
-          <h3 id="vr-oyna-nom">{vazifa ? 'Vazifani tahrirlash' : 'Yangi vazifa'}</h3>
-          <button type="button" className="vr-amal" onClick={onYop} aria-label="Yopish">
+          <h3 id="vr-oyna-nom">{vazifa ? t('Vazifani tahrirlash') : t('Yangi vazifa')}</h3>
+          <button type="button" className="vr-amal" onClick={onYop} aria-label={t('Yopish')}>
             <X />
           </button>
         </div>
         <div className="maydon-blok">
-          <label htmlFor="vr-nom">Vazifa nomi</label>
-          <input id="vr-nom" ref={birinchi} className="input" value={sarlavha} onChange={(e) => setSarlavha(e.target.value)} placeholder="Masalan: mijozga qayta qo'ng'iroq qilish" maxLength={300} />
+          <label htmlFor="vr-nom">{t('Vazifa nomi')}</label>
+          <input id="vr-nom" ref={birinchi} className="input" value={sarlavha} onChange={(e) => setSarlavha(e.target.value)} placeholder={t("Masalan: mijozga qayta qo'ng'iroq qilish")} maxLength={300} />
         </div>
         <div className="vr-oyna-ikki">
           <div className="maydon-blok">
-            <label htmlFor="vr-seat">Menejer</label>
+            <label htmlFor="vr-seat">{t('Menejer')}</label>
             <TanlovMenyu
               id="vr-seat"
               qiymat={seat}
-              variantlar={[...seatlar.map((s) => ({ qiymat: s.id, nom: s.nom })), { qiymat: '', nom: 'Biriktirilmagan' }]}
+              variantlar={[...seatlar.map((s) => ({ qiymat: s.id, nom: s.nom })), { qiymat: '', nom: t('Biriktirilmagan') }]}
               onOzgar={setSeat}
-              aria="Menejer"
+              aria={t('Menejer')}
               kenglik="100%"
             />
           </div>
           <div className="maydon-blok">
-            <label htmlFor="vr-harakat">Harakat turi</label>
-            <TanlovMenyu id="vr-harakat" qiymat={harakat} variantlar={harakatlar} onOzgar={setHarakat} aria="Harakat turi" kenglik="100%" />
+            <label htmlFor="vr-harakat">{t('Harakat turi')}</label>
+            <TanlovMenyu id="vr-harakat" qiymat={harakat} variantlar={harakatlar} onOzgar={setHarakat} aria={t('Harakat turi')} kenglik="100%" />
           </div>
           <div className="maydon-blok">
-            <label htmlFor="vr-muddat">Muddat</label>
+            <label htmlFor="vr-muddat">{t('Muddat')}</label>
             <input id="vr-muddat" type="datetime-local" className="input" value={muddat} onChange={(e) => setMuddat(e.target.value)} />
           </div>
           <div className="maydon-blok">
-            <label htmlFor="vr-muhim">Muhimlik</label>
+            <label htmlFor="vr-muhim">{t('Muhimlik')}</label>
             <TanlovMenyu
               id="vr-muhim"
               qiymat={muhimlik}
-              variantlar={MUHIMLIK}
+              variantlar={MUHIMLIK.map((m) => ({ ...m, nom: t(m.nom) }))}
               onOzgar={(v) => setMuhimlik(v as Muhimlik)}
-              aria="Muhimlik"
+              aria={t('Muhimlik')}
               ton={`vr-muhim-tugma ${muhimlik}`}
               kenglik="100%"
             />
           </div>
         </div>
         <div className="maydon-blok">
-          <label htmlFor="vr-tavsif">Tavsif</label>
-          <textarea id="vr-tavsif" value={tavsif} onChange={(e) => setTavsif(e.target.value)} rows={3} maxLength={2000} placeholder="Nima qilish kerak — mijozga nimani aytish, nimani yuborish" />
+          <label htmlFor="vr-tavsif">{t('Tavsif')}</label>
+          <textarea id="vr-tavsif" value={tavsif} onChange={(e) => setTavsif(e.target.value)} rows={3} maxLength={2000} placeholder={t('Nima qilish kerak — mijozga nimani aytish, nimani yuborish')} />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="vr-izoh">Izoh</label>
-          <textarea id="vr-izoh" value={izoh} onChange={(e) => setIzoh(e.target.value)} rows={2} maxLength={1000} placeholder="Ichki eslatma — masalan, mijoz kechqurun javob beradi" />
+          <label htmlFor="vr-izoh">{t('Izoh')}</label>
+          <textarea id="vr-izoh" value={izoh} onChange={(e) => setIzoh(e.target.value)} rows={2} maxLength={1000} placeholder={t('Ichki eslatma — masalan, mijoz kechqurun javob beradi')} />
         </div>
-        <small className="vr-oyna-eslatma">Muhimlik va izoh hozircha faqat shu brauzerda saqlanadi.</small>
+        <small className="vr-oyna-eslatma">{t('Muhimlik va izoh hozircha faqat shu brauzerda saqlanadi.')}</small>
         {xato && <div className="xato-qator">{xato}</div>}
         <div className="vr-oyna-past">
           <button type="button" className="btn ikkinchi" onClick={onYop}>
-            Bekor qilish
+            {t('Bekor qilish')}
           </button>
           <button type="submit" className="btn" disabled={band || !tayyor}>
-            {band ? 'Saqlanmoqda…' : 'Saqlash'}
+            {band ? t('Saqlanmoqda…') : t('Saqlash')}
           </button>
         </div>
       </form>

@@ -12,6 +12,7 @@ import {
 } from '../api';
 import { useAuth } from '../auth';
 import { PlaybookForm, TagList } from '../components/PlaybookForm';
+import { useT } from '../i18n';
 
 /**
  * TZ 3.2: 5 qadamli onboarding sehrgari. FR-17 — holat `business.onboardingStep`
@@ -29,6 +30,7 @@ const STEPS: { key: Step; nom: string }[] = [
 ];
 
 export function Onboarding() {
+  const t = useT();
   const { business, refresh } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>((business?.onboardingStep as Step) ?? 'profile');
@@ -46,7 +48,7 @@ export function Onboarding() {
       {/* Qadam indikatori — uch xil holat uch xil ma'no bildiradi:
           bajarilgan (yashil ✓), joriy (interaktiv), kelgusi (neytral).
           Ilgari hammasi "xavf" qizilida edi — progress xato emas. */}
-      <nav className="qadam-qator" aria-label="Onboarding qadamlari">
+      <nav className="qadam-qator" aria-label={t('Onboarding qadamlari')}>
         {STEPS.map((s, i) => {
           const holat = i < idx ? 'bajarildi' : i === idx ? 'joriy' : 'kelgusi';
           return (
@@ -55,8 +57,8 @@ export function Onboarding() {
                 {holat === 'bajarildi' ? <Check strokeWidth={2.5} /> : i + 1}
               </div>
               <span className="nom">
-                {s.nom}
-                {holat === 'joriy' && <span className="sr-only"> — joriy qadam</span>}
+                {t(s.nom)}
+                {holat === 'joriy' && <span className="sr-only"> — {t('joriy qadam')}</span>}
               </span>
               {i < STEPS.length - 1 && <div className="ulagich" />}
             </div>
@@ -89,6 +91,7 @@ export function Onboarding() {
 
 /** Sozlamalar → Biznes profili ham shu formadan foydalanadi (`tugmaMatni` bilan). */
 export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaMatni?: string }) {
+  const t = useT();
   const { business } = useAuth();
   const [profile, setProfile] = useState<BusinessProfile>(EMPTY_PROFILE);
   const [loading, setLoading] = useState(true);
@@ -120,29 +123,28 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
     profile.customerProblem.trim().length > 0 &&
     profile.commonObjections.length > 0;
 
-  if (loading) return <div className="yuklanmoqda">Yuklanmoqda…</div>;
+  if (loading) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
 
   return (
     <div className="card">
-      <h2 style={{ marginBottom: 4 }}>Biznesingiz haqida</h2>
+      <h2 style={{ marginBottom: 4 }}>{t('Biznesingiz haqida')}</h2>
       <div style={{ fontSize: 13, color: 'var(--kul-dark)', marginBottom: 16 }}>
-        Bu ma'lumot AI baholash mezonlarini tuzishda asos bo'ladi. Qanchalik aniq yozsangiz,
-        shunchalik mos playbook chiqadi.
+        {t("Bu ma'lumot AI baholash mezonlarini tuzishda asos bo'ladi. Qanchalik aniq yozsangiz, shunchalik mos playbook chiqadi.")}
       </div>
 
       <div className="maydon-blok">
-        <label className="maydon">Sohangiz</label>
+        <label className="maydon">{t('Sohangiz')}</label>
         <input
           className="input"
           value={profile.industry}
           maxLength={120}
-          placeholder="Masalan: ta'lim markazi"
+          placeholder={t("Masalan: ta'lim markazi")}
           onChange={(e) => setProfile({ ...profile, industry: e.target.value })}
         />
       </div>
 
       <div className="maydon-blok">
-        <label className="maydon">Biznesingiz nima bilan shug'ullanadi? *</label>
+        <label className="maydon">{t("Biznesingiz nima bilan shug'ullanadi? *")}</label>
         <textarea
           className="input"
           style={{ minHeight: 60 }}
@@ -152,17 +154,17 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
       </div>
 
       <div className="maydon-blok">
-        <label className="maydon">Asosiy mahsulot/xizmatlaringiz *</label>
+        <label className="maydon">{t('Asosiy mahsulot/xizmatlaringiz *')}</label>
         <TagList
           items={profile.primaryOffers}
-          placeholder="Masalan: Frontend kursi"
+          placeholder={t('Masalan: Frontend kursi')}
           onChange={(primaryOffers) => setProfile({ ...profile, primaryOffers })}
         />
       </div>
 
       <div className="grid-2" style={{ marginBottom: 12 }}>
         <div className="maydon-blok">
-          <label className="maydon">Mijozingiz kim? *</label>
+          <label className="maydon">{t('Mijozingiz kim? *')}</label>
           <input
             className="input"
             value={profile.typicalCustomers}
@@ -170,21 +172,21 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
           />
         </div>
         <div className="maydon-blok">
-          <label className="maydon">Mijoz turi</label>
+          <label className="maydon">{t('Mijoz turi')}</label>
           <select
             className="input"
             value={profile.customerType}
             onChange={(e) => setProfile({ ...profile, customerType: e.target.value as BusinessProfile['customerType'] })}
           >
-            <option value="b2c">Jismoniy shaxslar (B2C)</option>
-            <option value="b2b">Kompaniyalar (B2B)</option>
-            <option value="both">Ikkalasi ham</option>
+            <option value="b2c">{t('Jismoniy shaxslar (B2C)')}</option>
+            <option value="b2b">{t('Kompaniyalar (B2B)')}</option>
+            <option value="both">{t('Ikkalasi ham')}</option>
           </select>
         </div>
       </div>
 
       <div className="maydon-blok">
-        <label className="maydon">Mijoz qanday muammo bilan keladi? *</label>
+        <label className="maydon">{t('Mijoz qanday muammo bilan keladi? *')}</label>
         <textarea
           className="input"
           style={{ minHeight: 50 }}
@@ -194,19 +196,19 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
       </div>
 
       <div className="maydon-blok">
-        <label className="maydon">Eng ko'p uchraydigan e'tirozlar *</label>
+        <label className="maydon">{t("Eng ko'p uchraydigan e'tirozlar *")}</label>
         <TagList
           items={profile.commonObjections}
-          placeholder="Masalan: Narxi qimmat"
+          placeholder={t('Masalan: Narxi qimmat')}
           onChange={(commonObjections) => setProfile({ ...profile, commonObjections })}
         />
       </div>
 
       <div className="maydon-blok">
-        <label className="maydon">Suhbatda albatta aniqlanishi kerak bo'lgan ma'lumot</label>
+        <label className="maydon">{t("Suhbatda albatta aniqlanishi kerak bo'lgan ma'lumot")}</label>
         <TagList
           items={profile.mustCaptureFields}
-          placeholder="Masalan: Byudjet"
+          placeholder={t('Masalan: Byudjet')}
           onChange={(mustCaptureFields) => setProfile({ ...profile, mustCaptureFields })}
         />
       </div>
@@ -214,17 +216,17 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
         <button className="btn" disabled={!ready || saving} onClick={() => void save()}>
           {saving ? (
-            'Saqlanmoqda…'
+            t('Saqlanmoqda…')
           ) : (
             <>
-              {tugmaMatni ?? 'Davom etish'} {!tugmaMatni && <ChevronRight />}
+              {tugmaMatni ?? t('Davom etish')} {!tugmaMatni && <ChevronRight />}
             </>
           )}
         </button>
       </div>
       {!ready && (
         <div style={{ fontSize: 12, color: 'var(--kul-dark)', textAlign: 'right', marginTop: 6 }}>
-          * bilan belgilangan maydonlar to'ldirilishi shart
+          {t("* bilan belgilangan maydonlar to'ldirilishi shart")}
         </div>
       )}
     </div>
@@ -234,6 +236,7 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
 // ─── 2-qadam: AI Playbook Builder (FR-12) ───────────────────────────────────
 
 function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+  const t = useT();
   const { business } = useAuth();
   const [draft, setDraft] = useState<PlaybookBody | null>(null);
   const [generating, setGenerating] = useState(false);
@@ -251,7 +254,7 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
       setError(
         e instanceof ApiError
           ? e.message
-          : 'Generatsiya qilib bo\'lmadi. Admin panelida faol AI provayder borligini tekshiring.',
+          : t("Generatsiya qilib bo'lmadi. Admin panelida faol AI provayder borligini tekshiring."),
       );
     } finally {
       setGenerating(false);
@@ -278,7 +281,7 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
     return (
       <div className="card hech-narsa">
         <div className="katta-ikon"><Sparkles /></div>
-        AI baholash mezonlarini tuzmoqda… bu 10-20 soniya oladi
+        {t('AI baholash mezonlarini tuzmoqda… bu 10-20 soniya oladi')}
       </div>
     );
   }
@@ -289,10 +292,10 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
         <div className="xato-banner">{error}</div>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
           <button className="btn ikkinchi" onClick={onBack}>
-            <ChevronLeft /> Orqaga
+            <ChevronLeft /> {t('Orqaga')}
           </button>
           <button className="btn" onClick={() => void generate()}>
-            Qayta urinish
+            {t('Qayta urinish')}
           </button>
         </div>
       </div>
@@ -308,10 +311,10 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
           <Sparkles />
         </div>
         <div>
-          <b>AI qoralamasi tayyor.</b> Ko'rib chiqing, kerak bo'lsa tahrirlang — keyin qabul qiling.
+          <b>{t('AI qoralamasi tayyor.')}</b> {t("Ko'rib chiqing, kerak bo'lsa tahrirlang — keyin qabul qiling.")}
         </div>
         <button className="btn ikkinchi kichik" style={{ marginLeft: 'auto' }} onClick={() => void generate()}>
-          <RotateCw /> Qayta generatsiya
+          <RotateCw /> {t('Qayta generatsiya')}
         </button>
       </div>
 
@@ -319,14 +322,14 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
         <button className="btn ikkinchi" onClick={onBack}>
-          <ChevronLeft /> Orqaga
+          <ChevronLeft /> {t('Orqaga')}
         </button>
         <button className="btn" disabled={saving} onClick={() => void accept()}>
           {saving ? (
-            'Saqlanmoqda…'
+            t('Saqlanmoqda…')
           ) : (
             <>
-              Qabul qilish va davom etish <ChevronRight />
+              {t('Qabul qilish va davom etish')} <ChevronRight />
             </>
           )}
         </button>
@@ -338,6 +341,7 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
 // ─── 3-qadam: Telegram ulash (FR-14) ────────────────────────────────────────
 
 function ChannelStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+  const t = useT();
   const { business } = useAuth();
   const [botToken, setBotToken] = useState('');
   const [result, setResult] = useState<{ webhookUrl: string; setupCommand: string } | null>(null);
@@ -363,16 +367,15 @@ function ChannelStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
       setResult(res);
       setConnected(true);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Ulab bo\'lmadi');
+      setError(e instanceof ApiError ? e.message : t("Ulab bo'lmadi"));
     }
   }
 
   return (
     <div className="card">
-      <h2 style={{ marginBottom: 4 }}>Telegram botini ulang</h2>
+      <h2 style={{ marginBottom: 4 }}>{t('Telegram botini ulang')}</h2>
       <div style={{ fontSize: 13, color: 'var(--kul-dark)', marginBottom: 16 }}>
-        @BotFather orqali bot yarating va tokenini shu yerga kiriting. Sizning yozishmalaringiz
-        avtomatik yig'ilib, baholanadi.
+        {t("@BotFather orqali bot yarating va tokenini shu yerga kiriting. Sizning yozishmalaringiz avtomatik yig'ilib, baholanadi.")}
       </div>
 
       {error && <div className="xato-banner">{error}</div>}
@@ -380,7 +383,7 @@ function ChannelStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
       {!connected && !result && (
         <>
           <div className="maydon-blok">
-            <label className="maydon">Bot tokeni</label>
+            <label className="maydon">{t('Bot tokeni')}</label>
             <input
               className="input"
               value={botToken}
@@ -389,7 +392,7 @@ function ChannelStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
             />
           </div>
           <button className="btn" onClick={() => void connect()} disabled={!botToken}>
-            Ulash
+            {t('Ulash')}
           </button>
         </>
       )}
@@ -397,7 +400,7 @@ function ChannelStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
       {result && (
         <div className="card" style={{ background: 'var(--navy-10)', marginBottom: 12 }}>
           <div style={{ fontSize: 13, marginBottom: 8 }}>
-            Endi shu buyruqni terminalda (yoki serveringizda) bir marta ishga tushiring:
+            {t('Endi shu buyruqni terminalda (yoki serveringizda) bir marta ishga tushiring:')}
           </div>
           <code style={{ display: 'block', fontSize: 11, wordBreak: 'break-all', background: 'var(--oq)', padding: 8, borderRadius: 6 }}>
             {result.setupCommand}
@@ -405,20 +408,20 @@ function ChannelStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
         </div>
       )}
 
-      {connected && !result && <div className="badge ok">Bot ulangan</div>}
+      {connected && !result && <div className="badge ok">{t('Bot ulangan')}</div>}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
         <button className="btn ikkinchi" onClick={onBack}>
-          <ChevronLeft /> Orqaga
+          <ChevronLeft /> {t('Orqaga')}
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
           {!connected && (
             <button className="btn ikkinchi" onClick={onNext}>
-              Keyinroq ulayman
+              {t('Keyinroq ulayman')}
             </button>
           )}
           <button className="btn" onClick={onNext}>
-            Davom etish <ChevronRight />
+            {t('Davom etish')} <ChevronRight />
           </button>
         </div>
       </div>
@@ -429,6 +432,7 @@ function ChannelStep({ onNext, onBack }: { onNext: () => void; onBack: () => voi
 // ─── 4-qadam: jamoani taklif qilish (FR-15) ─────────────────────────────────
 
 function TeamStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
+  const t = useT();
   const { business } = useAuth();
   const [name, setName] = useState('');
   const [seats, setSeats] = useState<{ id: string; displayName: string }[]>([]);
@@ -450,9 +454,9 @@ function TeamStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }
 
   return (
     <div className="card">
-      <h2 style={{ marginBottom: 4 }}>Sotuvchilaringizni qo'shing</h2>
+      <h2 style={{ marginBottom: 4 }}>{t("Sotuvchilaringizni qo'shing")}</h2>
       <div style={{ fontSize: 13, color: 'var(--kul-dark)', marginBottom: 16 }}>
-        Keyinroq ham qo'shishingiz mumkin. Har birini Telegram profiliga bog'lash sozlamalarda.
+        {t("Keyinroq ham qo'shishingiz mumkin. Har birini Telegram profiliga bog'lash sozlamalarda.")}
       </div>
 
       {seats.length > 0 && (
@@ -470,20 +474,20 @@ function TeamStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }
           className="input"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Sotuvchi ismi"
+          placeholder={t('Sotuvchi ismi')}
           onKeyDown={(e) => e.key === 'Enter' && void addSeat()}
         />
         <button className="btn ikkinchi" onClick={() => void addSeat()}>
-          + Qo'shish
+          {t("+ Qo'shish")}
         </button>
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 20 }}>
         <button className="btn ikkinchi" onClick={onBack}>
-          <ChevronLeft /> Orqaga
+          <ChevronLeft /> {t('Orqaga')}
         </button>
         <button className="btn" onClick={onNext}>
-          Davom etish <ChevronRight />
+          {t('Davom etish')} <ChevronRight />
         </button>
       </div>
     </div>
@@ -493,6 +497,7 @@ function TeamStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }
 // ─── 5-qadam: tayyor ─────────────────────────────────────────────────────────
 
 function DoneStep({ onFinish }: { onFinish: () => void }) {
+  const t = useT();
   const { business } = useAuth();
   const [holat, setHolat] = useState<'boshlanmagan' | 'yuklanmoqda' | 'tayyor' | 'xato'>(
     'boshlanmagan',
@@ -529,13 +534,13 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
         }
         if (bizniki.length) setNatijalar(bizniki);
       }
-      setXatoMatn("Tahlil kutilganidan uzoq davom etmoqda. Boshqaruv panelida ko'rishingiz mumkin.");
+      setXatoMatn(t("Tahlil kutilganidan uzoq davom etmoqda. Boshqaruv panelida ko'rishingiz mumkin."));
       setHolat('xato');
     } catch (e) {
       setXatoMatn(
         e instanceof ApiError
-          ? `Namunalarni yuklab bo'lmadi: ${e.message}`
-          : "Namunalarni yuklab bo'lmadi. AI provayderi sozlanganini tekshiring.",
+          ? t("Namunalarni yuklab bo'lmadi: {xato}", { xato: e.message })
+          : t("Namunalarni yuklab bo'lmadi. AI provayderi sozlanganini tekshiring."),
       );
       setHolat('xato');
     }
@@ -547,10 +552,9 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
         <div style={{ fontSize: 52, marginBottom: 12, color: 'var(--ia)', display: 'flex', justifyContent: 'center' }}>
           <PartyPopper strokeWidth={1.5} />
         </div>
-        <h1 style={{ marginBottom: 8 }}>Tayyor!</h1>
+        <h1 style={{ marginBottom: 8 }}>{t('Tayyor!')}</h1>
         <div style={{ color: 'var(--text-secondary)', marginBottom: 24 }}>
-          Telegram yozishmalari endi avtomatik yig'iladi va sizning playbook'ingiz
-          bo'yicha baholanadi.
+          {t("Telegram yozishmalari endi avtomatik yig'iladi va sizning playbook'ingiz bo'yicha baholanadi.")}
         </div>
       </div>
 
@@ -558,14 +562,13 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
       {holat === 'boshlanmagan' && (
         <div className="namuna-taklif">
           <div>
-            <b>Hoziroq sinab ko'ring</b>
+            <b>{t("Hoziroq sinab ko'ring")}</b>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-              3 ta namunaviy suhbatni yuklaymiz va sizning mezonlaringiz bo'yicha
-              baholaymiz. Bu haqiqiy tahlil — oldindan yozilgan natija emas.
+              {t("3 ta namunaviy suhbatni yuklaymiz va sizning mezonlaringiz bo'yicha baholaymiz. Bu haqiqiy tahlil — oldindan yozilgan natija emas.")}
             </div>
           </div>
           <button className="btn" onClick={() => void namunalarniSina()}>
-            Namunalarni baholash
+            {t('Namunalarni baholash')}
           </button>
         </div>
       )}
@@ -573,10 +576,9 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
       {holat === 'yuklanmoqda' && (
         <div className="namuna-taklif">
           <div>
-            <b>Tahlil ketmoqda…</b>
+            <b>{t('Tahlil ketmoqda…')}</b>
             <div style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 4 }}>
-              Har bir suhbat playbook mezonlari bo'yicha baholanmoqda. Bu odatda
-              yarim daqiqa oladi.
+              {t("Har bir suhbat playbook mezonlari bo'yicha baholanmoqda. Bu odatda yarim daqiqa oladi.")}
             </div>
           </div>
         </div>
@@ -598,7 +600,7 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
                   {ball === null ? '—' : `${Math.round(ball)}%`}
                 </span>
                 <div className="matn">
-                  <div className="xulosa">{r.summary ?? 'Tahlil qilinmoqda…'}</div>
+                  <div className="xulosa">{r.summary ?? t('Tahlil qilinmoqda…')}</div>
                   {r.primaryGap && (
                     <div className="zaif">
                       <ArrowUpRight /> {r.primaryGap}
@@ -610,8 +612,7 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
           })}
           {holat === 'tayyor' && (
             <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 10 }}>
-              Har bir bahoning ortida transkriptdagi aniq iqtibos turadi — suhbatni
-              ochib ko'rishingiz mumkin.
+              {t("Har bir bahoning ortida transkriptdagi aniq iqtibos turadi — suhbatni ochib ko'rishingiz mumkin.")}
             </div>
           )}
         </div>
@@ -622,7 +623,7 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
           className={holat === 'tayyor' || holat === 'boshlanmagan' ? 'btn' : 'btn ikkinchi'}
           onClick={onFinish}
         >
-          Boshqaruv paneliga o'tish
+          {t("Boshqaruv paneliga o'tish")}
         </button>
       </div>
     </div>

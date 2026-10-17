@@ -5,6 +5,7 @@ import { api, ApiError, type PlaybookBody, type PlaybookVersion } from '../../ap
 import { useAuth } from '../../auth';
 import { BloklashIzohi, bosQolganBosqichlar } from '../oilalar/QongiroqOilalari';
 import { BLOK_BOSH as BOSH, BLOK_OXIR as OXIR, kontekstniAjrat, kontekstniYig } from './kontekstBlok';
+import { joyla, useT } from '../../i18n';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -80,6 +81,7 @@ const sanaVaqt = (iso: string | null | undefined) => {
 const yonBelgi = (n: string) => `[Yo'nalish: ${n}]`;
 
 export function XizmatYonalishlari() {
+  const t = useT();
   const { business } = useAuth();
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
   const yozaOladi = business?.permissions.includes('playbook:write') ?? false;
@@ -101,9 +103,9 @@ export function XizmatYonalishlari() {
       setTartib(null);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) setYoq(true);
-      else setXabar({ ton: 'xato', matn: "Ma'lumotni yuklab bo'lmadi" });
+      else setXabar({ ton: 'xato', matn: t("Ma'lumotni yuklab bo'lmadi") });
     }
-  }, [base]);
+  }, [base, t]);
   useEffect(() => void yukla(), [yukla]);
 
   const [tashqi, meta] = useMemo(() => (pb ? blokniOqi(pb.promptNotes.stage2.businessContext ?? '', pb.classificationPolicy.serviceLines) : ['', new Map()]), [pb]);
@@ -116,8 +118,8 @@ export function XizmatYonalishlari() {
     return (
       <section className="card bm-karta bm-bosh-holat">
         <Box />
-        <b>Playbook hali yaratilmagan</b>
-        <span>Xizmat yo'nalishlari playbook bilan birga onboarding jarayonida yaratiladi.</span>
+        <b>{t('Playbook hali yaratilmagan')}</b>
+        <span>{t("Xizmat yo'nalishlari playbook bilan birga onboarding jarayonida yaratiladi.")}</span>
       </section>
     );
   if (!pb) return <div className="card skelet" style={{ height: 380 }} aria-busy="true" />;
@@ -134,7 +136,7 @@ export function XizmatYonalishlari() {
     try {
       const kontekst = blokniYoz(tashqi, ys);
       if (kontekst.length > KONTEKST_MAKS) {
-        bildir('xato', `Biznes konteksti ${KONTEKST_MAKS} belgidan oshib ketadi (${kontekst.length}). Iboralar yoki tavsifni qisqartiring.`);
+        bildir('xato', t('Biznes konteksti {maks} belgidan oshib ketadi ({n}). Iboralar yoki tavsifni qisqartiring.', { maks: KONTEKST_MAKS, n: kontekst.length }));
         return false;
       }
       const yangi = ozgartir({
@@ -145,7 +147,7 @@ export function XizmatYonalishlari() {
       const body = tozaBody(yangi);
       const v = await api.post<{ valid: boolean; errors?: Record<string, string[]> }>(`${base}/playbook/validate`, body);
       if (!v.valid) {
-        bildir('xato', Object.values(v.errors ?? {}).flat()[0] ?? 'Server tekshiruvi xato topdi');
+        bildir('xato', Object.values(v.errors ?? {}).flat()[0] ?? t('Server tekshiruvi xato topdi'));
         return false;
       }
       await api.post(`${base}/playbook`, { ...body, changeNote: izoh });
@@ -153,7 +155,7 @@ export function XizmatYonalishlari() {
       bildir('ok', muvaffaqiyat);
       return true;
     } catch (e) {
-      bildir('xato', e instanceof ApiError ? e.message : "Saqlanmadi — qayta urinib ko'ring");
+      bildir('xato', e instanceof ApiError ? e.message : t("Saqlanmadi — qayta urinib ko'ring"));
       return false;
     } finally {
       setBand(false);
@@ -199,26 +201,25 @@ export function XizmatYonalishlari() {
   });
 
   const sur = (i: number, d: -1 | 1) => {
-    const t = yonalishlar.map((y) => y.nom);
+    const nomlar = yonalishlar.map((y) => y.nom);
     const j = i + d;
-    if (j < 0 || j >= t.length) return;
-    [t[i], t[j]] = [t[j]!, t[i]!];
-    setTartib(JSON.stringify(t) === JSON.stringify(pb.classificationPolicy.serviceLines) ? null : t);
+    if (j < 0 || j >= nomlar.length) return;
+    [nomlar[i], nomlar[j]] = [nomlar[j]!, nomlar[i]!];
+    setTartib(JSON.stringify(nomlar) === JSON.stringify(pb.classificationPolicy.serviceLines) ? null : nomlar);
   };
 
   return (
     <div className="as">
       <section className="card as-karta">
-        <h2 className="as-sarlavha">Xizmat yo'nalishlari</h2>
+        <h2 className="as-sarlavha">{t("Xizmat yo'nalishlari")}</h2>
         <div className="as-meta">
-          {versiya && <span className="bm-versiya">Versiya {versiya.version}</span>}
-          <span>Yangilangan: {sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt)}</span>
+          {versiya && <span className="bm-versiya">{t('Versiya {n}', { n: versiya.version })}</span>}
+          <span>{t('Yangilangan: {sana}', { sana: sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt) })}</span>
         </div>
         <div className="as-diqqat">
           <TriangleAlert aria-hidden="true" />
           <span>
-            Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Har bir saqlash yangi playbook versiyasini yaratadi —
-            eski baholar o'zgarmaydi.
+            {t("Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Har bir saqlash yangi playbook versiyasini yaratadi — eski baholar o'zgarmaydi.")}
           </span>
         </div>
       </section>
@@ -226,33 +227,33 @@ export function XizmatYonalishlari() {
       <section className="card as-karta">
         <div className="as-bosh">
           <div>
-            <h3>Xizmat yo'nalishlari</h3>
-            <p>AI qo'ng'iroqni to'g'ri yo'naltirishi uchun biznesingizdagi asosiy xizmat yo'nalishlarini kiriting va tartibga soling.</p>
+            <h3>{t("Xizmat yo'nalishlari")}</h3>
+            <p>{t("AI qo'ng'iroqni to'g'ri yo'naltirishi uchun biznesingizdagi asosiy xizmat yo'nalishlarini kiriting va tartibga soling.")}</p>
           </div>
           {yozaOladi && (
             <div className="as-bosh-amal">
               {tartib && (
                 <>
                   <button type="button" className="btn ikkinchi" onClick={() => setTartib(null)} disabled={band}>
-                    Bekor qilish
+                    {t('Bekor qilish')}
                   </button>
                   <button
                     type="button"
                     className="btn ikkinchi"
                     disabled={band}
-                    onClick={() => void nashr(yonalishlar, (p) => p, "Xizmat yo'nalishlari tartibi o'zgartirildi", 'Tartib saqlandi')}
+                    onClick={() => void nashr(yonalishlar, (p) => p, "Xizmat yo'nalishlari tartibi o'zgartirildi", t('Tartib saqlandi'))}
                   >
-                    Tartibni saqlash
+                    {t('Tartibni saqlash')}
                   </button>
                 </>
               )}
               <button type="button" className="btn" onClick={() => setOyna({ tur: 'forma', y: null })} disabled={band}>
-                <Plus /> Xizmat yo'nalishi qo'shish
+                <Plus /> {t("Xizmat yo'nalishi qo'shish")}
               </button>
             </div>
           )}
         </div>
-        <div className="xy-soni">{yonalishlar.length ? `${yonalishlar.length} ta xizmat yo'nalishi sozlangan` : "Hali xizmat yo'nalishi kiritilmagan"}</div>
+        <div className="xy-soni">{yonalishlar.length ? t("{n} ta xizmat yo'nalishi sozlangan", { n: yonalishlar.length }) : t("Hali xizmat yo'nalishi kiritilmagan")}</div>
         {xabar && (
           <div className={`bm-xabar as-xabar ${xabar.ton}`} role={xabar.ton === 'xato' ? 'alert' : 'status'}>
             {xabar.ton === 'ok' ? <CircleCheck /> : <TriangleAlert />} {xabar.matn}
@@ -268,25 +269,25 @@ export function XizmatYonalishlari() {
                 <h3>{y.nom}</h3>
                 {yozaOladi && (
                   <div className="xy-amallar">
-                    <button type="button" className="bm-ikon" aria-label="Yuqoriga" title="Yuqoriga" disabled={i === 0 || band} onClick={() => sur(i, -1)}>
+                    <button type="button" className="bm-ikon" aria-label={t('Yuqoriga')} title={t('Yuqoriga')} disabled={i === 0 || band} onClick={() => sur(i, -1)}>
                       <ArrowUp />
                     </button>
-                    <button type="button" className="bm-ikon" aria-label="Pastga" title="Pastga" disabled={i === yonalishlar.length - 1 || band} onClick={() => sur(i, 1)}>
+                    <button type="button" className="bm-ikon" aria-label={t('Pastga')} title={t('Pastga')} disabled={i === yonalishlar.length - 1 || band} onClick={() => sur(i, 1)}>
                       <ArrowDown />
                     </button>
-                    <button type="button" className="bm-ikon" aria-label={`${y.nom} — tahrirlash`} title="Tahrirlash" disabled={band || !!tartib} onClick={() => setOyna({ tur: 'forma', y })}>
+                    <button type="button" className="bm-ikon" aria-label={t('{nom} — tahrirlash', { nom: y.nom })} title={t('Tahrirlash')} disabled={band || !!tartib} onClick={() => setOyna({ tur: 'forma', y })}>
                       <Pencil />
                     </button>
-                    <button type="button" className="bm-ikon xavf" aria-label={`${y.nom} — o'chirish`} title="O'chirish" disabled={band || !!tartib} onClick={() => setOyna({ tur: 'ochir', y })}>
+                    <button type="button" className="bm-ikon xavf" aria-label={t("{nom} — o'chirish", { nom: y.nom })} title={t("O'chirish")} disabled={band || !!tartib} onClick={() => setOyna({ tur: 'ochir', y })}>
                       <Trash2 />
                     </button>
                   </div>
                 )}
               </div>
-              <p className={y.tavsif ? 'xy-tavsif' : 'xy-tavsif bosh'}>{y.tavsif || 'Tavsif kiritilmagan — AI faqat nom bo\'yicha aniqlaydi.'}</p>
+              <p className={y.tavsif ? 'xy-tavsif' : 'xy-tavsif bosh'}>{y.tavsif || t("Tavsif kiritilmagan — AI faqat nom bo'yicha aniqlaydi.")}</p>
               <div className="xy-ustunlar">
-                <Teglar nom="Aliaslar" teglar={y.aliaslar} />
-                <Teglar nom="Namuna iboralar" teglar={y.iboralar} />
+                <Teglar nom={t('Aliaslar')} teglar={y.aliaslar} />
+                <Teglar nom={t('Namuna iboralar')} teglar={y.iboralar} />
               </div>
             </article>
           ))}
@@ -306,7 +307,7 @@ export function XizmatYonalishlari() {
               ys,
               eski ? nomniAlmashtir(eski.nom, yangi.nom) : (p) => p,
               eski ? `Xizmat yo'nalishi tahrirlandi: ${yangi.nom}` : `Xizmat yo'nalishi qo'shildi: ${yangi.nom}`,
-              eski ? 'Saqlandi — yangi versiya faollashtirildi' : `«${yangi.nom}» qo'shildi`,
+              eski ? t('Saqlandi — yangi versiya faollashtirildi') : t("«{nom}» qo'shildi", { nom: yangi.nom }),
             );
             if (ok) setOyna(null);
           }}
@@ -321,7 +322,7 @@ export function XizmatYonalishlari() {
           bosqichlar={bosQolganBosqichlar(ochirishOzgarishi(oyna.y.nom)(pb))}
           onOchir={async () => {
             const nom = oyna.y.nom;
-            const ok = await nashr(yonalishlar.filter((x) => x.nom !== nom), ochirishOzgarishi(nom), `Xizmat yo'nalishi o'chirildi: ${nom}`, `«${nom}» o'chirildi`);
+            const ok = await nashr(yonalishlar.filter((x) => x.nom !== nom), ochirishOzgarishi(nom), `Xizmat yo'nalishi o'chirildi: ${nom}`, t("«{nom}» o'chirildi", { nom }));
             if (ok) setOyna(null);
           }}
         />
@@ -336,9 +337,9 @@ function Teglar({ nom, teglar }: { nom: string; teglar: string[] }) {
       <span className="bm-yuqori">{nom}</span>
       {teglar.length ? (
         <div>
-          {teglar.map((t) => (
-            <span key={t} className="xy-teg">
-              {t}
+          {teglar.map((teg) => (
+            <span key={teg} className="xy-teg">
+              {teg}
             </span>
           ))}
         </div>
@@ -352,6 +353,7 @@ function Teglar({ nom, teglar }: { nom: string; teglar: string[] }) {
 // ─── Modal asosi ────────────────────────────────────────────────────────────
 
 function Modal({ children, onYop, sarlavha, keng, onSubmit }: { children: ReactNode; onYop: () => void; sarlavha: string; keng?: boolean; onSubmit?: (e: FormEvent) => void }) {
+  const t = useT();
   useEffect(() => {
     const f = (e: KeyboardEvent) => e.key === 'Escape' && onYop();
     window.addEventListener('keydown', f);
@@ -364,7 +366,7 @@ function Modal({ children, onYop, sarlavha, keng, onSubmit }: { children: ReactN
         <div className="vr-oyna-bosh">
           <h3 id="xy-oyna-nom">{sarlavha}</h3>
           {keng && (
-            <button type="button" className="mj-yop" onClick={onYop} aria-label="Yopish">
+            <button type="button" className="mj-yop" onClick={onYop} aria-label={t('Yopish')}>
               <X />
             </button>
           )}
@@ -391,6 +393,7 @@ function YonalishOynasi({
   onYop: () => void;
   onSaqla: (y: Yonalish) => void;
 }) {
+  const t = useT();
   const [nom, setNom] = useState(y?.nom ?? '');
   const [tavsif, setTavsif] = useState(y?.tavsif ?? '');
   const [aliaslar, setAliaslar] = useState<string[]>(y?.aliaslar ?? []);
@@ -399,18 +402,18 @@ function YonalishOynasi({
 
   const n = nom.trim();
   const nomXato = !n
-    ? 'Nom kiriting'
+    ? t('Nom kiriting')
     : n.length > NOM_MAKS
-      ? `Nom ${NOM_MAKS} belgidan oshmasin`
+      ? t('Nom {n} belgidan oshmasin', { n: NOM_MAKS })
       : /[[\]|;]/.test(n)
-        ? '[ ] | ; belgilari ishlatilmasin'
+        ? t('[ ] | ; belgilari ishlatilmasin')
         : boshqaNomlar.some((b) => b.toLowerCase() === n.toLowerCase())
-          ? "Bunday yo'nalish allaqachon bor"
+          ? t("Bunday yo'nalish allaqachon bor")
           : null;
 
   return (
     <Modal
-      sarlavha={y ? "Xizmat yo'nalishini tahrirlash" : "Xizmat yo'nalishi qo'shish"}
+      sarlavha={y ? t("Xizmat yo'nalishini tahrirlash") : t("Xizmat yo'nalishi qo'shish")}
       keng
       onYop={onYop}
       onSubmit={(e) => {
@@ -420,39 +423,39 @@ function YonalishOynasi({
       }}
     >
       <div className="maydon-blok">
-        <label htmlFor="xy-nom">Xizmat yo'nalishi nomi</label>
-        <input id="xy-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Masalan: Web dasturlash" maxLength={NOM_MAKS} autoFocus aria-invalid={urindi && !!nomXato} />
+        <label htmlFor="xy-nom">{t("Xizmat yo'nalishi nomi")}</label>
+        <input id="xy-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder={t('Masalan: Web dasturlash')} maxLength={NOM_MAKS} autoFocus aria-invalid={urindi && !!nomXato} />
         {urindi && nomXato && <div className="yordam bzl-xato">{nomXato}</div>}
-        {y && n && n !== y.nom && !nomXato && <div className="yordam">Nom unga bog'langan mezon va anketa savollarida ham yangilanadi.</div>}
+        {y && n && n !== y.nom && !nomXato && <div className="yordam">{t("Nom unga bog'langan mezon va anketa savollarida ham yangilanadi.")}</div>}
       </div>
       <div className="maydon-blok">
-        <label htmlFor="xy-tavsif">Tavsif</label>
-        <textarea id="xy-tavsif" rows={3} value={tavsif} onChange={(e) => setTavsif(e.target.value)} placeholder="AI bu xizmat yo'nalishini qachon tanlashi kerakligini yozing." maxLength={400} />
+        <label htmlFor="xy-tavsif">{t('Tavsif')}</label>
+        <textarea id="xy-tavsif" rows={3} value={tavsif} onChange={(e) => setTavsif(e.target.value)} placeholder={t("AI bu xizmat yo'nalishini qachon tanlashi kerakligini yozing.")} maxLength={400} />
       </div>
       <div className="xy-forma-ustunlar">
         <TegKiritish
           id="xy-alias"
-          nom="Aliaslar"
-          izoh="Ixtiyoriy. Menejerlar bu xizmatni qanday boshqa nomlar bilan atashini qo'shing."
-          placeholder="Masalan: dasturlash kursi"
+          nom={t('Aliaslar')}
+          izoh={t("Ixtiyoriy. Menejerlar bu xizmatni qanday boshqa nomlar bilan atashini qo'shing.")}
+          placeholder={t('Masalan: dasturlash kursi')}
           teglar={aliaslar}
           onOzgar={setAliaslar}
         />
         <TegKiritish
           id="xy-ibora"
-          nom="Namuna iboralar"
-          izoh="Ixtiyoriy. Suhbatda bu yo'nalishni aniq ko'rsatadigan qisqa iboralarni qo'shing."
-          placeholder="Masalan: sayt yaratishni o'rganmoqchiman"
+          nom={t('Namuna iboralar')}
+          izoh={t("Ixtiyoriy. Suhbatda bu yo'nalishni aniq ko'rsatadigan qisqa iboralarni qo'shing.")}
+          placeholder={t("Masalan: sayt yaratishni o'rganmoqchiman")}
           teglar={iboralar}
           onOzgar={setIboralar}
         />
       </div>
       <div className="vr-oyna-past">
         <button type="button" className="btn ikkinchi" onClick={onYop} disabled={band}>
-          Bekor qilish
+          {t('Bekor qilish')}
         </button>
         <button type="submit" className="btn" disabled={band || (urindi && !!nomXato)}>
-          {band ? 'Saqlanmoqda…' : 'Saqlash'}
+          {band ? t('Saqlanmoqda…') : t('Saqlash')}
         </button>
       </div>
     </Modal>
@@ -460,10 +463,11 @@ function YonalishOynasi({
 }
 
 function TegKiritish({ id, nom, izoh, placeholder, teglar, onOzgar }: { id: string; nom: string; izoh: string; placeholder: string; teglar: string[]; onOzgar: (t: string[]) => void }) {
+  const t = useT();
   const [matn, setMatn] = useState('');
   const qosh = () => {
-    const t = toza(matn).slice(0, 80);
-    if (t && !teglar.some((x) => x.toLowerCase() === t.toLowerCase())) onOzgar([...teglar, t]);
+    const yangi = toza(matn).slice(0, 80);
+    if (yangi && !teglar.some((x) => x.toLowerCase() === yangi.toLowerCase())) onOzgar([...teglar, yangi]);
     setMatn('');
   };
   return (
@@ -472,10 +476,10 @@ function TegKiritish({ id, nom, izoh, placeholder, teglar, onOzgar }: { id: stri
       <small>{izoh}</small>
       {teglar.length > 0 && (
         <div className="xy-tahrir-teglar">
-          {teglar.map((t) => (
-            <span key={t} className="as-variant">
-              {t}
-              <button type="button" aria-label={`${t} — olib tashlash`} onClick={() => onOzgar(teglar.filter((x) => x !== t))}>
+          {teglar.map((teg) => (
+            <span key={teg} className="as-variant">
+              {teg}
+              <button type="button" aria-label={t('{teg} — olib tashlash', { teg })} onClick={() => onOzgar(teglar.filter((x) => x !== teg))}>
                 <X />
               </button>
             </span>
@@ -497,7 +501,7 @@ function TegKiritish({ id, nom, izoh, placeholder, teglar, onOzgar }: { id: stri
           maxLength={80}
         />
         <button type="button" className="btn ikkinchi" onClick={qosh} disabled={!matn.trim()}>
-          Qo'shish
+          {t("Qo'shish")}
         </button>
       </div>
     </div>
@@ -523,25 +527,26 @@ function OchirishOynasi({
   onYop: () => void;
   onOchir: () => void;
 }) {
+  const t = useT();
   return (
-    <Modal sarlavha="O'chirmoqchimisiz?" onYop={onYop}>
+    <Modal sarlavha={t("O'chirmoqchimisiz?")} onYop={onYop}>
       <p className="xy-tasdiq-matn">
-        <b>«{y.nom}»</b> xizmat yo'nalishi faol playbookdan olib tashlanadi.
+        {joyla(t("{nom} xizmat yo'nalishi faol playbookdan olib tashlanadi."), { nom: <b>«{y.nom}»</b> })}
       </p>
       {bosqichlar.length > 0 && <BloklashIzohi bosqichlar={bosqichlar} />}
       {(mezonlar > 0 || savollar > 0) && (
         <ul className="xy-oqibat">
-          {mezonlar > 0 && <li>{mezonlar} ta mezon shu yo'nalishga bog'langan — faqat shu yo'nalish uchun bo'lganlari nofaol qilinadi.</li>}
-          {savollar > 0 && <li>{savollar} ta anketa savoli faqat shu yo'nalish uchun — ular o'chiriladi.</li>}
+          {mezonlar > 0 && <li>{t("{n} ta mezon shu yo'nalishga bog'langan — faqat shu yo'nalish uchun bo'lganlari nofaol qilinadi.", { n: mezonlar })}</li>}
+          {savollar > 0 && <li>{t("{n} ta anketa savoli faqat shu yo'nalish uchun — ular o'chiriladi.", { n: savollar })}</li>}
         </ul>
       )}
-      <p className="sz-eslatma">Avvalgi versiya saqlanib qoladi — kerak bo'lsa Baholash mezonlari → Versiyalar orqali qaytarish mumkin.</p>
+      <p className="sz-eslatma">{t("Avvalgi versiya saqlanib qoladi — kerak bo'lsa Baholash mezonlari → Versiyalar orqali qaytarish mumkin.")}</p>
       <div className="vr-oyna-past">
         <button type="button" className="btn ikkinchi" onClick={onYop} disabled={band} autoFocus>
-          Bekor qilish
+          {t('Bekor qilish')}
         </button>
         <button type="button" className="btn xy-ochir" onClick={onOchir} disabled={band || bosqichlar.length > 0}>
-          {band ? "O'chirilmoqda…" : "O'chirish"}
+          {band ? t("O'chirilmoqda…") : t("O'chirish")}
         </button>
       </div>
     </Modal>

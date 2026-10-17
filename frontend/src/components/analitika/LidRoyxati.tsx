@@ -2,6 +2,7 @@ import { ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, CalendarDays, CircleDot, Ex
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { lidTuri, type ConversationDetail, type ConversationRow, type LidTuri } from '../../api';
+import { useT } from '../../i18n';
 import { oraliqda, type BoshMalumot, type Davr } from '../bosh/malumot';
 import { FiltrTugma, SanaTanlagich, TanlovRoyxat, sanaMatn, type SanaTuri, type Tanlov } from '../qongiroq/Filtrlar';
 import type { Qoshimcha } from './Tablar';
@@ -57,6 +58,7 @@ export function LidRoyxati({
   boshFiltr: LidFiltr;
   onOrqaga: () => void;
 }) {
+  const t = useT();
   const navigate = useNavigate();
   const [sifat, setSifat] = useState<string[]>(boshFiltr === 'hot' || boshFiltr === 'cold' || boshFiltr === 'warm' ? [boshFiltr] : boshFiltr === 'faol' ? ['faol'] : []);
   const [xizmat, setXizmat] = useState<string[]>([]);
@@ -85,10 +87,10 @@ export function LidRoyxati({
           return {
             r,
             d,
-            nom: a.clientExtracted?.name ?? d.contact?.name ?? (c.direction === 'outbound' ? c.phoneTo : c.phoneFrom) ?? `Suhbat #${r.id.slice(0, 8)}`,
+            nom: a.clientExtracted?.name ?? d.contact?.name ?? (c.direction === 'outbound' ? c.phoneTo : c.phoneFrom) ?? t('Suhbat #{id}', { id: r.id.slice(0, 8) }),
             qiymat: a.deal?.amount ?? 0,
             valyuta: (a.deal?.currency ?? "so'm").toUpperCase() === "SO'M" ? "so'm" : (a.deal?.currency ?? "so'm"),
-            menejer: r.seatId ? ism.get(r.seatId) ?? 'Menejer' : 'Biriktirilmagan',
+            menejer: r.seatId ? ism.get(r.seatId) ?? t('Menejer') : t('Biriktirilmagan'),
             xizmat: a.serviceLine ?? '',
             bosqich: a.deal?.stage ?? '',
             sifat: lidTuri(a.leadQuality ?? r.leadQuality) ?? 'yoq',
@@ -96,13 +98,13 @@ export function LidRoyxati({
             sana: new Date(r.startedAt).getTime(),
           };
         }),
-    [data.suhbatlar, davr, q.tafsilot, ism],
+    [data.suhbatlar, davr, q.tafsilot, ism, t],
   );
 
   const sifatlar = sifat.filter((s) => s !== 'faol');
   const faqatFaol = sifat.includes('faol');
   const royxat = useMemo(() => {
-    const t = lidlar.filter(
+    const mos = lidlar.filter(
       (l) =>
         (sifatlar.length === 0 || sifatlar.includes(l.sifat)) &&
         (!faqatFaol || l.faol) &&
@@ -120,7 +122,7 @@ export function LidRoyxati({
       : saralash.u === 'bosqich' ? l.bosqich.toLowerCase()
       : saralash.u === 'holat' ? tartib[l.sifat]!
       : l.sana;
-    return t.sort((a, b) => {
+    return mos.sort((a, b) => {
       const x = qiymat(a);
       const y = qiymat(b);
       return (x < y ? -1 : x > y ? 1 : 0) * saralash.yon;
@@ -137,12 +139,12 @@ export function LidRoyxati({
 
   const sana_ = (f: (l: Lid) => boolean) => lidlar.filter(f).length;
   const unikal = (k: 'xizmat' | 'bosqich') => [...new Set(lidlar.map((l) => l[k]))].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b)));
-  const sifatTanlov: Tanlov[] = (['hot', 'warm', 'cold', 'yoq'] as const).map((s) => ({ qiymat: s, nom: SIFAT[s].nom, soni: sana_((l) => l.sifat === s) }));
-  const xizmatTanlov: Tanlov[] = unikal('xizmat').map((x) => ({ qiymat: x, nom: x || 'Aniqlanmagan', soni: sana_((l) => l.xizmat === x) }));
-  const bosqichTanlov: Tanlov[] = unikal('bosqich').map((x) => ({ qiymat: x, nom: x || 'Aniqlanmagan', soni: sana_((l) => l.bosqich === x) }));
+  const sifatTanlov: Tanlov[] = (['hot', 'warm', 'cold', 'yoq'] as const).map((s) => ({ qiymat: s, nom: t(SIFAT[s].nom), soni: sana_((l) => l.sifat === s) }));
+  const xizmatTanlov: Tanlov[] = unikal('xizmat').map((x) => ({ qiymat: x, nom: x || t('Aniqlanmagan'), soni: sana_((l) => l.xizmat === x) }));
+  const bosqichTanlov: Tanlov[] = unikal('bosqich').map((x) => ({ qiymat: x, nom: x || t('Aniqlanmagan'), soni: sana_((l) => l.bosqich === x) }));
   const menejerTanlov: Tanlov[] = [...new Set(lidlar.map((l) => l.r.seatId ?? ''))].map((s) => ({
     qiymat: s,
-    nom: s ? ism.get(s) ?? 'Menejer' : 'Biriktirilmagan',
+    nom: s ? ism.get(s) ?? t('Menejer') : t('Biriktirilmagan'),
     soni: sana_((l) => (l.r.seatId ?? '') === s),
   }));
 
@@ -164,33 +166,33 @@ export function LidRoyxati({
   return (
     <div className="lr" ref={tepa}>
       <button type="button" className="lr-orqaga" onClick={onOrqaga}>
-        <ArrowLeft /> Orqaga
+        <ArrowLeft /> {t('Orqaga')}
       </button>
 
       <div className="lr-filtrlar">
-        <FiltrTugma ikon={<Filter />} nom="Holat" soni={sifat.length || undefined} faol={sifat.length > 0}>
+        <FiltrTugma ikon={<Filter />} nom={t('Holat')} soni={sifat.length || undefined} faol={sifat.length > 0}>
           {() => (
             <TanlovRoyxat
-              sarlavha="Holat"
+              sarlavha={t('Holat')}
               guruhlar={[
-                { nom: 'Lid sifati', tanlovlar: sifatTanlov },
-                { nom: 'Keyingi qadam', tanlovlar: [{ qiymat: 'faol', nom: 'Faol (kelishilgan qadam bor)', soni: sana_((l) => l.faol) }] },
+                { nom: t('Lid sifati'), tanlovlar: sifatTanlov },
+                { nom: t('Keyingi qadam'), tanlovlar: [{ qiymat: 'faol', nom: t('Faol (kelishilgan qadam bor)'), soni: sana_((l) => l.faol) }] },
               ]}
               tanlangan={sifat}
               onOzgar={setSifat}
             />
           )}
         </FiltrTugma>
-        <FiltrTugma ikon={<Layers />} nom="Xizmat yo'nalishi" soni={xizmat.length || undefined} faol={xizmat.length > 0}>
-          {() => <TanlovRoyxat sarlavha="Xizmat yo'nalishi" guruhlar={[{ tanlovlar: xizmatTanlov }]} tanlangan={xizmat} onOzgar={setXizmat} />}
+        <FiltrTugma ikon={<Layers />} nom={t("Xizmat yo'nalishi")} soni={xizmat.length || undefined} faol={xizmat.length > 0}>
+          {() => <TanlovRoyxat sarlavha={t("Xizmat yo'nalishi")} guruhlar={[{ tanlovlar: xizmatTanlov }]} tanlangan={xizmat} onOzgar={setXizmat} />}
         </FiltrTugma>
-        <FiltrTugma ikon={<CircleDot />} nom="Bosqich" soni={bosqich.length || undefined} faol={bosqich.length > 0}>
-          {() => <TanlovRoyxat sarlavha="Bitim bosqichi" guruhlar={[{ tanlovlar: bosqichTanlov }]} tanlangan={bosqich} onOzgar={setBosqich} />}
+        <FiltrTugma ikon={<CircleDot />} nom={t('Bosqich')} soni={bosqich.length || undefined} faol={bosqich.length > 0}>
+          {() => <TanlovRoyxat sarlavha={t('Bitim bosqichi')} guruhlar={[{ tanlovlar: bosqichTanlov }]} tanlangan={bosqich} onOzgar={setBosqich} />}
         </FiltrTugma>
-        <FiltrTugma ikon={<UserRound />} nom="Menejer" soni={menejer.length || undefined} faol={menejer.length > 0}>
-          {() => <TanlovRoyxat sarlavha="Menejer" guruhlar={[{ tanlovlar: menejerTanlov }]} tanlangan={menejer} onOzgar={setMenejer} />}
+        <FiltrTugma ikon={<UserRound />} nom={t('Menejer')} soni={menejer.length || undefined} faol={menejer.length > 0}>
+          {() => <TanlovRoyxat sarlavha={t('Menejer')} guruhlar={[{ tanlovlar: menejerTanlov }]} tanlangan={menejer} onOzgar={setMenejer} />}
         </FiltrTugma>
-        <FiltrTugma ikon={<CalendarDays />} nom="Sana" qiymat={sanaMatn(sana?.from ?? davr.from, sana?.to ?? davr.to)} faol={!!sana}>
+        <FiltrTugma ikon={<CalendarDays />} nom={t('Sana')} qiymat={sanaMatn(sana?.from ?? davr.from, sana?.to ?? davr.to)} faol={!!sana}>
           {(yop) => (
             <SanaTanlagich
               turi={sana?.turi ?? 'maxsus'}
@@ -204,31 +206,31 @@ export function LidRoyxati({
           )}
         </FiltrTugma>
         <span className="lr-jami">
-          Jami <b>{royxat.length}</b>
+          {t('Jami')} <b>{royxat.length}</b>
         </span>
       </div>
 
-      {q.tafsilotKutilmoqda > 0 && <div className="an-eslatma">Tahlil tafsilotlari yuklanmoqda — yana {q.tafsilotKutilmoqda} ta…</div>}
+      {q.tafsilotKutilmoqda > 0 && <div className="an-eslatma">{t('Tahlil tafsilotlari yuklanmoqda — yana {n} ta…', { n: q.tafsilotKutilmoqda })}</div>}
 
       <section className="card lr-karta">
         {royxat.length === 0 ? (
           <div className="vr-bosh-holat">
-            <b>Filtrga mos lid yo'q</b>
-            <span>Filtrlarni o'zgartiring yoki davrni kengaytiring.</span>
+            <b>{t("Filtrga mos lid yo'q")}</b>
+            <span>{t("Filtrlarni o'zgartiring yoki davrni kengaytiring.")}</span>
           </div>
         ) : (
           <div className="vr-jadval-qobiq">
             <table className="lr-jadval">
               <thead>
                 <tr>
-                  {sarlavha('lid', 'Lid')}
-                  {sarlavha('qiymat', 'Lid qiymati')}
-                  {sarlavha('menejer', 'Menejer')}
-                  {sarlavha('xizmat', "Xizmat yo'nalishi")}
-                  {sarlavha('bosqich', 'Bosqich')}
-                  {sarlavha('holat', 'Holat')}
-                  {sarlavha('sana', 'Sana')}
-                  <th className="lr-oxiri">Suhbat</th>
+                  {sarlavha('lid', t('Lid'))}
+                  {sarlavha('qiymat', t('Lid qiymati'))}
+                  {sarlavha('menejer', t('Menejer'))}
+                  {sarlavha('xizmat', t("Xizmat yo'nalishi"))}
+                  {sarlavha('bosqich', t('Bosqich'))}
+                  {sarlavha('holat', t('Holat'))}
+                  {sarlavha('sana', t('Sana'))}
+                  <th className="lr-oxiri">{t('Suhbat')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -238,12 +240,14 @@ export function LidRoyxati({
                     tabIndex={0}
                     onClick={() => navigate(`/lidlar/${l.r.id}`)}
                     onKeyDown={(e) => e.key === 'Enter' && navigate(`/lidlar/${l.r.id}`)}
-                    aria-label={`${l.nom} — lid tafsilotlari`}
+                    aria-label={t('{nom} — lid tafsilotlari', { nom: l.nom })}
                   >
                     <td className="lr-nom" title={l.nom}>
                       {l.nom}
                     </td>
-                    <td className="lr-son">{l.qiymat ? `${Math.round(l.qiymat).toLocaleString('uz').replace(/,/g, ' ')} ${l.valyuta}` : `0 ${l.valyuta}`}</td>
+                    <td className="lr-son">
+                      {l.qiymat ? Math.round(l.qiymat).toLocaleString('uz').replace(/,/g, ' ') : 0} {l.valyuta === "so'm" ? t("so'm") : l.valyuta}
+                    </td>
                     <td className="lr-xira">{l.menejer}</td>
                     <td className="lr-xira">{l.xizmat || '—'}</td>
                     <td className="lr-bosqich" title={l.bosqich}>
@@ -251,14 +255,14 @@ export function LidRoyxati({
                     </td>
                     <td>
                       <span className="lr-holatlar">
-                        <span className={`lr-holat ${SIFAT[l.sifat].klass}`}>{SIFAT[l.sifat].nom}</span>
-                        {l.faol && <span className="lr-holat faol">Faol</span>}
+                        <span className={`lr-holat ${SIFAT[l.sifat].klass}`}>{t(SIFAT[l.sifat].nom)}</span>
+                        {l.faol && <span className="lr-holat faol">{t('Faol')}</span>}
                       </span>
                     </td>
                     <td className="lr-xira lr-son">{sanaMatnQisqa(l.sana)}</td>
                     <td className="lr-oxiri">
                       <Link to={`/suhbatlar/${l.r.id}`} className="lr-havola" onClick={(e) => e.stopPropagation()}>
-                        Suhbat <ExternalLink />
+                        {t('Suhbat')} <ExternalLink />
                       </Link>
                     </td>
                   </tr>
@@ -270,17 +274,17 @@ export function LidRoyxati({
         {royxat.length > 0 && (
           <div className="lr-past">
             <span>
-              {birinchi} – {oxirgi} dan {royxat.length}
+              {t('{a} – {b} dan {jami}', { a: birinchi, b: oxirgi, jami: royxat.length })}
             </span>
             <div className="lr-sahifa">
               <button type="button" className="btn ikkinchi kichik" disabled={sahifa === 1} onClick={() => otish(sahifa - 1)}>
-                Oldingi
+                {t('Oldingi')}
               </button>
               <span>
                 {sahifa} / {sahifalar}
               </span>
               <button type="button" className="btn ikkinchi kichik" disabled={sahifa === sahifalar} onClick={() => otish(sahifa + 1)}>
-                Keyingi
+                {t('Keyingi')}
               </button>
             </div>
           </div>

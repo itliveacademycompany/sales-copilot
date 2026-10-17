@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, lidTuri, type ConversationDetail, type TaskRow } from '../api';
 import { useAuth } from '../auth';
+import { tarjima, useT } from '../i18n';
 import { davomiylik, davomiylikMatn } from '../components/bosh/malumot';
 import { tafsilotOl } from '../components/tafsilotKesh';
 
@@ -32,7 +33,7 @@ const soatMatn = (t: number) => {
 };
 const muddatMatn = (iso: string) => {
   const d = new Date(iso);
-  return `${d.getDate()} ${OYLAR[d.getMonth()]}, ${soatMatn(d.getTime())}`;
+  return `${tarjima(`{kun} ${OYLAR[d.getMonth()]}`, { kun: d.getDate() })}, ${soatMatn(d.getTime())}`;
 };
 
 type Tur = 'suhbat' | 'qongiroq' | 'kelishuv' | 'vazifa' | 'bajarildi' | 'izoh';
@@ -49,6 +50,7 @@ export function LidTafsilot() {
   const { id } = useParams<{ id: string }>();
   const { business } = useAuth();
   const navigate = useNavigate();
+  const tr = useT();
   const [asosiy, setAsosiy] = useState<ConversationDetail | null>(null);
   const [oldingilar, setOldingilar] = useState<ConversationDetail[]>([]);
   const [vazifalar, setVazifalar] = useState<TaskRow[]>([]);
@@ -98,48 +100,59 @@ export function LidTafsilot() {
       v.push({
         vaqt: t,
         tur: ovozli ? 'qongiroq' : 'suhbat',
-        sarlavha: ovozli ? "Qo'ng'iroq" : c.channel === 'telegram' ? 'Telegram suhbati' : 'Suhbat',
+        sarlavha: ovozli ? tr("Qo'ng'iroq") : c.channel === 'telegram' ? tr('Telegram suhbati') : tr('Suhbat'),
         matn: s.analysis?.summary ?? c.summary ?? undefined,
         chiplar: [
-          c.managerName ?? 'Menejer',
+          c.managerName ?? tr('Menejer'),
           davomiylikMatn(c.durationSeconds ?? davomiylik(c)),
-          c.status === 'filtered' ? "Bog'lana olmadi" : javobsiz ? 'Javob kutmoqda' : 'Javob berilgan',
-          ...(ball !== null ? [`Sifat ${ball}%`] : []),
+          c.status === 'filtered' ? tr("Bog'lana olmadi") : javobsiz ? tr('Javob kutmoqda') : tr('Javob berilgan'),
+          ...(ball !== null ? [tr('Sifat {ball}%', { ball })] : []),
         ],
-        havola: { nom: ovozli ? "Qo'ng'iroq tafsilotlari" : 'Suhbat tafsilotlari', url: `/suhbatlar/${c.id}` },
+        havola: { nom: ovozli ? tr("Qo'ng'iroq tafsilotlari") : tr('Suhbat tafsilotlari'), url: `/suhbatlar/${c.id}` },
       });
       for (const k of s.commitments) {
         v.push({
           vaqt: t + 1,
           tur: 'kelishuv',
-          sarlavha: `Kelishuv (${k.byParty === 'manager' ? 'menejer' : 'mijoz'})`,
+          sarlavha: k.byParty === 'manager' ? tr('Kelishuv (menejer)') : tr('Kelishuv (mijoz)'),
           matn: k.what,
-          chiplar: [k.status === 'done' ? 'Bajarildi' : k.status === 'missed' ? "Muddati o'tdi" : 'Kutilmoqda', ...(k.deadline ? [`Muddat: ${muddatMatn(k.deadline)}`] : [])],
+          chiplar: [
+            k.status === 'done' ? tr('Bajarildi') : k.status === 'missed' ? tr("Muddati o'tdi") : tr('Kutilmoqda'),
+            ...(k.deadline ? [tr('Muddat: {sana}', { sana: muddatMatn(k.deadline) })] : []),
+          ],
         });
       }
       for (const iz of s.comments) {
-        v.push({ vaqt: new Date(iz.createdAt).getTime(), tur: 'izoh', sarlavha: `Rahbar izohi — ${iz.authorName ?? 'Rahbar'}`, matn: iz.body });
+        v.push({
+          vaqt: new Date(iz.createdAt).getTime(),
+          tur: 'izoh',
+          sarlavha: tr('Rahbar izohi — {ism}', { ism: iz.authorName ?? tr('Rahbar') }),
+          matn: iz.body,
+        });
       }
     }
     for (const t of lidVazifalari) {
       v.push({
         vaqt: new Date(t.createdAt).getTime(),
         tur: 'vazifa',
-        sarlavha: `Vazifa yaratildi: ${t.title}`,
+        sarlavha: tr('Vazifa yaratildi: {nom}', { nom: t.title }),
         matn: t.description ?? undefined,
-        chiplar: [t.dueAt ? `Muddat: ${muddatMatn(t.dueAt)}` : 'Muddatsiz', t.source === 'manual' ? "Qo'lda" : 'SotuvAI'],
+        chiplar: [
+          t.dueAt ? tr('Muddat: {sana}', { sana: muddatMatn(t.dueAt) }) : tr('Muddatsiz'),
+          t.source === 'manual' ? tr("Qo'lda") : 'SotuvAI',
+        ],
       });
       if (t.status === 'done' && t.completedAt) {
-        v.push({ vaqt: new Date(t.completedAt).getTime(), tur: 'bajarildi', sarlavha: `Vazifa bajarildi: ${t.title}` });
+        v.push({ vaqt: new Date(t.completedAt).getTime(), tur: 'bajarildi', sarlavha: tr('Vazifa bajarildi: {nom}', { nom: t.title }) });
       }
     }
     return v.sort((a, b) => a.vaqt - b.vaqt);
-  }, [suhbatlar, lidVazifalari]);
+  }, [suhbatlar, lidVazifalari, tr]);
 
   if (xato)
     return (
       <div className="lt-sahifa">
-        <div className="card hech-narsa">Lid ma'lumotini yuklab bo'lmadi.</div>
+        <div className="card hech-narsa">{tr("Lid ma'lumotini yuklab bo'lmadi.")}</div>
       </div>
     );
   if (!asosiy)
@@ -152,7 +165,7 @@ export function LidTafsilot() {
 
   const a = asosiy.analysis;
   const c = asosiy.conversation;
-  const nom = a?.clientExtracted?.name ?? asosiy.contact?.name ?? (c.direction === 'outbound' ? c.phoneTo : c.phoneFrom) ?? `Lid #${c.id.slice(0, 8)}`;
+  const nom = a?.clientExtracted?.name ?? asosiy.contact?.name ?? (c.direction === 'outbound' ? c.phoneTo : c.phoneFrom) ?? tr('Lid #{id}', { id: c.id.slice(0, 8) });
   const tel = c.direction === 'outbound' ? c.phoneTo : c.phoneFrom;
   const tur = lidTuri(a?.leadQuality ?? c.leadQuality);
   const ochiqVazifa = lidVazifalari.filter((t) => OCHIQ.has(t.status)).length;
@@ -163,11 +176,11 @@ export function LidTafsilot() {
 
   // Ma'lumot sifati haqida ogohlantirishlar — rahbar nimaga e'tibor berishi kerak
   const ogohlar: string[] = [];
-  if (!a?.clientExtracted?.name && !asosiy.contact?.name) ogohlar.push('Mijoz ismi aniqlanmagan');
-  if (!tel && c.channel === 'phone') ogohlar.push("Telefon raqami yo'q");
-  if (asosiy.commitments.length === 0) ogohlar.push('Keyingi qadam kelishilmagan');
-  if (a?.dynamics?.needsReply) ogohlar.push('Mijoz javob kutib qolgan');
-  if (suhbatlar.some((s) => s.commitments.some((k) => k.status === 'missed'))) ogohlar.push("Bajarilmagan va'da bor");
+  if (!a?.clientExtracted?.name && !asosiy.contact?.name) ogohlar.push(tr('Mijoz ismi aniqlanmagan'));
+  if (!tel && c.channel === 'phone') ogohlar.push(tr("Telefon raqami yo'q"));
+  if (asosiy.commitments.length === 0) ogohlar.push(tr('Keyingi qadam kelishilmagan'));
+  if (a?.dynamics?.needsReply) ogohlar.push(tr('Mijoz javob kutib qolgan'));
+  if (suhbatlar.some((s) => s.commitments.some((k) => k.status === 'missed'))) ogohlar.push(tr("Bajarilmagan va'da bor"));
 
   // Voqealarni kunlar bo'yicha guruhlash
   const kunlar: { kun: string; v: Voqea[] }[] = [];
@@ -181,42 +194,42 @@ export function LidTafsilot() {
   return (
     <div className="lt-sahifa">
       <header className="lt-bosh">
-        <button type="button" className="sd-orqaga" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/lidlar'))} aria-label="Orqaga" title="Orqaga">
+        <button type="button" className="sd-orqaga" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/lidlar'))} aria-label={tr('Orqaga')} title={tr('Orqaga')}>
           <ArrowLeft />
         </button>
         <div className="lt-bosh-matn">
           <h1>{nom}</h1>
-          <span>Lid tafsilotlari</span>
+          <span>{tr('Lid tafsilotlari')}</span>
         </div>
         <div className="lt-holatlar">
-          {tur && <span className={`la-imk ${tur === 'hot' ? 'yuqori' : tur === 'warm' ? 'orta' : 'past'}`}>{LID_NOMI[tur]}</span>}
-          <span className={`lt-holat${faol ? ' faol' : ''}`}>{faol ? 'Faol' : 'Ochiq ish yo\'q'}</span>
+          {tur && <span className={`la-imk ${tur === 'hot' ? 'yuqori' : tur === 'warm' ? 'orta' : 'past'}`}>{tr(LID_NOMI[tur])}</span>}
+          <span className={`lt-holat${faol ? ' faol' : ''}`}>{faol ? tr('Faol') : tr("Ochiq ish yo'q")}</span>
         </div>
       </header>
 
       <div className="lt-ish">
         <div className="lt-chap">
           <section className="card lt-karta">
-            <h2>Lid tafsilotlari</h2>
+            <h2>{tr('Lid tafsilotlari')}</h2>
             <dl className="lt-royxat">
-              <Q nom="Qiymati">{a?.deal?.amount ? `${a.deal.amount.toLocaleString('uz').replace(/,/g, ' ')} ${a.deal.currency ?? ''}` : '—'}</Q>
-              <Q nom="Kontakt">{a?.clientExtracted?.name ?? asosiy.contact?.name ?? '—'}</Q>
-              <Q nom="Telefon">{tel ?? '—'}</Q>
-              <Q nom="Kompaniya">{a?.clientExtracted?.company ?? asosiy.contact?.company ?? '—'}</Q>
-              <Q nom="Lavozim">{a?.clientExtracted?.role ?? asosiy.contact?.role ?? '—'}</Q>
-              <Q nom="Menejer">{c.managerName ?? '—'}</Q>
-              <Q nom="Xizmat yo'nalishi">{a?.serviceLine ?? '—'}</Q>
-              <Q nom="Bitim bosqichi">{a?.deal?.stage ?? '—'}</Q>
+              <Q nom={tr('Qiymati')}>{a?.deal?.amount ? `${a.deal.amount.toLocaleString('uz').replace(/,/g, ' ')} ${a.deal.currency ?? ''}` : '—'}</Q>
+              <Q nom={tr('Kontakt')}>{a?.clientExtracted?.name ?? asosiy.contact?.name ?? '—'}</Q>
+              <Q nom={tr('Telefon')}>{tel ?? '—'}</Q>
+              <Q nom={tr('Kompaniya')}>{a?.clientExtracted?.company ?? asosiy.contact?.company ?? '—'}</Q>
+              <Q nom={tr('Lavozim')}>{a?.clientExtracted?.role ?? asosiy.contact?.role ?? '—'}</Q>
+              <Q nom={tr('Menejer')}>{c.managerName ?? '—'}</Q>
+              <Q nom={tr("Xizmat yo'nalishi")}>{a?.serviceLine ?? '—'}</Q>
+              <Q nom={tr('Bitim bosqichi')}>{a?.deal?.stage ?? '—'}</Q>
             </dl>
           </section>
 
           <section className="card lt-karta">
-            <h2>Operatsion signallar</h2>
+            <h2>{tr('Operatsion signallar')}</h2>
             <div className="lt-signallar">
-              <Signal nom="Suhbatlar" qiymat={suhbatlar.length} />
-              <Signal nom="Tahlil qilingan" qiymat={tahlil} />
-              <Signal nom="Rahbar izohlari" qiymat={izohlar} />
-              <Signal nom="Ochiq vazifalar" qiymat={ochiqVazifa} ogoh={ochiqVazifa > 0} />
+              <Signal nom={tr('Suhbatlar')} qiymat={suhbatlar.length} />
+              <Signal nom={tr('Tahlil qilingan')} qiymat={tahlil} />
+              <Signal nom={tr('Rahbar izohlari')} qiymat={izohlar} />
+              <Signal nom={tr('Ochiq vazifalar')} qiymat={ochiqVazifa} ogoh={ochiqVazifa > 0} />
             </div>
           </section>
         </div>
@@ -224,12 +237,12 @@ export function LidTafsilot() {
         <section className="card lt-karta lt-xron">
           <div className="lt-xron-bosh">
             <h2>
-              <MessagesSquare /> Mijoz tarixi <small>({voqealar.length})</small>
+              <MessagesSquare /> {tr('Mijoz tarixi')} <small>({voqealar.length})</small>
             </h2>
-            <span className="lt-chip">{suhbatlar.length} ta suhbat</span>
+            <span className="lt-chip">{tr('{n} ta suhbat', { n: suhbatlar.length })}</span>
           </div>
           {kunlar.length === 0 ? (
-            <div className="jm-bosh">Voqea yo'q.</div>
+            <div className="jm-bosh">{tr("Voqea yo'q.")}</div>
           ) : (
             <div className="lt-vaqt-chizigi">
               {kunlar.map((k) => (

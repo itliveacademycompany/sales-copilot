@@ -4,6 +4,9 @@ import { createPortal } from 'react-dom';
 import { api, ApiError, type Category, type Criterion, type PlaybookBody, type PlaybookVersion, type RedFlag, type Rubric } from '../../api';
 import { useAuth } from '../../auth';
 import { useTashqiBosish } from '../qongiroq/Filtrlar';
+import { useT } from '../../i18n';
+
+type T = (s: string, q?: Record<string, string | number>) => string;
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -46,24 +49,24 @@ function doiraga(c: Criterion, d: Doira) {
 const asosiymi = (c: Criterion) => !c.appliesTo || (!c.appliesTo.callFamilies.length && !c.appliesTo.serviceLines.length && !c.appliesTo.directions.length);
 
 /** Backend sxemasidagi qoidalar — nashrdan oldin ko'rsatish uchun. */
-function tekshir(pb: PlaybookBody): string[] {
+function tekshir(pb: PlaybookBody, t: T): string[] {
   const x: string[] = [];
   const { categories, criteria } = pb.criteria;
-  if (!categories.length) x.push('Kamida bitta bosqich kerak');
-  if (!criteria.length) x.push('Kamida bitta mezon kerak');
+  if (!categories.length) x.push(t('Kamida bitta bosqich kerak'));
+  if (!criteria.length) x.push(t('Kamida bitta mezon kerak'));
   const jami = categories.reduce((s, c) => s + c.weightPct, 0);
-  if (categories.length && Math.abs(jami - 100) > 0.01) x.push(`Ulushlar jami 100% bo'lishi kerak — hozir ${yaxlit(jami)}%`);
+  if (categories.length && Math.abs(jami - 100) > 0.01) x.push(t("Ulushlar jami 100% bo'lishi kerak — hozir {n}%", { n: yaxlit(jami) }));
   for (const k of categories) {
-    if (k.name.trim().length < 2) x.push(`${k.code}: bosqich nomi juda qisqa`);
-    if (!criteria.some((c) => c.categoryCode === k.code && c.isActive)) x.push(`«${k.name}» bosqichida faol mezon yo'q`);
+    if (k.name.trim().length < 2) x.push(t('{kod}: bosqich nomi juda qisqa', { kod: k.code }));
+    if (!criteria.some((c) => c.categoryCode === k.code && c.isActive)) x.push(t("«{nom}» bosqichida faol mezon yo'q", { nom: k.name }));
   }
   for (const c of criteria) {
-    const n = `«${c.name || c.code}»`;
-    if (c.name.trim().length < 3) x.push(`${c.code}: mezon nomi kamida 3 belgi`);
-    if (c.description.trim().length < 10) x.push(`${n}: «Nima kutiladi» kamida 10 belgi`);
-    if ((['0', '1', '2', '3'] as const).some((b) => (c.rubric[b] ?? '').trim().length < 5)) x.push(`${n}: rubrikaning har bir bali kamida 5 belgi`);
+    const n = c.name || c.code;
+    if (c.name.trim().length < 3) x.push(t('{kod}: mezon nomi kamida 3 belgi', { kod: c.code }));
+    if (c.description.trim().length < 10) x.push(t('«{nom}»: «Nima kutiladi» kamida 10 belgi', { nom: n }));
+    if ((['0', '1', '2', '3'] as const).some((b) => (c.rubric[b] ?? '').trim().length < 5)) x.push(t('«{nom}»: rubrikaning har bir bali kamida 5 belgi', { nom: n }));
   }
-  for (const f of pb.classificationPolicy.redFlags) if (f.description.trim().length < 5) x.push("Qizil bayroq tavsifi kamida 5 belgi bo'lsin");
+  for (const f of pb.classificationPolicy.redFlags) if (f.description.trim().length < 5) x.push(t("Qizil bayroq tavsifi kamida 5 belgi bo'lsin"));
   return [...new Set(x)];
 }
 
@@ -77,6 +80,7 @@ const tozaBody = (p: PlaybookBody): PlaybookBody => ({
 });
 
 export function BaholashMezonlari() {
+  const t = useT();
   const { business } = useAuth();
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
   const yozaOladi = business?.permissions.includes('playbook:write') ?? false;
@@ -97,15 +101,15 @@ export function BaholashMezonlari() {
     if (!base) return;
     try {
       const [p, vs] = await Promise.all([api.get<PlaybookBody>(`${base}/playbook`), api.get<PlaybookVersion[]>(`${base}/playbook/versions`).catch(() => [])]);
-      const t = tozaBody(p);
-      setAsl(t);
-      setPb(t);
+      const toza = tozaBody(p);
+      setAsl(toza);
+      setPb(toza);
       setVersiyalar(vs);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) setYoq(true);
-      else setXabar({ ton: 'xato', matn: "Playbookni yuklab bo'lmadi" });
+      else setXabar({ ton: 'xato', matn: t("Playbookni yuklab bo'lmadi") });
     }
-  }, [base]);
+  }, [base, t]);
   useEffect(() => void yukla(), [yukla]);
 
   const ozgargan = !!pb && !!asl && JSON.stringify(pb) !== JSON.stringify(asl);
@@ -124,7 +128,7 @@ export function BaholashMezonlari() {
 
   const kategoriyalar = useMemo(() => (pb ? tartibla(pb.criteria.categories) : []), [pb]);
   const joriy = kategoriyalar.find((k) => k.code === tanlangan) ?? kategoriyalar[0] ?? null;
-  const xatolar = useMemo(() => (pb ? tekshir(pb) : []), [pb]);
+  const xatolar = useMemo(() => (pb ? tekshir(pb, t) : []), [pb, t]);
   const jami = kategoriyalar.reduce((s, c) => s + c.weightPct, 0);
 
   /** Global harf tartibi: bosqichlar tartibi bo'yicha barcha ko'rinadigan mezonlar. */
@@ -141,8 +145,8 @@ export function BaholashMezonlari() {
     return (
       <section className="card bm-karta bm-bosh-holat">
         <Scale />
-        <b>Playbook hali yaratilmagan</b>
-        <span>Baholash mezonlari onboarding jarayonida AI yordamida yaratiladi.</span>
+        <b>{t('Playbook hali yaratilmagan')}</b>
+        <span>{t('Baholash mezonlari onboarding jarayonida AI yordamida yaratiladi.')}</span>
       </section>
     );
   if (!pb || !asl) return <div className="card skelet" style={{ height: 520 }} aria-busy="true" />;
@@ -160,7 +164,7 @@ export function BaholashMezonlari() {
   const doiraNomi = [
     doira.oila && `«${oilalar.find((f) => f.key === doira.oila)?.name ?? doira.oila}»`,
     doira.xizmat && `«${doira.xizmat}»`,
-    doira.yonalish && YONALISH[doira.yonalish].toLowerCase(),
+    doira.yonalish && t(YONALISH[doira.yonalish]).toLowerCase(),
   ]
     .filter(Boolean)
     .join(', ');
@@ -174,33 +178,36 @@ export function BaholashMezonlari() {
       const v = await api.post<{ valid: boolean; errors?: Record<string, string[]> }>(`${base}/playbook/validate`, body);
       if (!v.valid) {
         setServerXato(Object.values(v.errors ?? {}).flat());
-        bildir('xato', 'Server tekshiruvi xato topdi — o\'ng paneldagi ro\'yxatni ko\'ring');
+        bildir('xato', t("Server tekshiruvi xato topdi — o'ng paneldagi ro'yxatni ko'ring"));
         return;
       }
       await api.post(`${base}/playbook`, { ...body, changeNote: 'Baholash mezonlari yangilandi' });
       await yukla();
-      bildir('ok', 'Nashr qilindi — yangi versiya faollashtirildi');
+      bildir('ok', t('Nashr qilindi — yangi versiya faollashtirildi'));
     } catch (e) {
-      bildir('xato', e instanceof ApiError ? e.message : "Nashr qilinmadi — qayta urinib ko'ring");
+      bildir('xato', e instanceof ApiError ? e.message : t("Nashr qilinmadi — qayta urinib ko'ring"));
     } finally {
       setNashr('tinch');
     }
   }
 
   async function versiyaniFaollashtir(v: number) {
-    if (ozgargan && !window.confirm("Nashr qilinmagan o'zgarishlar yo'qoladi. Davom etasizmi?")) return;
+    if (ozgargan && !window.confirm(t("Nashr qilinmagan o'zgarishlar yo'qoladi. Davom etasizmi?"))) return;
     try {
       await api.post(`${base}/playbook/versions/${v}/activate`);
       await yukla();
-      bildir('ok', `v${v} faollashtirildi`);
+      bildir('ok', t('v{n} faollashtirildi', { n: v }));
     } catch (e) {
-      bildir('xato', e instanceof ApiError ? e.message : 'Faollashtirilmadi');
+      bildir('xato', e instanceof ApiError ? e.message : t('Faollashtirilmadi'));
     }
   }
 
   function kategoriyaniOchir(k: Category) {
     const soni = pb!.criteria.criteria.filter((c) => c.categoryCode === k.code).length;
-    if (!window.confirm(`«${k.name}» bosqichi${soni ? ` va undagi ${soni} ta mezon` : ''} o'chirilsinmi? Uning ${yaxlit(k.weightPct)}% ulushi qolgan bosqichlarga taqsimlanadi.`)) return;
+    const savol = soni
+      ? t("«{nom}» bosqichi va undagi {n} ta mezon o'chirilsinmi? Uning {ulush}% ulushi qolgan bosqichlarga taqsimlanadi.", { nom: k.name, n: soni, ulush: yaxlit(k.weightPct) })
+      : t("«{nom}» bosqichi o'chirilsinmi? Uning {ulush}% ulushi qolgan bosqichlarga taqsimlanadi.", { nom: k.name, ulush: yaxlit(k.weightPct) });
+    if (!window.confirm(savol)) return;
     const qolgan = pb!.criteria.categories.filter((c) => c.code !== k.code);
     ozgar((p) => ({
       ...p,
@@ -216,18 +223,18 @@ export function BaholashMezonlari() {
       <section className="card bm-karta">
         <header className="bm-bosh">
           <div className="bm-bosh-chap">
-            <span className="bm-yuqori">Sozlamalar · Baholash</span>
+            <span className="bm-yuqori">{t('Sozlamalar · Baholash')}</span>
             <div className="bm-sarlavha">
-              <h2>Baholash mezonlari</h2>
+              <h2>{t('Baholash mezonlari')}</h2>
               {faolVersiya !== undefined && <span className="bm-versiya">v{faolVersiya}</span>}
-              {ozgargan && <span className="bm-qoralama">Nashr qilinmagan o'zgarishlar</span>}
+              {ozgargan && <span className="bm-qoralama">{t("Nashr qilinmagan o'zgarishlar")}</span>}
             </div>
           </div>
           <div className="bm-bosh-amal">
             <Versiyalar versiyalar={versiyalar} onFaollashtir={(v) => void versiyaniFaollashtir(v)} yozaOladi={yozaOladi} />
             {ozgargan && (
-              <button type="button" className="btn ikkinchi" onClick={() => window.confirm("Barcha o'zgarishlar bekor qilinsinmi?") && setPb(asl)}>
-                Bekor qilish
+              <button type="button" className="btn ikkinchi" onClick={() => window.confirm(t("Barcha o'zgarishlar bekor qilinsinmi?")) && setPb(asl)}>
+                {t('Bekor qilish')}
               </button>
             )}
             {yozaOladi && (
@@ -235,43 +242,43 @@ export function BaholashMezonlari() {
                 type="button"
                 className="btn"
                 disabled={!ozgargan || xatolar.length > 0 || nashr === 'ketmoqda'}
-                title={!ozgargan ? "O'zgarish yo'q" : xatolar.length ? 'Avval tekshiruvdagi xatolarni tuzating' : undefined}
+                title={!ozgargan ? t("O'zgarish yo'q") : xatolar.length ? t('Avval tekshiruvdagi xatolarni tuzating') : undefined}
                 onClick={() => void nashrQil()}
               >
-                {nashr === 'ketmoqda' ? 'Nashr qilinmoqda…' : 'Nashr qilish'}
+                {nashr === 'ketmoqda' ? t('Nashr qilinmoqda…') : t('Nashr qilish')}
               </button>
             )}
           </div>
           <div className="bm-doira">
-            <span>Baholanadi:</span>
+            <span>{t('Baholanadi:')}</span>
             <InlineTanlov
               qiymat={doira.oila}
-              hammasi="Barcha qo'ng'iroq turlari"
+              hammasi={t("Barcha qo'ng'iroq turlari")}
               variantlar={oilalar.map((f) => ({ qiymat: f.key, nom: f.name, nuqta: f.scored ? 'faol' : 'kul' }))}
               belgi="nuqta"
               onOzgar={(v) => setDoira((d) => ({ ...d, oila: v }))}
-              aria="Qo'ng'iroq turi"
+              aria={t("Qo'ng'iroq turi")}
             />
-            <span>qo'ng'iroqlari,</span>
+            <span>{t("qo'ng'iroqlari,")}</span>
             <InlineTanlov
               qiymat={doira.xizmat}
-              hammasi="Barcha xizmat yo'nalishlari"
+              hammasi={t("Barcha xizmat yo'nalishlari")}
               variantlar={xizmatlar.map((s) => ({ qiymat: s, nom: s }))}
               onOzgar={(v) => setDoira((d) => ({ ...d, xizmat: v }))}
-              aria="Xizmat yo'nalishi"
+              aria={t("Xizmat yo'nalishi")}
               belgi="yoq"
-              bosh="Xizmat yo'nalishlari hali kiritilmagan"
+              bosh={t("Xizmat yo'nalishlari hali kiritilmagan")}
             />
-            <span>bo'yicha,</span>
+            <span>{t("bo'yicha,")}</span>
             <InlineTanlov
               qiymat={doira.yonalish}
-              hammasi="Barcha qo'ng'iroq yo'nalishlari"
+              hammasi={t("Barcha qo'ng'iroq yo'nalishlari")}
               variantlar={[
-                { qiymat: 'inbound', nom: 'Kiruvchi qo\'ng\'iroqlar' },
-                { qiymat: 'outbound', nom: 'Chiquvchi qo\'ng\'iroqlar' },
+                { qiymat: 'inbound', nom: t("Kiruvchi qo'ng'iroqlar") },
+                { qiymat: 'outbound', nom: t("Chiquvchi qo'ng'iroqlar") },
               ]}
               onOzgar={(v) => setDoira((d) => ({ ...d, yonalish: v as Doira['yonalish'] }))}
-              aria="Qo'ng'iroq yo'nalishi"
+              aria={t("Qo'ng'iroq yo'nalishi")}
             />
           </div>
         </header>
@@ -286,10 +293,10 @@ export function BaholashMezonlari() {
           <div className="bm-asosiy">
             <div className="bm-yol-bosh">
               <div>
-                <span className="bm-yuqori">Suhbat yo'li</span>
-                <p>Mezonlar suhbat bosqichlari bo'yicha guruhlangan. Segment kengligi — bosqichning umumiy bahodagi ulushi; chegarani surib o'zgartiring.</p>
+                <span className="bm-yuqori">{t("Suhbat yo'li")}</span>
+                <p>{t("Mezonlar suhbat bosqichlari bo'yicha guruhlangan. Segment kengligi — bosqichning umumiy bahodagi ulushi; chegarani surib o'zgartiring.")}</p>
               </div>
-              <code className={Math.abs(jami - 100) > 0.01 ? 'bm-jami xato' : 'bm-jami'}>jami {yaxlit(jami)}%</code>
+              <code className={Math.abs(jami - 100) > 0.01 ? 'bm-jami xato' : 'bm-jami'}>{t('jami {n}%', { n: yaxlit(jami) })}</code>
             </div>
 
             <Segmentlar
@@ -303,7 +310,7 @@ export function BaholashMezonlari() {
 
             {yozaOladi && (
               <button type="button" className="bm-qoshish" onClick={() => setOyna({ tur: 'kategoriya', kod: null })} disabled={kategoriyalar.length >= 26}>
-                <Plus /> Kategoriya qo'shish
+                <Plus /> {t("Kategoriya qo'shish")}
               </button>
             )}
 
@@ -314,23 +321,23 @@ export function BaholashMezonlari() {
                     <h3>{joriy.name}</h3>
                     <p>
                       {doiraNomi
-                        ? `${doiraNomi} uchun ishlaydigan mezonlar — asosiy va maxsus.`
-                        : 'Asosiy mezonlar barcha qo\'ng\'iroqlar uchun ishlaydi.'}
+                        ? t('{doira} uchun ishlaydigan mezonlar — asosiy va maxsus.', { doira: doiraNomi })
+                        : t("Asosiy mezonlar barcha qo'ng'iroqlar uchun ishlaydi.")}
                     </p>
                   </div>
                   <div className="bm-bosqich-amal">
-                    <span className="bm-ulush-nom">Ulush</span>
+                    <span className="bm-ulush-nom">{t('Ulush')}</span>
                     <span className="bm-ulush">{yaxlit(joriy.weightPct)}%</span>
                     {yozaOladi && (
                       <>
-                        <button type="button" className="bm-ikon" aria-label="Bosqichni tahrirlash" title="Tahrirlash" onClick={() => setOyna({ tur: 'kategoriya', kod: joriy.code })}>
+                        <button type="button" className="bm-ikon" aria-label={t('Bosqichni tahrirlash')} title={t('Tahrirlash')} onClick={() => setOyna({ tur: 'kategoriya', kod: joriy.code })}>
                           <Pencil />
                         </button>
                         <button
                           type="button"
                           className="bm-ikon xavf"
-                          aria-label="Bosqichni o'chirish"
-                          title={kategoriyalar.length <= 1 ? "Oxirgi bosqichni o'chirib bo'lmaydi" : "O'chirish"}
+                          aria-label={t("Bosqichni o'chirish")}
+                          title={kategoriyalar.length <= 1 ? t("Oxirgi bosqichni o'chirib bo'lmaydi") : t("O'chirish")}
                           disabled={kategoriyalar.length <= 1}
                           onClick={() => kategoriyaniOchir(joriy)}
                         >
@@ -342,7 +349,7 @@ export function BaholashMezonlari() {
                 </div>
 
                 {joriyMezonlar.length === 0 ? (
-                  <div className="bm-bosh-mezon">{doiraNomi ? "Bu doirada mezon yo'q." : "Bu bosqichda hali mezon yo'q."}</div>
+                  <div className="bm-bosh-mezon">{doiraNomi ? t("Bu doirada mezon yo'q.") : t("Bu bosqichda hali mezon yo'q.")}</div>
                 ) : (
                   <ul className="bm-mezonlar">
                     {joriyMezonlar.map((c) => (
@@ -350,8 +357,8 @@ export function BaholashMezonlari() {
                         <button type="button" className={`bm-mezon${c.isActive ? '' : ' nofaol'}`} onClick={() => setPanel({ tur: 'mezon', kod: c.code })}>
                           <span className="bm-harf">{harflar.get(c.code)}</span>
                           <span className="bm-mezon-nom">{c.name}</span>
-                          {!c.isActive && <span className="bm-chip">Nofaol</span>}
-                          {!asosiymi(c) && <span className="bm-chip maxsus">{doiraMatni(c, oilalar)}</span>}
+                          {!c.isActive && <span className="bm-chip">{t('Nofaol')}</span>}
+                          {!asosiymi(c) && <span className="bm-chip maxsus">{doiraMatni(c, oilalar, t)}</span>}
                           <ChevronRight className="bm-strelka" />
                         </button>
                       </li>
@@ -360,7 +367,7 @@ export function BaholashMezonlari() {
                 )}
                 {yozaOladi && (
                   <button type="button" className="bm-mezon-qoshish" onClick={() => setPanel({ tur: 'forma', kod: null, kategoriya: joriy.code })}>
-                    + Shu bosqichga mezon qo'shish
+                    {t("+ Shu bosqichga mezon qo'shish")}
                   </button>
                 )}
               </div>
@@ -368,32 +375,33 @@ export function BaholashMezonlari() {
           </div>
 
           <aside className="bm-tekshiruv">
-            <span className="bm-yuqori">Tekshiruv</span>
-            <p>Nashr qilishdan oldin shu ko'rinish qanday baholanishini tekshiring.</p>
+            <span className="bm-yuqori">{t('Tekshiruv')}</span>
+            <p>{t("Nashr qilishdan oldin shu ko'rinish qanday baholanishini tekshiring.")}</p>
             <div className="bm-stat">
               <div>
-                <small>Bosqichlar</small>
+                <small>{t('Bosqichlar')}</small>
                 <b>{kategoriyalar.length}</b>
               </div>
               <div>
-                <small>Mezon</small>
+                <small>{t('Mezon')}</small>
                 <b>{pb.criteria.criteria.filter((c) => doiraga(c, doira)).length}</b>
               </div>
             </div>
             <div className={`bm-jami-karta ${Math.abs(jami - 100) > 0.01 ? 'xato' : ''}`}>
-              <span>Ulushlar jami</span>
+              <span>{t('Ulushlar jami')}</span>
               <code>{yaxlit(jami)}%</code>
             </div>
             {yozaOladi && Math.abs(jami - 100) > 0.01 && kategoriyalar.length > 0 && (
               <button type="button" className="bm-moslash" onClick={() => kategoriyalarniYoz(moslash(pb.criteria.categories, 100))}>
-                <Scale /> Ulushlarni 100% ga moslash
+                <Scale /> {t('Ulushlarni 100% ga moslash')}
               </button>
             )}
 
-            <span className="bm-yuqori">Tekshiruvlar</span>
+            <span className="bm-yuqori">{t('Tekshiruvlar')}</span>
             {xatolar.length === 0 && serverXato.length === 0 ? (
               <div className="bm-ok">
-                <CircleCheck /> <span>Muammo topilmadi — {ozgargan ? 'bu ko\'rinish nashr qilishga tayyor.' : 'joriy versiya to\'g\'ri.'}</span>
+                <CircleCheck />{' '}
+                <span>{ozgargan ? t("Muammo topilmadi — bu ko'rinish nashr qilishga tayyor.") : t("Muammo topilmadi — joriy versiya to'g'ri.")}</span>
               </div>
             ) : (
               <ul className="bm-xatolar">
@@ -404,10 +412,9 @@ export function BaholashMezonlari() {
                 ))}
               </ul>
             )}
-            <div className="bm-izoh">Nashr qilingandan keyin yangi qoidalar faqat yangi qo'ng'iroqlarga qo'llanadi; eski baholar o'zgarmaydi.</div>
+            <div className="bm-izoh">{t("Nashr qilingandan keyin yangi qoidalar faqat yangi qo'ng'iroqlarga qo'llanadi; eski baholar o'zgarmaydi.")}</div>
             <div className="bm-diqqat">
-              Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Katta o'zgarishdan oldin bir nechta suhbatda natijani
-              solishtirib ko'ring.
+              {t("Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Katta o'zgarishdan oldin bir nechta suhbatda natijani solishtirib ko'ring.")}
             </div>
           </aside>
         </div>
@@ -430,7 +437,7 @@ export function BaholashMezonlari() {
           onTahrir={() => setPanel({ tur: 'forma', kod: panelMezon.code, kategoriya: panelMezon.categoryCode })}
           onFaollik={(v) => mezonlarniYoz(pb.criteria.criteria.map((c) => (c.code === panelMezon.code ? { ...c, isActive: v } : c)))}
           onOchir={() => {
-            if (!window.confirm(`«${panelMezon.name}» mezoni o'chirilsinmi? (Vaqtincha to'xtatish uchun «Faol» belgisini o'chirish yetarli.)`)) return;
+            if (!window.confirm(t("«{nom}» mezoni o'chirilsinmi? (Vaqtincha to'xtatish uchun «Faol» belgisini o'chirish yetarli.)", { nom: panelMezon.name }))) return;
             mezonlarniYoz(pb.criteria.criteria.filter((c) => c.code !== panelMezon.code));
             setPanel(null);
           }}
@@ -452,7 +459,7 @@ export function BaholashMezonlari() {
             mezonlarniYoz(eskiKod ? pb.criteria.criteria.map((c) => (c.code === eskiKod ? yangi : c)) : [...pb.criteria.criteria, yangi]);
             setTanlangan(m.categoryCode);
             setPanel({ tur: 'mezon', kod });
-            bildir('ok', eskiKod ? 'Mezon yangilandi — nashr qilishni unutmang' : "Mezon qo'shildi — nashr qilishni unutmang");
+            bildir('ok', eskiKod ? t('Mezon yangilandi — nashr qilishni unutmang') : t("Mezon qo'shildi — nashr qilishni unutmang"));
           }}
         />
       )}
@@ -502,12 +509,12 @@ function yangiKod(mezonlar: Criterion[], kat: string) {
   return `${kat}99`;
 }
 
-function doiraMatni(c: Criterion, oilalar: { key: string; name: string }[]) {
+function doiraMatni(c: Criterion, oilalar: { key: string; name: string }[], t: T) {
   const a = c.appliesTo;
   return [
     ...a.callFamilies.map((k) => oilalar.find((f) => f.key === k)?.name ?? k),
     ...a.serviceLines,
-    ...a.directions.map((d) => YONALISH[d as 'inbound' | 'outbound'] ?? d),
+    ...a.directions.map((d) => (YONALISH[d as 'inbound' | 'outbound'] ? t(YONALISH[d as 'inbound' | 'outbound']) : d)),
   ].join(' · ');
 }
 
@@ -531,6 +538,7 @@ function InlineTanlov({
   aria: string;
   bosh?: string;
 }) {
+  const t = useT();
   const [ochiq, setOchiq] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   useTashqiBosish(ref, ochiq, () => setOchiq(false));
@@ -550,7 +558,7 @@ function InlineTanlov({
                 type="button"
                 role="option"
                 aria-selected={v.qiymat === qiymat}
-                title={belgi === 'nuqta' ? (v.nuqta === 'kul' ? 'Baholanmaydi' : 'Baholanadi') : undefined}
+                title={belgi === 'nuqta' ? (v.nuqta === 'kul' ? t('Baholanmaydi') : t('Baholanadi')) : undefined}
                 onClick={() => {
                   onOzgar(v.qiymat);
                   setOchiq(false);
@@ -586,6 +594,7 @@ function Segmentlar({
   onVazn: (o: Record<string, number>) => void;
   yozaOladi: boolean;
 }) {
+  const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   const surish = useRef<{ x: number; chap: Category; ong: Category; kenglik: number } | null>(null);
 
@@ -623,14 +632,14 @@ function Segmentlar({
           <button type="button" className={`bm-seg${k.code === tanlangan ? ' faol' : ''}`} onClick={() => onTanla(k.code)} aria-pressed={k.code === tanlangan} title={k.name}>
             <b>{k.name}</b>
             <code>{yaxlit(k.weightPct)}%</code>
-            <small>{mezonSoni(k.code)} mezon</small>
+            <small>{t('{n} mezon', { n: mezonSoni(k.code) })}</small>
           </button>
           {i < kategoriyalar.length - 1 && (
             <div
               className={`bm-tutqich${yozaOladi ? '' : ' qulf'}`}
               role="separator"
               aria-orientation="vertical"
-              aria-label={`${k.name} va ${kategoriyalar[i + 1]!.name} ulushi`}
+              aria-label={t('{a} va {b} ulushi', { a: k.name, b: kategoriyalar[i + 1]!.name })}
               aria-valuenow={Math.round(k.weightPct)}
               aria-valuemin={0}
               aria-valuemax={100}
@@ -640,7 +649,7 @@ function Segmentlar({
               onPointerUp={tugat}
               onPointerCancel={tugat}
               onKeyDown={(e) => klaviatura(e, i)}
-              title={yozaOladi ? 'Surib ulushni o\'zgartiring (← → tugmalari ham ishlaydi)' : undefined}
+              title={yozaOladi ? t("Surib ulushni o'zgartiring (← → tugmalari ham ishlaydi)") : undefined}
             >
               <span />
             </div>
@@ -654,31 +663,32 @@ function Segmentlar({
 // ─── Versiyalar ─────────────────────────────────────────────────────────────
 
 function Versiyalar({ versiyalar, onFaollashtir, yozaOladi }: { versiyalar: PlaybookVersion[]; onFaollashtir: (v: number) => void; yozaOladi: boolean }) {
+  const t = useT();
   const [ochiq, setOchiq] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useTashqiBosish(ref, ochiq, () => setOchiq(false));
   if (versiyalar.length === 0) return null;
   return (
     <div className="bm-ver" ref={ref} onKeyDown={(e) => e.key === 'Escape' && setOchiq(false)}>
-      <button type="button" className="bm-ikon" aria-label="Versiyalar tarixi" title="Versiyalar tarixi" aria-expanded={ochiq} onClick={() => setOchiq((v) => !v)}>
+      <button type="button" className="bm-ikon" aria-label={t('Versiyalar tarixi')} title={t('Versiyalar tarixi')} aria-expanded={ochiq} onClick={() => setOchiq((v) => !v)}>
         <History />
       </button>
       {ochiq && (
-        <div className="bm-ver-royxat" role="dialog" aria-label="Versiyalar">
-          <b>Versiyalar</b>
+        <div className="bm-ver-royxat" role="dialog" aria-label={t('Versiyalar')}>
+          <b>{t('Versiyalar')}</b>
           <ul>
             {versiyalar.map((v) => (
               <li key={v.id} className={v.isActive ? 'faol' : undefined}>
                 <div>
                   <span>
-                    v{v.version} <small>{v.origin === 'ai_generated' ? 'AI' : "qo'lda"}</small>
+                    v{v.version} <small>{v.origin === 'ai_generated' ? 'AI' : t("qo'lda")}</small>
                   </span>
                   <small>
                     {new Date(v.createdAt).toLocaleDateString('uz-UZ')} · {v.changeNote ?? '—'}
                   </small>
                 </div>
                 {v.isActive ? (
-                  <span className="bzl-pill yaxshi">Faol</span>
+                  <span className="bzl-pill yaxshi">{t('Faol')}</span>
                 ) : (
                   yozaOladi && (
                     <button
@@ -686,10 +696,10 @@ function Versiyalar({ versiyalar, onFaollashtir, yozaOladi }: { versiyalar: Play
                       className="btn ikkinchi kichik"
                       onClick={() => {
                         setOchiq(false);
-                        if (window.confirm(`v${v.version} faollashtirilsinmi? Yangi qo'ng'iroqlar shu versiya bo'yicha baholanadi.`)) onFaollashtir(v.version);
+                        if (window.confirm(t("v{n} faollashtirilsinmi? Yangi qo'ng'iroqlar shu versiya bo'yicha baholanadi.", { n: v.version }))) onFaollashtir(v.version);
                       }}
                     >
-                      Faollashtirish
+                      {t('Faollashtirish')}
                     </button>
                   )
                 )}
@@ -705,6 +715,7 @@ function Versiyalar({ versiyalar, onFaollashtir, yozaOladi }: { versiyalar: Play
 // ─── Yon panel asosi ────────────────────────────────────────────────────────
 
 function YonPanel({ bosh, onYop, children, past, onSubmit }: { bosh: ReactNode; onYop: () => void; children: ReactNode; past: ReactNode; onSubmit?: (e: FormEvent) => void }) {
+  const t = useT();
   useEffect(() => {
     const f = (e: KeyboardEvent) => e.key === 'Escape' && onYop();
     window.addEventListener('keydown', f);
@@ -716,7 +727,7 @@ function YonPanel({ bosh, onYop, children, past, onSubmit }: { bosh: ReactNode; 
       <Ich className="bm-panel" role="dialog" aria-modal="true" onSubmit={onSubmit} noValidate={onSubmit ? true : undefined}>
         <div className="bm-panel-bosh">
           {bosh}
-          <button type="button" className="bm-yop" onClick={onYop} aria-label="Yopish">
+          <button type="button" className="bm-yop" onClick={onYop} aria-label={t('Yopish')}>
             <X />
           </button>
         </div>
@@ -751,6 +762,7 @@ function MezonPanel({
   onFaollik: (v: boolean) => void;
   onOchir: () => void;
 }) {
+  const t = useT();
   return (
     <YonPanel
       onYop={onYop}
@@ -760,7 +772,7 @@ function MezonPanel({
           <div>
             <h3>{c.name}</h3>
             <small>
-              {kategoriya?.name ?? c.categoryCode} · Ulush {yaxlit(kategoriya?.weightPct ?? 0)}%
+              {kategoriya?.name ?? c.categoryCode} · {t('Ulush {n}%', { n: yaxlit(kategoriya?.weightPct ?? 0) })}
             </small>
           </div>
         </div>
@@ -769,19 +781,19 @@ function MezonPanel({
         yozaOladi ? (
           <>
             <button type="button" className="btn ikkinchi" onClick={onTahrir}>
-              <Pencil /> Tahrirlash
+              <Pencil /> {t('Tahrirlash')}
             </button>
             <button type="button" className="bm-ochir" onClick={onOchir}>
-              O'chirish
+              {t("O'chirish")}
             </button>
           </>
         ) : (
-          <span className="sz-eslatma">Tahrirlash uchun ruxsat yo'q</span>
+          <span className="sz-eslatma">{t("Tahrirlash uchun ruxsat yo'q")}</span>
         )
       }
     >
       <p className="bm-tavsif">{c.description}</p>
-      <span className="bm-yuqori">Ball mezoni</span>
+      <span className="bm-yuqori">{t('Ball mezoni')}</span>
       <ol className="bm-rubrika">
         {BALLAR.map((b) => (
           <li key={b.k}>
@@ -792,11 +804,11 @@ function MezonPanel({
       </ol>
       <div className="bm-meta">
         <div>
-          <small>Qo'llanadi</small>
-          <span>{asosiymi(c) ? "Barcha qo'ng'iroqlar (asosiy mezon)" : doiraMatni(c, oilalar)}</span>
+          <small>{t("Qo'llanadi")}</small>
+          <span>{asosiymi(c) ? t("Barcha qo'ng'iroqlar (asosiy mezon)") : doiraMatni(c, oilalar, t)}</span>
         </div>
         <div>
-          <small>Texnik identifikator</small>
+          <small>{t('Texnik identifikator')}</small>
           <code>{c.code}</code>
         </div>
       </div>
@@ -805,8 +817,8 @@ function MezonPanel({
           <input type="checkbox" role="switch" checked={c.isActive} onChange={(e) => onFaollik(e.target.checked)} />
           <span className="vr-almash-yol" aria-hidden="true" />
           <span>
-            <b>{c.isActive ? 'Faol' : 'Nofaol'}</b>
-            <small>Nofaol mezon baholashda qatnashmaydi, lekin o'chirilmaydi</small>
+            <b>{c.isActive ? t('Faol') : t('Nofaol')}</b>
+            <small>{t("Nofaol mezon baholashda qatnashmaydi, lekin o'chirilmaydi")}</small>
           </span>
         </label>
       )}
@@ -833,6 +845,7 @@ function MezonForma({
   onYop: () => void;
   onSaqla: (m: Criterion, eskiKod: string | null) => void;
 }) {
+  const t = useT();
   const [nom, setNom] = useState(mezon?.name ?? '');
   const [tavsif, setTavsif] = useState(mezon?.description ?? '');
   const [kat, setKat] = useState(mezon?.categoryCode ?? boshKategoriya);
@@ -848,9 +861,9 @@ function MezonForma({
   const asosiy = !appliesTo.callFamilies.length && !appliesTo.serviceLines.length && !appliesTo.directions.length;
 
   const yetishmaydi = [
-    nom.trim().length < 3 && 'Nom',
-    tavsif.trim().length < 10 && 'Nima kutiladi',
-    (['0', '1', '2', '3'] as const).some((b) => rubrika[b].trim().length < 5) && 'Ball mezoni',
+    nom.trim().length < 3 && t('Nom'),
+    tavsif.trim().length < 10 && t('Nima kutiladi'),
+    (['0', '1', '2', '3'] as const).some((b) => rubrika[b].trim().length < 5) && t('Ball mezoni'),
   ].filter(Boolean) as string[];
 
   const saqla = (e: FormEvent) => {
@@ -879,42 +892,42 @@ function MezonForma({
       bosh={
         <div className="bm-panel-nom">
           <div>
-            <h3>{mezon ? 'Mezonni tahrirlash' : "Mezon qo'shish"}</h3>
-            <small>{asosiy ? 'Asosiy mezonlarga saqlanadi' : `Maxsus: ${doiraNomi || 'tanlangan doira'}`}</small>
+            <h3>{mezon ? t('Mezonni tahrirlash') : t("Mezon qo'shish")}</h3>
+            <small>{asosiy ? t('Asosiy mezonlarga saqlanadi') : t('Maxsus: {doira}', { doira: doiraNomi || t('tanlangan doira') })}</small>
           </div>
         </div>
       }
       past={
         <>
           <button type="submit" className="btn">
-            Saqlash
+            {t('Saqlash')}
           </button>
           <button type="button" className="btn ikkinchi" onClick={onYop}>
-            Bekor qilish
+            {t('Bekor qilish')}
           </button>
-          {yetishmaydi.length > 0 && <span className="bm-yetishmaydi">To'ldirilmagan: {yetishmaydi.join(', ')}</span>}
+          {yetishmaydi.length > 0 && <span className="bm-yetishmaydi">{t("To'ldirilmagan: {r}", { r: yetishmaydi.join(', ') })}</span>}
         </>
       }
     >
       <div className="maydon-blok">
-        <label htmlFor="bm-nom">Mezon nomi</label>
-        <input id="bm-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Aniq keyingi qadam" maxLength={120} autoFocus aria-invalid={urindi && nom.trim().length < 3} />
+        <label htmlFor="bm-nom">{t('Mezon nomi')}</label>
+        <input id="bm-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder={t('Aniq keyingi qadam')} maxLength={120} autoFocus aria-invalid={urindi && nom.trim().length < 3} />
       </div>
       <div className="maydon-blok">
-        <label htmlFor="bm-tavsif">Nima kutiladi</label>
+        <label htmlFor="bm-tavsif">{t('Nima kutiladi')}</label>
         <textarea
           id="bm-tavsif"
           rows={3}
           value={tavsif}
           onChange={(e) => setTavsif(e.target.value)}
-          placeholder="Bu mezon bo'yicha yaxshi xatti-harakat qanday ko'rinishini yozing."
+          placeholder={t("Bu mezon bo'yicha yaxshi xatti-harakat qanday ko'rinishini yozing.")}
           maxLength={600}
           aria-invalid={urindi && tavsif.trim().length < 10}
         />
       </div>
       <div className="maydon-blok">
-        <span className="bm-yorliq">Suhbat bosqichi</span>
-        <div className="bm-chiplar" role="radiogroup" aria-label="Suhbat bosqichi">
+        <span className="bm-yorliq">{t('Suhbat bosqichi')}</span>
+        <div className="bm-chiplar" role="radiogroup" aria-label={t('Suhbat bosqichi')}>
           {kategoriyalar.map((k) => (
             <button key={k.code} type="button" role="radio" aria-checked={kat === k.code} className={`bm-chip-tugma${kat === k.code ? ' faol' : ''}`} onClick={() => setKat(k.code)}>
               {k.name}
@@ -922,13 +935,16 @@ function MezonForma({
           ))}
         </div>
         {mezon && kat !== mezon.categoryCode && (
-          <div className="yordam">Bosqich o'zgarsa, texnik identifikator ham yangilanadi ({mezon.code} → yangi kod).</div>
+          <div className="yordam">{t("Bosqich o'zgarsa, texnik identifikator ham yangilanadi ({kod} → yangi kod).", { kod: mezon.code })}</div>
         )}
       </div>
       <div className="bm-doira-izoh">
-        <Info /> {asosiy ? "Asosiy mezonlarga saqlanadi — barcha qo'ng'iroqlarda baholanadi." : `Faqat ${doiraMatni({ appliesTo } as Criterion, [])} uchun baholanadi.`}
+        <Info />{' '}
+        {asosiy
+          ? t("Asosiy mezonlarga saqlanadi — barcha qo'ng'iroqlarda baholanadi.")
+          : t('Faqat {doira} uchun baholanadi.', { doira: doiraMatni({ appliesTo } as Criterion, [], t) })}
       </div>
-      <span className="bm-yuqori">Rubrika 0–3</span>
+      <span className="bm-yuqori">{t('Rubrika 0–3')}</span>
       <div className="bm-rubrika-forma">
         {BALLAR.map((b) => (
           <div key={b.k} className="bm-rubrika-qator">
@@ -937,14 +953,14 @@ function MezonForma({
               rows={2}
               value={rubrika[b.k]}
               onChange={(e) => setRubrika((r) => ({ ...r, [b.k]: e.target.value }))}
-              placeholder={b.savol}
-              aria-label={`${b.k} ball — ${b.savol}`}
+              placeholder={t(b.savol)}
+              aria-label={t('{n} ball — {savol}', { n: b.k, savol: t(b.savol) })}
               aria-invalid={urindi && rubrika[b.k].trim().length < 5}
             />
           </div>
         ))}
       </div>
-      <p className="sz-eslatma">N/A alohida maydon emas: imkoniyat bo'lmagan holatni tavsifda yozing — tahlil mezonni o'zi hisobdan chiqaradi.</p>
+      <p className="sz-eslatma">{t("N/A alohida maydon emas: imkoniyat bo'lmagan holatni tavsifda yozing — tahlil mezonni o'zi hisobdan chiqaradi.")}</p>
     </YonPanel>
   );
 }
@@ -952,6 +968,7 @@ function MezonForma({
 // ─── Kategoriya oynasi ──────────────────────────────────────────────────────
 
 function KategoriyaOynasi({ k, jamiBoshqa, onYop, onSaqla }: { k: Category | null; jamiBoshqa: number; onYop: () => void; onSaqla: (nom: string, vazn: number) => void }) {
+  const t = useT();
   const [nom, setNom] = useState(k?.name ?? '');
   const [vazn, setVazn] = useState(String(k ? yaxlit(k.weightPct) : Math.max(0, yaxlit(100 - jamiBoshqa))));
   useEffect(() => {
@@ -977,28 +994,30 @@ function KategoriyaOynasi({ k, jamiBoshqa, onYop, onSaqla }: { k: Category | nul
         }}
       >
         <div className="vr-oyna-bosh">
-          <h3 id="bm-k-nom">{k ? 'Kategoriyani tahrirlash' : "Kategoriya qo'shish"}</h3>
-          <button type="button" className="mj-yop" onClick={onYop} aria-label="Yopish">
+          <h3 id="bm-k-nom">{k ? t('Kategoriyani tahrirlash') : t("Kategoriya qo'shish")}</h3>
+          <button type="button" className="mj-yop" onClick={onYop} aria-label={t('Yopish')}>
             <X />
           </button>
         </div>
         <div className="maydon-blok">
-          <label htmlFor="bm-k-nomi">Nom</label>
-          <input id="bm-k-nomi" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Masalan: Ehtiyojlarni aniqlash" maxLength={80} autoFocus />
+          <label htmlFor="bm-k-nomi">{t('Nom')}</label>
+          <input id="bm-k-nomi" value={nom} onChange={(e) => setNom(e.target.value)} placeholder={t('Masalan: Ehtiyojlarni aniqlash')} maxLength={80} autoFocus />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="bm-k-vazn">Vazn (%)</label>
+          <label htmlFor="bm-k-vazn">{t('Vazn (%)')}</label>
           <input id="bm-k-vazn" type="number" min={0} max={100} step={1} inputMode="decimal" value={vazn} onChange={(e) => setVazn(e.target.value)} aria-invalid={!vaznTogri} />
           <div className={`yordam${Math.abs(jami - 100) > 0.01 ? ' bm-ogoh' : ''}`}>
-            Saqlangach jami: {jami}%{Math.abs(jami - 100) > 0.01 ? " — nashrdan oldin 100% ga keltiring (segment chegarasini surish yoki «moslash»)" : ' ✓'}
+            {Math.abs(jami - 100) > 0.01
+              ? t('Saqlangach jami: {n}% — nashrdan oldin 100% ga keltiring (segment chegarasini surish yoki «moslash»)', { n: jami })
+              : t('Saqlangach jami: {n}% ✓', { n: jami })}
           </div>
         </div>
         <div className="vr-oyna-past">
           <button type="submit" className="btn" disabled={nom.trim().length < 2 || !vaznTogri}>
-            Saqlash
+            {t('Saqlash')}
           </button>
           <button type="button" className="btn ikkinchi" onClick={onYop}>
-            Bekor qilish
+            {t('Bekor qilish')}
           </button>
         </div>
       </form>
@@ -1010,13 +1029,14 @@ function KategoriyaOynasi({ k, jamiBoshqa, onYop, onSaqla }: { k: Category | nul
 // ─── Qizil bayroqlar ────────────────────────────────────────────────────────
 
 function QizilBayroqlar({ bayroqlar, yozaOladi, onOzgar }: { bayroqlar: RedFlag[]; yozaOladi: boolean; onOzgar: (rf: RedFlag[]) => void }) {
+  const t = useT();
   const ozgar = (i: number, o: Partial<RedFlag>) => onOzgar(bayroqlar.map((f, j) => (j === i ? { ...f, ...o } : f)));
   return (
     <section className="card bm-karta bm-bayroqlar">
       <div className="bm-bayroq-bosh">
         <div>
-          <h3>Qizil bayroqlar</h3>
-          <p>Menejer hech qachon qilmasligi kerak bo'lgan narsalar — topilsa, darhol ogohlantirish yaratiladi.</p>
+          <h3>{t('Qizil bayroqlar')}</h3>
+          <p>{t("Menejer hech qachon qilmasligi kerak bo'lgan narsalar — topilsa, darhol ogohlantirish yaratiladi.")}</p>
         </div>
         {yozaOladi && (
           <button
@@ -1024,12 +1044,12 @@ function QizilBayroqlar({ bayroqlar, yozaOladi, onOzgar }: { bayroqlar: RedFlag[
             className="btn ikkinchi"
             onClick={() => onOzgar([...bayroqlar, { key: `rf_${Date.now().toString(36)}`, description: '', severity: 'warning' }])}
           >
-            <Plus /> Qo'shish
+            <Plus /> {t("Qo'shish")}
           </button>
         )}
       </div>
       {bayroqlar.length === 0 ? (
-        <div className="bm-bosh-mezon">Qizil bayroq yo'q.</div>
+        <div className="bm-bosh-mezon">{t("Qizil bayroq yo'q.")}</div>
       ) : (
         <ul className="bm-bayroq-royxat">
           {bayroqlar.map((f, i) => (
@@ -1037,13 +1057,13 @@ function QizilBayroqlar({ bayroqlar, yozaOladi, onOzgar }: { bayroqlar: RedFlag[
               <input
                 value={f.description}
                 onChange={(e) => ozgar(i, { description: e.target.value })}
-                placeholder="Masalan: mijozga noto'g'ri narx aytish"
+                placeholder={t("Masalan: mijozga noto'g'ri narx aytish")}
                 maxLength={400}
                 disabled={!yozaOladi}
-                aria-label="Qizil bayroq tavsifi"
+                aria-label={t('Qizil bayroq tavsifi')}
                 aria-invalid={f.description.trim().length < 5}
               />
-              <div className="bm-darajalar" role="radiogroup" aria-label="Daraja">
+              <div className="bm-darajalar" role="radiogroup" aria-label={t('Daraja')}>
                 {(['warning', 'critical'] as const).map((d) => (
                   <button
                     key={d}
@@ -1054,12 +1074,12 @@ function QizilBayroqlar({ bayroqlar, yozaOladi, onOzgar }: { bayroqlar: RedFlag[
                     className={`bm-daraja ${d}${f.severity === d ? ' faol' : ''}`}
                     onClick={() => ozgar(i, { severity: d })}
                   >
-                    {d === 'warning' ? 'Ogohlantirish' : 'Jiddiy'}
+                    {d === 'warning' ? t('Ogohlantirish') : t('Jiddiy')}
                   </button>
                 ))}
               </div>
               {yozaOladi && (
-                <button type="button" className="bm-ikon xavf" aria-label="Qizil bayroqni o'chirish" onClick={() => onOzgar(bayroqlar.filter((_, j) => j !== i))}>
+                <button type="button" className="bm-ikon xavf" aria-label={t("Qizil bayroqni o'chirish")} onClick={() => onOzgar(bayroqlar.filter((_, j) => j !== i))}>
                   <Trash2 />
                 </button>
               )}

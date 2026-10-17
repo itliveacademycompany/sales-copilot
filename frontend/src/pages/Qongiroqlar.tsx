@@ -31,6 +31,7 @@ import {
   type SeatRow,
 } from '../api';
 import { useAuth } from '../auth';
+import { useT } from '../i18n';
 import { avatarRang, boshHarf, davomiylik, davomiylikMatn, qachon, suhbatlarniYukla } from '../components/bosh/malumot';
 import { TepaPanel } from '../components/bosh/TepaPanel';
 import { csvYukla, xlsxYukla, type Katak } from '../components/qongiroq/eksport';
@@ -123,6 +124,7 @@ function sanaInput(d: Date): string {
 export function Qongiroqlar() {
   const { business, user } = useAuth();
   const navigate = useNavigate();
+  const tr = useT();
   const [params, setParams] = useSearchParams();
 
   // ─── Filtr holati (URL'dan) ───
@@ -220,7 +222,7 @@ export function Qongiroqlar() {
           }),
         );
       })
-      .catch(() => !bekor && setXato('Qo\'ng\'iroqlarni yuklab bo\'lmadi. Qayta urinib ko\'ring.'))
+      .catch(() => !bekor && setXato(tr("Qo'ng'iroqlarni yuklab bo'lmadi. Qayta urinib ko'ring.")))
       .finally(() => !bekor && setLoading(false));
     return () => {
       bekor = true;
@@ -314,7 +316,7 @@ export function Qongiroqlar() {
 
   // ─── Tanlovlar (sonlar bilan) ───
   const sanoq = (f: (r: ConversationRow) => boolean) => rows.filter(f).length;
-  const holatTanlov: Tanlov[] = HOLATLAR.map((h) => ({ qiymat: h.qiymat, nom: h.nom, soni: sanoq(h.mos) }));
+  const holatTanlov: Tanlov[] = HOLATLAR.map((h) => ({ qiymat: h.qiymat, nom: tr(h.nom), soni: sanoq(h.mos) }));
   /**
    * Variantlar ikki manbadan: baholash mezonlarida e'lon qilinganlar VA
    * real tahlillarda uchraganlar. Faqat sozlamaga tayansak, mezonlarda
@@ -335,13 +337,13 @@ export function Qongiroqlar() {
   const maxsusTanlov: Tanlov[] = [
     {
       qiymat: MAXSUS_BIZNES,
-      nom: 'Biznesga oid emas',
+      nom: tr('Biznesga oid emas'),
       soni: sanoq((r) => {
         const b = tafsilot[r.id]?.analysis?.businessRelevance;
         return !!b && b !== 'sales';
       }),
     },
-    { qiymat: MAXSUS_YAQIN, nom: 'Yopilishga yaqin lidlar', soni: sanoq((r) => lidTuri(r.leadQuality) === 'hot') },
+    { qiymat: MAXSUS_YAQIN, nom: tr('Yopilishga yaqin lidlar'), soni: sanoq((r) => lidTuri(r.leadQuality) === 'hot') },
   ];
   // Xizmat yo'nalishlari: mezonlar + biznes profilidagi xizmatlar + AI aniqlaganlari
   // (katta-kichik harf farqi bilan takrorlanmaydi).
@@ -361,13 +363,13 @@ export function Qongiroqlar() {
   }));
   const menejerTanlov: Tanlov[] = [
     ...seats.map((s) => ({ qiymat: s.id, nom: s.displayName, soni: sanoq((r) => r.seatId === s.id) })),
-    { qiymat: BIRIKTIRILMAGAN, nom: 'Biriktirilmagan', soni: sanoq((r) => !r.seatId) },
+    { qiymat: BIRIKTIRILMAGAN, nom: tr('Biriktirilmagan'), soni: sanoq((r) => !r.seatId) },
   ];
 
   // ─── Yaqinda ochilganlar ───
   const [tarix, setTarix] = useState<TarixBandi[]>(tarixOqi);
   const och = (r: ConversationRow) => {
-    const band: TarixBandi = { id: r.id, nom: r.summary ?? 'Qo\'ng\'iroq', vaqt: r.startedAt };
+    const band: TarixBandi = { id: r.id, nom: r.summary ?? tr("Qo'ng'iroq"), vaqt: r.startedAt };
     const yangi = [band, ...tarix.filter((t) => t.id !== r.id)].slice(0, 8);
     setTarix(yangi);
     try {
@@ -383,17 +385,17 @@ export function Qongiroqlar() {
     const sarlavha = [
       'Sana', 'Menejer', 'Mijoz telefoni', 'Holat', 'Ball (%)', 'Lid', 'Suhbat turi',
       'Xizmat', 'Davomiylik', 'Xulosa', 'Eng zaif joy', 'Havola',
-    ];
+    ].map((s) => tr(s));
     const qatorlar: Katak[][] = filtrlangan.map((r) => {
       const t = tafsilot[r.id];
       const lid = lidTuri(r.leadQuality);
       return [
         fmtSana(r.startedAt),
-        r.seatId ? seatNom.get(r.seatId) ?? '' : 'Biriktirilmagan',
+        r.seatId ? seatNom.get(r.seatId) ?? '' : tr('Biriktirilmagan'),
         t?.conversation.phoneFrom ?? t?.conversation.phoneTo ?? '',
-        HOLAT_BELGI[r.status]?.nom ?? r.status,
+        HOLAT_BELGI[r.status] ? tr(HOLAT_BELGI[r.status]!.nom) : r.status,
         r.overallScore === null ? null : Math.round(Number(r.overallScore) * 10) / 10,
-        lid === 'hot' ? 'Issiq' : lid === 'warm' ? 'Iliq' : lid === 'cold' ? 'Sovuq' : '',
+        lid === 'hot' ? tr('Issiq') : lid === 'warm' ? tr('Iliq') : lid === 'cold' ? tr('Sovuq') : '',
         t?.analysis?.callFamily ? oilaNom.get(t.analysis.callFamily) ?? t.analysis.callFamily : '',
         t?.analysis?.serviceLine ?? '',
         davomiylikMatn(t?.conversation.durationSeconds ?? davomiylik(r)),
@@ -418,7 +420,7 @@ export function Qongiroqlar() {
         onClick={() =>
           setSaralash({ ustun, yon: faol && saralash.yon === 'kamayish' ? 'osish' : 'kamayish' })
         }
-        aria-label={`${nom} bo'yicha saralash`}
+        aria-label={tr("{nom} bo'yicha saralash", { nom })}
       >
         {nom}
         {faol ? saralash.yon === 'kamayish' ? <ArrowDown /> : <ArrowUp /> : <ArrowUpDown />}
@@ -438,10 +440,12 @@ export function Qongiroqlar() {
 
       <div className="qongiroq-bosh">
         <h1>
-          Qo'ng'iroqlar{' '}
+          {tr("Qo'ng'iroqlar")}{' '}
           <span
             className="malumot-ikon"
-            title="Telefon suhbatlari: yozuv matnga aylantiriladi va baholash mezonlari bo'yicha isbot bilan baholanadi. Telefoniya avtomatik ulanishi keyingi bosqichda — hozircha yozuv qo'lda yuklanadi."
+            title={tr(
+              "Telefon suhbatlari: yozuv matnga aylantiriladi va baholash mezonlari bo'yicha isbot bilan baholanadi. Telefoniya avtomatik ulanishi keyingi bosqichda — hozircha yozuv qo'lda yuklanadi.",
+            )}
           >
             <FileText />
           </span>
@@ -451,7 +455,7 @@ export function Qongiroqlar() {
             <SuhbatYuklash
               businessId={business.businessId}
               kanal="phone"
-              tugmaMatni="Qo'ng'iroq yuklash"
+              tugmaMatni={tr("Qo'ng'iroq yuklash")}
               onYuklandi={(id) => {
                 setYangilash((v) => v + 1);
                 navigate(`/suhbatlar/${id}`);
@@ -469,20 +473,20 @@ export function Qongiroqlar() {
             <input
               value={qidiruvMatn}
               onChange={(e) => setQidiruvMatn(e.target.value)}
-              placeholder="Mijoz, telefon, menejer yoki qo'ng'iroq mazmuni"
-              aria-label="Qo'ng'iroqlarni qidirish"
+              placeholder={tr("Mijoz, telefon, menejer yoki qo'ng'iroq mazmuni")}
+              aria-label={tr("Qo'ng'iroqlarni qidirish")}
             />
             {qidiruvMatn && (
-              <button type="button" onClick={() => setQidiruvMatn('')} aria-label="Qidiruvni tozalash">
+              <button type="button" onClick={() => setQidiruvMatn('')} aria-label={tr('Qidiruvni tozalash')}>
                 <X />
               </button>
             )}
           </div>
 
-          <FiltrTugma ikon={<Filter />} nom="Holat" soni={holat.length} faol={holat.length > 0}>
+          <FiltrTugma ikon={<Filter />} nom={tr('Holat')} soni={holat.length} faol={holat.length > 0}>
             {() => (
               <TanlovRoyxat
-                sarlavha="Holat"
+                sarlavha={tr('Holat')}
                 guruhlar={[{ tanlovlar: holatTanlov }]}
                 tanlangan={holat}
                 onOzgar={(v) => yangila({ holat: v })}
@@ -490,13 +494,13 @@ export function Qongiroqlar() {
             )}
           </FiltrTugma>
 
-          <FiltrTugma ikon={<CircleCheck />} nom="Yo'nalish" soni={oila.length} faol={oila.length > 0} kenglik={300}>
+          <FiltrTugma ikon={<CircleCheck />} nom={tr("Yo'nalish")} soni={oila.length} faol={oila.length > 0} kenglik={300}>
             {() => (
               <TanlovRoyxat
-                sarlavha="Yo'nalish"
+                sarlavha={tr("Yo'nalish")}
                 guruhlar={[
-                  { nom: 'Qo\'ng\'iroq oilalari', tanlovlar: oilaTanlov },
-                  { nom: 'Maxsus filtrlar', tanlovlar: maxsusTanlov },
+                  { nom: tr("Qo'ng'iroq oilalari"), tanlovlar: oilaTanlov },
+                  { nom: tr('Maxsus filtrlar'), tanlovlar: maxsusTanlov },
                 ]}
                 tanlangan={oila}
                 onOzgar={(v) => yangila({ oila: v })}
@@ -504,19 +508,19 @@ export function Qongiroqlar() {
             )}
           </FiltrTugma>
 
-          <FiltrTugma ikon={<CircleCheck />} nom="Xizmat yo'nalishi" soni={xizmat.length} faol={xizmat.length > 0}>
+          <FiltrTugma ikon={<CircleCheck />} nom={tr("Xizmat yo'nalishi")} soni={xizmat.length} faol={xizmat.length > 0}>
             {() => (
               <TanlovRoyxat
-                sarlavha="Xizmat yo'nalishi"
+                sarlavha={tr("Xizmat yo'nalishi")}
                 guruhlar={[{ tanlovlar: xizmatTanlov }]}
                 tanlangan={xizmat}
                 onOzgar={(v) => yangila({ xizmat: v })}
                 bosh={
                   <>
-                    Hali xizmat yo'nalishi kiritilmagan.
+                    {tr("Hali xizmat yo'nalishi kiritilmagan.")}
                     {business.permissions.includes('playbook:write') && (
                       <button type="button" className="btn kichik tanlov-qosh" onClick={() => navigate('/playbook')}>
-                        + Yo'nalish qo'shish
+                        + {tr("Yo'nalish qo'shish")}
                       </button>
                     )}
                   </>
@@ -525,10 +529,10 @@ export function Qongiroqlar() {
             )}
           </FiltrTugma>
 
-          <FiltrTugma ikon={<UserRound />} nom="Menejer" soni={menejer.length} faol={menejer.length > 0}>
+          <FiltrTugma ikon={<UserRound />} nom={tr('Menejer')} soni={menejer.length} faol={menejer.length > 0}>
             {() => (
               <TanlovRoyxat
-                sarlavha="Menejer"
+                sarlavha={tr('Menejer')}
                 guruhlar={[{ tanlovlar: menejerTanlov }]}
                 tanlangan={menejer}
                 onOzgar={(v) => yangila({ menejer: v })}
@@ -538,8 +542,14 @@ export function Qongiroqlar() {
 
           <FiltrTugma
             ikon={<CalendarDays />}
-            nom="Sana"
-            qiymat={sanaTuri === 'maxsus' ? sanaMatn(from, to) : SANA_NOMLARI[sanaTuri] ?? sanaMatn(from, to)}
+            nom={tr('Sana')}
+            qiymat={
+              sanaTuri === 'maxsus'
+                ? sanaMatn(from, to)
+                : SANA_NOMLARI[sanaTuri]
+                  ? tr(SANA_NOMLARI[sanaTuri])
+                  : sanaMatn(from, to)
+            }
             faol
           >
             {(yop) => (
@@ -568,7 +578,7 @@ export function Qongiroqlar() {
                 setParams(new URLSearchParams(), { replace: true });
               }}
             >
-              Filtrlarni tozalash
+              {tr('Filtrlarni tozalash')}
             </button>
           )}
         </div>
@@ -594,33 +604,35 @@ export function Qongiroqlar() {
       <div className="qongiroq-holat-qator" aria-live="polite">
         {!loading && !xato && (
           <span>
-            {filtrlangan.length} ta qo'ng'iroq
-            {filtrlangan.length !== rows.length && ` (jami ${rows.length})`} · {sanaMatn(from, to)}
+            {tr("{n} ta qo'ng'iroq", { n: filtrlangan.length })}
+            {filtrlangan.length !== rows.length && ` ${tr('(jami {n})', { n: rows.length })}`} · {sanaMatn(from, to)}
           </span>
         )}
-        {tafsilotKutilmoqda && <span className="qongiroq-yuklanmoqda">Tafsilotlar yuklanmoqda — natija to'ldirilmoqda…</span>}
+        {tafsilotKutilmoqda && (
+          <span className="qongiroq-yuklanmoqda">{tr("Tafsilotlar yuklanmoqda — natija to'ldirilmoqda…")}</span>
+        )}
       </div>
 
       <div className="card qongiroq-jadval-karta">
         {loading ? (
-          <div className="yuklanmoqda">Yuklanmoqda…</div>
+          <div className="yuklanmoqda">{tr('Yuklanmoqda…')}</div>
         ) : xato ? (
           <div className="hech-narsa">
             {xato}
             <div style={{ marginTop: 12 }}>
               <button className="btn" onClick={() => setYangilash((v) => v + 1)}>
-                Qayta urinish
+                {tr('Qayta urinish')}
               </button>
             </div>
           </div>
         ) : filtrlangan.length === 0 ? (
           <div className="hech-narsa">
             <div className="katta-ikon">{rows.length === 0 ? <Search /> : <SearchX />}</div>
-            <b style={{ color: 'var(--text-primary)' }}>Ma'lumot topilmadi</b>
+            <b style={{ color: 'var(--text-primary)' }}>{tr("Ma'lumot topilmadi")}</b>
             <div style={{ maxWidth: 440, margin: '6px auto 0' }}>
               {rows.length === 0
-                ? 'Tanlangan davrda qo\'ng\'iroq yo\'q. Davrni kengaytiring yoki qo\'ng\'iroq yozuvini yuklang.'
-                : 'Filtrlarga mos qo\'ng\'iroq yo\'q. Filtrlarni yumshatib ko\'ring.'}
+                ? tr("Tanlangan davrda qo'ng'iroq yo'q. Davrni kengaytiring yoki qo'ng'iroq yozuvini yuklang.")
+                : tr("Filtrlarga mos qo'ng'iroq yo'q. Filtrlarni yumshatib ko'ring.")}
             </div>
             {filtrBor && (
               <button
@@ -631,7 +643,7 @@ export function Qongiroqlar() {
                   setParams(new URLSearchParams(), { replace: true });
                 }}
               >
-                Filtrlarni tozalash
+                {tr('Filtrlarni tozalash')}
               </button>
             )}
           </div>
@@ -640,20 +652,21 @@ export function Qongiroqlar() {
             <table className="jadval qongiroq-jadval">
               <thead>
                 <tr>
-                  <th>{saralashTugma('vaqt', 'Vaqt')}</th>
-                  <th>Menejer</th>
-                  <th>Mijoz va mazmun</th>
-                  <th>{saralashTugma('davom', 'Davomiylik')}</th>
-                  <th>Holat</th>
-                  <th>{saralashTugma('ball', 'Ball')}</th>
+                  <th>{saralashTugma('vaqt', tr('Vaqt'))}</th>
+                  <th>{tr('Menejer')}</th>
+                  <th>{tr('Mijoz va mazmun')}</th>
+                  <th>{saralashTugma('davom', tr('Davomiylik'))}</th>
+                  <th>{tr('Holat')}</th>
+                  <th>{saralashTugma('ball', tr('Ball'))}</th>
                 </tr>
               </thead>
               <tbody>
                 {filtrlangan.slice(0, korsatish).map((r) => {
                   const t = tafsilot[r.id];
                   const b = r.overallScore === null ? null : Number(r.overallScore);
-                  const h = HOLAT_BELGI[r.status] ?? { nom: r.status, klass: 'kul' };
-                  const ism = r.seatId ? seatNom.get(r.seatId) ?? 'Menejer' : 'Biriktirilmagan';
+                  const hb = HOLAT_BELGI[r.status];
+                  const h = hb ? { nom: tr(hb.nom), klass: hb.klass } : { nom: r.status, klass: 'kul' };
+                  const ism = r.seatId ? seatNom.get(r.seatId) ?? tr('Menejer') : tr('Biriktirilmagan');
                   const lid = lidTuri(r.leadQuality);
                   const turi = t?.analysis?.callFamily ? oilaNom.get(t.analysis.callFamily) ?? t.analysis.callFamily : null;
                   const mijoz = t?.contact?.name ?? t?.conversation.phoneFrom ?? t?.conversation.phoneTo ?? null;
@@ -682,16 +695,16 @@ export function Qongiroqlar() {
                           {mijoz && <b>{mijoz}</b>}
                           {turi && <span className="teg kok">{turi}</span>}
                           {t?.analysis?.serviceLine && <span className="teg">{t.analysis.serviceLine}</span>}
-                          {lid === 'hot' && <span className="teg yuqori">Issiq lid</span>}
-                          {lid === 'warm' && <span className="teg orta">Iliq lid</span>}
+                          {lid === 'hot' && <span className="teg yuqori">{tr('Issiq lid')}</span>}
+                          {lid === 'warm' && <span className="teg orta">{tr('Iliq lid')}</span>}
                           {r.isFlagged && (
                             <span className="badge qizil">
-                              <Flag /> ko'rik
+                              <Flag /> {tr("ko'rik")}
                             </span>
                           )}
                         </span>
                         <span className="q-xulosa">
-                          {r.summary ?? r.excludedReason ?? 'Tahlil kutilmoqda'}
+                          {r.summary ?? r.excludedReason ?? tr('Tahlil kutilmoqda')}
                         </span>
                       </td>
                       <td className="q-son">{davomiylikMatn(t?.conversation.durationSeconds ?? davomiylik(r))}</td>
@@ -709,7 +722,7 @@ export function Qongiroqlar() {
             {filtrlangan.length > korsatish && (
               <div className="qongiroq-yana">
                 <button className="btn ikkinchi" onClick={() => setKorsatish((v) => v + SAHIFA)}>
-                  Yana {Math.min(SAHIFA, filtrlangan.length - korsatish)} ta ko'rsatish
+                  {tr("Yana {n} ta ko'rsatish", { n: Math.min(SAHIFA, filtrlangan.length - korsatish) })}
                 </button>
                 <span>
                   {korsatish} / {filtrlangan.length}
@@ -726,6 +739,7 @@ export function Qongiroqlar() {
 // ─── Eksport menyusi ────────────────────────────────────────────────────────
 
 function EksportMenyu({ soni, onEksport }: { soni: number; onEksport: (t: 'xlsx' | 'csv') => void }) {
+  const tr = useT();
   const [ochiq, setOchiq] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useTashqiBosish(ref, ochiq, () => setOchiq(false));
@@ -737,9 +751,9 @@ function EksportMenyu({ soni, onEksport }: { soni: number; onEksport: (t: 'xlsx'
         onClick={() => setOchiq((v) => !v)}
         aria-expanded={ochiq}
         aria-haspopup="menu"
-        title={`${soni} ta qatorni yuklab olish`}
+        title={tr('{n} ta qatorni yuklab olish', { n: soni })}
       >
-        <Download /> Eksport <ChevronDown className={`eksport-strelka${ochiq ? ' ochiq' : ''}`} />
+        <Download /> {tr('Eksport')} <ChevronDown className={`eksport-strelka${ochiq ? ' ochiq' : ''}`} />
       </button>
       {ochiq && (
         <div className="filtr-panel ong eksport-panel" role="menu">
@@ -769,8 +783,8 @@ function EksportMenyu({ soni, onEksport }: { soni: number; onEksport: (t: 'xlsx'
           </button>
           <div className="eksport-izoh">
             {soni === 0
-              ? 'Eksport uchun qator yo\'q — davr yoki filtrlarni o\'zgartiring'
-              : `${soni} ta qator — joriy filtr bo'yicha`}
+              ? tr("Eksport uchun qator yo'q — davr yoki filtrlarni o'zgartiring")
+              : tr("{n} ta qator — joriy filtr bo'yicha", { n: soni })}
           </div>
         </div>
       )}
@@ -789,6 +803,7 @@ function TarixMenyu({
   onOch: (id: string) => void;
   onTozala: () => void;
 }) {
+  const tr = useT();
   const [ochiq, setOchiq] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useTashqiBosish(ref, ochiq, () => setOchiq(false));
@@ -799,23 +814,23 @@ function TarixMenyu({
         className="tarix-tugma"
         onClick={() => setOchiq((v) => !v)}
         aria-expanded={ochiq}
-        aria-label="Yaqinda ochilgan qo'ng'iroqlar"
-        title="Yaqinda ochilganlar"
+        aria-label={tr("Yaqinda ochilgan qo'ng'iroqlar")}
+        title={tr('Yaqinda ochilganlar')}
       >
         <History />
       </button>
       {ochiq && (
-        <div className="filtr-panel ong tarix-panel" role="dialog" aria-label="Yaqinda ochilganlar">
+        <div className="filtr-panel ong tarix-panel" role="dialog" aria-label={tr('Yaqinda ochilganlar')}>
           <div className="tanlov-bosh">
-            <b>Yaqinda ochilganlar</b>
+            <b>{tr('Yaqinda ochilganlar')}</b>
             {tarix.length > 0 && (
               <button type="button" className="tanlov-tozala" onClick={onTozala}>
-                Tozalash
+                {tr('Tozalash')}
               </button>
             )}
           </div>
           {tarix.length === 0 ? (
-            <div className="tanlov-bosh-matn">Hali hech qaysi qo'ng'iroq ochilmagan</div>
+            <div className="tanlov-bosh-matn">{tr("Hali hech qaysi qo'ng'iroq ochilmagan")}</div>
           ) : (
             tarix.map((t) => (
               <button

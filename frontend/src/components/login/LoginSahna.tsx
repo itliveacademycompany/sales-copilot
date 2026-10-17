@@ -9,7 +9,8 @@ import {
   ShieldCheck,
   TrendingUp,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { joyla, useT } from '../../i18n';
 
 /**
  * Kirish sahifasidagi interaktiv taqdimot — bosqichma-bosqich yig'iladigan sahna.
@@ -62,31 +63,29 @@ const BALL_B = 0.86;
 const KADR_W = 520;
 const KADR_H = 392;
 
+/**
+ * Xabar matni — lug'at kaliti (`lugat/kirish.ts`). Belgilangan iqtibos
+ * (`belgi`) gap ichidagi `{belgi}` o'rniga tushadi — so'z tartibi har
+ * tilda o'zicha, shuning uchun gap bo'laklab emas, butunligicha tarjima qilinadi.
+ */
 interface Xabar {
   kim: 'mijoz' | 'menejer';
-  matn: ReactNode;
+  matn: string;
+  belgi?: { matn: string; a: number; b: number };
 }
 
 const XABARLAR: Xabar[] = [
   { kim: 'mijoz', matn: 'Assalomu alaykum! Frontend kursi narxi qancha?' },
   {
     kim: 'menejer',
-    matn: (
-      <>
-        Va alaykum assalom!{' '}
-        <mark className="ks-t" style={oraliq(0.4, 0.47)}>Avval maqsadingizni bilsam</mark> — ishga kirish uchunmi?
-      </>
-    ),
+    matn: 'Va alaykum assalom! {belgi} — ishga kirish uchunmi?',
+    belgi: { matn: 'Avval maqsadingizni bilsam', a: 0.4, b: 0.47 },
   },
   { kim: 'mijoz', matn: 'Ha, ishga. Lekin narxi qimmat emasmi?' },
   {
     kim: 'menejer',
-    matn: (
-      <>
-        Tushunaman. <mark className="ks-t" style={oraliq(0.5, 0.57)}>Bo'lib to'lash imkoni bor</mark> — birinchi
-        dars bepul.
-      </>
-    ),
+    matn: 'Tushunaman. {belgi} — birinchi dars bepul.',
+    belgi: { matn: "Bo'lib to'lash imkoni bor", a: 0.5, b: 0.57 },
   },
 ];
 
@@ -158,6 +157,7 @@ interface Boshqaruv {
 }
 
 export function LoginSahna() {
+  const t = useT();
   const interaktiv = useInteraktivRejim();
   const [bosqich, setBosqich] = useState(interaktiv ? 0 : 2);
   /** Hikoya oxiriga yetdimi (qayta ko'rish tugmasi uchun). */
@@ -309,16 +309,24 @@ export function LoginSahna() {
                 <span className="ks-avatar">DM</span>
                 <span className="ks-suhbat-nom">
                   <b>Dilnoza M.</b>
-                  <small>Telegram · mijoz</small>
+                  <small>{t('Telegram · mijoz')}</small>
                 </span>
                 <span className="ks-jonli">
-                  <i /> jonli
+                  <i /> {t('jonli')}
                 </span>
               </div>
               <div className="ks-xabarlar">
                 {XABARLAR.map((x, i) => (
                   <div key={i} className={`ks-xabar ks-t ${x.kim}`} style={oraliq(0.02 + i * 0.07, 0.07 + i * 0.07)}>
-                    {x.matn}
+                    {x.belgi
+                      ? joyla(t(x.matn), {
+                          belgi: (
+                            <mark className="ks-t" style={oraliq(x.belgi.a, x.belgi.b)}>
+                              {t(x.belgi.matn)}
+                            </mark>
+                          ),
+                        })
+                      : t(x.matn)}
                   </div>
                 ))}
               </div>
@@ -328,7 +336,7 @@ export function LoginSahna() {
             {/* ─── Tahlil ─── */}
             <div className="ks-tahlil">
               <div className="ks-tahlil-bosh ks-t" style={oraliq(0.35, 0.4)}>
-                Skript bo'yicha tahlil
+                {t("Skript bo'yicha tahlil")}
               </div>
               {MEZONLAR.map((m, i) => (
                 <div
@@ -337,7 +345,7 @@ export function LoginSahna() {
                   style={oraliq(0.4 + i * 0.06, 0.45 + i * 0.06)}
                 >
                   <span className="ks-mezon-ikon">{m.ok ? <Check /> : <CircleAlert />}</span>
-                  <span className="ks-mezon-nom">{m.nom}</span>
+                  <span className="ks-mezon-nom">{t(m.nom)}</span>
                 </div>
               ))}
 
@@ -360,9 +368,9 @@ export function LoginSahna() {
                   </span>
                 </div>
                 <div className="ks-ball-matn">
-                  <b>Umumiy ball</b>
+                  <b>{t('Umumiy ball')}</b>
                   <span className="ks-chip ks-t" style={oraliq(0.82, 0.87)}>
-                    3 ta isbot
+                    {t('3 ta isbot')}
                   </span>
                 </div>
               </div>
@@ -374,8 +382,8 @@ export function LoginSahna() {
                 <Lightbulb />
               </span>
               <span>
-                <b>Kouch tavsiyasi:</b> suhbatni aniq qadam bilan yakunlang — «Ertaga 15:00 da
-                qo'ng'iroq qilsam bo'ladimi?»
+                <b>{t('Kouch tavsiyasi:')}</b>{' '}
+                {t("suhbatni aniq qadam bilan yakunlang — «Ertaga 15:00 da qo'ng'iroq qilsam bo'ladimi?»")}
               </span>
               <BadgeCheck className="ks-tavsiya-belgi" />
             </div>
@@ -383,7 +391,7 @@ export function LoginSahna() {
         </div>
 
         {/* ─── Bosqichlar chizig'i ─── */}
-        <nav className="ks-chiziq" aria-label="Taqdimot bosqichlari">
+        <nav className="ks-chiziq" aria-label={t('Taqdimot bosqichlari')}>
           <span className="ks-chiziq-iz" aria-hidden="true">
             <i />
           </span>
@@ -394,7 +402,7 @@ export function LoginSahna() {
               className={`ks-nuqta${i === bosqich ? ' faol' : ''}${i < bosqich ? ' otdi' : ''}`}
               style={{ top: `${(i / (BOSQICHLAR.length - 1)) * 100}%` }}
               onClick={() => boshqaruvRef.current.bor(BOSQICH_NUQTA[i] ?? 1)}
-              aria-label={`${i + 1}-bosqich: ${b.nom}`}
+              aria-label={t('{raqam}-bosqich: {nom}', { raqam: i + 1, nom: t(b.nom) })}
               aria-current={i === bosqich ? 'step' : undefined}
             >
               {String(i + 1).padStart(2, '0')}
@@ -409,18 +417,18 @@ export function LoginSahna() {
           {joriy.ikon}
         </span>
         <span key={bosqich} className="ks-izoh-matn" aria-live="polite">
-          <b>{joriy.nom}</b>
-          <span className="afzallik-matn">{joriy.matn}</span>
+          <b>{t(joriy.nom)}</b>
+          <span className="afzallik-matn">{t(joriy.matn)}</span>
         </span>
 
         {interaktiv && oxirida && (
           <button type="button" className="ks-qayta" onClick={() => boshqaruvRef.current.qaytaIjro()}>
-            <RotateCcw /> Qayta ko'rish
+            <RotateCcw /> {t("Qayta ko'rish")}
           </button>
         )}
         {interaktiv && !oxirida && !boshqardi && (
           <span className="ks-ishora" aria-hidden="true">
-            <Mouse /> G'ildirak bilan boshqaring
+            <Mouse /> {t("G'ildirak bilan boshqaring")}
           </span>
         )}
       </div>

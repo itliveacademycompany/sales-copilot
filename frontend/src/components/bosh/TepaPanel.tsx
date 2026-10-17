@@ -75,10 +75,12 @@ export function TepaPanel({
   const natijalar = useMemo<Natija[]>(() => {
     const q = soz.trim().toLowerCase();
     if (q.length < 2) return [];
-    const sahifa = SAHIFALAR.filter((s) => s.nom.toLowerCase().includes(q)).map<Natija>((s) => ({
+    const sahifa = SAHIFALAR.filter(
+      (s) => s.nom.toLowerCase().includes(q) || t(s.nom).toLowerCase().includes(q),
+    ).map<Natija>((s) => ({
       kalit: s.yol,
-      nom: s.nom,
-      izoh: 'Bo\'lim',
+      nom: t(s.nom),
+      izoh: t("Bo'lim"),
       yol: s.yol,
       turi: 'sahifa',
     }));
@@ -87,13 +89,13 @@ export function TepaPanel({
       .slice(0, 6)
       .map<Natija>((c) => ({
         kalit: c.id,
-        nom: c.summary ?? 'Suhbat',
+        nom: c.summary ?? t('Suhbat'),
         izoh: fmtSana(c.startedAt),
         yol: `/suhbatlar/${c.id}`,
         turi: 'suhbat',
       }));
     return [...sahifa, ...suhbat].slice(0, 9);
-  }, [soz, suhbatlar]);
+  }, [soz, suhbatlar, t]);
 
   const ot = (n: Natija) => {
     setOchiq(false);
@@ -135,7 +137,7 @@ export function TepaPanel({
           onBlur={() => setTimeout(() => setOchiq(false), 150)}
           onKeyDown={klaviatura}
           placeholder={t('Qidirish...')}
-          aria-label="Bo'lim yoki suhbat qidirish"
+          aria-label={t("Bo'lim yoki suhbat qidirish")}
           aria-controls="tepa-qidiruv-natija"
         />
         <kbd className="tepa-kbd" aria-hidden="true">/</kbd>
@@ -146,7 +148,7 @@ export function TepaPanel({
         {ochiq && soz.trim().length >= 2 && (
           <ul className="tepa-natijalar" id="tepa-qidiruv-natija" role="listbox">
             {natijalar.length === 0 ? (
-              <li className="tepa-natija-bosh">Hech narsa topilmadi</li>
+              <li className="tepa-natija-bosh">{t('Hech narsa topilmadi')}</li>
             ) : (
               natijalar.map((n, i) => (
                 <li
@@ -180,8 +182,8 @@ export function TepaPanel({
             type="button"
             className="tepa-qongiroq"
             onClick={() => navigate('/ogohlantirishlar')}
-            aria-label={`Ogohlantirishlar: ${ogohSoni} ta yangi`}
-            title="Ogohlantirishlar"
+            aria-label={t('Ogohlantirishlar: {n} ta yangi', { n: ogohSoni })}
+            title={t('Ogohlantirishlar')}
           >
             <Bell />
             {ogohSoni > 0 && <span className="tepa-soni">{ogohSoni > 99 ? '99+' : ogohSoni}</span>}
@@ -240,6 +242,7 @@ export function DavrPanel({
   onMaxsus: (from: string, to: string) => void;
   onSozlama: () => void;
 }) {
+  const t = useT();
   const [ochiq, setOchiq] = useState(false);
   const [from, setFrom] = useState(sanaInput(davr.from));
   const [to, setTo] = useState(sanaInput(new Date(davr.to.getTime() - 1)));
@@ -250,7 +253,7 @@ export function DavrPanel({
     <div className="card davr-panel">
       <h1>{biznesNomi}</h1>
       <div className="davr-boshqaruv">
-        <div className="tab-qator" role="tablist" aria-label="Davr">
+        <div className="tab-qator" role="tablist" aria-label={t('Davr')}>
           {DAVR_NOMLARI.map((d) => (
             <button
               key={d.turi}
@@ -262,7 +265,7 @@ export function DavrPanel({
                 onTanla(d.turi);
               }}
             >
-              {d.nom}
+              {t(d.nom)}
             </button>
           ))}
         </div>
@@ -275,24 +278,24 @@ export function DavrPanel({
             aria-expanded={ochiq}
           >
             <CalendarRange />
-            <span>Maxsus</span>
+            <span>{t('Maxsus')}</span>
             <span className="davr-chiziq" aria-hidden="true" />
             <span className="davr-sana">{sanaOraliq(davr)}</span>
           </button>
           {ochiq && (
-            <div className="davr-popover" role="dialog" aria-label="Maxsus davr">
+            <div className="davr-popover" role="dialog" aria-label={t('Maxsus davr')}>
               <div className="maydon-blok">
-                <label htmlFor="d-from">Boshlanish</label>
+                <label htmlFor="d-from">{t('Boshlanish')}</label>
                 <input id="d-from" type="date" value={from} max={bugun} onChange={(e) => setFrom(e.target.value)} />
               </div>
               <div className="maydon-blok">
-                <label htmlFor="d-to">Tugash</label>
+                <label htmlFor="d-to">{t('Tugash')}</label>
                 <input id="d-to" type="date" value={to} max={bugun} onChange={(e) => setTo(e.target.value)} />
               </div>
-              {!yaroqli && <div className="yordam" style={{ color: 'var(--past)' }}>Boshlanish tugashdan keyin bo'lmasin</div>}
+              {!yaroqli && <div className="yordam" style={{ color: 'var(--past)' }}>{t("Boshlanish tugashdan keyin bo'lmasin")}</div>}
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button className="btn ikkinchi kichik" onClick={() => setOchiq(false)}>
-                  Bekor
+                  {t('Bekor')}
                 </button>
                 <button
                   className="btn kichik"
@@ -302,14 +305,14 @@ export function DavrPanel({
                     onMaxsus(from, to);
                   }}
                 >
-                  Qo'llash
+                  {t("Qo'llash")}
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        <button type="button" className="davr-sozlama" onClick={onSozlama} aria-label="Sozlamalar" title="Sozlamalar">
+        <button type="button" className="davr-sozlama" onClick={onSozlama} aria-label={t('Sozlamalar')} title={t('Sozlamalar')}>
           <Settings />
         </button>
       </div>
