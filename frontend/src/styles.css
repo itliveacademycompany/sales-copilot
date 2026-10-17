@@ -2724,6 +2724,34 @@ button.nav-item {
 .chip-tugma.faol { box-shadow: var(--neu-in-xs); color: var(--ia-text); font-weight: 600; }
 
 /* ─── Tepa panel ─── */
+/* Til almashtirgich (UZ · RU · EN) — landing va platforma tepa panelida bir xil:
+   botiq trek, faol til bo'rtib chiqadi */
+.til-tanlash {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 13px;
+  box-shadow: var(--neu-in-xs);
+}
+.til-tanlash button {
+  min-width: 36px;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.2s var(--ease), box-shadow 0.25s var(--ease), background 0.25s var(--ease);
+}
+.til-tanlash button:hover { color: var(--text-primary); }
+.til-tanlash button.faol { color: var(--ia-text); background: var(--bg-base); box-shadow: var(--neu-out-xs); }
+.til-tanlash button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+
 .tepa-panel {
   display: grid;
   grid-template-columns: 1fr minmax(320px, 560px) 1fr;
@@ -3485,6 +3513,8 @@ button.nav-item {
   .puls-qator { padding: 12px 20px; }
   .tepa-ism, .tepa-kbd { display: none; }
   .tepa-ai { padding: 8px 10px; }
+  .tepa-ong { gap: 10px; }
+  .tepa-ong .til-tanlash button { min-width: 30px; padding: 6px 5px; font-size: 11.5px; }
   .iss-qator { grid-template-columns: 150px minmax(0, 1fr) 90px; }
 }
 @media (prefers-reduced-motion: reduce) {

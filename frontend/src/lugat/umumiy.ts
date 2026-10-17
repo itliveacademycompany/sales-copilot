@@ -121,7 +121,8 @@ const UMUMIY: Lugat = {
   "O'chirilgan": { en: "Disabled", ru: "Отключён" },
   "o'chirilgan": { en: "disabled", ru: "отключён" },
 
-  // ─── Platforma qobig'i (App, Layout) ───
+  // ─── Platforma qobig'i (App, Layout, til almashtirgich) ───
+  'Interfeys tili': { en: 'Interface language', ru: 'Язык интерфейса' },
   'Yuklanmoqda…': { en: 'Loading…', ru: 'Загрузка…' },
   "To'lov kechikdi — {kun} kundan keyin tahlil to'xtaydi": {
     en: 'Payment overdue — analysis stops in {kun} days',

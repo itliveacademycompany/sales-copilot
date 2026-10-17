@@ -14,12 +14,11 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../api';
 import { useAuth } from '../auth';
-import { useTil, type Til } from '../i18n';
 import { Jarayon } from '../components/loyiha/Jarayon';
 import { BOLIMLAR, BOSHLASH, QATLAM_IKONLARI, ROL_RAHBARMI, TAMOYILLAR } from '../components/loyiha/malumot';
-import { TILLAR, useMatn } from '../components/loyiha/tarjima';
+import { useMatn } from '../components/loyiha/tarjima';
+import { TilTanlash } from '../components/TilTanlash';
 import { Xarita } from '../components/loyiha/Xarita';
 import '../components/loyiha/loyiha.css';
 
@@ -461,40 +460,6 @@ export function LoyihaHaqida() {
       >
         <ArrowUp />
       </button>
-    </div>
-  );
-}
-
-/**
- * Interfeys tili: UZ · RU · EN. Ilovaning umumiy tilini o'zgartiradi —
- * kirgandan keyin ham shu til saqlanadi (profilda boshqa til bo'lmasa).
- */
-function TilTanlash() {
-  const { til, setTil } = useTil();
-  const { user } = useAuth();
-  const m = useMatn();
-  const tanla = (yangi: Til) => {
-    setTil(yangi);
-    // Kirgan foydalanuvchida tanlov profilga ham yoziladi (Sozlamalar → Ko'rinish
-    // bilan bir xil) — aks holda keyingi kirishda profildagi eski til qaytadi.
-    // Mehmon tanlovi esa kirgandan keyin TilProvider tomonidan yoziladi.
-    if (user) void api.patch('/api/v1/auth/me', { locale: yangi }).catch(() => undefined);
-  };
-  return (
-    <div className="ly-til" role="group" aria-label={m.nav.til}>
-      {TILLAR.map((t) => (
-        <button
-          key={t.til}
-          type="button"
-          lang={t.til}
-          className={til === t.til ? 'faol' : undefined}
-          aria-pressed={til === t.til}
-          title={t.nom}
-          onClick={() => tanla(t.til)}
-        >
-          {t.qisqa}
-        </button>
-      ))}
     </div>
   );
 }

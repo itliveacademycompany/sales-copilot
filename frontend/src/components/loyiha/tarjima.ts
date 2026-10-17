@@ -64,7 +64,6 @@ export interface LandingMatn {
     boshlash: string;
     tuzilish: string;
     aria: string;
-    til: string;
   };
   tugma: {
     kirish: string;
@@ -174,7 +173,6 @@ const UZ: LandingMatn = {
     boshlash: 'Boshlash',
     tuzilish: 'Tuzilish',
     aria: "Sahifa bo'limlari",
-    til: 'Interfeys tili',
   },
   tugma: {
     kirish: 'Kirish',
@@ -503,7 +501,6 @@ const RU: LandingMatn = {
     boshlash: 'Старт',
     tuzilish: 'Архитектура',
     aria: 'Разделы страницы',
-    til: 'Язык интерфейса',
   },
   tugma: {
     kirish: 'Войти',
@@ -832,7 +829,6 @@ const EN: LandingMatn = {
     boshlash: 'Get started',
     tuzilish: 'Architecture',
     aria: 'Page sections',
-    til: 'Interface language',
   },
   tugma: {
     kirish: 'Sign in',
@@ -1153,13 +1149,6 @@ const EN: LandingMatn = {
 };
 
 export const MATN: Record<Til, LandingMatn> = { uz: UZ, ru: RU, en: EN };
-
-/** Til almashtirgichdagi variantlar — tartibi ekranda shunday. */
-export const TILLAR: { til: Til; qisqa: string; nom: string }[] = [
-  { til: 'uz', qisqa: 'UZ', nom: "O'zbekcha" },
-  { til: 'ru', qisqa: 'RU', nom: 'Русский' },
-  { til: 'en', qisqa: 'EN', nom: 'English' },
-];
 
 /** Joriy tildagi landing matnlari. */
 export function useMatn(): LandingMatn {

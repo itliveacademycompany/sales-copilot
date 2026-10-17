@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { fmtSana, type ConversationRow } from '../../api';
 import { useAuth } from '../../auth';
 import { useT } from '../../i18n';
+import { TilTanlash } from '../TilTanlash';
 import { avatarRang, boshHarf, type Davr, type DavrTuri } from './malumot';
 
 /** Qidiruvda topiladigan bo'limlar — menyu bilan bir xil. */
@@ -31,7 +32,7 @@ interface Natija {
 
 /**
  * Tepa panel: global qidiruv (bo'limlar + yuklangan suhbatlar xulosasi),
- * AI yordamchi, ogohlantirishlar va foydalanuvchi.
+ * AI yordamchi, interfeys tili, ogohlantirishlar va foydalanuvchi.
  *
  * Qidiruv klaviatura bilan to'liq ishlaydi: ↑/↓ tanlash, Enter ochish,
  * Esc yopish, "/" — istalgan joydan qidiruvga fokus.
@@ -177,6 +178,7 @@ export function TepaPanel({
       </div>
 
       <div className="tepa-ong">
+        <TilTanlash />
         {ogohKoradi && (
           <button
             type="button"

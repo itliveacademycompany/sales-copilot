@@ -133,32 +133,6 @@
 .ly-bosh-tugma:hover .lucide:last-child,
 .ly-katta-tugma:hover .lucide:last-child { transform: translateX(3px); }
 
-/* Til almashtirgich — navigatsiya bilan bir xil botiq trek, faoli bo'rtib chiqadi */
-.ly-til {
-  display: inline-flex;
-  gap: 2px;
-  padding: 4px;
-  border-radius: 13px;
-  box-shadow: var(--neu-in-xs);
-}
-.ly-til button {
-  min-width: 36px;
-  padding: 6px 8px;
-  border: none;
-  border-radius: 9px;
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--text-secondary);
-  background: transparent;
-  cursor: pointer;
-  transition: color 0.2s var(--ease), box-shadow 0.25s var(--ease), background 0.25s var(--ease);
-}
-.ly-til button:hover { color: var(--text-primary); }
-.ly-til button.faol { color: var(--ia-text); background: var(--bg-base); box-shadow: var(--neu-out-xs); }
-.ly-til button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
-
 .ly-ikon-tugma {
   width: 40px;
   height: 40px;
@@ -1556,7 +1530,7 @@
   .ly-brend .logo-belgi { display: none; }
   .ly-foydalanuvchi { display: none; }
   .ly-bosh-ong { gap: 8px; }
-  .ly-til button { min-width: 30px; padding: 6px 5px; font-size: 11.5px; }
+  .ly-bosh .til-tanlash button { min-width: 30px; padding: 6px 5px; font-size: 11.5px; }
   /* Kirgan foydalanuvchida tugma matni uzun ("Platformaga o'tish") — faqat strelka qoladi */
   .ly-bosh-tugma.uzun span { display: none; }
   .ly-bosh-tugma.uzun { padding: 9px 12px; }
