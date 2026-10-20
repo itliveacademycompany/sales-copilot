@@ -10,6 +10,7 @@ import {
   type PlaybookBody,
   type Rubric,
 } from '../../api';
+import { joyla, useT } from '../../i18n';
 import { MalumotIkon } from '../bosh/Korsatkichlar';
 import { avatarRang, boshHarf, oraliqda, ortacha, type BoshMalumot } from '../bosh/malumot';
 import { FiltrTugma, TanlovRoyxat, type Tanlov } from '../qongiroq/Filtrlar';
@@ -167,6 +168,7 @@ function tizimHisobi(tizim: Tizim, tafsilot: ConversationDetail[], pb: PlaybookB
 // ─── Bo'lim ─────────────────────────────────────────────────────────────────
 
 export function SifatNazorati({ data, davr, q }: TabProps) {
+  const t = useT();
   const [menejer, setMenejer] = useState<string[]>([]);
   const [tanlangan, setTanlangan] = useState<string | null>(null);
 
@@ -213,25 +215,25 @@ export function SifatNazorati({ data, davr, q }: TabProps) {
         <div className="sn-bosh">
           <div>
             <h2>
-              Qo'ng'iroq turlari bo'yicha muammolar{' '}
-              <MalumotIkon matn="Mezon ballari tahlil tafsilotlaridan hisoblanadi. Zaif — o'rtacha natija 60% dan past." />
+              {t("Qo'ng'iroq turlari bo'yicha muammolar")}{' '}
+              <MalumotIkon matn={t("Mezon ballari tahlil tafsilotlaridan hisoblanadi. Zaif — o'rtacha natija 60% dan past.")} />
             </h2>
-            <p className="sn-izoh">Har bir qo'ng'iroq turi o'z baholash tizimi bo'yicha o'qiladi. Yuqorida — eng ko'p yo'qotish bor turi.</p>
+            <p className="sn-izoh">{t("Har bir qo'ng'iroq turi o'z baholash tizimi bo'yicha o'qiladi. Yuqorida — eng ko'p yo'qotish bor turi.")}</p>
           </div>
           <FiltrTugma
             ikon={<UserRound />}
-            nom={menejer.length === 0 ? 'Barcha menejerlar' : menejer.length === 1 ? ism[menejer[0]!] ?? 'Menejer' : 'Menejerlar'}
+            nom={menejer.length === 0 ? t('Barcha menejerlar') : menejer.length === 1 ? ism[menejer[0]!] ?? t('Menejer') : t('Menejerlar')}
             soni={menejer.length > 1 ? menejer.length : undefined}
             faol={menejer.length > 0}
             ong
           >
             {() => (
               <TanlovRoyxat
-                sarlavha="Menejer"
+                sarlavha={t('Menejer')}
                 guruhlar={[{ tanlovlar: menejerTanlov }]}
                 tanlangan={menejer}
                 onOzgar={setMenejer}
-                bosh="Bu davrda baholangan menejer yo'q"
+                bosh={t("Bu davrda baholangan menejer yo'q")}
               />
             )}
           </FiltrTugma>
@@ -239,7 +241,7 @@ export function SifatNazorati({ data, davr, q }: TabProps) {
 
         {tafsilot.length === 0 ? (
           <div className="hech-narsa an-bosh-holat">
-            {yuklanmoqda ? 'Tahlil tafsilotlari yuklanmoqda…' : "Bu davrda baholangan qo'ng'iroq yo'q"}
+            {yuklanmoqda ? t('Tahlil tafsilotlari yuklanmoqda…') : t("Bu davrda baholangan qo'ng'iroq yo'q")}
           </div>
         ) : (
           <div className="sn-ish">
@@ -254,30 +256,30 @@ export function SifatNazorati({ data, davr, q }: TabProps) {
                     aria-pressed={faol?.tizim.kalit === tizim.kalit}
                   >
                     <span className="sn-tizim-qator">
-                      <b>{tizim.nom}</b>
+                      <b>{tizim.umumiy ? t(tizim.nom) : tizim.nom}</b>
                       <span>{h.umumiyFoiz === null ? '—' : `${Math.round(h.umumiyFoiz)}%`}</span>
                     </span>
                     <span className="sn-chiziq">
                       <span style={{ width: `${h.umumiyFoiz ?? 0}%`, background: ballRang(h.umumiyFoiz) }} />
                     </span>
                     <small className={h.zaiflar.length > 0 ? 'zaif' : ''}>
-                      {h.zaiflar.length} / {h.mezonlar.length} zaif · {h.suhbat} ta qo'ng'iroq
+                      {t("{zaif} / {jami} zaif · {n} ta qo'ng'iroq", { zaif: h.zaiflar.length, jami: h.mezonlar.length, n: h.suhbat })}
                     </small>
                   </button>
                 ))}
               </div>
               {hisoblar.some((x) => x.tizim.umumiy) && (
                 <div className="sn-qoshimcha">
-                  <span>Umumiy tizim bilan baholanadi</span>
+                  <span>{t('Umumiy tizim bilan baholanadi')}</span>
                   <p>
                     {hisoblar.find((x) => x.tizim.umumiy)!.tizim.oilalar.map((k) => oilaNomi[k] ?? k).join(', ') ||
-                      "Barcha qo'ng'iroq turlari"}
+                      t("Barcha qo'ng'iroq turlari")}
                   </p>
                 </div>
               )}
               {baholanmaydi.length > 0 && (
                 <div className="sn-qoshimcha">
-                  <span>Baholanmaydi</span>
+                  <span>{t('Baholanmaydi')}</span>
                   <p>{baholanmaydi.join(', ')}</p>
                 </div>
               )}
@@ -286,7 +288,7 @@ export function SifatNazorati({ data, davr, q }: TabProps) {
           </div>
         )}
         {yuklanmoqda && tafsilot.length > 0 && (
-          <div className="an-eslatma">Tahlil tafsilotlari yuklanmoqda — yana {q.tafsilotKutilmoqda} ta…</div>
+          <div className="an-eslatma">{t('Tahlil tafsilotlari yuklanmoqda — yana {n} ta…', { n: q.tafsilotKutilmoqda })}</div>
         )}
       </section>
 
@@ -294,7 +296,7 @@ export function SifatNazorati({ data, davr, q }: TabProps) {
       <TaqiqlanganXatolar tafsilot={tafsilot} ism={ism} pb={data.playbook} />
 
       <h2 className="sn-bolim-sarlavha">
-        Baholangan qo'ng'iroqlardagi ovoz <MalumotIkon matn="Menejer va mijoz qancha gapirgani — yozilgan so'zlar soni bo'yicha" />
+        {t("Baholangan qo'ng'iroqlardagi ovoz")} <MalumotIkon matn={t("Menejer va mijoz qancha gapirgani — yozilgan so'zlar soni bo'yicha")} />
       </h2>
       <GaplashishNisbati tafsilot={tafsilot} ism={ism} />
     </div>
@@ -311,6 +313,7 @@ function seatIsmlari(data: BoshMalumot): Record<string, string> {
 // ─── Tanlangan tizim paneli ─────────────────────────────────────────────────
 
 function TizimPaneli({ tizim, h, ism }: { tizim: Tizim; h: ReturnType<typeof tizimHisobi>; ism: Record<string, string> }) {
+  const t = useT();
   const [hammasi, setHammasi] = useState(false);
   const [mezonlar, setMezonlar] = useState(false);
   const korinadi = hammasi ? h.zaiflar : h.zaiflar.slice(0, KORINADI);
@@ -319,7 +322,7 @@ function TizimPaneli({ tizim, h, ism }: { tizim: Tizim; h: ReturnType<typeof tiz
     <div className="sn-panel">
       <div className="sn-panel-bosh">
         <h3>
-          {tizim.nom} <span className="sn-belgi">{tizim.umumiy ? 'umumiy' : 'maxsus'}</span>
+          {tizim.umumiy ? t(tizim.nom) : tizim.nom} <span className="sn-belgi">{tizim.umumiy ? t('umumiy') : t('maxsus')}</span>
         </h3>
         <b className="sn-katta" style={{ color: ballRang(h.umumiyFoiz) }}>
           {h.umumiyFoiz === null ? '—' : `${Math.round(h.umumiyFoiz)}%`}
@@ -328,12 +331,12 @@ function TizimPaneli({ tizim, h, ism }: { tizim: Tizim; h: ReturnType<typeof tiz
 
       {h.bosqichlar.length > 0 && (
         <>
-          <div className="sn-bosqich-chiziq" role="img" aria-label="Bosqichlar bo'yicha natija">
+          <div className="sn-bosqich-chiziq" role="img" aria-label={t("Bosqichlar bo'yicha natija")}>
             {h.bosqichlar.map((b) => (
               <span
                 key={b.kod}
                 style={{ flexGrow: b.vazn, background: b.foiz === null ? 'var(--bg-sunken)' : ballRang(b.foiz) }}
-                title={`${b.nom}: ${b.foiz === null ? 'baholanmagan' : `${Math.round(b.foiz)}%`} · vazni ${b.vazn}%`}
+                title={t('{nom}: {foiz} · vazni {vazn}%', { nom: b.nom, foiz: b.foiz === null ? t('baholanmagan') : `${Math.round(b.foiz)}%`, vazn: b.vazn })}
               />
             ))}
           </div>
@@ -349,14 +352,14 @@ function TizimPaneli({ tizim, h, ism }: { tizim: Tizim; h: ReturnType<typeof tiz
       )}
 
       <p className="sn-xulosa">
-        {h.mezonlar.length} mezondan {h.zaiflar.length} tasi zaif bajarilmoqda.
-        {h.engYoqotish && h.engYoqotish.foiz! < 100 && <> Eng ko'p yo'qotish «{h.engYoqotish.nom}» bosqichida.</>}
-        {tizim.umumiy && " O'z tizimi yo'q barcha qo'ng'iroq turlariga qo'llaniladi."}
+        {t('{jami} mezondan {zaif} tasi zaif bajarilmoqda.', { jami: h.mezonlar.length, zaif: h.zaiflar.length })}
+        {h.engYoqotish && h.engYoqotish.foiz! < 100 && <> {t("Eng ko'p yo'qotish «{nom}» bosqichida.", { nom: h.engYoqotish.nom })}</>}
+        {tizim.umumiy && ` ${t("O'z tizimi yo'q barcha qo'ng'iroq turlariga qo'llaniladi.")}`}
       </p>
 
       {h.zaiflar.length === 0 ? (
         <div className="sn-yaxshi">
-          <ShieldCheck /> Zaif mezon yo'q — barcha mezonlar {ZAIF_FOIZ}% dan yuqori bajarilmoqda.
+          <ShieldCheck /> {t("Zaif mezon yo'q — barcha mezonlar {n}% dan yuqori bajarilmoqda.", { n: ZAIF_FOIZ })}
         </div>
       ) : (
         <ol className="sn-muammolar">
@@ -368,14 +371,14 @@ function TizimPaneli({ tizim, h, ism }: { tizim: Tizim; h: ReturnType<typeof tiz
                 <span className="sn-muammo-foiz" style={{ color: ballRang(m.foiz) }}>
                   {Math.round(m.foiz!)}%
                 </span>
-                <small>{m.zaifSuhbat} ta qo'ng'iroqda zaif</small>
+                <small>{t("{n} ta qo'ng'iroqda zaif", { n: m.zaifSuhbat })}</small>
               </div>
               {m.hozir && (
                 <p className="sn-hk hozir">
                   <span className="sn-hk-ikon">
                     <X />
                   </span>
-                  <b>Hozir</b>
+                  <b>{t('Hozir')}</b>
                   <span className="sn-tire">—</span>
                   {m.hozir}
                 </p>
@@ -385,17 +388,17 @@ function TizimPaneli({ tizim, h, ism }: { tizim: Tizim; h: ReturnType<typeof tiz
                   <span className="sn-hk-ikon">
                     <Check />
                   </span>
-                  <b>Kerak</b>
+                  <b>{t('Kerak')}</b>
                   <span className="sn-tire">—</span>
                   {m.kerak}
                 </p>
               )}
               {m.engZaif.length > 0 && (
                 <div className="sn-eng-zaif">
-                  Eng zaif:
+                  {t('Eng zaif:')}
                   {m.engZaif.map((z) => (
                     <span key={z.seatId} className="sn-chip">
-                      {ism[z.seatId] ?? 'Menejer'} <em>{Math.round(z.foiz)}%</em>
+                      {ism[z.seatId] ?? t('Menejer')} <em>{Math.round(z.foiz)}%</em>
                     </span>
                   ))}
                 </div>
@@ -408,11 +411,11 @@ function TizimPaneli({ tizim, h, ism }: { tizim: Tizim; h: ReturnType<typeof tiz
       <div className="sn-panel-past">
         {h.zaiflar.length > KORINADI && (
           <button type="button" className="sn-havola" onClick={() => setHammasi((v) => !v)}>
-            {hammasi ? 'Kamroq ko\'rsatish' : `Yana ${h.zaiflar.length - KORINADI} ta muammo`}
+            {hammasi ? t("Kamroq ko'rsatish") : t('Yana {n} ta muammo', { n: h.zaiflar.length - KORINADI })}
           </button>
         )}
         <button type="button" className="sn-havola ikkinchi" onClick={() => setMezonlar((v) => !v)} aria-expanded={mezonlar}>
-          Barcha mezonlar ({h.mezonlar.length}) <ChevronDown className={mezonlar ? 'ochiq' : ''} />
+          {t('Barcha mezonlar ({n})', { n: h.mezonlar.length })} <ChevronDown className={mezonlar ? 'ochiq' : ''} />
         </button>
       </div>
 
@@ -424,7 +427,8 @@ function TizimPaneli({ tizim, h, ism }: { tizim: Tizim; h: ReturnType<typeof tiz
               <span className="nom">
                 {m.mezon.name}
                 <span className="mezon-ost">
-                  {m.baholangan} baho{m.zaifSuhbat > 0 && ` · ${m.zaifSuhbat} zaif`}
+                  {t('{n} baho', { n: m.baholangan })}
+                  {m.zaifSuhbat > 0 && ` · ${t('{n} zaif', { n: m.zaifSuhbat })}`}
                 </span>
               </span>
               <div className="chiziq">
@@ -450,6 +454,7 @@ function MenejerMatritsa({
   ism: Record<string, string>;
   oilaNomi: Record<string, string>;
 }) {
+  const t = useT();
   const [ochiq, setOchiq] = useState(false);
   const turlar = [...new Set(tafsilot.map((d) => d.analysis?.callFamily ?? ''))].sort((a, b) => (a === '' ? 1 : b === '' ? -1 : 0));
   const seatlar = [...new Set(tafsilot.map((d) => d.conversation.seatId ?? ''))];
@@ -465,25 +470,25 @@ function MenejerMatritsa({
     <section className="card an-karta sn-matritsa">
       <button type="button" className="sn-yigma" onClick={() => setOchiq((v) => !v)} aria-expanded={ochiq}>
         <h2>
-          Menejerlar × qo'ng'iroq turlari <MalumotIkon matn="Har menejerning har qo'ng'iroq turidagi o'rtacha bahosi va qo'ng'iroqlar soni" />
+          {t("Menejerlar × qo'ng'iroq turlari")} <MalumotIkon matn={t("Har menejerning har qo'ng'iroq turidagi o'rtacha bahosi va qo'ng'iroqlar soni")} />
         </h2>
         <span className="sn-havola">
-          {ochiq ? 'Yashirish' : "Ko'rsatish"} <ChevronDown className={ochiq ? 'ochiq' : ''} />
+          {ochiq ? t('Yashirish') : t("Ko'rsatish")} <ChevronDown className={ochiq ? 'ochiq' : ''} />
         </span>
       </button>
       {ochiq &&
         (seatlar.length === 0 ? (
-          <div className="hech-narsa an-bosh-holat">Ma'lumot yo'q</div>
+          <div className="hech-narsa an-bosh-holat">{t("Ma'lumot yo'q")}</div>
         ) : (
           <div className="sn-jadval-qobiq">
             <table className="sn-jadval">
               <thead>
                 <tr>
-                  <th>Menejer</th>
-                  {turlar.map((t) => (
-                    <th key={t}>{t ? oilaNomi[t] ?? t : 'Aniqlanmagan'}</th>
+                  <th>{t('Menejer')}</th>
+                  {turlar.map((tur) => (
+                    <th key={tur}>{tur ? oilaNomi[tur] ?? tur : t('Aniqlanmagan')}</th>
                   ))}
-                  <th>Jami</th>
+                  <th>{t('Jami')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -494,19 +499,19 @@ function MenejerMatritsa({
                         <span className="sn-avatar" style={{ background: avatarRang(s || '-') }}>
                           {boshHarf(ism[s] ?? '?')}
                         </span>
-                        {s ? ism[s] ?? 'Menejer' : 'Biriktirilmagan'}
+                        {s ? ism[s] ?? t('Menejer') : t('Biriktirilmagan')}
                       </span>
                     </td>
-                    {[...turlar, null].map((t) => {
-                      const k = katak(s, t);
+                    {[...turlar, null].map((tur) => {
+                      const k = katak(s, tur);
                       return (
-                        <td key={t ?? '__jami'} className={t === null ? 'jami' : ''}>
+                        <td key={tur ?? '__jami'} className={tur === null ? 'jami' : ''}>
                           {k.soni === 0 ? (
                             <span className="sn-bosh-katak">—</span>
                           ) : (
                             <span className="sn-katak">
                               <span className={`ball ${ballKlass(k.ball)}`}>{k.ball === null ? '—' : `${Math.round(k.ball)}%`}</span>
-                              <small>{k.soni} ta</small>
+                              <small>{t('{n} ta', { n: k.soni })}</small>
                             </span>
                           )}
                         </td>
@@ -533,31 +538,33 @@ function TaqiqlanganXatolar({
   ism: Record<string, string>;
   pb: PlaybookBody | null;
 }) {
+  const t = useT();
   const buzilish = tafsilot.filter((d) => d.analysis?.compliance === 'violation');
   const ogoh = tafsilot.filter((d) => d.analysis?.compliance === 'warning').length;
   const seatbo = new Map<string, number>();
   for (const d of buzilish) seatbo.set(d.conversation.seatId ?? '', (seatbo.get(d.conversation.seatId ?? '') ?? 0) + 1);
   const qoidalar = (pb?.classificationPolicy.redFlags ?? []).filter((f) => f.severity === 'critical').map((f) => f.description);
-  const izoh =
-    'AI qoidabuzarlik deb belgilagan qo\'ng\'iroqlar' + (qoidalar.length ? `. Taqiqlangan: ${qoidalar.join('; ')}` : '');
+  const izoh = qoidalar.length
+    ? t("AI qoidabuzarlik deb belgilagan qo'ng'iroqlar. Taqiqlangan: {qoidalar}", { qoidalar: qoidalar.join('; ') })
+    : t("AI qoidabuzarlik deb belgilagan qo'ng'iroqlar");
 
   return (
     <div className={`sn-taqiq${buzilish.length > 0 ? ' bor' : ''}`} role={buzilish.length > 0 ? 'alert' : undefined}>
       {buzilish.length > 0 ? <TriangleAlert className="sn-taqiq-ikon" /> : <ShieldCheck className="sn-taqiq-ikon" />}
       <b>
-        Taqiqlangan xatolar <MalumotIkon matn={izoh} />
+        {t('Taqiqlangan xatolar')} <MalumotIkon matn={izoh} />
       </b>
       <span className="sn-taqiq-matn">
         {buzilish.length > 0
-          ? `${tafsilot.length} ta qo'ng'iroqdan ${buzilish.length} tasida`
-          : `${tafsilot.length} ta qo'ng'iroqda topilmadi`}
-        {ogoh > 0 && ` · ${ogoh} ta ogohlantirish`}
+          ? t("{jami} ta qo'ng'iroqdan {n} tasida", { jami: tafsilot.length, n: buzilish.length })
+          : t("{n} ta qo'ng'iroqda topilmadi", { n: tafsilot.length })}
+        {ogoh > 0 && ` · ${t('{n} ta ogohlantirish', { n: ogoh })}`}
       </span>
       {[...seatbo.entries()]
         .sort((a, b) => b[1] - a[1])
         .map(([s, n]) => (
           <Link key={s} className="sn-chip" to={`/qongiroqlar${s ? `?menejer=${s}` : ''}`}>
-            {s ? ism[s] ?? 'Menejer' : 'Biriktirilmagan'} <em>{n}</em>
+            {s ? ism[s] ?? t('Menejer') : t('Biriktirilmagan')} <em>{n}</em>
           </Link>
         ))}
     </div>
@@ -567,6 +574,7 @@ function TaqiqlanganXatolar({
 // ─── Gaplashish nisbatlari ──────────────────────────────────────────────────
 
 function GaplashishNisbati({ tafsilot, ism }: { tafsilot: ConversationDetail[]; ism: Record<string, string> }) {
+  const t = useT();
   const qatorlar = useMemo(() => {
     const m = new Map<string, { menejer: number; mijoz: number; suhbat: number }>();
     for (const d of tafsilot) {
@@ -595,17 +603,20 @@ function GaplashishNisbati({ tafsilot, ism }: { tafsilot: ConversationDetail[]; 
     <section className="card an-karta">
       <div className="karta-bosh">
         <h2>
-          Gaplashish nisbatlari{' '}
-          <MalumotIkon matn="Menejer ko'p gapirsa — mijozni eshitmaydi; kam gapirsa — suhbatni boshqarmaydi" />
+          {t('Gaplashish nisbatlari')}{' '}
+          <MalumotIkon matn={t("Menejer ko'p gapirsa — mijozni eshitmaydi; kam gapirsa — suhbatni boshqarmaydi")} />
         </h2>
       </div>
       {qatorlar.length === 0 ? (
-        <div className="hech-narsa an-bosh-holat">Matni bor baholangan qo'ng'iroq yo'q</div>
+        <div className="hech-narsa an-bosh-holat">{t("Matni bor baholangan qo'ng'iroq yo'q")}</div>
       ) : (
         <>
           <p className="sn-izoh">
-            Muvozanat zonasidan tashqarida: <b>{tashqari}</b>. Muvozanat zonasi — menejer vaqtning {ZONA.min}–{ZONA.max}% ini
-            gapiradi.
+            {joyla(t("Muvozanat zonasidan tashqarida: {n}. Muvozanat zonasi — menejer vaqtning {min}–{max}% ini gapiradi."), {
+              n: <b>{tashqari}</b>,
+              min: ZONA.min,
+              max: ZONA.max,
+            })}
           </p>
           <ul className="sn-ovoz">
             {qatorlar.map((q) => {
@@ -618,9 +629,9 @@ function GaplashishNisbati({ tafsilot, ism }: { tafsilot: ConversationDetail[]; 
                         {boshHarf(ism[q.seat])}
                       </span>
                       <span>
-                        <b>{ism[q.seat] ?? 'Menejer'}</b>
+                        <b>{ism[q.seat] ?? t('Menejer')}</b>
                         <small className={`sn-ovoz-holat ${holat}`}>
-                          {holat === 'kop' ? "menejer juda ko'p gapiradi" : holat === 'kam' ? 'menejer juda kam gapiradi' : 'muvozanatda'}
+                          {holat === 'kop' ? t("menejer juda ko'p gapiradi") : holat === 'kam' ? t('menejer juda kam gapiradi') : t('muvozanatda')}
                         </small>
                       </span>
                     </span>
@@ -629,15 +640,15 @@ function GaplashishNisbati({ tafsilot, ism }: { tafsilot: ConversationDetail[]; 
                     <div
                       className="sn-ovoz-chiziq"
                       role="img"
-                      aria-label={`Menejer ${q.menejer}%, mijoz ${q.mijoz}%`}
-                      title={`${q.suhbat} ta qo'ng'iroq bo'yicha`}
+                      aria-label={t('Menejer {a}%, mijoz {b}%', { a: q.menejer, b: q.mijoz })}
+                      title={t("{n} ta qo'ng'iroq bo'yicha", { n: q.suhbat })}
                     >
                       <span className="sn-zona" style={{ left: `${ZONA.min}%`, width: `${ZONA.max - ZONA.min}%` }} />
                       <span className={`sn-ovoz-tola ${holat}`} style={{ width: `${q.menejer}%` }} />
                     </div>
                     <div className="sn-ovoz-yorliq">
-                      <span>Menejer gapirish {q.menejer}%</span>
-                      <span>Mijoz gapirish {q.mijoz}%</span>
+                      <span>{t('Menejer gapirish {n}%', { n: q.menejer })}</span>
+                      <span>{t('Mijoz gapirish {n}%', { n: q.mijoz })}</span>
                     </div>
                   </div>
                 </li>

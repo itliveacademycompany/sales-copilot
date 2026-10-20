@@ -10,6 +10,7 @@ import {
 } from '../api';
 import { useAuth } from '../auth';
 import { PlaybookForm, type PlaybookBolim } from '../components/PlaybookForm';
+import { useT } from '../i18n';
 
 /** Sozlamalar ichida har bo'lim alohida ochiladi — sarlavha shunga moslashadi. */
 const BOLIM_SARLAVHA: Record<PlaybookBolim, [string, string]> = {
@@ -38,6 +39,7 @@ const EMPTY_PLAYBOOK: PlaybookBody = {
  * FR-22, tarixni buzmaslik uchun).
  */
 export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
+  const t = useT();
   const { business } = useAuth();
   const [playbook, setPlaybook] = useState<PlaybookBody | null>(null);
   const [versions, setVersions] = useState<PlaybookVersion[]>([]);
@@ -46,6 +48,7 @@ export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
   const [validation, setValidation] = useState<ValidateResult | null>(null);
   const [changeNote, setChangeNote] = useState('');
   const [savedMsg, setSavedMsg] = useState('');
+  const [savedOk, setSavedOk] = useState(false);
   const [takliflar, setTakliflar] = useState<string[]>([]);
 
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
@@ -80,12 +83,14 @@ export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
       const check = await validate(playbook);
       if (!check.valid) return;
       await api.post(`${base}/playbook`, { ...playbook, changeNote: changeNote || undefined });
-      setSavedMsg('Saqlandi — yangi versiya faollashtirildi');
+      setSavedOk(true);
+      setSavedMsg(t('Saqlandi — yangi versiya faollashtirildi'));
       setChangeNote('');
       const vs = await api.get<PlaybookVersion[]>(`${base}/playbook/versions`);
       setVersions(vs);
     } catch (e) {
-      setSavedMsg(e instanceof ApiError ? e.message : 'Saqlab bo\'lmadi');
+      setSavedOk(false);
+      setSavedMsg(e instanceof ApiError ? e.message : t("Saqlab bo'lmadi"));
     } finally {
       setSaving(false);
     }
@@ -101,21 +106,21 @@ export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
     setVersions(vs);
   }
 
-  if (!playbook) return <div className="yuklanmoqda">Yuklanmoqda…</div>;
+  if (!playbook) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
 
   return (
     <>
       <div className="sahifa-bosh">
         <div>
-          {bolim ? <h2 className="pe-sarlavha">{BOLIM_SARLAVHA[bolim][0]}</h2> : <h1>Baholash mezonlari</h1>}
-          <div className="izoh">{bolim ? BOLIM_SARLAVHA[bolim][1] : "Playbook — har suhbat shu bo'yicha baholanadi"}</div>
+          {bolim ? <h2 className="pe-sarlavha">{t(BOLIM_SARLAVHA[bolim][0])}</h2> : <h1>{t('Baholash mezonlari')}</h1>}
+          <div className="izoh">{bolim ? t(BOLIM_SARLAVHA[bolim][1]) : t("Playbook — har suhbat shu bo'yicha baholanadi")}</div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn ikkinchi" onClick={() => setShowVersions((v) => !v)}>
-            Versiyalar ({versions.length})
+            {t('Versiyalar ({n})', { n: versions.length })}
           </button>
           <button className="btn" onClick={() => void save()} disabled={saving}>
-            {saving ? 'Saqlanmoqda…' : 'Saqlash'}
+            {saving ? t('Saqlanmoqda…') : t('Saqlash')}
           </button>
         </div>
       </div>
@@ -125,10 +130,10 @@ export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
           <table className="jadval">
             <thead>
               <tr>
-                <th>Versiya</th>
-                <th>Manba</th>
-                <th>Izoh</th>
-                <th>Sana</th>
+                <th>{t('Versiya')}</th>
+                <th>{t('Manba')}</th>
+                <th>{t('Izoh')}</th>
+                <th>{t('Sana')}</th>
                 <th></th>
               </tr>
             </thead>
@@ -137,16 +142,16 @@ export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
                 <tr key={v.id}>
                   <td>#{v.version}</td>
                   <td>
-                    <span className="badge kul">{v.origin === 'ai_generated' ? 'AI' : 'qo\'lda'}</span>
+                    <span className="badge kul">{v.origin === 'ai_generated' ? 'AI' : t("qo'lda")}</span>
                   </td>
                   <td>{v.changeNote ?? '—'}</td>
                   <td>{fmtSana(v.createdAt)}</td>
                   <td>
                     {v.isActive ? (
-                      <span className="badge ok">faol</span>
+                      <span className="badge ok">{t('faol')}</span>
                     ) : (
                       <button className="btn ikkinchi kichik" onClick={() => void activateVersion(v.version)}>
-                        Faollashtirish
+                        {t('Faollashtirish')}
                       </button>
                     )}
                   </td>
@@ -159,7 +164,7 @@ export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
 
       {validation && !validation.valid && validation.errors && (
         <div className="card" style={{ marginBottom: 14, borderLeft: '4px solid var(--qizil)' }}>
-          <b style={{ color: 'var(--qizil-dark)' }}>Xatolar topildi:</b>
+          <b style={{ color: 'var(--qizil-dark)' }}>{t('Xatolar topildi:')}</b>
           <ul style={{ margin: '6px 0 0' }}>
             {Object.entries(validation.errors).map(([field, msgs]) => (
               <li key={field}>
@@ -174,7 +179,7 @@ export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
           className="card"
           style={{
             marginBottom: 14,
-            borderLeft: `4px solid ${savedMsg.startsWith('Saqlandi') ? 'var(--ok)' : 'var(--qizil)'}`,
+            borderLeft: `4px solid ${savedOk ? 'var(--ok)' : 'var(--qizil)'}`,
           }}
         >
           {savedMsg}
@@ -184,12 +189,12 @@ export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
       <PlaybookForm value={playbook} onChange={setPlaybook} xizmatTakliflari={takliflar} bolim={bolim} />
 
       <div className="card" style={{ marginTop: 14 }}>
-        <label className="maydon">O'zgarish izohi (ixtiyoriy)</label>
+        <label className="maydon">{t("O'zgarish izohi (ixtiyoriy)")}</label>
         <input
           className="input"
           value={changeNote}
           onChange={(e) => setChangeNote(e.target.value)}
-          placeholder="Masalan: narx bo'yicha mezon qattiqlashtirildi"
+          placeholder={t("Masalan: narx bo'yicha mezon qattiqlashtirildi")}
         />
       </div>
     </>

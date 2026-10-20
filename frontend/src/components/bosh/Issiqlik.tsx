@@ -2,6 +2,7 @@ import { ChartNoAxesColumnIncreasing } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { ConversationRow } from '../../api';
+import { useT } from '../../i18n';
 import { Farq } from './Korsatkichlar';
 import { avatarRang, ball, boshHarf, oraliqda, ortacha, type BoshMalumot, type Davr } from './malumot';
 
@@ -56,6 +57,7 @@ function kataklar(rows: ConversationRow[], cols: Ustun[]) {
 }
 
 export function Issiqlik({ data, davr }: { data: BoshMalumot; davr: Davr }) {
+  const t = useT();
   const [saralash, setSaralash] = useState<Saralash>('past');
   const cols = useMemo(() => ustunlar(davr), [davr]);
   const joriy = useMemo(
@@ -89,23 +91,28 @@ export function Issiqlik({ data, davr }: { data: BoshMalumot; davr: Davr }) {
 
   const katakJsx = (k: { soni: number; ort: number | null }, i: number, kim: string) =>
     k.ort === null ? (
-      <span key={i} className="iss-katak bosh" title={`${cols[i]!.nom} · suhbat yo'q`}>
+      <span key={i} className="iss-katak bosh" title={t("{sana} · suhbat yo'q", { sana: cols[i]!.nom })}>
         –
       </span>
     ) : (
       <span
         key={i}
         className={`iss-katak d${daraja(k.ort)}${k.soni < 3 ? ' kam' : ''}`}
-        title={`${kim} · ${cols[i]!.nom}: ${Math.round(k.ort)}% (${k.soni} ta suhbat)`}
+        title={t('{kim} · {sana}: {ball}% ({n} ta suhbat)', {
+          kim,
+          sana: cols[i]!.nom,
+          ball: Math.round(k.ort),
+          n: k.soni,
+        })}
       />
     );
 
   return (
     <section className="card issiqlik" aria-labelledby="iss-sarlavha">
       <div className="karta-bosh">
-        <h2 id="iss-sarlavha" className="kichik-sarlavha">Menejerlar · kunlar</h2>
-        <div className="iss-saralash" role="group" aria-label="Saralash">
-          <span>Saralash</span>
+        <h2 id="iss-sarlavha" className="kichik-sarlavha">{t('Menejerlar · kunlar')}</h2>
+        <div className="iss-saralash" role="group" aria-label={t('Saralash')}>
+          <span>{t('Saralash')}</span>
           {(
             [
               ['past', 'Past'],
@@ -120,14 +127,14 @@ export function Issiqlik({ data, davr }: { data: BoshMalumot; davr: Davr }) {
               aria-pressed={saralash === k}
               onClick={() => setSaralash(k)}
             >
-              {nom}
+              {t(nom)}
             </button>
           ))}
         </div>
       </div>
 
       {data.board.length === 0 ? (
-        <div className="hech-narsa">Bu davrda baholangan suhbat yo'q</div>
+        <div className="hech-narsa">{t("Bu davrda baholangan suhbat yo'q")}</div>
       ) : (
         <div className="iss-aylana">
           <div className="iss-jadval" style={{ ['--ustun' as string]: cols.length }}>
@@ -140,7 +147,7 @@ export function Issiqlik({ data, davr }: { data: BoshMalumot; davr: Davr }) {
                   </span>
                 ))}
               </div>
-              <span className="iss-davr">Davr</span>
+              <span className="iss-davr">{t('Davr')}</span>
             </div>
 
             <div className="iss-qator iss-jamoa">
@@ -148,9 +155,9 @@ export function Issiqlik({ data, davr }: { data: BoshMalumot; davr: Davr }) {
                 <span className="iss-avatar jamoa" aria-hidden="true">
                   <ChartNoAxesColumnIncreasing />
                 </span>
-                <b>Butun jamoa</b>
+                <b>{t('Butun jamoa')}</b>
               </span>
-              <div className="iss-kataklar">{jamoa.map((k, i) => katakJsx(k, i, 'Butun jamoa'))}</div>
+              <div className="iss-kataklar">{jamoa.map((k, i) => katakJsx(k, i, t('Butun jamoa')))}</div>
               <span className="iss-davr">
                 <b>{c.avgScore === null ? '—' : `${c.avgScore}%`}</b>
                 <Farq d={c.avgScore !== null && p.avgScore !== null ? c.avgScore - p.avgScore : null} birlik="%" />
@@ -168,8 +175,9 @@ export function Issiqlik({ data, davr }: { data: BoshMalumot; davr: Davr }) {
                       <b>{r.displayName}</b>
                     </Link>
                     <small>
-                      {r.analyzed} suhbat
-                      {data.javobsizSeat[r.seatId] !== undefined && ` · ${data.javobsizSeat[r.seatId]} javobsiz`}
+                      {t('{n} suhbat', { n: r.analyzed })}
+                      {data.javobsizSeat[r.seatId] !== undefined &&
+                        ` · ${t('{n} javobsiz', { n: data.javobsizSeat[r.seatId]! })}`}
                     </small>
                   </span>
                 </span>
@@ -185,16 +193,16 @@ export function Issiqlik({ data, davr }: { data: BoshMalumot; davr: Davr }) {
       )}
 
       <div className="iss-izoh">
-        <span>Past</span>
+        <span>{t('Past')}</span>
         {[1, 2, 3, 4, 5].map((d) => (
           <span key={d} className={`iss-katak kichik d${d}`} aria-hidden="true" />
         ))}
-        <span>Yuqori</span>
+        <span>{t('Yuqori')}</span>
         <span className="iss-izoh-ajrat">
-          <span className="iss-katak kichik bosh">–</span> Suhbat bo'lmagan
+          <span className="iss-katak kichik bosh">–</span> {t("Suhbat bo'lmagan")}
         </span>
         <span className="iss-izoh-ajrat">
-          <span className="iss-katak kichik d4 kam" aria-hidden="true" /> 3 tadan kam suhbat
+          <span className="iss-katak kichik d4 kam" aria-hidden="true" /> {t('3 tadan kam suhbat')}
         </span>
       </div>
     </section>

@@ -1,5 +1,6 @@
 import { Pause, Play } from 'lucide-react';
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { useT } from '../i18n';
 
 /**
  * Suhbat audiosi — TZ 8.3: "isbotga bosilsa transkript o'sha joyga sakraydi
@@ -26,6 +27,7 @@ export const AudioPleyer = forwardRef<
   AudioPleyerHandle,
   { src: string; kind: string | null; duration: number | null }
 >(function AudioPleyer({ src, kind, duration }, ref) {
+  const t = useT();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [ijro, setIjro] = useState(false);
   const [joriy, setJoriy] = useState(0);
@@ -66,7 +68,7 @@ export const AudioPleyer = forwardRef<
   if (xato) {
     return (
       <div className="card audio-pleyer xato">
-        Audio yuklanmadi. Fayl mavjud emas yoki formati qo'llab-quvvatlanmaydi.
+        {t("Audio yuklanmadi. Fayl mavjud emas yoki formati qo'llab-quvvatlanmaydi.")}
       </div>
     );
   }
@@ -81,7 +83,7 @@ export const AudioPleyer = forwardRef<
       <button
         type="button"
         className="ijro-tugma"
-        aria-label={ijro ? 'To\'xtatish' : 'Ijro etish'}
+        aria-label={ijro ? t("To'xtatish") : t('Ijro etish')}
         onClick={() => {
           const el = audioRef.current;
           if (!el) return;
@@ -98,7 +100,7 @@ export const AudioPleyer = forwardRef<
         max={Math.max(1, uzunlik)}
         step={0.1}
         value={joriy}
-        aria-label="Audio pozitsiyasi"
+        aria-label={t('Audio pozitsiyasi')}
         onChange={(e) => {
           const el = audioRef.current;
           if (el) el.currentTime = Number(e.target.value);

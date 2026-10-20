@@ -2,6 +2,7 @@ import { CalendarDays, CalendarRange, CircleDollarSign, Info, MessageSquareWarni
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { api, ApiError, fmtPul, type BillingFull, type BillingStatus } from '../../api';
+import { useTil, type Til } from '../../i18n';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -33,15 +34,17 @@ const TUR_NOMI: Record<string, string> = {
 };
 
 const OYLAR = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
-const sana = (iso: string | null | undefined) => {
+const sana = (iso: string | null | undefined, til: Til = 'uz') => {
   if (!iso) return '—';
   const d = new Date(iso);
+  if (til !== 'uz') return d.toLocaleDateString(til === 'ru' ? 'ru-RU' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   return `${d.getDate()}-${OYLAR[d.getMonth()]} ${d.getFullYear()}`;
 };
 const ishorali = (n: number) => `${n > 0 ? '+' : n < 0 ? '−' : ''}${fmtPul(Math.abs(n))}`;
 const SAHIFA = 10;
 
 export function Obuna({ businessId }: { businessId: string }) {
+  const { til, t } = useTil();
   const base = `/api/v1/businesses/${businessId}/billing`;
   const [data, setData] = useState<BillingFull | null>(null);
   const [holat, setHolat] = useState<BillingStatus | null>(null);
@@ -61,7 +64,7 @@ export function Obuna({ businessId }: { businessId: string }) {
   }, [base]);
   useEffect(yukla, [yukla]);
 
-  if (xato) return <div className="card bn-bosh-holat">Obuna ma'lumotlarini yuklab bo'lmadi.</div>;
+  if (xato) return <div className="card bn-bosh-holat">{t("Obuna ma'lumotlarini yuklab bo'lmadi.")}</div>;
   if (!data) return <div className="card skelet" style={{ height: 420 }} aria-busy="true" />;
 
   const sub = data.subscription as Sub | null;
@@ -76,16 +79,16 @@ export function Obuna({ businessId }: { businessId: string }) {
       <section className="card sz-karta ob-karta">
         <div className="sz-karta-bosh">
           <div>
-            <h2>Obuna</h2>
+            <h2>{t('Obuna')}</h2>
           </div>
           <div className="ob-bosh-amal">
-            {h && <span className={`bzl-pill ${h.ton}`}>{h.nom}</span>}
+            {h && <span className={`bzl-pill ${h.ton}`}>{t(h.nom)}</span>}
             <button type="button" className={toldirish ? 'btn ikkinchi' : 'btn'} aria-expanded={toldirish} onClick={() => setToldirish((v) => !v)}>
               {toldirish ? (
-                'Bekor qilish'
+                t('Bekor qilish')
               ) : (
                 <>
-                  <Plus /> Balansni to'ldirish
+                  <Plus /> {t("Balansni to'ldirish")}
                 </>
               )}
             </button>
@@ -96,8 +99,8 @@ export function Obuna({ businessId }: { businessId: string }) {
           <div className={`ob-banner ${h.ton}`} role={h.ton === 'xavf' ? 'alert' : 'status'}>
             {h.ton === 'xavf' || h.ton === 'orta' ? <ShieldAlert aria-hidden="true" /> : <ShieldCheck aria-hidden="true" />}
             <span>
-              {h.banner}
-              {status === 'trial' && kunlar !== null && ` ${kunlar} kun qoldi.`}
+              {t(h.banner)}
+              {status === 'trial' && kunlar !== null && ' ' + t('{n} kun qoldi.', { n: kunlar })}
             </span>
           </div>
         )}
@@ -113,19 +116,19 @@ export function Obuna({ businessId }: { businessId: string }) {
         )}
 
         <div className="ob-kpi">
-          <Kpi ikon={<Wallet />} nom="Balans" qiymat={fmtPul(sub?.balance ?? 0)} />
-          <Kpi ikon={<UsersRound />} nom="O'rinlar" qiymat={String(data.activeSeats)} izoh="Faol menejerlar soni" />
+          <Kpi ikon={<Wallet />} nom={t('Balans')} qiymat={fmtPul(sub?.balance ?? 0)} />
+          <Kpi ikon={<UsersRound />} nom={t("O'rinlar")} qiymat={String(data.activeSeats)} izoh={t('Faol menejerlar soni')} />
           <Kpi
             ikon={<CircleDollarSign />}
-            nom="Oylik xarajat"
+            nom={t('Oylik xarajat')}
             qiymat={fmtPul(data.estimatedMonthlyCostUzs)}
             izoh={`${data.activeSeats} × ${fmtPul(data.monthlySeatPriceUzs)}`}
           />
           <Kpi
             ikon={<CalendarDays />}
-            nom="Qolgan kunlar"
+            nom={t('Qolgan kunlar')}
             qiymat={kunlar === null ? '—' : String(kunlar)}
-            izoh={status === 'trial' ? 'Sinov tugashigacha' : status === 'grace' ? 'Imtiyozli davr tugashigacha' : kunlar === null ? undefined : 'Davr tugashigacha'}
+            izoh={status === 'trial' ? t('Sinov tugashigacha') : status === 'grace' ? t('Imtiyozli davr tugashigacha') : kunlar === null ? undefined : t('Davr tugashigacha')}
           />
         </div>
 
@@ -133,26 +136,26 @@ export function Obuna({ businessId }: { businessId: string }) {
           <div className="ob-davr">
             <CalendarRange aria-hidden="true" />
             <div>
-              <small>{status === 'trial' && !sub?.currentPeriodEnd ? 'Sinov davri' : 'Davr'}</small>
+              <small>{status === 'trial' && !sub?.currentPeriodEnd ? t('Sinov davri') : t('Davr')}</small>
               <b>
                 {status === 'trial' && !sub?.currentPeriodEnd
-                  ? `${sana(sub?.trialEndsAt)} gacha`
-                  : `${sana(sub?.currentPeriodStart)} — ${sana(sub?.currentPeriodEnd)}`}
+                  ? t('{sana} gacha', { sana: sana(sub?.trialEndsAt, til) })
+                  : `${sana(sub?.currentPeriodStart, til)} — ${sana(sub?.currentPeriodEnd, til)}`}
               </b>
-              {tolovKuni && <span>Har oyning {tolovKuni}-sanasida to'lov</span>}
+              {tolovKuni && <span>{t("Har oyning {kun}-sanasida to'lov", { kun: tolovKuni })}</span>}
             </div>
           </div>
         )}
 
         <div className="ob-yordam">
-          <b>Qo'llab-quvvatlash</b>
+          <b>{t("Qo'llab-quvvatlash")}</b>
           <Link to="/sozlamalar?b=muammo" className="ob-aloqa">
             <span className="ob-aloqa-ikon">
               <MessageSquareWarning />
             </span>
             <div>
-              <small>To'lov yoki obuna bo'yicha savol</small>
-              <b>Muammo haqida xabar berish</b>
+              <small>{t("To'lov yoki obuna bo'yicha savol")}</small>
+              <b>{t('Muammo haqida xabar berish')}</b>
             </div>
           </Link>
         </div>
@@ -161,41 +164,41 @@ export function Obuna({ businessId }: { businessId: string }) {
       <section className="card sz-karta ob-karta">
         <div className="sz-karta-bosh">
           <div>
-            <h2>So'nggi tranzaksiyalar</h2>
+            <h2>{t("So'nggi tranzaksiyalar")}</h2>
           </div>
         </div>
         {tranzaksiyalar.length === 0 ? (
-          <div className="bn-bosh-holat">Hali tranzaksiya yo'q.</div>
+          <div className="bn-bosh-holat">{t("Hali tranzaksiya yo'q.")}</div>
         ) : (
           <>
             <div className="ob-jadval-oram">
               <table className="ob-jadval">
                 <thead>
                   <tr>
-                    <th scope="col">Sana</th>
-                    <th scope="col">Turi</th>
-                    <th scope="col">Izoh</th>
+                    <th scope="col">{t('Sana')}</th>
+                    <th scope="col">{t('Turi')}</th>
+                    <th scope="col">{t('Izoh')}</th>
                     <th scope="col" className="raqam">
-                      Summa
+                      {t('Summa')}
                     </th>
                     <th scope="col" className="raqam">
-                      Keyingi balans
+                      {t('Keyingi balans')}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tranzaksiyalar.slice(0, korsat).map((t) => {
+                  {tranzaksiyalar.slice(0, korsat).map((tr) => {
                     // Ishora turdan emas, balans farqidan — har qanday tur uchun to'g'ri
-                    const farq = Number(t.balanceAfter) - Number(t.balanceBefore);
+                    const farq = Number(tr.balanceAfter) - Number(tr.balanceBefore);
                     return (
-                      <tr key={t.id}>
-                        <td className="ob-sana">{sana(t.createdAt)}</td>
+                      <tr key={tr.id}>
+                        <td className="ob-sana">{sana(tr.createdAt, til)}</td>
                         <td>
-                          <span className={`ob-tur ${farq > 0 ? 'kirim' : farq < 0 ? 'chiqim' : ''}`}>{TUR_NOMI[t.type] ?? t.type}</span>
+                          <span className={`ob-tur ${farq > 0 ? 'kirim' : farq < 0 ? 'chiqim' : ''}`}>{TUR_NOMI[tr.type] ? t(TUR_NOMI[tr.type]!) : tr.type}</span>
                         </td>
-                        <td className="ob-izoh">{t.description ?? '—'}</td>
+                        <td className="ob-izoh">{tr.description ?? '—'}</td>
                         <td className={`raqam ${farq > 0 ? 'kirim' : farq < 0 ? 'chiqim' : ''}`}>{ishorali(farq)}</td>
-                        <td className="raqam">{fmtPul(t.balanceAfter)}</td>
+                        <td className="raqam">{fmtPul(tr.balanceAfter)}</td>
                       </tr>
                     );
                   })}
@@ -204,7 +207,7 @@ export function Obuna({ businessId }: { businessId: string }) {
             </div>
             {tranzaksiyalar.length > korsat && (
               <button type="button" className="btn ikkinchi ob-yana" onClick={() => setKorsat((n) => n + SAHIFA)}>
-                Yana ko'rsatish ({tranzaksiyalar.length - korsat})
+                {t("Yana ko'rsatish ({n})", { n: tranzaksiyalar.length - korsat })}
               </button>
             )}
           </>
@@ -227,6 +230,7 @@ function Kpi({ ikon, nom, qiymat, izoh }: { ikon: ReactNode; nom: string; qiymat
 }
 
 function Toldirish({ base, onToldi }: { base: string; onToldi: () => void }) {
+  const { t } = useTil();
   const [summa, setSumma] = useState('');
   const [izoh, setIzoh] = useState('');
   const [band, setBand] = useState(false);
@@ -235,39 +239,39 @@ function Toldirish({ base, onToldi }: { base: string; onToldi: () => void }) {
   const yubor = async (e: FormEvent) => {
     e.preventDefault();
     const n = Number(summa.replace(/\s/g, ''));
-    if (!Number.isFinite(n) || n <= 0) return setXato("Summani to'g'ri kiriting");
+    if (!Number.isFinite(n) || n <= 0) return setXato(t("Summani to'g'ri kiriting"));
     setBand(true);
     setXato(null);
     try {
       await api.post(`${base}/topup`, { amount: n, description: izoh.trim() || undefined });
       onToldi();
     } catch (err) {
-      setXato(err instanceof ApiError ? err.message : "To'ldirilmadi — qayta urinib ko'ring");
+      setXato(err instanceof ApiError ? err.message : t("To'ldirilmadi — qayta urinib ko'ring"));
       setBand(false);
     }
   };
 
   return (
     <form className="bzl-forma" onSubmit={(e) => void yubor(e)} noValidate>
-      <b className="bzl-forma-sarlavha">Balansni to'ldirish</b>
+      <b className="bzl-forma-sarlavha">{t("Balansni to'ldirish")}</b>
       <div className="ob-izoh-qator">
         <Info aria-hidden="true" />
-        <span>To'lov tizimi hali ulanmagan. Bank o'tkazmasi yoki Payme/Click orqali to'lov tasdiqlangach, summani shu yerga kiriting.</span>
+        <span>{t("To'lov tizimi hali ulanmagan. Bank o'tkazmasi yoki Payme/Click orqali to'lov tasdiqlangach, summani shu yerga kiriting.")}</span>
       </div>
       <div className="bzl-forma-panjara">
         <div className="maydon-blok">
-          <label htmlFor="ob-summa">Summa (so'm) *</label>
+          <label htmlFor="ob-summa">{t("Summa (so'm) *")}</label>
           <input id="ob-summa" inputMode="numeric" value={summa} onChange={(e) => setSumma(e.target.value.replace(/[^\d\s]/g, ''))} placeholder="1 000 000" autoFocus />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="ob-izoh">Izoh</label>
-          <input id="ob-izoh" value={izoh} onChange={(e) => setIzoh(e.target.value)} placeholder="Masalan: Payme #12345" maxLength={200} />
+          <label htmlFor="ob-izoh">{t('Izoh')}</label>
+          <input id="ob-izoh" value={izoh} onChange={(e) => setIzoh(e.target.value)} placeholder={t('Masalan: Payme #12345')} maxLength={200} />
         </div>
       </div>
       {xato && <div className="yordam bzl-xato">{xato}</div>}
       <div>
         <button type="submit" className="btn" disabled={band || !summa.trim()}>
-          {band ? 'Kuting…' : "To'ldirish"}
+          {band ? t('Kuting…') : t("To'ldirish")}
         </button>
       </div>
     </form>

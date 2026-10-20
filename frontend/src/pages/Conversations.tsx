@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, ballKlass, fmtSana, type ConversationRow } from '../api';
 import { SuhbatYuklash } from '../components/SuhbatYuklash';
 import { useAuth } from '../auth';
+import { useT } from '../i18n';
 
 const HOLATLAR: { key: string; nom: string }[] = [
   { key: '', nom: 'Hammasi' },
@@ -26,6 +27,7 @@ const HOLAT_BADGE: Record<string, { nom: string; klass: string }> = {
 export function Conversations() {
   const { business } = useAuth();
   const navigate = useNavigate();
+  const t = useT();
   const [status, setStatus] = useState('');
   const [rows, setRows] = useState<ConversationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,8 +53,8 @@ export function Conversations() {
     <>
       <div className="sahifa-bosh">
         <div>
-          <h1>Suhbatlar</h1>
-          <div className="izoh">Yozishmalar — har biri isbotli baho bilan</div>
+          <h1>{t('Suhbatlar')}</h1>
+          <div className="izoh">{t('Yozishmalar — har biri isbotli baho bilan')}</div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <div className="tab-qator">
@@ -62,7 +64,7 @@ export function Conversations() {
                 className={`tab${status === h.key ? ' active' : ''}`}
                 onClick={() => setStatus(h.key)}
               >
-                {h.nom}
+                {t(h.nom)}
               </button>
             ))}
           </div>
@@ -81,26 +83,27 @@ export function Conversations() {
 
       <div className="card">
         {loading ? (
-          <div className="yuklanmoqda">Yuklanmoqda…</div>
+          <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>
         ) : rows.length === 0 ? (
           <div className="hech-narsa">
             <div className="katta-ikon"><MessagesSquare /></div>
-            Hali suhbat yo'q. Telegram botini ulang — yozishmalar avtomatik tushadi.
+            {t("Hali suhbat yo'q. Telegram botini ulang — yozishmalar avtomatik tushadi.")}
           </div>
         ) : (
           <table className="jadval">
             <thead>
               <tr>
-                <th>Vaqt</th>
-                <th>Xulosa</th>
-                <th>Xabarlar</th>
-                <th>Holat</th>
-                <th>Ball</th>
+                <th>{t('Vaqt')}</th>
+                <th>{t('Xulosa')}</th>
+                <th>{t('Xabarlar')}</th>
+                <th>{t('Holat')}</th>
+                <th>{t('Ball')}</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => {
-                const b = HOLAT_BADGE[r.status] ?? { nom: r.status, klass: 'kul' };
+                const hb = HOLAT_BADGE[r.status];
+                const b = hb ? { nom: t(hb.nom), klass: hb.klass } : { nom: r.status, klass: 'kul' };
                 const score = r.overallScore === null ? null : Number(r.overallScore);
                 return (
                   <tr
@@ -112,12 +115,12 @@ export function Conversations() {
                     <td style={{ maxWidth: 420 }}>
                       {r.isFlagged && (
                         <span className="badge qizil" style={{ marginRight: 6 }}>
-                          <Flag /> ko'rik kerak
+                          <Flag /> {t("ko'rik kerak")}
                         </span>
                       )}
                       {r.summary ?? (
                         <span style={{ color: 'var(--kul-dark)' }}>
-                          {r.excludedReason ?? 'Hali tahlil qilinmagan'}
+                          {r.excludedReason ?? t('Hali tahlil qilinmagan')}
                         </span>
                       )}
                     </td>

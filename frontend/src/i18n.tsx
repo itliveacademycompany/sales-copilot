@@ -1,5 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { api } from './api';
 import { useAuth } from './auth';
+import { LUGAT } from './lugat';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -8,150 +10,166 @@ import { useAuth } from './auth';
  *
  * Kalit — o'zbekcha matnning o'zi: `t("Bosh sahifa")`. Lug'atda yo'q matn
  * o'zbekcha qoladi — tarjima bosqichma-bosqich qo'shiladi va hech narsa
- * buzilmaydi.
+ * buzilmaydi. Lug'atlar bo'limlar bo'yicha `src/lugat/` da.
  *
- * Til foydalanuvchi profilida (server, `locale`) saqlanadi; tanlanganda
- * interfeys DARHOL almashadi (server javobini kutmasdan).
+ * O'rniga qo'yish: `t("Salom, {ism}!", { ism })`. Qiymat JSX bo'lishi kerak
+ * bo'lsa (qalin nom, havola) — `joyla(t("…{ism}…"), { ism: <b>…</b> })`.
+ *
+ * QAYSI TIL USTUN:
+ *   - Tizimga kirgan foydalanuvchi — profildagi til (server, `locale`).
+ *   - Mehmon (landing, login) — oxirgi tanlov, brauzerda saqlanadi.
+ *   - Mehmon tilni O'ZI tanlab, keyin kirsa — o'sha tanlov profilga ham
+ *     yoziladi: landing'da tanlangan til butun platformada davom etadi.
+ *     Faqat "mehmon tanladi" belgisi bo'lsa — aks holda bir qurilmadagi
+ *     eski qiymat boshqa qurilmada o'zgartirilgan profilni bosib ketardi.
  */
 
 export type Til = 'uz' | 'en' | 'ru';
 
-const LUGAT: Record<string, { en: string; ru: string }> = {
-  // ─── Yon menyu va umumiy ───
-  Menyu: { en: 'Menu', ru: 'Меню' },
-  'Bosh sahifa': { en: 'Home', ru: 'Главная' },
-  "Qo'ng'iroqlar": { en: 'Calls', ru: 'Звонки' },
-  'AI Chat': { en: 'AI Chat', ru: 'AI Чат' },
-  Analitika: { en: 'Analytics', ru: 'Аналитика' },
-  'Kunlik hisobot': { en: 'Daily report', ru: 'Ежедневный отчёт' },
-  'Lid xulosalari': { en: 'Lead summaries', ru: 'Сводки по лидам' },
-  Ogohlantirishlar: { en: 'Alerts', ru: 'Уведомления' },
-  Sozlamalar: { en: 'Settings', ru: 'Настройки' },
-  Chiqish: { en: 'Log out', ru: 'Выйти' },
-  'Menyuni ochish': { en: 'Open menu', ru: 'Открыть меню' },
-  'Menyuni yopish': { en: 'Close menu', ru: 'Закрыть меню' },
-  'Menyuni kengaytirish': { en: 'Expand menu', ru: 'Развернуть меню' },
-  'Menyuni toraytirish': { en: 'Collapse menu', ru: 'Свернуть меню' },
-  Kengaytirish: { en: 'Expand', ru: 'Развернуть' },
-  Toraytirish: { en: 'Collapse', ru: 'Свернуть' },
-  'Asosiy menyu': { en: 'Main menu', ru: 'Главное меню' },
+type Qiymatlar = Record<string, string | number>;
 
-  // ─── Tepa panel ───
-  'Qidirish...': { en: 'Search...', ru: 'Поиск...' },
-  'AI yordamchi': { en: 'AI assistant', ru: 'AI помощник' },
-  'Profil va sozlamalar': { en: 'Profile and settings', ru: 'Профиль и настройки' },
+interface TilHolati {
+  til: Til;
+  setTil: (t: Til) => void;
+  t: (s: string, qiymatlar?: Qiymatlar) => string;
+}
 
-  // ─── Sozlamalar ───
-  'Profil, biznes, jamoa, tahlil va ulanishlar': {
-    en: 'Profile, business, team, analysis and integrations',
-    ru: 'Профиль, бизнес, команда, анализ и интеграции',
-  },
-  Umumiy: { en: 'General', ru: 'Общие' },
-  "Qo'ng'iroq tahlili": { en: 'Call analysis', ru: 'Анализ звонков' },
-  'Lid va CRM': { en: 'Leads & CRM', ru: 'Лиды и CRM' },
-  Hisobotlar: { en: 'Reports', ru: 'Отчёты' },
-  Profil: { en: 'Profile', ru: 'Профиль' },
-  "Ko'rinish": { en: 'Appearance', ru: 'Внешний вид' },
-  Bizneslar: { en: 'Businesses', ru: 'Компании' },
-  Bildirishnomalar: { en: 'Notifications', ru: 'Уведомления' },
-  Rahbarlar: { en: 'Managers', ru: 'Руководители' },
-  Menejerlar: { en: 'Sales reps', ru: 'Менеджеры' },
-  'Ish jadvali': { en: 'Work schedule', ru: 'График работы' },
-  Obuna: { en: 'Subscription', ru: 'Подписка' },
-  'Muammo haqida xabar berish': { en: 'Report a problem', ru: 'Сообщить о проблеме' },
-  'Baholash mezonlari': { en: 'Scoring criteria', ru: 'Критерии оценки' },
-  'Anketa savollari': { en: 'Questionnaire', ru: 'Вопросы анкеты' },
-  "Xizmat yo'nalishlari": { en: 'Service lines', ru: 'Направления услуг' },
-  "Qo'ng'iroq oilalari": { en: 'Call families', ru: 'Типы звонков' },
-  "AI ko'rsatmalari": { en: 'AI instructions', ru: 'Инструкции для AI' },
-  'Lid sifati bosqichlari': { en: 'Lead quality stages', ru: 'Этапы качества лидов' },
-  'CRM natija bosqichlari': { en: 'CRM outcome stages', ru: 'Этапы результата CRM' },
-  'Faol CRM voronkalari': { en: 'Active CRM pipelines', ru: 'Активные воронки CRM' },
-  'Telegram bot': { en: 'Telegram bot', ru: 'Telegram бот' },
-
-  // ─── Ko'rinish bo'limi ───
-  "Ilovaning yorug', qorong'i yoki tizim ko'rinishini va til sozlamasini tanlang.": {
-    en: 'Choose light, dark or system appearance and the interface language.',
-    ru: 'Выберите светлую, тёмную или системную тему и язык интерфейса.',
-  },
-  Mavzu: { en: 'Theme', ru: 'Тема' },
-  "Yorug', Qorong'i yoki Tizim rejimini tanlang. Tizim rejimi qurilma sozlamalariga amal qiladi.": {
-    en: 'Choose Light, Dark or System. System follows your device settings.',
-    ru: 'Выберите светлую, тёмную или системную тему. Системная следует настройкам устройства.',
-  },
-  Tizim: { en: 'System', ru: 'Системная' },
-  "Yorug'": { en: 'Light', ru: 'Светлая' },
-  "Qorong'i": { en: 'Dark', ru: 'Тёмная' },
-  Til: { en: 'Language', ru: 'Язык' },
-  'Interfeys tilini tanlang. Tarjima bosqichma-bosqich qo\'shilmoqda — tarjima qilinmagan matnlar o\'zbekcha qoladi.': {
-    en: 'Choose the interface language. Translation is being added step by step — untranslated text stays in Uzbek.',
-    ru: 'Выберите язык интерфейса. Перевод добавляется поэтапно — непереведённый текст остаётся на узбекском.',
-  },
-  'Yon menyu': { en: 'Sidebar', ru: 'Боковое меню' },
-  "Tor — faqat ikonlar va qisqa nom; keng — to'liq nomlar bilan.": {
-    en: 'Compact — icons with short labels; wide — full names.',
-    ru: 'Узкое — иконки и короткие подписи; широкое — полные названия.',
-  },
-  Tor: { en: 'Compact', ru: 'Узкое' },
-  Keng: { en: 'Wide', ru: 'Широкое' },
-  'Saqlanmoqda…': { en: 'Saving…', ru: 'Сохранение…' },
-  Saqlandi: { en: 'Saved', ru: 'Сохранено' },
-  "Saqlanmadi — qayta urinib ko'ring": { en: 'Not saved — try again', ru: 'Не сохранено — попробуйте снова' },
-
-  // ─── Analitika ───
-  "Umumiy ko'rinish": { en: 'Overview', ru: 'Обзор' },
-  'Sifat nazorati': { en: 'Quality control', ru: 'Контроль качества' },
-  'Jamoa malakasini oshirish': { en: 'Team coaching', ru: 'Развитие команды' },
-  'Vazifalar tahlili': { en: 'Task analysis', ru: 'Анализ задач' },
-  'Mijoz tahlili': { en: 'Customer analysis', ru: 'Анализ клиентов' },
-  'Faoliyat tahlili': { en: 'Activity analysis', ru: 'Анализ активности' },
-  'Lid analitikasi': { en: 'Lead analytics', ru: 'Аналитика лидов' },
-  Bugun: { en: 'Today', ru: 'Сегодня' },
-  '3 kun': { en: '3 days', ru: '3 дня' },
-  Hafta: { en: 'Week', ru: 'Неделя' },
-  Oy: { en: 'Month', ru: 'Месяц' },
-  Boshqa: { en: 'Custom', ru: 'Другой' },
-
-  // ─── Eski en/ru kataloglaridan ko'chirilgan (t() orqali o'tadiganlari) ───
-  "Saqlash": { en: "Save", ru: "Сохранить" },
-  "Yopish": { en: "Close", ru: "Закрыть" },
-  "Yaratish": { en: "Generate", ru: "Сгенерировать" },
-  "Xato": { en: "Error", ru: "Ошибка" },
-  "Email": { en: "Email", ru: "Email" },
-  "Obuna faol emas — yangi tahlil to'xtatilgan. Balansni to'ldiring.": { en: "Subscription inactive — new analysis is paused. Please top up your balance.", ru: "Подписка неактивна — новый анализ приостановлен. Пополните баланс." },
-  "Sotuvchi": { en: "Rep", ru: "Менеджер" },
-  "O'zbekcha": { en: "O'zbekcha", ru: "O'zbekcha" },
-  "English": { en: "English", ru: "English" },
-  "Русский": { en: "Русский", ru: "Русский" },
-  "Parolni o'zgartirish": { en: "Change password", ru: "Сменить пароль" },
-  "Bekor qilingan": { en: "Cancelled", ru: "Отменено" },
-  "Bot": { en: "Bot", ru: "Бот" },
-  "Biznes nomi": { en: "Business name", ru: "Название бизнеса" },
-  "Valyuta": { en: "Currency", ru: "Валюта" },
-  "Vaqt zonasi": { en: "Time zone", ru: "Часовой пояс" },
-  "Faol": { en: "Active", ru: "Активен" },
-  "O'chirilgan": { en: "Disabled", ru: "Отключён" },
-  "o'chirilgan": { en: "disabled", ru: "отключён" },
-};
-
-const TilCtx = createContext<{ til: Til; setTil: (t: Til) => void; t: (s: string) => string }>({
+const TilCtx = createContext<TilHolati>({
   til: 'uz',
   setTil: () => undefined,
-  t: (s) => s,
+  t: (s, q) => qoy(s, q),
 });
 
 const normal = (l: string | null | undefined): Til => (l === 'en' ? 'en' : l === 'ru' ? 'ru' : 'uz');
 
+/**
+ * Kalitni tarjima qiladi. Kontekst belgisi: `"Ulangan##qo'ng'iroq"` —
+ * bir xil o'zbekcha so'z turli joyda turli ma'noda bo'lsa (rus tilida
+ * "состоялись" va "подключено"), `##` dan keyingi qism faqat lug'atni
+ * ajratadi, ekranda ko'rinmaydi.
+ */
+function tarjimaQil(til: Til, s: string): string {
+  if (til !== 'uz') {
+    const t = LUGAT[s]?.[til];
+    if (t !== undefined) return t;
+  }
+  const chegara = s.indexOf('##');
+  return chegara === -1 ? s : s.slice(0, chegara);
+}
+
+/** `{nom}` belgilarini qiymat bilan almashtiradi. */
+function qoy(matn: string, qiymatlar?: Qiymatlar): string {
+  if (!qiymatlar) return matn;
+  return matn.replace(/\{(\w+)\}/g, (butun, k: string) => (k in qiymatlar ? String(qiymatlar[k]) : butun));
+}
+
+/**
+ * Tarjima qilingan matndagi `{nom}` o'rniga JSX qo'yadi. So'z tartibi
+ * tillarda farq qiladi, shuning uchun matnni bo'laklarga bo'lib yozish
+ * emas — butun gap tarjima qilinadi va qiymatlar o'z joyiga tushadi.
+ */
+export function joyla(matn: string, qiymatlar: Record<string, ReactNode>): ReactNode {
+  return matn.split(/(\{\w+\})/g).map((bolak, i) => {
+    const kalit = /^\{(\w+)\}$/.exec(bolak)?.[1];
+    return <Fragment key={i}>{kalit !== undefined && kalit in qiymatlar ? qiymatlar[kalit] : bolak}</Fragment>;
+  });
+}
+
+/**
+ * Joriy til — React'dan tashqaridagi kod uchun (yordamchi `.ts` fayllar:
+ * CSV eksport, `new Error(...)` matnlari, konstantalarni formatlash).
+ * TilProvider har renderda yangilaydi.
+ */
+let joriyTil: Til = 'uz';
+
+/**
+ * Hook'siz tarjima — komponent bo'lmagan joylar uchun. Komponent ichida
+ * har doim `useT()` ishlating: u til almashganda qayta render qiladi,
+ * bu funksiya esa faqat chaqirilgan paytdagi tilni qaytaradi.
+ */
+export function tarjima(s: string, qiymatlar?: Qiymatlar): string {
+  return qoy(tarjimaQil(joriyTil, s), qiymatlar);
+}
+
+const INTL_LOCALE: Record<Til, string> = { uz: 'uz', en: 'en-US', ru: 'ru-RU' };
+const OYLAR_UZ = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
+
+/**
+ * Oy nomi joriy tilda (0 — yanvar). Rus tilida shakl kontekstga bog'liq:
+ * `sanada: true` — kun bilan birga ("5 января"), aks holda bosh kelishik
+ * ("январь"). Shu sabab oy nomini lug'at kaliti bilan emas, `Intl` bilan
+ * olamiz — bitta `'yanvar'` kaliti ikki shaklni bera olmaydi.
+ * O'zbekchada mavjud yozuv (kichik harf) saqlanadi.
+ */
+export function oyNomi(oy: number, sanada = false): string {
+  if (joriyTil === 'uz') return OYLAR_UZ[oy] ?? '';
+  const d = new Date(2000, oy, 15);
+  const locale = INTL_LOCALE[joriyTil];
+  if (!sanada) return new Intl.DateTimeFormat(locale, { month: 'long' }).format(d);
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'long' }).formatToParts(d).find((q) => q.type === 'month')?.value ?? '';
+}
+
+const TIL_KALIT = 'sotuvai-til';
+/** Mehmon tilni o'zi tanlaganini bildiradi — kirgandan keyin profilga yoziladi. */
+const KUTILMOQDA_KALIT = 'sotuvai-til-kutilmoqda';
+
+function oqi(kalit: string): string | null {
+  try {
+    return localStorage.getItem(kalit);
+  } catch {
+    return null;
+  }
+}
+
+function yoz(kalit: string, qiymat: string | null) {
+  try {
+    if (qiymat === null) localStorage.removeItem(kalit);
+    else localStorage.setItem(kalit, qiymat);
+  } catch {
+    /* xotira yopiq bo'lsa ham til joriy sessiyada almashadi */
+  }
+}
+
 export function TilProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [til, setTil] = useState<Til>(() => normal(user?.locale));
-  // Server qiymati kelganda (kirish, profil yangilanishi) — sinxronlash
-  useEffect(() => setTil(normal(user?.locale)), [user?.locale]);
+  const [til, setTilHolat] = useState<Til>(() => normal(user?.locale ?? oqi(TIL_KALIT)));
+  const userRef = useRef(user);
+  userRef.current = user;
+  joriyTil = til;
+
+  // Kirish va profil yangilanishi. Chiqishda (`user` yo'q) joriy til qoladi.
+  useEffect(() => {
+    if (!user) return;
+    const mehmonTanlovi = oqi(KUTILMOQDA_KALIT) ? oqi(TIL_KALIT) : null;
+    if (mehmonTanlovi) {
+      const yangi = normal(mehmonTanlovi);
+      yoz(KUTILMOQDA_KALIT, null);
+      setTilHolat(yangi);
+      if (yangi !== normal(user.locale)) {
+        void api.patch('/api/v1/auth/me', { locale: yangi }).catch(() => undefined);
+      }
+      return;
+    }
+    const profil = normal(user.locale);
+    setTilHolat(profil);
+    yoz(TIL_KALIT, profil);
+  }, [user?.id, user?.locale]);
+
+  const setTil = useCallback((yangi: Til) => {
+    setTilHolat(yangi);
+    yoz(TIL_KALIT, yangi);
+    if (!userRef.current) yoz(KUTILMOQDA_KALIT, '1');
+  }, []);
+
   useEffect(() => {
     document.documentElement.lang = til;
   }, [til]);
-  const t = useCallback((s: string) => (til === 'uz' ? s : LUGAT[s]?.[til] ?? s), [til]);
-  const v = useMemo(() => ({ til, setTil, t }), [til, t]);
+
+  const t = useCallback(
+    (s: string, qiymatlar?: Qiymatlar) => qoy(tarjimaQil(til, s), qiymatlar),
+    [til],
+  );
+  const v = useMemo(() => ({ til, setTil, t }), [til, setTil, t]);
   return <TilCtx.Provider value={v}>{children}</TilCtx.Provider>;
 }
 

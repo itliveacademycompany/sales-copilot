@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { ParolInput } from '../components/ParolInput';
 import { useAuth } from '../auth';
+import { useT } from '../i18n';
 
 /**
  * FR-06: havoladan kelgan token bilan yangi parol o'rnatish.
@@ -20,6 +21,7 @@ export function PasswordReset() {
   const { token } = useParams<{ token: string }>();
   const { refresh } = useAuth();
   const navigate = useNavigate();
+  const t = useT();
 
   const [parol, setParol] = useState('');
   const [takror, setTakror] = useState('');
@@ -38,7 +40,7 @@ export function PasswordReset() {
       await refresh();
       navigate('/', { replace: true });
     } catch (err) {
-      setXato(err instanceof ApiError ? err.message : 'Server bilan bog\'lanib bo\'lmadi');
+      setXato(err instanceof ApiError ? err.message : t("Server bilan bog'lanib bo'lmadi"));
     } finally {
       setBand(false);
     }
@@ -50,19 +52,19 @@ export function PasswordReset() {
         <div className="logo">
           Sotuv<em>AI</em>
         </div>
-        <div className="kirish-izoh">Yangi parol o'rnating</div>
+        <div className="kirish-izoh">{t("Yangi parol o'rnating")}</div>
 
         {xato && (
           <div className="xato-banner">
             {xato}
             <div style={{ marginTop: 6, fontSize: 12 }}>
-              Havola eskirgan bo'lsa, kirish ekranidan yangisini so'rang.
+              {t("Havola eskirgan bo'lsa, kirish ekranidan yangisini so'rang.")}
             </div>
           </div>
         )}
 
         <div className="maydon-blok">
-          <label className="maydon">Yangi parol</label>
+          <label className="maydon">{t('Yangi parol')}</label>
           <ParolInput
             ikon={<Lock />}
             value={parol}
@@ -72,11 +74,11 @@ export function PasswordReset() {
             autoComplete="new-password"
             autoFocus
           />
-          <div className="yordam">Kamida 10 belgi. Uzunlik murakkablikdan muhimroq.</div>
+          <div className="yordam">{t('Kamida 10 belgi. Uzunlik murakkablikdan muhimroq.')}</div>
         </div>
 
         <div className="maydon-blok">
-          <label className="maydon">Parolni takrorlang</label>
+          <label className="maydon">{t('Parolni takrorlang')}</label>
           <ParolInput
             ikon={<Lock />}
             value={takror}
@@ -86,7 +88,7 @@ export function PasswordReset() {
           />
           {takror.length > 0 && parol !== takror && (
             <div className="yordam" style={{ color: 'var(--past)' }}>
-              Parollar mos kelmadi
+              {t('Parollar mos kelmadi')}
             </div>
           )}
         </div>
@@ -96,11 +98,11 @@ export function PasswordReset() {
           style={{ width: '100%', justifyContent: 'center' }}
           disabled={band || !mos}
         >
-          {band ? 'Saqlanmoqda…' : 'Parolni o\'rnatish'}
+          {band ? t('Saqlanmoqda…') : t("Parolni o'rnatish")}
         </button>
 
         <div style={{ marginTop: 12, fontSize: 12, textAlign: 'center', color: 'var(--kul-dark)' }}>
-          Parol o'zgargach barcha qurilmalardagi eski sessiyalar bekor qilinadi.
+          {t("Parol o'zgargach barcha qurilmalardagi eski sessiyalar bekor qilinadi.")}
         </div>
       </form>
     </div>

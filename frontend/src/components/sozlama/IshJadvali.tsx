@@ -2,6 +2,7 @@ import { Check, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, type BiznesIshJadvali, type IshJadvaliQiymat, type SeatFull } from '../../api';
 import { useAuth } from '../../auth';
+import { useT } from '../../i18n';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -70,16 +71,18 @@ const haftalikSoat = (j: Jadval) => Math.max(0, j.gacha - j.dan) * j.kunlar.filt
 const teng = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 function Almash({ yoqilgan, onOzgar, id, nom, ochiq = 'Yoqilgan', yopiq = "O'chirilgan", disabled }: { yoqilgan: boolean; onOzgar: (v: boolean) => void; id: string; nom: string; ochiq?: string; yopiq?: string; disabled?: boolean }) {
+  const t = useT();
   return (
     <label className="vr-almash ij-almash" htmlFor={id}>
       <input id={id} type="checkbox" role="switch" aria-label={nom} checked={yoqilgan} disabled={disabled} onChange={(e) => onOzgar(e.target.checked)} />
       <span className="vr-almash-yol" aria-hidden="true" />
-      <span className={yoqilgan ? 'ij-holat yoq' : 'ij-holat'}>{yoqilgan ? ochiq : yopiq}</span>
+      <span className={yoqilgan ? 'ij-holat yoq' : 'ij-holat'}>{yoqilgan ? t(ochiq) : t(yopiq)}</span>
     </label>
   );
 }
 
 function Kunlar({ kunlar, onOzgar, nom, disabled }: { kunlar: boolean[]; onOzgar: (k: boolean[]) => void; nom: string; disabled?: boolean }) {
+  const t = useT();
   return (
     <div className="ij-kunlar" role="group" aria-label={nom}>
       {KUNLAR.map((k, i) => (
@@ -88,11 +91,11 @@ function Kunlar({ kunlar, onOzgar, nom, disabled }: { kunlar: boolean[]; onOzgar
           type="button"
           className={`ij-kun${kunlar[i] ? ' faol' : ''}`}
           aria-pressed={kunlar[i]}
-          title={k.toliq}
+          title={t(k.toliq)}
           disabled={disabled}
           onClick={() => onOzgar(kunlar.map((v, x) => (x === i ? !v : v)))}
         >
-          {k.qisqa}
+          {t(k.qisqa)}
         </button>
       ))}
     </div>
@@ -112,6 +115,7 @@ function Soat({ id, qiymat, variantlar, onOzgar, nom, xato, disabled }: { id?: s
 }
 
 export function IshJadvali({ businessId }: { businessId: string }) {
+  const t = useT();
   const { business } = useAuth();
   const yozaOladi = !!business?.permissions.includes('business:write');
 
@@ -144,9 +148,9 @@ export function IshJadvali({ businessId }: { businessId: string }) {
       setAsl(holatS);
       setS(holatS);
     } catch (e) {
-      setYuklashXato(e instanceof ApiError ? e.message : 'Jadvalni yuklab bo\'lmadi');
+      setYuklashXato(e instanceof ApiError ? e.message : t("Jadvalni yuklab bo'lmadi"));
     }
-  }, [businessId]);
+  }, [businessId, t]);
 
   useEffect(() => {
     void yukla();
@@ -158,7 +162,7 @@ export function IshJadvali({ businessId }: { businessId: string }) {
         <div className="yordam bzl-xato">{yuklashXato}</div>
         <div className="pr-past">
           <button type="button" className="btn ikkinchi" onClick={() => void yukla()}>
-            Qayta urinish
+            {t('Qayta urinish')}
           </button>
         </div>
       </section>
@@ -205,7 +209,7 @@ export function IshJadvali({ businessId }: { businessId: string }) {
       setTimeout(() => setHolat('tinch'), 2200);
     } catch (e) {
       setHolat('tinch');
-      setXato(e instanceof ApiError ? e.message : 'Saqlab bo\'lmadi — internetni tekshiring');
+      setXato(e instanceof ApiError ? e.message : t("Saqlab bo'lmadi — internetni tekshiring"));
       // Qisman saqlangan bo'lishi mumkin — haqiqiy holatni serverdan qayta olamiz.
       void yukla();
     }
@@ -215,55 +219,55 @@ export function IshJadvali({ businessId }: { businessId: string }) {
     <section className="card sz-karta ij-karta">
       <div className="sz-karta-bosh">
         <div>
-          <h2>Ish jadvali va ogohlantirishlar</h2>
-          <p>Ish vaqti va ogohlantirish sozlamalarini boshqaring.</p>
+          <h2>{t('Ish jadvali va ogohlantirishlar')}</h2>
+          <p>{t('Ish vaqti va ogohlantirish sozlamalarini boshqaring.')}</p>
         </div>
       </div>
 
       <div className="ij-forma">
         <label className="ij-yorliq" htmlFor="ij-dan">
-          Ish boshlanishi
+          {t('Ish boshlanishi')}
         </label>
         <div>
-          <Soat id="ij-dan" nom="Ish boshlanishi" qiymat={s.dan} variantlar={BOSHLANISH} disabled={!yozaOladi} onOzgar={(h) => ozgar({ dan: h })} />
+          <Soat id="ij-dan" nom={t('Ish boshlanishi')} qiymat={s.dan} variantlar={BOSHLANISH} disabled={!yozaOladi} onOzgar={(h) => ozgar({ dan: h })} />
         </div>
 
         <label className="ij-yorliq" htmlFor="ij-gacha">
-          Ish tugashi
+          {t('Ish tugashi')}
         </label>
         <div>
-          <Soat id="ij-gacha" nom="Ish tugashi" qiymat={s.gacha} variantlar={TUGASH} xato={s.gacha <= s.dan} disabled={!yozaOladi} onOzgar={(h) => ozgar({ gacha: h })} />
+          <Soat id="ij-gacha" nom={t('Ish tugashi')} qiymat={s.gacha} variantlar={TUGASH} xato={s.gacha <= s.dan} disabled={!yozaOladi} onOzgar={(h) => ozgar({ gacha: h })} />
         </div>
 
-        <span className="ij-yorliq">Ish kunlari</span>
+        <span className="ij-yorliq">{t('Ish kunlari')}</span>
         <div>
-          <Kunlar nom="Ish kunlari" kunlar={s.kunlar} disabled={!yozaOladi} onOzgar={(k) => ozgar({ kunlar: k })} />
+          <Kunlar nom={t('Ish kunlari')} kunlar={s.kunlar} disabled={!yozaOladi} onOzgar={(k) => ozgar({ kunlar: k })} />
         </div>
 
         <span className="ij-yorliq" id="ij-ogoh-nom">
-          Ogohlantirish faqat ish vaqtida
+          {t('Ogohlantirish faqat ish vaqtida')}
         </span>
         <div>
-          <Almash id="ij-ogoh" nom="Ogohlantirish faqat ish vaqtida" yoqilgan={s.ogohlantirish} disabled={!yozaOladi} onOzgar={(v) => ozgar({ ogohlantirish: v })} />
+          <Almash id="ij-ogoh" nom={t('Ogohlantirish faqat ish vaqtida')} yoqilgan={s.ogohlantirish} disabled={!yozaOladi} onOzgar={(v) => ozgar({ ogohlantirish: v })} />
         </div>
 
-        <span className="ij-yorliq">Menejerlar uchun alohida jadval</span>
+        <span className="ij-yorliq">{t('Menejerlar uchun alohida jadval')}</span>
         <div>
-          <Almash id="ij-alohida" nom="Menejerlar uchun alohida jadval" yoqilgan={s.alohida} disabled={!yozaOladi} onOzgar={(v) => ozgar({ alohida: v })} />
+          <Almash id="ij-alohida" nom={t('Menejerlar uchun alohida jadval')} yoqilgan={s.alohida} disabled={!yozaOladi} onOzgar={(v) => ozgar({ alohida: v })} />
         </div>
       </div>
 
       {umumiyXato ? (
-        <div className="yordam bzl-xato">{umumiyXato}</div>
+        <div className="yordam bzl-xato">{t(umumiyXato)}</div>
       ) : (
         <div className="yordam">
-          Haftasiga {haftalikSoat(s)} soat · {s.kunlar.filter(Boolean).length} ish kuni · vaqt mintaqasi {zona}
+          {t('Haftasiga {soat} soat · {kun} ish kuni · vaqt mintaqasi {zona}', { soat: haftalikSoat(s), kun: s.kunlar.filter(Boolean).length, zona })}
         </div>
       )}
       <div className="yordam">
         {s.ogohlantirish
-          ? 'Ish vaqtidan tashqarida boshlangan suhbatlar baholanadi va hisobotga kiradi, lekin ular uchun ogohlantirish yaratilmaydi.'
-          : 'Ogohlantirishlar kecha-kunduz yaratiladi. Yoqsangiz, ish vaqtidan tashqaridagi suhbatlar uchun ogohlantirish chiqmaydi.'}
+          ? t('Ish vaqtidan tashqarida boshlangan suhbatlar baholanadi va hisobotga kiradi, lekin ular uchun ogohlantirish yaratilmaydi.')
+          : t('Ogohlantirishlar kecha-kunduz yaratiladi. Yoqsangiz, ish vaqtidan tashqaridagi suhbatlar uchun ogohlantirish chiqmaydi.')}
       </div>
 
       {s.alohida && (
@@ -271,7 +275,7 @@ export function IshJadvali({ businessId }: { businessId: string }) {
           {!seatlar ? (
             <div className="card skelet" style={{ height: 64 }} aria-busy="true" />
           ) : seatlar.length === 0 ? (
-            <div className="bn-bosh-holat">Faol menejer yo'q — avval Menejerlar bo'limida qo'shing.</div>
+            <div className="bn-bosh-holat">{t("Faol menejer yo'q — avval Menejerlar bo'limida qo'shing.")}</div>
           ) : (
             seatlar.map((x, i) => {
               const j = menejer(x.id);
@@ -281,25 +285,25 @@ export function IshJadvali({ businessId }: { businessId: string }) {
                 <div key={x.id} className={`ij-menejer${shaxsiy ? ' shaxsiy' : ''}`}>
                   <div className="ij-menejer-nom">
                     <b>{x.displayName}</b>
-                    <small>{shaxsiy ? 'Alohida jadval' : 'Umumiy jadval'}</small>
+                    <small>{shaxsiy ? t('Alohida jadval') : t('Umumiy jadval')}</small>
                   </div>
                   <div className="ij-menejer-vaqt">
-                    <Soat nom={`${x.displayName} — boshlanishi`} qiymat={j.dan} variantlar={BOSHLANISH} disabled={!yozaOladi} onOzgar={(h) => menejerOzgar(x.id, { dan: h })} />
+                    <Soat nom={t('{ism} — boshlanishi', { ism: x.displayName })} qiymat={j.dan} variantlar={BOSHLANISH} disabled={!yozaOladi} onOzgar={(h) => menejerOzgar(x.id, { dan: h })} />
                     <span>—</span>
-                    <Soat nom={`${x.displayName} — tugashi`} qiymat={j.gacha} variantlar={TUGASH} xato={j.gacha <= j.dan} disabled={!yozaOladi} onOzgar={(h) => menejerOzgar(x.id, { gacha: h })} />
+                    <Soat nom={t('{ism} — tugashi', { ism: x.displayName })} qiymat={j.gacha} variantlar={TUGASH} xato={j.gacha <= j.dan} disabled={!yozaOladi} onOzgar={(h) => menejerOzgar(x.id, { gacha: h })} />
                   </div>
-                  <Kunlar nom={`${x.displayName} — ish kunlari`} kunlar={j.kunlar} disabled={!yozaOladi} onOzgar={(k) => menejerOzgar(x.id, { kunlar: k })} />
+                  <Kunlar nom={t('{ism} — ish kunlari', { ism: x.displayName })} kunlar={j.kunlar} disabled={!yozaOladi} onOzgar={(k) => menejerOzgar(x.id, { kunlar: k })} />
                   <button
                     type="button"
                     className="ij-qaytar"
                     disabled={!shaxsiy || !yozaOladi}
                     onClick={() => menejerQaytar(x.id)}
-                    title="Umumiy jadvalga qaytarish"
-                    aria-label={`${x.displayName} — umumiy jadvalga qaytarish`}
+                    title={t('Umumiy jadvalga qaytarish')}
+                    aria-label={t('{ism} — umumiy jadvalga qaytarish', { ism: x.displayName })}
                   >
                     <RotateCcw />
                   </button>
-                  {mx && <div className="yordam bzl-xato ij-menejer-xato">{mx}</div>}
+                  {mx && <div className="yordam bzl-xato ij-menejer-xato">{t(mx)}</div>}
                 </div>
               );
             })
@@ -308,23 +312,23 @@ export function IshJadvali({ businessId }: { businessId: string }) {
       )}
 
       <p className="sz-eslatma">
-        Jadval butun jamoa uchun serverda saqlanadi. Analitikadagi «ish vaqtida javobsiz qolgan» ko'rsatkichi shu jadvalga qarab hisoblanadi. Umumiy jadvalga ergashadigan menejer umumiy jadval o'zgarsa, u bilan birga o'zgaradi.
-        {!yozaOladi && ' Jadvalni faqat biznes egasi yoki biznes sozlamalariga huquqi bor rahbar o\'zgartira oladi.'}
+        {t("Jadval butun jamoa uchun serverda saqlanadi. Analitikadagi «ish vaqtida javobsiz qolgan» ko'rsatkichi shu jadvalga qarab hisoblanadi. Umumiy jadvalga ergashadigan menejer umumiy jadval o'zgarsa, u bilan birga o'zgaradi.")}
+        {!yozaOladi && ' ' + t("Jadvalni faqat biznes egasi yoki biznes sozlamalariga huquqi bor rahbar o'zgartira oladi.")}
       </p>
 
       <div className="pr-past">
         {xato && <span className="kr-holat xato">{xato}</span>}
-        {!xato && ozgargan && holat === 'tinch' && <span className="kr-holat">Saqlanmagan o'zgarishlar bor</span>}
+        {!xato && ozgargan && holat === 'tinch' && <span className="kr-holat">{t("Saqlanmagan o'zgarishlar bor")}</span>}
         {holat === 'saqlandi' && (
           <span className="kr-holat ok">
-            <Check /> Saqlandi
+            <Check /> {t('Saqlandi')}
           </span>
         )}
         <button type="button" className="btn ikkinchi" disabled={!ozgargan || holat === 'saqlanmoqda'} onClick={() => { setS(asl); setXato(null); }}>
-          Bekor qilish
+          {t('Bekor qilish')}
         </button>
         <button type="button" className="btn" disabled={!yozaOladi || !ozgargan || xatoBor || holat === 'saqlanmoqda'} onClick={() => void saqla()}>
-          {holat === 'saqlanmoqda' ? 'Saqlanmoqda…' : 'Saqlash'}
+          {holat === 'saqlanmoqda' ? t('Saqlanmoqda…') : t('Saqlash')}
         </button>
       </div>
     </section>

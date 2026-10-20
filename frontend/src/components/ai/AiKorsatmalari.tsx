@@ -4,6 +4,7 @@ import { api, ApiError, type PlaybookBody, type PlaybookVersion } from '../../ap
 import { useAuth } from '../../auth';
 import { kontekstniAjrat, kontekstniYig } from '../xizmat/kontekstBlok';
 import { bahoniAjrat, bahoniYig, blokniAjrat, blokniYig, blokYasa } from './blok';
+import { useT } from '../../i18n';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -159,6 +160,7 @@ const sanaVaqt = (iso: string | null | undefined) => {
 };
 
 export function AiKorsatmalari() {
+  const t = useT();
   const { business } = useAuth();
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
   const yozaOladi = business?.permissions.includes('playbook:write') ?? false;
@@ -176,9 +178,9 @@ export function AiKorsatmalari() {
       if (!base) return;
       try {
         const [p, vs] = await Promise.all([api.get<PlaybookBody>(`${base}/playbook`), api.get<PlaybookVersion[]>(`${base}/playbook/versions`).catch(() => [])]);
-        const t = tozaBody(p);
-        const v = oqi(t);
-        setPb(t);
+        const toza = tozaBody(p);
+        const v = oqi(toza);
+        setPb(toza);
         setAsl(v);
         // Boshqa kartadagi saqlanmagan o'zgarishlar yo'qolmasin
         setQ({ ...v, ...saqlanmagan });
@@ -211,17 +213,17 @@ export function AiKorsatmalari() {
     return (
       <section className="card bm-karta bm-bosh-holat">
         <Sparkles />
-        <b>Playbook hali yaratilmagan</b>
-        <span>AI ko'rsatmalari playbook bilan birga onboarding jarayonida yaratiladi.</span>
+        <b>{t('Playbook hali yaratilmagan')}</b>
+        <span>{t("AI ko'rsatmalari playbook bilan birga onboarding jarayonida yaratiladi.")}</span>
       </section>
     );
   if (!pb || !q || !asl || !hajm) return <div className="card skelet" style={{ height: 520 }} aria-busy="true" />;
 
   const hajmXato = (karta: 1 | 2) => {
     const x: string[] = [];
-    if (karta === 1 && hajm.kontekst > KONTEKST_MAKS) x.push(`Kompaniya haqidagi matn (xizmat yo'nalishlari bilan) ${hajm.kontekst}/${KONTEKST_MAKS}`);
-    if (karta === 1 && hajm.ajratish > AJRATISH_MAKS) x.push(`2-bosqich ko'rsatmalari jami ${hajm.ajratish}/${AJRATISH_MAKS}`);
-    if (hajm.baholash > BAHOLASH_MAKS) x.push(`Baholash va lid ko'rsatmalari jami ${hajm.baholash}/${BAHOLASH_MAKS}`);
+    if (karta === 1 && hajm.kontekst > KONTEKST_MAKS) x.push(t("Kompaniya haqidagi matn (xizmat yo'nalishlari bilan) {n}/{maks}", { n: hajm.kontekst, maks: KONTEKST_MAKS }));
+    if (karta === 1 && hajm.ajratish > AJRATISH_MAKS) x.push(t("2-bosqich ko'rsatmalari jami {n}/{maks}", { n: hajm.ajratish, maks: AJRATISH_MAKS }));
+    if (hajm.baholash > BAHOLASH_MAKS) x.push(t("Baholash va lid ko'rsatmalari jami {n}/{maks}", { n: hajm.baholash, maks: BAHOLASH_MAKS }));
     return x;
   };
 
@@ -238,15 +240,15 @@ export function AiKorsatmalari() {
       const body = tozaBody(yoz(pb, birlashgan));
       const v = await api.post<{ valid: boolean; errors?: Record<string, string[]> }>(`${base}/playbook/validate`, body);
       if (!v.valid) {
-        setXabar({ karta, ton: 'xato', matn: Object.values(v.errors ?? {}).flat()[0] ?? 'Server tekshiruvi xato topdi' });
+        setXabar({ karta, ton: 'xato', matn: Object.values(v.errors ?? {}).flat()[0] ?? t('Server tekshiruvi xato topdi') });
         return;
       }
       await api.post(`${base}/playbook`, { ...body, changeNote: karta === 1 ? "Qo'ng'iroq tahlili ko'rsatmalari yangilandi" : 'Lid analitikasi ko\'rsatmalari yangilandi' });
       await yukla(saqlanmagan);
-      setXabar({ karta, ton: 'ok', matn: 'Saqlandi — yangi versiya faollashtirildi' });
+      setXabar({ karta, ton: 'ok', matn: t('Saqlandi — yangi versiya faollashtirildi') });
       setTimeout(() => setXabar((x) => (x?.karta === karta && x.ton === 'ok' ? null : x)), 3500);
     } catch (e) {
-      setXabar({ karta, ton: 'xato', matn: e instanceof ApiError ? e.message : "Saqlanmadi — qayta urinib ko'ring" });
+      setXabar({ karta, ton: 'xato', matn: e instanceof ApiError ? e.message : t("Saqlanmadi — qayta urinib ko'ring") });
     } finally {
       setBand(null);
     }
@@ -258,18 +260,18 @@ export function AiKorsatmalari() {
   const qator = (m: Maydon) => (
     <div key={m.k} className="ak-qator">
       <label htmlFor={`ak-${m.k}`} className={`ak-savol${toldirilgan(q, m.k) ? ' toliq' : ''}`}>
-        {m.savol}
+        {t(m.savol)}
       </label>
       <div className="ak-maydon">
         {m.k === 'atamalar' ? (
-          <Atamalar id={`ak-${m.k}`} qiymat={q.atamalar} onOzgar={(v) => ozgar('atamalar', v)} misol={m.misol} disabled={!yozaOladi} />
+          <Atamalar id={`ak-${m.k}`} qiymat={q.atamalar} onOzgar={(v) => ozgar('atamalar', v)} misol={t(m.misol)} disabled={!yozaOladi} />
         ) : (
           <>
             <textarea
               id={`ak-${m.k}`}
               value={q[m.k]}
               onChange={(e) => ozgar(m.k, e.target.value)}
-              placeholder={m.misol}
+              placeholder={t(m.misol)}
               maxLength={m.maks}
               disabled={!yozaOladi}
               rows={3}
@@ -297,10 +299,10 @@ export function AiKorsatmalari() {
         )}
         {xatolar.length > 0 && (
           <span className="ak-xabar xato" role="alert">
-            <TriangleAlert /> Juda uzun: {xatolar.join('; ')}
+            <TriangleAlert /> {t('Juda uzun: {r}', { r: xatolar.join('; ') })}
           </span>
         )}
-        {oz && !xabar && xatolar.length === 0 && <span className="kr-holat">Saqlanmagan o'zgarishlar bor</span>}
+        {oz && !xabar && xatolar.length === 0 && <span className="kr-holat">{t("Saqlanmagan o'zgarishlar bor")}</span>}
         {yozaOladi && (
           <>
             {oz && (
@@ -310,11 +312,11 @@ export function AiKorsatmalari() {
                 disabled={band !== null}
                 onClick={() => setQ((x) => (x ? ({ ...x, ...Object.fromEntries((karta === 1 ? KARTA1 : KARTA2).map((k) => [k, asl[k]])) } as Qiymatlar) : x))}
               >
-                Bekor qilish
+                {t('Bekor qilish')}
               </button>
             )}
             <button type="button" className="btn" disabled={!oz || band !== null || xatolar.length > 0} onClick={() => void saqla(karta)}>
-              {band === karta ? 'Saqlanmoqda…' : 'Saqlash'}
+              {band === karta ? t('Saqlanmoqda…') : t('Saqlash')}
             </button>
           </>
         )}
@@ -325,37 +327,36 @@ export function AiKorsatmalari() {
   return (
     <div className="as">
       <section className="card as-karta">
-        <h2 className="as-sarlavha">AI ko'rsatmalari</h2>
+        <h2 className="as-sarlavha">{t("AI ko'rsatmalari")}</h2>
         <div className="as-meta">
-          {versiya && <span className="bm-versiya">Versiya {versiya.version}</span>}
-          <span>Yangilangan: {sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt)}</span>
+          {versiya && <span className="bm-versiya">{t('Versiya {n}', { n: versiya.version })}</span>}
+          <span>{t('Yangilangan: {sana}', { sana: sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt) })}</span>
         </div>
         <div className="as-diqqat">
           <TriangleAlert aria-hidden="true" />
           <span>
-            Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Har bir saqlash yangi playbook versiyasini yaratadi —
-            eski baholar o'zgarmaydi.
+            {t("Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Har bir saqlash yangi playbook versiyasini yaratadi — eski baholar o'zgarmaydi.")}
           </span>
         </div>
       </section>
 
-      <p className="ak-izoh">AI tahlil qilishda qo'shimcha kontekst sifatida ishlatadigan matnlar.</p>
+      <p className="ak-izoh">{t("AI tahlil qilishda qo'shimcha kontekst sifatida ishlatadigan matnlar.")}</p>
 
       <section className="card ak-tashqi">
         <div className="ak-karta">
           <header className="ak-bosh">
             <div>
-              <h3>Qo'ng'iroq tahlili ko'rsatmalari</h3>
-              <p>Bu maydonlar AI'ga ko'rinadi va transkripsiya, anketa, vazifa yaratish hamda baholash natijasiga ta'sir qiladi.</p>
+              <h3>{t("Qo'ng'iroq tahlili ko'rsatmalari")}</h3>
+              <p>{t("Bu maydonlar AI'ga ko'rinadi va transkripsiya, anketa, vazifa yaratish hamda baholash natijasiga ta'sir qiladi.")}</p>
             </div>
             <span className="ak-pill">
-              {soni(KARTA1)}/{KARTA1.length} to'ldirilgan
+              {t("{n}/{jami} to'ldirilgan", { n: soni(KARTA1), jami: KARTA1.length })}
             </span>
           </header>
           {BOSQICHLAR.map((b) => (
             <div key={b.nom} className="ak-bosqich">
               <div className="ak-bosqich-nom">
-                <b>{b.nom}</b>
+                <b>{t(b.nom)}</b>
                 <span />
                 <small>
                   {soni(b.maydonlar.map((m) => m.k))}/{b.maydonlar.length}
@@ -372,11 +373,11 @@ export function AiKorsatmalari() {
         <div className="ak-karta">
           <header className="ak-bosh">
             <div>
-              <h3>Lid analitikasi</h3>
-              <p>Bu maydonlar AI'ga ko'rinadi va lid yo'qotilish sabablari hamda tavsiyalarni qanday yozishini boshqaradi.</p>
+              <h3>{t('Lid analitikasi')}</h3>
+              <p>{t("Bu maydonlar AI'ga ko'rinadi va lid yo'qotilish sabablari hamda tavsiyalarni qanday yozishini boshqaradi.")}</p>
             </div>
             <span className="ak-pill">
-              {soni(KARTA2)}/{KARTA2.length} to'ldirilgan
+              {t("{n}/{jami} to'ldirilgan", { n: soni(KARTA2), jami: KARTA2.length })}
             </span>
           </header>
           <div className="ak-bosqich">{LID.map(qator)}</div>
@@ -388,6 +389,7 @@ export function AiKorsatmalari() {
 }
 
 function Atamalar({ id, qiymat, onOzgar, misol, disabled }: { id: string; qiymat: string[]; onOzgar: (v: string[]) => void; misol: string; disabled: boolean }) {
+  const t = useT();
   const [matn, setMatn] = useState('');
   const qosh = (s: string) => {
     const yangi = s
@@ -399,11 +401,11 @@ function Atamalar({ id, qiymat, onOzgar, misol, disabled }: { id: string; qiymat
   };
   return (
     <div className="ak-atamalar">
-      {qiymat.map((t) => (
-        <span key={t} className="as-variant">
-          {t}
+      {qiymat.map((atama) => (
+        <span key={atama} className="as-variant">
+          {atama}
           {!disabled && (
-            <button type="button" aria-label={`${t} — olib tashlash`} onClick={() => onOzgar(qiymat.filter((x) => x !== t))}>
+            <button type="button" aria-label={t('{teg} — olib tashlash', { teg: atama })} onClick={() => onOzgar(qiymat.filter((x) => x !== atama))}>
               <X />
             </button>
           )}
@@ -422,13 +424,13 @@ function Atamalar({ id, qiymat, onOzgar, misol, disabled }: { id: string; qiymat
           }}
           onBlur={() => matn.trim() && qosh(matn)}
           onPaste={(e) => {
-            const t = e.clipboardData.getData('text');
-            if (t.includes(',') || t.includes('\n')) {
+            const matnQ = e.clipboardData.getData('text');
+            if (matnQ.includes(',') || matnQ.includes('\n')) {
               e.preventDefault();
-              qosh(t.replace(/\n/g, ','));
+              qosh(matnQ.replace(/\n/g, ','));
             }
           }}
-          placeholder={qiymat.length ? 'Yana atama… (Enter yoki vergul)' : misol}
+          placeholder={qiymat.length ? t('Yana atama… (Enter yoki vergul)') : misol}
           maxLength={80}
         />
       )}

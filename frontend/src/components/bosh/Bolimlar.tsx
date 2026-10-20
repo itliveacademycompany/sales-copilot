@@ -1,6 +1,7 @@
 import { ArrowRight, TriangleAlert } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ballKlass, lidTuri, type AlertRow } from '../../api';
+import { useT } from '../../i18n';
 import { MalumotIkon } from './Korsatkichlar';
 import { ball, davomiylik, davomiylikMatn, qachon, type BoshMalumot } from './malumot';
 
@@ -16,39 +17,44 @@ const OGOH_TUR: Record<string, string> = {
 };
 
 /** Ogohlantirish tanasidan o'qiladigan izoh — har tur o'z ma'lumotini saqlaydi. */
-function ogohIzoh(a: AlertRow): string {
+function ogohIzoh(a: AlertRow, t: ReturnType<typeof useT>): string {
   const b = a.body as Record<string, unknown>;
   switch (a.kind) {
     case 'missed_lead':
-      return `Mijozning ${String(b.unansweredTurns ?? 'bir nechta')} ta xabari javobsiz qolgan. Bugun qayta yozing.`;
+      return b.unansweredTurns === undefined || b.unansweredTurns === null
+        ? t('Mijozning bir nechta xabari javobsiz qolgan. Bugun qayta yozing.')
+        : t('Mijozning {n} ta xabari javobsiz qolgan. Bugun qayta yozing.', { n: String(b.unansweredTurns) });
     case 'red_flag':
-      return typeof b.quote === 'string' ? `Yozishmadan: «${b.quote}»` : 'Suhbatda qoidabuzarlik aniqlandi.';
+      return typeof b.quote === 'string' ? t('Yozishmadan: «{iqtibos}»', { iqtibos: b.quote }) : t('Suhbatda qoidabuzarlik aniqlandi.');
     case 'broken_commitment':
-      return 'Mijozga berilgan va\'da muddatida bajarilmadi — obro\' masalasi.';
+      return t("Mijozga berilgan va'da muddatida bajarilmadi — obro' masalasi.");
     case 'low_confidence':
-      return typeof b.reason === 'string' ? `AI natijasi tekshiruv talab qiladi: ${b.reason}.` : 'AI natijasini inson ko\'rib chiqishi kerak.';
+      return typeof b.reason === 'string'
+        ? t('AI natijasi tekshiruv talab qiladi: {sabab}.', { sabab: b.reason })
+        : t("AI natijasini inson ko'rib chiqishi kerak.");
     default:
-      return 'Batafsil ma\'lumot uchun oching.';
+      return t("Batafsil ma'lumot uchun oching.");
   }
 }
 
 export function Ogohlar({ data }: { data: BoshMalumot }) {
   const navigate = useNavigate();
+  const t = useT();
   const royxat = data.ogohlar.slice(0, 5);
 
   return (
     <section className="card ogohlar" aria-labelledby="ogoh-sarlavha">
       <div className="karta-bosh">
         <h2 id="ogoh-sarlavha">
-          Ogohlantirishlar <MalumotIkon matn="Hal qilinmagan, darhol e'tibor talab qiladigan hodisalar" />
+          {t('Ogohlantirishlar')} <MalumotIkon matn={t("Hal qilinmagan, darhol e'tibor talab qiladigan hodisalar")} />
           {data.ogohlar.length > 0 && <span className="sanoq-chip">{data.ogohlar.length}</span>}
         </h2>
         <Link to="/ogohlantirishlar" className="havola">
-          Ko'rish
+          {t("Ko'rish")}
         </Link>
       </div>
       {royxat.length === 0 ? (
-        <div className="hech-narsa">Faol ogohlantirish yo'q — hammasi joyida</div>
+        <div className="hech-narsa">{t("Faol ogohlantirish yo'q — hammasi joyida")}</div>
       ) : (
         <div className="ogoh-royxat">
           {royxat.map((a) => (
@@ -60,11 +66,11 @@ export function Ogohlar({ data }: { data: BoshMalumot }) {
             >
               <span className="ogoh-band-bosh">
                 <TriangleAlert className="ogoh-band-ikon" aria-hidden="true" />
-                <span className="ogoh-tur">{OGOH_TUR[a.kind] ?? a.kind}</span>
+                <span className="ogoh-tur">{OGOH_TUR[a.kind] ? t(OGOH_TUR[a.kind]!) : a.kind}</span>
                 <b>{a.title}</b>
-                {a.status === 'new' && <span className="badge qizil">yangi</span>}
+                {a.status === 'new' && <span className="badge qizil">{t('yangi')}</span>}
               </span>
-              <span className="ogoh-band-matn">{ogohIzoh(a)}</span>
+              <span className="ogoh-band-matn">{ogohIzoh(a, t)}</span>
             </button>
           ))}
         </div>
@@ -84,6 +90,7 @@ function rang(pct: number | null): string {
 
 export function Muammolar({ data }: { data: BoshMalumot }) {
   const navigate = useNavigate();
+  const t = useT();
   const pb = data.playbook;
   if (!pb) return null;
 
@@ -108,7 +115,8 @@ export function Muammolar({ data }: { data: BoshMalumot }) {
     <section className="card muammolar" aria-labelledby="muammo-sarlavha">
       <div className="karta-bosh">
         <h2 id="muammo-sarlavha" className="kichik-sarlavha-katta">
-          Suhbat turlari bo'yicha muammolar <MalumotIkon matn="Baholash mezonlari kategoriyalari bo'yicha qayerda ko'proq ball yo'qotilmoqda" />
+          {t("Suhbat turlari bo'yicha muammolar")}{' '}
+          <MalumotIkon matn={t("Baholash mezonlari kategoriyalari bo'yicha qayerda ko'proq ball yo'qotilmoqda")} />
         </h2>
       </div>
 
@@ -116,19 +124,19 @@ export function Muammolar({ data }: { data: BoshMalumot }) {
         <div className="muammo-chap">
           <div className="muammo-tizim faol">
             <div className="muammo-tizim-bosh">
-              <b>Umumiy baholash tizimi</b>
+              <b>{t('Umumiy baholash tizimi')}</b>
               <span>{umumiy === null ? '—' : `${Math.round(umumiy)}%`}</span>
             </div>
             <div className="muammo-chiziq">
               <div style={{ width: `${umumiy ?? 0}%`, background: rang(umumiy) }} />
             </div>
             <small style={{ color: zaif.length > 0 ? 'var(--orta-text)' : 'var(--yuqori-text)' }}>
-              {zaif.length} / {baholangan.length} zaif
+              {t('{n} / {jami} zaif', { n: zaif.length, jami: baholangan.length })}
             </small>
           </div>
           {turlar.length > 0 && (
             <div className="muammo-turlar">
-              <span>Umumiy tizim bilan baholanadi</span>
+              <span>{t('Umumiy tizim bilan baholanadi')}</span>
               <p>{turlar.join(', ')}</p>
             </div>
           )}
@@ -137,17 +145,21 @@ export function Muammolar({ data }: { data: BoshMalumot }) {
         <div className="muammo-tafsilot">
           <div className="muammo-tafsilot-bosh">
             <h3>
-              Umumiy baholash tizimi <span className="kod-chip">umumiy</span>
+              {t('Umumiy baholash tizimi')} <span className="kod-chip">umumiy</span>
             </h3>
             <span className="muammo-foiz">{umumiy === null ? '—' : `${Math.round(umumiy)}%`}</span>
           </div>
 
-          <div className="muammo-segmentlar" role="img" aria-label="Kategoriyalar bo'yicha ball">
+          <div className="muammo-segmentlar" role="img" aria-label={t("Kategoriyalar bo'yicha ball")}>
             {kategoriyalar.map((k) => (
               <span
                 key={k.code}
                 style={{ flexGrow: k.weightPct, background: rang(k.pct) }}
-                title={`${k.name}: ${k.pct === null ? 'baholanmagan' : `${Math.round(k.pct)}%`} · vazn ${k.weightPct}%`}
+                title={t('{nom}: {ball} · vazn {vazn}%', {
+                  nom: k.name,
+                  ball: k.pct === null ? t('baholanmagan') : `${Math.round(k.pct)}%`,
+                  vazn: k.weightPct,
+                })}
               />
             ))}
           </div>
@@ -163,14 +175,15 @@ export function Muammolar({ data }: { data: BoshMalumot }) {
 
           <p className="muammo-xulosa">
             {baholangan.length === 0
-              ? 'Bu davrda baholangan mezon yo\'q.'
-              : `${baholangan.length} ta mezondan ${zaif.length} tasi zaif bajarilmoqda.` +
-                (eng ? ` Eng ko'p yo'qotish «${eng.name}» bosqichida.` : '') +
-                ' O\'z tizimi yo\'q barcha suhbat turlariga qo\'llaniladi.'}
+              ? t("Bu davrda baholangan mezon yo'q.")
+              : t('{jami} ta mezondan {n} tasi zaif bajarilmoqda.', { jami: baholangan.length, n: zaif.length }) +
+                (eng ? ' ' + t("Eng ko'p yo'qotish «{nom}» bosqichida.", { nom: eng.name }) : '') +
+                ' ' +
+                t("O'z tizimi yo'q barcha suhbat turlariga qo'llaniladi.")}
           </p>
 
           <button className="btn ikkinchi" onClick={() => navigate('/analitika')}>
-            Batafsil <ArrowRight />
+            {t('Batafsil')} <ArrowRight />
           </button>
         </div>
       </div>
@@ -203,6 +216,7 @@ const LID: Record<string, { nom: string; klass: string }> = {
 
 export function SonggiTahlillar({ data }: { data: BoshMalumot }) {
   const navigate = useNavigate();
+  const tr = useT();
   const oilalar = new Map((data.playbook?.classificationPolicy.callFamilies ?? []).map((f) => [f.key, f.name]));
   const royxat = data.suhbatlar.filter((s) => s.status === 'done').slice(0, 5);
 
@@ -210,15 +224,15 @@ export function SonggiTahlillar({ data }: { data: BoshMalumot }) {
     <section className="card songgi" aria-labelledby="songgi-sarlavha">
       <div className="karta-bosh">
         <h2 id="songgi-sarlavha">
-          So'nggi tahlillar <MalumotIkon matn="Eng oxirgi baholangan suhbatlar — bosib to'liq tahlilni oching" />
+          {tr("So'nggi tahlillar")} <MalumotIkon matn={tr("Eng oxirgi baholangan suhbatlar — bosib to'liq tahlilni oching")} />
         </h2>
         <Link to="/suhbatlar" className="havola">
-          Ko'rish
+          {tr("Ko'rish")}
         </Link>
       </div>
 
       {royxat.length === 0 ? (
-        <div className="hech-narsa">Hali tahlil qilingan suhbat yo'q</div>
+        <div className="hech-narsa">{tr("Hali tahlil qilingan suhbat yo'q")}</div>
       ) : (
         <ol className="vaqt-chizigi">
           {royxat.map((r) => {
@@ -234,19 +248,21 @@ export function SonggiTahlillar({ data }: { data: BoshMalumot }) {
                 <span className={`vc-nuqta ${ballKlass(b)}`} aria-hidden="true" />
                 <button type="button" className="vc-kontent" onClick={() => navigate(`/suhbatlar/${r.id}`)}>
                   <span className="vc-bosh">
-                    <b>{oila ?? 'Suhbat tahlili'}</b>
+                    <b>{oila ?? tr('Suhbat tahlili')}</b>
                     <small>{qachon(r.startedAt)}</small>
                   </span>
                   <span className="vc-asosiy">
-                    <span className="vc-xulosa">{r.summary ?? 'Xulosa yo\'q'}</span>
+                    <span className="vc-xulosa">{r.summary ?? tr("Xulosa yo'q")}</span>
                     <span className={`ball ${ballKlass(b)}`}>{b === null ? '—' : `${b.toFixed(1)}%`}</span>
                   </span>
                   <span className="vc-teglar">
                     <span className="vc-vaqt">{davomiylikMatn(dav)}</span>
-                    {a?.businessRelevance && <span className="teg">{SOHA[a.businessRelevance] ?? a.businessRelevance}</span>}
-                    <span className="teg">{yon ?? KANAL[r.channel] ?? r.channel}</span>
+                    {a?.businessRelevance && (
+                      <span className="teg">{SOHA[a.businessRelevance] ? tr(SOHA[a.businessRelevance]!) : a.businessRelevance}</span>
+                    )}
+                    <span className="teg">{yon ? tr(yon) : KANAL[r.channel] ? tr(KANAL[r.channel]!) : r.channel}</span>
                     {a?.serviceLine && <span className="teg kok">{a.serviceLine}</span>}
-                    {lid && <span className={`teg ${LID[lid]!.klass}`}>{LID[lid]!.nom}</span>}
+                    {lid && <span className={`teg ${LID[lid]!.klass}`}>{tr(LID[lid]!.nom)}</span>}
                   </span>
                 </button>
               </li>

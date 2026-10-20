@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { PlaybookBody } from '../api';
 import { kontekstniAjrat, kontekstniYig } from './xizmat/kontekstBlok';
 import { bahoniAjrat, bahoniYig, blokniAjrat, blokniYig } from './ai/blok';
+import { useT } from '../i18n';
 
 /**
  * Playbook tahrirlagichi. Bosh sahifada ham (mavjudini o'zgartirish),
@@ -33,6 +34,7 @@ export function TagList({
   onChange: (v: string[]) => void;
   placeholder: string;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState('');
   const add = () => {
     const v = draft.trim();
@@ -69,7 +71,7 @@ export function TagList({
           }}
         />
         <button type="button" className="btn ikkinchi kichik" style={{ whiteSpace: 'nowrap', flexShrink: 0 }} onClick={add}>
-          + Qo'shish
+          {t("+ Qo'shish")}
         </button>
       </div>
     </div>
@@ -77,6 +79,7 @@ export function TagList({
 }
 
 export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: Props) {
+  const t = useT();
   const kor = (b: PlaybookBolim) => !bolim || bolim === b;
   const totalWeight = value.criteria.categories.reduce((s, c) => s + c.weightPct, 0);
   const weightOk = Math.abs(totalWeight - 100) < 0.5;
@@ -90,7 +93,7 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
     const code = String.fromCharCode(65 + value.criteria.categories.length);
     setCategories([
       ...value.criteria.categories,
-      { code, name: 'Yangi kategoriya', weightPct: 0, order: value.criteria.categories.length },
+      { code, name: t('Yangi kategoriya'), weightPct: 0, order: value.criteria.categories.length },
     ]);
   }
 
@@ -118,7 +121,7 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
       {
         code: `${categoryCode}${n}`,
         categoryCode,
-        name: 'Yangi mezon',
+        name: t('Yangi mezon'),
         description: '',
         rubric: { '0': '', '1': '', '2': '', '3': '' },
         appliesTo: { callFamilies: [], serviceLines: [], directions: [] },
@@ -170,15 +173,15 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
       <>
       <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ flex: 1 }}>
-          <b>Vaznlar yig'indisi: </b>
+          <b>{t("Vaznlar yig'indisi:")} </b>
           <span style={{ color: weightOk ? 'var(--ok)' : 'var(--qizil)', fontWeight: 900 }}>
             {totalWeight.toFixed(1)}%
           </span>
-          {!weightOk && <span style={{ color: 'var(--kul-dark)' }}> — 100% bo'lishi kerak</span>}
+          {!weightOk && <span style={{ color: 'var(--kul-dark)' }}> — {t("100% bo'lishi kerak")}</span>}
         </div>
         {!weightOk && (
           <button type="button" className="btn ikkinchi kichik" onClick={normalizeWeights}>
-            Avtomatik to'g'rilash
+            {t("Avtomatik to'g'rilash")}
           </button>
         )}
       </div>
@@ -214,7 +217,7 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
             />
             <span style={{ color: 'var(--kul-dark)' }}>%</span>
             <button type="button" className="btn ikkinchi kichik" onClick={() => removeCategory(cat.code)}>
-              O'chirish
+              {t("O'chirish")}
             </button>
           </div>
 
@@ -234,7 +237,7 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
                     style={{ flex: 1 }}
                     value={crit.name}
                     onChange={(e) => updateCriterion(crit.code, { name: e.target.value })}
-                    placeholder="Mezon nomi"
+                    placeholder={t('Mezon nomi')}
                   />
                   <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
                     <input
@@ -242,7 +245,7 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
                       checked={crit.isActive}
                       onChange={(e) => updateCriterion(crit.code, { isActive: e.target.checked })}
                     />
-                    faol
+                    {t('faol')}
                   </label>
                   <button
                     type="button"
@@ -257,19 +260,19 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
                   style={{ marginBottom: 6, minHeight: 44 }}
                   value={crit.description}
                   onChange={(e) => updateCriterion(crit.code, { description: e.target.value })}
-                  placeholder="Bu mezon nimani baholaydi?"
+                  placeholder={t('Bu mezon nimani baholaydi?')}
                 />
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
                   {(['0', '1', '2', '3'] as const).map((lvl) => (
                     <div key={lvl}>
-                      <label className="maydon">{lvl} ball</label>
+                      <label className="maydon">{t('{n} ball', { n: lvl })}</label>
                       <input
                         className="input"
                         value={crit.rubric[lvl]}
                         onChange={(e) =>
                           updateCriterion(crit.code, { rubric: { ...crit.rubric, [lvl]: e.target.value } })
                         }
-                        placeholder={`${lvl} ball uchun aniq xatti-harakat`}
+                        placeholder={t('{n} ball uchun aniq xatti-harakat', { n: lvl })}
                       />
                     </div>
                   ))}
@@ -283,13 +286,13 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
             style={{ marginTop: 10 }}
             onClick={() => addCriterion(cat.code)}
           >
-            + Mezon qo'shish
+            {t("+ Mezon qo'shish")}
           </button>
         </div>
       ))}
 
       <button type="button" className="btn ikkinchi" onClick={addCategory}>
-        + Kategoriya qo'shish
+        {t("+ Kategoriya qo'shish")}
       </button>
       </>
       )}
@@ -298,9 +301,9 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
       <div className={bolim ? 'pf-yakka' : 'grid-2'}>
         {kor('oilalar') && (
         <div className="card">
-          <h2 style={{ marginBottom: 8 }}>Murojaat turlari</h2>
+          <h2 style={{ marginBottom: 8 }}>{t('Murojaat turlari')}</h2>
           <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 10 }}>
-            Baholanmaydiganlarini ("scored" o'chirilgan) belgilang — masalan spam yoki ichki masalalar
+            {t('Baholanmaydiganlarini ("scored" o\'chirilgan) belgilang — masalan spam yoki ichki masalalar')}
           </div>
           {value.classificationPolicy.callFamilies.map((f, i) => (
             <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
@@ -340,7 +343,7 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
                     )
                   }
                 />
-                baholanadi
+                {t('baholanadi')}
               </label>
               <button
                 type="button"
@@ -357,20 +360,20 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
             onClick={() =>
               setCallFamilies([
                 ...value.classificationPolicy.callFamilies,
-                { key: nextId(), name: 'Yangi tur', description: '', scored: true },
+                { key: nextId(), name: t('Yangi tur'), description: '', scored: true },
               ])
             }
           >
-            + Qo'shish
+            {t("+ Qo'shish")}
           </button>
         </div>
         )}
 
         {kor('mezonlar') && (
         <div className="card">
-          <h2 style={{ marginBottom: 8 }}>Qizil bayroqlar</h2>
+          <h2 style={{ marginBottom: 8 }}>{t('Qizil bayroqlar')}</h2>
           <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 10 }}>
-            Sotuvchi hech qachon qilmasligi kerak bo'lgan narsalar
+            {t("Sotuvchi hech qachon qilmasligi kerak bo'lgan narsalar")}
           </div>
           {value.classificationPolicy.redFlags.map((f, i) => (
             <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
@@ -398,8 +401,8 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
                   )
                 }
               >
-                <option value="warning">ogohlantirish</option>
-                <option value="critical">jiddiy</option>
+                <option value="warning">{t('ogohlantirish')}</option>
+                <option value="critical">{t('jiddiy')}</option>
               </select>
               <button
                 type="button"
@@ -420,7 +423,7 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
               ])
             }
           >
-            + Qo'shish
+            {t("+ Qo'shish")}
           </button>
         </div>
         )}
@@ -429,20 +432,18 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
 
       {kor('xizmat') && (
       <div className="card">
-        <h2 style={{ marginBottom: 8 }}>Xizmat yo'nalishlari</h2>
+        <h2 style={{ marginBottom: 8 }}>{t("Xizmat yo'nalishlari")}</h2>
         <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 10 }}>
-          Kompaniya sotadigan xizmat yoki mahsulot yo'nalishlari — masalan "Web dasturlash", "IT Kids".
-          AI har suhbat qaysi yo'nalishga tegishli ekanini aniqlaydi; Qo'ng'iroqlar sahifasida shu
-          bo'yicha filtrlash mumkin bo'ladi.
+          {t('Kompaniya sotadigan xizmat yoki mahsulot yo\'nalishlari — masalan "Web dasturlash", "IT Kids". AI har suhbat qaysi yo\'nalishga tegishli ekanini aniqlaydi; Qo\'ng\'iroqlar sahifasida shu bo\'yicha filtrlash mumkin bo\'ladi.')}
         </div>
         <TagList
           items={value.classificationPolicy.serviceLines}
           onChange={setServiceLines}
-          placeholder="Yo'nalish nomi va Enter"
+          placeholder={t("Yo'nalish nomi va Enter")}
         />
         {qolganTakliflar.length > 0 && (
           <div className="xizmat-takliflar">
-            <span>Biznes profilidan:</span>
+            <span>{t('Biznes profilidan:')}</span>
             {qolganTakliflar.map((s) => (
               <button
                 key={s}
@@ -459,7 +460,7 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
                 className="chip-tugma faol"
                 onClick={() => setServiceLines([...value.classificationPolicy.serviceLines, ...qolganTakliflar])}
               >
-                Hammasini qo'shish
+                {t("Hammasini qo'shish")}
               </button>
             )}
           </div>
@@ -469,10 +470,9 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
 
       {kor('anketa') && (
       <div className="card">
-        <h2 style={{ marginBottom: 8 }}>Savolnoma</h2>
+        <h2 style={{ marginBottom: 8 }}>{t('Savolnoma')}</h2>
         <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 10 }}>
-          Har suhbatdan AI shu savollarga javob qidiradi (FR-28) — masalan
-          "O'quvchining yoshi nechada?" Topilmasa bo'sh qoladi, o'ylab topilmaydi.
+          {t('Har suhbatdan AI shu savollarga javob qidiradi (FR-28) — masalan "O\'quvchining yoshi nechada?" Topilmasa bo\'sh qoladi, o\'ylab topilmaydi.')}
         </div>
         {value.questionnaire.questions.map((q, i) => (
           <div key={q.id} style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
@@ -487,7 +487,7 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
                   ),
                 )
               }
-              placeholder="Savol matni"
+              placeholder={t('Savol matni')}
             />
             <select
               className="input"
@@ -501,10 +501,10 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
                 )
               }
             >
-              <option value="text">matn</option>
-              <option value="boolean">ha/yo'q</option>
-              <option value="number">son</option>
-              <option value="date">sana</option>
+              <option value="text">{t('matn')}</option>
+              <option value="boolean">{t("ha/yo'q")}</option>
+              <option value="number">{t('son')}</option>
+              <option value="date">{t('sana')}</option>
             </select>
             <button
               type="button"
@@ -525,7 +525,7 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
             ])
           }
         >
-          + Savol qo'shish
+          {t("+ Savol qo'shish")}
         </button>
       </div>
       )}
@@ -533,13 +533,13 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
       {kor('ai') && (
       <>
       <div className="card">
-        <h2 style={{ marginBottom: 8 }}>Soha lug'ati</h2>
+        <h2 style={{ marginBottom: 8 }}>{t("Soha lug'ati")}</h2>
         <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 10 }}>
-          Nutqni matnga aylantirishda aniqlik uchun — mahsulot nomlari, brend so'zlari
+          {t("Nutqni matnga aylantirishda aniqlik uchun — mahsulot nomlari, brend so'zlari")}
         </div>
         <TagList
           items={value.promptNotes.stage1.vocabulary}
-          placeholder="Atama kiriting va Enter bosing"
+          placeholder={t('Atama kiriting va Enter bosing')}
           onChange={(vocabulary) =>
             onChange({
               ...value,
@@ -561,6 +561,7 @@ export function PlaybookForm({ value, onChange, xizmatTakliflari = [], bolim }: 
  * (3-bosqich — ballar va lid sifati shu yerda aniqlanadi).
  */
 function AiKorsatmalar({ value, onChange }: { value: PlaybookBody; onChange: (v: PlaybookBody) => void }) {
+  const t = useT();
   const pn = value.promptNotes;
   const set2 = (k: 'businessContext' | 'extractionHints', v: string) =>
     onChange({ ...value, promptNotes: { ...pn, stage2: { ...pn.stage2, [k]: v } } });
@@ -601,18 +602,20 @@ function AiKorsatmalar({ value, onChange }: { value: PlaybookBody; onChange: (v:
   ];
   return (
     <div className="card">
-      <h2 style={{ marginBottom: 8 }}>AI ko'rsatmalari</h2>
+      <h2 style={{ marginBottom: 8 }}>{t("AI ko'rsatmalari")}</h2>
       <div style={{ fontSize: 12, color: 'var(--kul-dark)', marginBottom: 14 }}>
-        AI tahlilga qo'shiladigan erkin matnli ko'rsatmalar. Qisqa va aniq yozing — har saqlash yangi playbook versiyasi bo'ladi.
+        {t("AI tahlilga qo'shiladigan erkin matnli ko'rsatmalar. Qisqa va aniq yozing — har saqlash yangi playbook versiyasi bo'ladi.")}
       </div>
       {maydonlar.map((m) => (
         <div className="maydon-blok" key={m.id}>
-          <label htmlFor={m.id}>{m.nom}</label>
-          <textarea id={m.id} rows={3} value={m.qiymat} maxLength={m.max} placeholder={m.misol} onChange={(e) => m.set(e.target.value)} />
+          <label htmlFor={m.id}>{t(m.nom)}</label>
+          <textarea id={m.id} rows={3} value={m.qiymat} maxLength={m.max} placeholder={t(m.misol)} onChange={(e) => m.set(e.target.value)} />
           <div className="yordam">
-            {m.izoh} <span style={{ float: 'right' }}>{m.qiymat.length} / {m.max}</span>
+            {t(m.izoh)} <span style={{ float: 'right' }}>{m.qiymat.length} / {m.max}</span>
             {m.id === 'ai-kontekst' && xizmatBlok && (
-              <div>Xizmat yo'nalishlari tavsifi, aliaslar va iboralar ({xizmatBlok.length} belgi) avtomatik qo'shiladi — ularni «Xizmat yo'nalishlari» bo'limida tahrirlang.</div>
+              <div>
+                {t("Xizmat yo'nalishlari tavsifi, aliaslar va iboralar ({n} belgi) avtomatik qo'shiladi — ularni «Xizmat yo'nalishlari» bo'limida tahrirlang.", { n: xizmatBlok.length })}
+              </div>
             )}
           </div>
         </div>

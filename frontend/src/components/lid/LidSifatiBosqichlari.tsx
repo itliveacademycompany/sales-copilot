@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import { createPortal } from 'react-dom';
 import { api, ApiError, type PlaybookBody, type PlaybookVersion } from '../../api';
 import { useAuth } from '../../auth';
+import { joyla, useT } from '../../i18n';
 import { TanlovMenyu } from '../analitika/Ochiluvchi';
 import { bahoniAjrat, bahoniYig, LID_BOSH, LID_OXIR } from '../ai/blok';
 
@@ -102,6 +103,7 @@ const sanaVaqt = (iso: string | null | undefined) => {
 
 export function LidSifatiBosqichlari() {
   const { business } = useAuth();
+  const tr = useT();
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
   const yozaOladi = business?.permissions.includes('playbook:write') ?? false;
 
@@ -120,17 +122,17 @@ export function LidSifatiBosqichlari() {
       setVersiya(vs.find((v) => v.isActive) ?? null);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) setYoq(true);
-      else setXabar({ ton: 'xato', matn: "Ma'lumotni yuklab bo'lmadi" });
+      else setXabar({ ton: 'xato', matn: tr("Ma'lumotni yuklab bo'lmadi") });
     }
-  }, [base]);
+  }, [base, tr]);
   useEffect(() => void yukla(), [yukla]);
 
   if (yoq)
     return (
       <section className="card bm-karta bm-bosh-holat">
         <Sparkles />
-        <b>Playbook hali yaratilmagan</b>
-        <span>Lid sifati bosqichlari playbook bilan birga ishlaydi.</span>
+        <b>{tr('Playbook hali yaratilmagan')}</b>
+        <span>{tr('Lid sifati bosqichlari playbook bilan birga ishlaydi.')}</span>
       </section>
     );
   if (!pb) return <div className="card skelet" style={{ height: 380 }} aria-busy="true" />;
@@ -149,7 +151,13 @@ export function LidSifatiBosqichlari() {
     if (!pb) return false;
     const yangi = yoz(pb, r, bs);
     if (yangi.promptNotes.stage3.scoringGuidance.length > BAHOLASH_MAKS) {
-      bildir('xato', `Baholash ko'rsatmalari ${BAHOLASH_MAKS} belgidan oshib ketadi (${yangi.promptNotes.stage3.scoringGuidance.length}). Shartlarni qisqartiring.`);
+      bildir(
+        'xato',
+        tr("Baholash ko'rsatmalari {maks} belgidan oshib ketadi ({n}). Shartlarni qisqartiring.", {
+          maks: BAHOLASH_MAKS,
+          n: yangi.promptNotes.stage3.scoringGuidance.length,
+        }),
+      );
       return false;
     }
     setBand(true);
@@ -157,7 +165,7 @@ export function LidSifatiBosqichlari() {
       const body = tozaBody(yangi);
       const v = await api.post<{ valid: boolean; errors?: Record<string, string[]> }>(`${base}/playbook/validate`, body);
       if (!v.valid) {
-        bildir('xato', Object.values(v.errors ?? {}).flat()[0] ?? 'Server tekshiruvi xato topdi');
+        bildir('xato', Object.values(v.errors ?? {}).flat()[0] ?? tr('Server tekshiruvi xato topdi'));
         return false;
       }
       await api.post(`${base}/playbook`, { ...body, changeNote: izoh });
@@ -165,7 +173,7 @@ export function LidSifatiBosqichlari() {
       bildir('ok', muvaffaqiyat);
       return true;
     } catch (e) {
-      bildir('xato', e instanceof ApiError ? e.message : "Saqlanmadi — qayta urinib ko'ring");
+      bildir('xato', e instanceof ApiError ? e.message : tr("Saqlanmadi — qayta urinib ko'ring"));
       return false;
     } finally {
       setBand(false);
@@ -177,30 +185,48 @@ export function LidSifatiBosqichlari() {
     if (j < 0 || j >= bosqichlar.length) return;
     const t = [...bosqichlar];
     [t[i], t[j]] = [t[j]!, t[i]!];
-    void nashr(rejim, t, "Lid sifati bosqichlari tartibi o'zgartirildi", 'Tartib saqlandi');
+    void nashr(rejim, t, tr("Lid sifati bosqichlari tartibi o'zgartirildi"), tr('Tartib saqlandi'));
   };
 
   const taklif = () => {
     const bor = new Set(bosqichlar.map((b) => b.nom.toLowerCase()));
-    const qoshiladi = ANDOZA.filter((a) => !bor.has(a.nom.toLowerCase())).map((a) => ({ ...a, id: yangiId() }));
-    if (!qoshiladi.length) return bildir('ok', "Barcha taklif qilingan bosqichlar allaqachon bor");
-    if (!window.confirm(`${qoshiladi.length} ta standart bosqich qo'shilsinmi?\n\n${qoshiladi.map((q) => `• ${q.nom} — ${TOIFA_NOM[q.toifa]}`).join('\n')}\n\nKeyin har birini tahrirlashingiz mumkin.`)) return;
-    void nashr('bosqichli', [...bosqichlar, ...qoshiladi], "Lid sifati bosqichlari taklif asosida qo'shildi", `${qoshiladi.length} ta bosqich qo'shildi`);
+    // Andoza tanlangan tilda qo'shiladi — keyin oddiy bosqich kabi tahrirlanadi
+    const qoshiladi = ANDOZA.map((a) => ({ ...a, nom: tr(a.nom), shart: tr(a.shart) }))
+      .filter((a) => !bor.has(a.nom.toLowerCase()))
+      .map((a) => ({ ...a, id: yangiId() }));
+    if (!qoshiladi.length) return bildir('ok', tr('Barcha taklif qilingan bosqichlar allaqachon bor'));
+    const ruyxat = qoshiladi.map((q) => `• ${q.nom} — ${tr(TOIFA_NOM[q.toifa])}`).join('\n');
+    if (
+      !window.confirm(
+        tr("{n} ta standart bosqich qo'shilsinmi?\n\n{royxat}\n\nKeyin har birini tahrirlashingiz mumkin.", {
+          n: qoshiladi.length,
+          royxat: ruyxat,
+        }),
+      )
+    )
+      return;
+    void nashr(
+      'bosqichli',
+      [...bosqichlar, ...qoshiladi],
+      tr("Lid sifati bosqichlari taklif asosida qo'shildi"),
+      tr("{n} ta bosqich qo'shildi", { n: qoshiladi.length }),
+    );
   };
 
   return (
     <div className="as">
       <section className="card as-karta">
-        <h2 className="as-sarlavha">Lid sifati bosqichlari</h2>
+        <h2 className="as-sarlavha">{tr('Lid sifati bosqichlari')}</h2>
         <div className="as-meta">
-          {versiya && <span className="bm-versiya">Versiya {versiya.version}</span>}
-          <span>Yangilangan: {sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt)}</span>
+          {versiya && <span className="bm-versiya">{tr('Versiya {n}', { n: versiya.version })}</span>}
+          <span>{tr('Yangilangan: {sana}', { sana: sanaVaqt(versiya?.activatedAt ?? versiya?.createdAt) })}</span>
         </div>
         <div className="as-diqqat">
           <TriangleAlert aria-hidden="true" />
           <span>
-            Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Har bir saqlash yangi playbook versiyasini yaratadi —
-            eski baholar o'zgarmaydi.
+            {tr(
+              "Bu sozlamalar AI qo'ng'iroqlar va lidlarni qanday tahlil qilishiga ta'sir qiladi. Har bir saqlash yangi playbook versiyasini yaratadi — eski baholar o'zgarmaydi.",
+            )}
           </span>
         </div>
       </section>
@@ -209,10 +235,12 @@ export function LidSifatiBosqichlari() {
         <div className="ls-bosh">
           <div>
             <div className="ls-sarlavha">
-              <h3>Lid sifati bosqichlari</h3>
-              <span className={`qo-teg ${rejim === 'bosqichli' ? 'yaxshi' : 'orta'}`}>{rejim === 'bosqichli' ? 'Bosqichli baholash' : 'Raqamli baholash'}</span>
+              <h3>{tr('Lid sifati bosqichlari')}</h3>
+              <span className={`qo-teg ${rejim === 'bosqichli' ? 'yaxshi' : 'orta'}`}>
+                {rejim === 'bosqichli' ? tr('Bosqichli baholash') : tr('Raqamli baholash')}
+              </span>
             </div>
-            <p>Kelajakdagi lid sifati qarorlarida AI ishlatadigan bosqichlarni sozlang. Eski natijalar o'zgarmaydi.</p>
+            <p>{tr("Kelajakdagi lid sifati qarorlarida AI ishlatadigan bosqichlarni sozlang. Eski natijalar o'zgarmaydi.")}</p>
           </div>
           {yozaOladi && rejim === 'bosqichli' && (
             <button
@@ -220,11 +248,11 @@ export function LidSifatiBosqichlari() {
               className="ls-qaytish"
               disabled={band}
               onClick={() =>
-                window.confirm("Raqamli baholashga qaytilsinmi? Bosqichlar saqlanib qoladi, lekin AI ularni ishlatmaydi.") &&
-                void nashr('raqamli', bosqichlar, 'Lid sifati: raqamli baholashga qaytildi', 'Raqamli baholash yoqildi')
+                window.confirm(tr('Raqamli baholashga qaytilsinmi? Bosqichlar saqlanib qoladi, lekin AI ularni ishlatmaydi.')) &&
+                void nashr('raqamli', bosqichlar, tr('Lid sifati: raqamli baholashga qaytildi'), tr('Raqamli baholash yoqildi'))
               }
             >
-              Raqamli baholashga qaytish
+              {tr('Raqamli baholashga qaytish')}
             </button>
           )}
         </div>
@@ -238,10 +266,11 @@ export function LidSifatiBosqichlari() {
       {rejim === 'raqamli' ? (
         <section className="card as-karta">
           <div className="ls-raqamli">
-            <b>Raqamli lid sifati faol</b>
+            <b>{tr('Raqamli lid sifati faol')}</b>
             <p>
-              Kelajakdagi qo'ng'iroqlar hozircha umumiy issiq / iliq / sovuq bahosi bilan ishlaydi. Bosqichlarni tuzib, ularga o'tkazing — AI har lidni
-              aniq bosqichga ajratadi.
+              {tr(
+                "Kelajakdagi qo'ng'iroqlar hozircha umumiy issiq / iliq / sovuq bahosi bilan ishlaydi. Bosqichlarni tuzib, ularga o'tkazing — AI har lidni aniq bosqichga ajratadi.",
+              )}
             </p>
           </div>
           {yozaOladi && (
@@ -254,12 +283,14 @@ export function LidSifatiBosqichlari() {
                   void nashr(
                     'bosqichli',
                     bosqichlar,
-                    "Lid sifati: bosqichli baholash yoqildi",
-                    bosqichlar.length ? 'Bosqichli baholash yoqildi' : "Bosqichli baholash yoqildi — endi bosqichlarni qo'shing",
+                    tr('Lid sifati: bosqichli baholash yoqildi'),
+                    bosqichlar.length
+                      ? tr('Bosqichli baholash yoqildi')
+                      : tr("Bosqichli baholash yoqildi — endi bosqichlarni qo'shing"),
                   )
                 }
               >
-                <Pencil /> {bosqichlar.length ? "Bosqichli baholashga o'tish" : "Lid sifati bosqichlari qo'shish"}
+                <Pencil /> {bosqichlar.length ? tr("Bosqichli baholashga o'tish") : tr("Lid sifati bosqichlari qo'shish")}
               </button>
             </div>
           )}
@@ -268,51 +299,53 @@ export function LidSifatiBosqichlari() {
         <section className="card ls-karta">
           <div className="ls-royxat-bosh">
             <div>
-              <h4>Lid sifati bosqichlari</h4>
-              <p>Har bir bosqich uchun AI tanlash shartlarini yozing va har birini sifatli yoki sifatsiz lid sifatida belgilang.</p>
+              <h4>{tr('Lid sifati bosqichlari')}</h4>
+              <p>{tr('Har bir bosqich uchun AI tanlash shartlarini yozing va har birini sifatli yoki sifatsiz lid sifatida belgilang.')}</p>
             </div>
             {yozaOladi && (
               <div className="ls-amallar">
                 <button type="button" className="btn ikkinchi" onClick={taklif} disabled={band}>
-                  <Sparkles /> Bosqichlarni taklif qilish
+                  <Sparkles /> {tr('Bosqichlarni taklif qilish')}
                 </button>
                 <button type="button" className="btn ikkinchi" onClick={() => setOyna({ tur: 'forma', b: null })} disabled={band}>
-                  <Plus /> Bosqich qo'shish
+                  <Plus /> {tr("Bosqich qo'shish")}
                 </button>
               </div>
             )}
           </div>
           {bosqichlar.length === 0 && (
-            <div className="ls-bosh-holat">Hali bosqich yo'q — «Bosqichlarni taklif qilish» yoki «Bosqich qo'shish» orqali boshlang.</div>
+            <div className="ls-bosh-holat">
+              {tr("Hali bosqich yo'q — «Bosqichlarni taklif qilish» yoki «Bosqich qo'shish» orqali boshlang.")}
+            </div>
           )}
           <ol className="ls-royxat" aria-busy={band}>
             {royxat.map((b, i) => (
               <li key={b.id} className={`ls-bosqich${b.tizim ? ' tizim' : ''}`}>
                 <span className={`ls-raqam ${b.toifa}`}>{i + 1}</span>
                 <div className="ls-matn">
-                  <b>{b.nom}</b>
-                  {b.shart.split('\n').map((s, k) => (
+                  <b>{b.tizim ? tr(b.nom) : b.nom}</b>
+                  {(b.tizim ? tr(b.shart) : b.shart).split('\n').map((s, k) => (
                     <p key={k}>{s}</p>
                   ))}
-                  <span className={`ls-toifa ${b.toifa || 'yoq'}`}>{TOIFA_NOM[b.toifa]}</span>
+                  <span className={`ls-toifa ${b.toifa || 'yoq'}`}>{tr(TOIFA_NOM[b.toifa])}</span>
                 </div>
                 {b.tizim ? (
-                  <span className="ls-qulf" title="Tizim bosqichi — o'zgartirib bo'lmaydi">
+                  <span className="ls-qulf" title={tr("Tizim bosqichi — o'zgartirib bo'lmaydi")}>
                     <Lock />
                   </span>
                 ) : (
                   yozaOladi && (
                     <div className="xy-amallar">
-                      <button type="button" className="bm-ikon" aria-label="Yuqoriga" title="Yuqoriga" disabled={band || i === 0} onClick={() => sur(i, -1)}>
+                      <button type="button" className="bm-ikon" aria-label={tr('Yuqoriga')} title={tr('Yuqoriga')} disabled={band || i === 0} onClick={() => sur(i, -1)}>
                         <ArrowUp />
                       </button>
-                      <button type="button" className="bm-ikon" aria-label="Pastga" title="Pastga" disabled={band || i === bosqichlar.length - 1} onClick={() => sur(i, 1)}>
+                      <button type="button" className="bm-ikon" aria-label={tr('Pastga')} title={tr('Pastga')} disabled={band || i === bosqichlar.length - 1} onClick={() => sur(i, 1)}>
                         <ArrowDown />
                       </button>
-                      <button type="button" className="bm-ikon" aria-label={`${b.nom} — tahrirlash`} title="Tahrirlash" disabled={band} onClick={() => setOyna({ tur: 'forma', b })}>
+                      <button type="button" className="bm-ikon" aria-label={tr('{nom} — tahrirlash', { nom: b.nom })} title={tr('Tahrirlash')} disabled={band} onClick={() => setOyna({ tur: 'forma', b })}>
                         <Pencil />
                       </button>
-                      <button type="button" className="bm-ikon xavf" aria-label={`${b.nom} — o'chirish`} title="O'chirish" disabled={band} onClick={() => setOyna({ tur: 'ochir', b })}>
+                      <button type="button" className="bm-ikon xavf" aria-label={tr("{nom} — o'chirish", { nom: b.nom })} title={tr("O'chirish")} disabled={band} onClick={() => setOyna({ tur: 'ochir', b })}>
                         <Trash2 />
                       </button>
                     </div>
@@ -323,7 +356,7 @@ export function LidSifatiBosqichlari() {
           </ol>
           {bosqichlar.length > 0 && !bosqichlar.some((b) => b.toifa === 'sifatli') && (
             <div className="ls-ogoh">
-              <TriangleAlert /> Sifatli bosqich yo'q — AI hech bir lidni «issiq» yoki «iliq» deb belgilamaydi.
+              <TriangleAlert /> {tr("Sifatli bosqich yo'q — AI hech bir lidni «issiq» yoki «iliq» deb belgilamaydi.")}
             </div>
           )}
         </section>
@@ -332,7 +365,7 @@ export function LidSifatiBosqichlari() {
       {oyna?.tur === 'forma' && (
         <BosqichOynasi
           b={oyna.b}
-          boshqaNomlar={royxat.filter((x) => x.id !== oyna.b?.id).map((x) => x.nom)}
+          boshqaNomlar={royxat.filter((x) => x.id !== oyna.b?.id).map((x) => (x.tizim ? tr(x.nom) : x.nom))}
           band={band}
           onYop={() => setOyna(null)}
           onSaqla={async (yangi) => {
@@ -340,32 +373,42 @@ export function LidSifatiBosqichlari() {
             const ok = await nashr(
               'bosqichli',
               bs,
-              oyna.b ? `Lid sifati bosqichi tahrirlandi: ${yangi.nom}` : `Lid sifati bosqichi qo'shildi: ${yangi.nom}`,
-              oyna.b ? 'Saqlandi — yangi versiya faollashtirildi' : `«${yangi.nom}» qo'shildi`,
+              oyna.b
+                ? tr('Lid sifati bosqichi tahrirlandi: {nom}', { nom: yangi.nom })
+                : tr("Lid sifati bosqichi qo'shildi: {nom}", { nom: yangi.nom }),
+              oyna.b ? tr('Saqlandi — yangi versiya faollashtirildi') : tr("«{nom}» qo'shildi", { nom: yangi.nom }),
             );
             if (ok) setOyna(null);
           }}
         />
       )}
       {oyna?.tur === 'ochir' && (
-        <Modal sarlavha="O'chirmoqchimisiz?" onYop={() => setOyna(null)}>
+        <Modal sarlavha={tr("O'chirmoqchimisiz?")} onYop={() => setOyna(null)}>
           <p className="xy-tasdiq-matn">
-            <b>«{oyna.b.nom}»</b> bosqichi o'chiriladi. Yangi qo'ng'iroqlarda AI bu bosqichni tanlamaydi; o'tgan baholar o'zgarmaydi.
+            {joyla(
+              tr("{nom} bosqichi o'chiriladi. Yangi qo'ng'iroqlarda AI bu bosqichni tanlamaydi; o'tgan baholar o'zgarmaydi."),
+              { nom: <b>«{oyna.b.nom}»</b> },
+            )}
           </p>
           <div className="vr-oyna-past">
             <button type="button" className="btn ikkinchi" onClick={() => setOyna(null)} disabled={band} autoFocus>
-              Bekor qilish
+              {tr('Bekor qilish')}
             </button>
             <button
               type="button"
               className="btn xy-ochir"
               disabled={band}
               onClick={async () => {
-                const ok = await nashr('bosqichli', bosqichlar.filter((x) => x.id !== oyna.b.id), `Lid sifati bosqichi o'chirildi: ${oyna.b.nom}`, `«${oyna.b.nom}» o'chirildi`);
+                const ok = await nashr(
+                  'bosqichli',
+                  bosqichlar.filter((x) => x.id !== oyna.b.id),
+                  tr("Lid sifati bosqichi o'chirildi: {nom}", { nom: oyna.b.nom }),
+                  tr("«{nom}» o'chirildi", { nom: oyna.b.nom }),
+                );
                 if (ok) setOyna(null);
               }}
             >
-              {band ? "O'chirilmoqda…" : "O'chirish"}
+              {band ? tr("O'chirilmoqda…") : tr("O'chirish")}
             </button>
           </div>
         </Modal>
@@ -377,6 +420,7 @@ export function LidSifatiBosqichlari() {
 // ─── Modal asosi ────────────────────────────────────────────────────────────
 
 function Modal({ children, onYop, sarlavha, keng, onSubmit }: { children: ReactNode; onYop: () => void; sarlavha: string; keng?: boolean; onSubmit?: (e: FormEvent) => void }) {
+  const t = useT();
   useEffect(() => {
     const f = (e: KeyboardEvent) => e.key === 'Escape' && onYop();
     window.addEventListener('keydown', f);
@@ -389,7 +433,7 @@ function Modal({ children, onYop, sarlavha, keng, onSubmit }: { children: ReactN
         <div className="vr-oyna-bosh">
           <h3 id="ls-oyna-nom">{sarlavha}</h3>
           {keng && (
-            <button type="button" className="mj-yop" onClick={onYop} aria-label="Yopish">
+            <button type="button" className="mj-yop" onClick={onYop} aria-label={t('Yopish')}>
               <X />
             </button>
           )}
@@ -402,6 +446,7 @@ function Modal({ children, onYop, sarlavha, keng, onSubmit }: { children: ReactN
 }
 
 function BosqichOynasi({ b, boshqaNomlar, band, onYop, onSaqla }: { b: Bosqich | null; boshqaNomlar: string[]; band: boolean; onYop: () => void; onSaqla: (b: Bosqich) => void }) {
+  const t = useT();
   const [nom, setNom] = useState(b?.nom ?? '');
   const [toifa, setToifa] = useState<Toifa>(b?.toifa ?? '');
   const [shart, setShart] = useState(b?.shart ?? '');
@@ -410,18 +455,18 @@ function BosqichOynasi({ b, boshqaNomlar, band, onYop, onSaqla }: { b: Bosqich |
   const n = nom.trim();
   const xato =
     n.length < 2
-      ? 'Bosqich nomi kamida 2 belgi'
+      ? t('Bosqich nomi kamida 2 belgi')
       : boshqaNomlar.some((x) => x.toLowerCase() === n.toLowerCase())
-        ? 'Bunday bosqich allaqachon bor'
+        ? t('Bunday bosqich allaqachon bor')
         : !toifa
-          ? 'Lid toifasini tanlang — AI bosqichni sifatli yoki sifatsiz deb bilishi kerak'
+          ? t('Lid toifasini tanlang — AI bosqichni sifatli yoki sifatsiz deb bilishi kerak')
           : shart.trim().length < 10
-            ? "«Qachon shu bosqich tanlanadi» kamida 10 belgi"
+            ? t('«Qachon shu bosqich tanlanadi» kamida 10 belgi')
             : null;
 
   return (
     <Modal
-      sarlavha={b ? 'Lid sifati bosqichini tahrirlash' : "Lid sifati bosqichini qo'shish"}
+      sarlavha={b ? t('Lid sifati bosqichini tahrirlash') : t("Lid sifati bosqichini qo'shish")}
       keng
       onYop={onYop}
       onSubmit={(e) => {
@@ -432,19 +477,19 @@ function BosqichOynasi({ b, boshqaNomlar, band, onYop, onSaqla }: { b: Bosqich |
     >
       <div className="qo-forma">
         <div className="maydon-blok">
-          <label htmlFor="ls-nom">Bosqich nomi</label>
-          <input id="ls-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Masalan: Ehtiyoj aniq" maxLength={60} autoFocus aria-invalid={urindi && n.length < 2} />
+          <label htmlFor="ls-nom">{t('Bosqich nomi')}</label>
+          <input id="ls-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder={t('Masalan: Ehtiyoj aniq')} maxLength={60} autoFocus aria-invalid={urindi && n.length < 2} />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="ls-toifa">Lid toifasi</label>
+          <label htmlFor="ls-toifa">{t('Lid toifasi')}</label>
           <TanlovMenyu
             id="ls-toifa"
-            aria="Lid toifasi"
+            aria={t('Lid toifasi')}
             qiymat={toifa}
             variantlar={[
-              { qiymat: '', nom: 'Toifa tanlanmagan' },
-              { qiymat: 'sifatli', nom: 'Sifatli' },
-              { qiymat: 'sifatsiz', nom: 'Sifatsiz' },
+              { qiymat: '', nom: t('Toifa tanlanmagan') },
+              { qiymat: 'sifatli', nom: t('Sifatli') },
+              { qiymat: 'sifatsiz', nom: t('Sifatsiz') },
             ]}
             onOzgar={(v) => setToifa(v as Toifa)}
             kenglik="100%"
@@ -452,25 +497,27 @@ function BosqichOynasi({ b, boshqaNomlar, band, onYop, onSaqla }: { b: Bosqich |
         </div>
       </div>
       <div className="maydon-blok">
-        <label htmlFor="ls-shart">Qachon shu bosqich tanlanadi</label>
+        <label htmlFor="ls-shart">{t('Qachon shu bosqich tanlanadi')}</label>
         <textarea
           id="ls-shart"
           rows={4}
           value={shart}
           onChange={(e) => setShart(e.target.value)}
-          placeholder="Masalan: Mijoz taklifga mos aniq ehtiyoj yoki muammoni aytadi."
+          placeholder={t('Masalan: Mijoz taklifga mos aniq ehtiyoj yoki muammoni aytadi.')}
           maxLength={400}
           aria-invalid={urindi && shart.trim().length < 10}
         />
-        <div className="yordam">AI shu shartni o'qib, suhbatga eng mos bosqichni tanlaydi. Har qatorga bitta belgi yozish mumkin.</div>
+        <div className="yordam">
+          {t("AI shu shartni o'qib, suhbatga eng mos bosqichni tanlaydi. Har qatorga bitta belgi yozish mumkin.")}
+        </div>
       </div>
       {urindi && xato && <div className="yordam bzl-xato">{xato}</div>}
       <div className="vr-oyna-past">
         <button type="button" className="btn ikkinchi" onClick={onYop} disabled={band}>
-          Bekor qilish
+          {t('Bekor qilish')}
         </button>
         <button type="submit" className="btn" disabled={band || (urindi && !!xato)}>
-          {band ? 'Saqlanmoqda…' : 'Saqlash'}
+          {band ? t('Saqlanmoqda…') : t('Saqlash')}
         </button>
       </div>
     </Modal>

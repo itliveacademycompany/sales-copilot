@@ -2,6 +2,7 @@ import { RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
+import { useT } from '../i18n';
 import { Muammolar, Ogohlar, SonggiTahlillar } from '../components/bosh/Bolimlar';
 import { Issiqlik } from '../components/bosh/Issiqlik';
 import { BiznesPulsi, SifatKorinishi } from '../components/bosh/Korsatkichlar';
@@ -36,15 +37,16 @@ function boshlangichDavr(): Davr {
 export function Dashboard() {
   const { business, user } = useAuth();
   const navigate = useNavigate();
+  const t = useT();
   const [davr, setDavr] = useState<Davr>(boshlangichDavr);
   const { data, loading, xato } = useBoshMalumot(business, davr);
 
   if (!business) return null;
 
-  const tanla = (t: Exclude<DavrTuri, 'maxsus'>) => {
-    setDavr(davrYasash(t));
+  const tanla = (turi: Exclude<DavrTuri, 'maxsus'>) => {
+    setDavr(davrYasash(turi));
     try {
-      localStorage.setItem(DAVR_KALIT, t);
+      localStorage.setItem(DAVR_KALIT, turi);
     } catch {
       /* e'tiborsiz */
     }
@@ -76,7 +78,7 @@ export function Dashboard() {
           {xato}
           <div style={{ marginTop: 14 }}>
             <button className="btn" onClick={() => setDavr({ ...davr })}>
-              Qayta urinish
+              {t('Qayta urinish')}
             </button>
           </div>
         </div>
@@ -99,8 +101,9 @@ export function Dashboard() {
 
 /** Birinchi yuklanishda bo'limlar shakli — sahifa "sakramasin". */
 function BoshSkelet() {
+  const t = useT();
   return (
-    <div className="bosh-bolimlar" aria-busy="true" aria-label="Yuklanmoqda">
+    <div className="bosh-bolimlar" aria-busy="true" aria-label={t('Yuklanmoqda')}>
       <div className="card skelet" style={{ height: 300 }} />
       <div className="card skelet" style={{ height: 200 }} />
       <div className="card skelet" style={{ height: 240 }} />

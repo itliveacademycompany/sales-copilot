@@ -2,6 +2,7 @@ import { ArrowDownRight, ArrowUpRight, ChevronDown, Info, Minus, Sparkles, Trian
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fmtSoniya, type Kpi } from '../../api';
+import { useT } from '../../i18n';
 import {
   davomiylik,
   davomiylikMatn,
@@ -122,6 +123,7 @@ interface Pasayish {
  */
 export function BiznesPulsi({ data, davr, dinamik = false }: { data: BoshMalumot; davr: Davr; dinamik?: boolean }) {
   const navigate = useNavigate();
+  const t = useT();
   const [ochiq, setOchiq] = useState(false);
   const k = korsatkichlar(data, davr);
   const { c, p } = k;
@@ -132,15 +134,15 @@ export function BiznesPulsi({ data, davr, dinamik = false }: { data: BoshMalumot
 
   const nomzodlar: Pasayish[] = [];
   if (dJavob !== null)
-    nomzodlar.push({ kalit: 'javob', nom: 'Javob berish darajasi', qiymat: `${yaxlit(k.javob)}%`, oldin: `${yaxlit(k.javobOldin)}%`, d: dJavob, chegara: -5, birlik: '' });
+    nomzodlar.push({ kalit: 'javob', nom: t('Javob berish darajasi'), qiymat: `${yaxlit(k.javob)}%`, oldin: `${yaxlit(k.javobOldin)}%`, d: dJavob, chegara: -5, birlik: '' });
   if (dSifat !== null)
-    nomzodlar.push({ kalit: 'sifat', nom: 'Suhbat sifati', qiymat: String(c.avgScore), oldin: String(p.avgScore), d: dSifat, chegara: -3, birlik: '' });
+    nomzodlar.push({ kalit: 'sifat', nom: t('Suhbat sifati'), qiymat: String(c.avgScore), oldin: String(p.avgScore), d: dSifat, chegara: -3, birlik: '' });
   if (dUlush !== null)
-    nomzodlar.push({ kalit: 'ulush', nom: 'Issiq lid ulushi', qiymat: `${yaxlit(k.issiqUlush)}%`, oldin: `${yaxlit(k.issiqUlushOldin)}%`, d: dUlush, chegara: -5, birlik: '' });
+    nomzodlar.push({ kalit: 'ulush', nom: t('Issiq lid ulushi'), qiymat: `${yaxlit(k.issiqUlush)}%`, oldin: `${yaxlit(k.issiqUlushOldin)}%`, d: dUlush, chegara: -5, birlik: '' });
   if (k.lidOldin.hot > 0)
     nomzodlar.push({
       kalit: 'issiq',
-      nom: 'Issiq lidlar',
+      nom: t('Issiq lidlar'),
       qiymat: String(k.lid.hot),
       oldin: String(k.lidOldin.hot),
       d: k.lid.hot - k.lidOldin.hot,
@@ -155,30 +157,50 @@ export function BiznesPulsi({ data, davr, dinamik = false }: { data: BoshMalumot
     : undefined;
 
   const holat: Holat = eng
-    ? { nom: `${eng.nom} pasaydi`, klass: 'etibor' }
+    ? { nom: t('{nom} pasaydi', { nom: eng.nom }), klass: 'etibor' }
     :
     c.conversations === 0
-      ? { nom: 'Ma\'lumot yo\'q', klass: 'yoq' }
+      ? { nom: t("Ma'lumot yo'q"), klass: 'yoq' }
       : (dSifat !== null && dSifat <= -5) || (dJavob !== null && dJavob <= -10)
-        ? { nom: 'E\'tibor talab', klass: 'etibor' }
+        ? { nom: t("E'tibor talab"), klass: 'etibor' }
         : dSifat !== null && dSifat >= 5
-          ? { nom: 'O\'sishda', klass: 'osish' }
-          : { nom: 'Barqaror', klass: 'barqaror' };
+          ? { nom: t("O'sishda"), klass: 'osish' }
+          : { nom: t('Barqaror'), klass: 'barqaror' };
 
   const sifatMatn = c.avgScore === null ? '—' : String(c.avgScore);
   const javobMatn = k.javob === null ? '—' : `${yaxlit(k.javob)}%`;
 
   const xulosa = eng
-    ? `${eng.nom} ${eng.qiymat}, o'tgan davrda ${eng.oldin} edi (${yaxlit(eng.d)}).`
+    ? t("{nom} {qiymat}, o'tgan davrda {oldin} edi ({farq}).", {
+        nom: eng.nom,
+        qiymat: eng.qiymat,
+        oldin: eng.oldin,
+        farq: String(yaxlit(eng.d)),
+      })
     : holat.klass === 'yoq'
-      ? 'Bu davrda suhbat bo\'lmadi — davrni kengaytirib ko\'ring.'
+      ? t("Bu davrda suhbat bo'lmadi — davrni kengaytirib ko'ring.")
       : holat.klass === 'etibor'
         ? dSifat !== null && dSifat <= -5
-          ? `Suhbat sifati ${Math.abs(yaxlit(dSifat)!)} ballga pasaydi: ${p.avgScore} → ${sifatMatn}.`
-          : `Javob berish darajasi ${Math.abs(yaxlit(dJavob)!)} foizga tushdi: hozir ${javobMatn}.`
+          ? t('Suhbat sifati {n} ballga pasaydi: {oldin} → {hozir}.', {
+              n: Math.abs(yaxlit(dSifat)!),
+              oldin: String(p.avgScore),
+              hozir: sifatMatn,
+            })
+          : t('Javob berish darajasi {n} foizga tushdi: hozir {hozir}.', {
+              n: Math.abs(yaxlit(dJavob)!),
+              hozir: javobMatn,
+            })
         : holat.klass === 'osish'
-          ? `Suhbat sifati ${yaxlit(dSifat)} ballga oshdi: ${p.avgScore} → ${sifatMatn}.`
-          : `Keskin o'zgarish yo'q: issiq lidlar ${k.lid.hot}, javob darajasi ${javobMatn}, sifat ${sifatMatn}.`;
+          ? t('Suhbat sifati {n} ballga oshdi: {oldin} → {hozir}.', {
+              n: String(yaxlit(dSifat)),
+              oldin: String(p.avgScore),
+              hozir: sifatMatn,
+            })
+          : t("Keskin o'zgarish yo'q: issiq lidlar {issiq}, javob darajasi {javob}, sifat {sifat}.", {
+              issiq: k.lid.hot,
+              javob: javobMatn,
+              sifat: sifatMatn,
+            });
 
   const zaif = [...data.criteria]
     .filter((m) => m.scored > 0 && m.avgPct !== null)
@@ -186,25 +208,30 @@ export function BiznesPulsi({ data, davr, dinamik = false }: { data: BoshMalumot
   // Pasaygan ko'rsatkichga mos aniq qadam va tegishli bo'limga yo'l
   const engTavsiya: Record<Pasayish['kalit'], { matn: string; tugma: string; yol: string }> = {
     javob: {
-      matn: `Javobsiz qolgan mijozlarni tekshiring: ${c.unansweredSessions} ta sessiyada xabar javobsiz qolgan.`,
-      tugma: 'Ogohlantirishlar',
+      matn: t('Javobsiz qolgan mijozlarni tekshiring: {n} ta sessiyada xabar javobsiz qolgan.', {
+        n: c.unansweredSessions,
+      }),
+      tugma: t('Ogohlantirishlar'),
       yol: '/ogohlantirishlar',
     },
     sifat: {
       matn: zaif
-        ? `Eng zaif bosqich — «${zaif.name}» (${Math.round(zaif.avgPct!)}%). Shu bosqichni jamoa bilan mashq qiling.`
-        : 'Sifat pasaygan suhbatlarni ko\'rib chiqing — qaysi bosqich tushib ketganini aniqlang.',
-      tugma: 'Suhbatlar',
+        ? t('Eng zaif bosqich — «{nom}» ({foiz}%). Shu bosqichni jamoa bilan mashq qiling.', {
+            nom: zaif.name,
+            foiz: Math.round(zaif.avgPct!),
+          })
+        : t("Sifat pasaygan suhbatlarni ko'rib chiqing — qaysi bosqich tushib ketganini aniqlang."),
+      tugma: t('Suhbatlar'),
       yol: '/suhbatlar',
     },
     ulush: {
-      matn: 'Iliq lidlarga qayta aloqa rejalashtiring — issiq lidlar ulushi kamaymoqda.',
-      tugma: 'Lid xulosalari',
+      matn: t('Iliq lidlarga qayta aloqa rejalashtiring — issiq lidlar ulushi kamaymoqda.'),
+      tugma: t('Lid xulosalari'),
       yol: '/lidlar',
     },
     issiq: {
-      matn: 'Issiq lidlar kamaydi — iliq lidlarni qayta faollashtirish va javob tezligini tekshiring.',
-      tugma: 'Lid xulosalari',
+      matn: t('Issiq lidlar kamaydi — iliq lidlarni qayta faollashtirish va javob tezligini tekshiring.'),
+      tugma: t('Lid xulosalari'),
       yol: '/lidlar',
     },
   };
@@ -212,63 +239,72 @@ export function BiznesPulsi({ data, davr, dinamik = false }: { data: BoshMalumot
   const tavsiya = eng
     ? engTavsiya[eng.kalit].matn
     : c.unansweredSessions > 0
-      ? `Javobsiz qolgan ${c.unansweredSessions} ta mijozga bugun qayta yozing — bular eng tez qaytadigan lidlar.`
+      ? t('Javobsiz qolgan {n} ta mijozga bugun qayta yozing — bular eng tez qaytadigan lidlar.', {
+          n: c.unansweredSessions,
+        })
       : zaif && (zaif.avgPct ?? 100) < 70
-        ? `O'sish uchun bitta mezonni tanlang — «${zaif.name}» hozir ${Math.round(zaif.avgPct!)}%.`
-        : 'Ko\'rsatkichlar yaxshi — eng kuchli suhbatlarni jamoa bilan namuna sifatida ko\'rib chiqing.';
+        ? t("O'sish uchun bitta mezonni tanlang — «{nom}» hozir {foiz}%.", {
+            nom: zaif.name,
+            foiz: Math.round(zaif.avgPct!),
+          })
+        : t("Ko'rsatkichlar yaxshi — eng kuchli suhbatlarni jamoa bilan namuna sifatida ko'rib chiqing.");
 
   const qatorlar: { nom: string; izoh: string; qiymat: string; oldin: string; d: ReactNode }[] = [
     {
-      nom: 'Issiq lidlar',
-      izoh: 'AI "issiq" deb baholagan mijozlar soni — sotuvga eng yaqin suhbatlar.',
+      nom: t('Issiq lidlar'),
+      izoh: t('AI "issiq" deb baholagan mijozlar soni — sotuvga eng yaqin suhbatlar.'),
       qiymat: String(k.lid.hot),
-      oldin: `odatda ${k.lidOldin.hot}`,
+      oldin: t('odatda {n}', { n: k.lidOldin.hot }),
       d: <Farq d={k.lid.hot - k.lidOldin.hot} aniqlik={0} />,
     },
     {
-      nom: 'Issiq lid ulushi',
-      izoh: 'Tahlil qilingan suhbatlarning qancha qismi issiq lid bilan yakunlangan.',
+      nom: t('Issiq lid ulushi'),
+      izoh: t('Tahlil qilingan suhbatlarning qancha qismi issiq lid bilan yakunlangan.'),
       qiymat: k.issiqUlush === null ? '—' : `${k.issiqUlush.toFixed(2)}%`,
-      oldin: `o'tgan davr ${k.issiqUlushOldin === null ? '—' : `${k.issiqUlushOldin.toFixed(2)}%`}`,
+      oldin: t("o'tgan davr {qiymat}", {
+        qiymat: k.issiqUlushOldin === null ? '—' : `${k.issiqUlushOldin.toFixed(2)}%`,
+      }),
       d: <Farq d={ayir(k.issiqUlush, k.issiqUlushOldin)} />,
     },
     {
-      nom: 'Suhbat sifati',
-      izoh: 'Baholash mezonlari bo\'yicha o\'rtacha ball (0–100). Har ball isbot bilan.',
+      nom: t('Suhbat sifati'),
+      izoh: t("Baholash mezonlari bo'yicha o'rtacha ball (0–100). Har ball isbot bilan."),
       qiymat: sifatMatn,
-      oldin: `o'tgan davr ${p.avgScore ?? '—'}`,
+      oldin: t("o'tgan davr {qiymat}", { qiymat: String(p.avgScore ?? '—') }),
       d: <Farq d={dSifat} />,
     },
     {
-      nom: 'Javob berish darajasi',
-      izoh: 'Mijoz xabari javobsiz qolmagan sessiyalar ulushi.',
+      nom: t('Javob berish darajasi'),
+      izoh: t('Mijoz xabari javobsiz qolmagan sessiyalar ulushi.'),
       qiymat: javobMatn,
-      oldin: `o'tgan davr ${k.javobOldin === null ? '—' : `${yaxlit(k.javobOldin)}%`}`,
+      oldin: t("o'tgan davr {qiymat}", {
+        qiymat: k.javobOldin === null ? '—' : `${yaxlit(k.javobOldin)}%`,
+      }),
       d: <Farq d={dJavob} />,
     },
   ];
 
   const hammasi: { nom: string; c: string; p: string; d: number | null; teskari?: boolean }[] = [
-    { nom: 'Suhbatlar', c: String(c.conversations), p: String(p.conversations), d: c.conversations - p.conversations },
-    { nom: 'Tahlil qilingan', c: String(c.analyzed), p: String(p.analyzed), d: c.analyzed - p.analyzed },
-    { nom: 'Filtrlangan', c: String(c.filtered), p: String(p.filtered), d: c.filtered - p.filtered, teskari: true },
-    { nom: 'Bayroqlangan', c: String(c.flagged), p: String(p.flagged), d: c.flagged - p.flagged, teskari: true },
+    { nom: t('Suhbatlar'), c: String(c.conversations), p: String(p.conversations), d: c.conversations - p.conversations },
+    { nom: t('Tahlil qilingan'), c: String(c.analyzed), p: String(p.analyzed), d: c.analyzed - p.analyzed },
+    { nom: t('Filtrlangan'), c: String(c.filtered), p: String(p.filtered), d: c.filtered - p.filtered, teskari: true },
+    { nom: t('Bayroqlangan'), c: String(c.flagged), p: String(p.flagged), d: c.flagged - p.flagged, teskari: true },
     {
-      nom: 'Birinchi javob (median)',
+      nom: t('Birinchi javob (median)'),
       c: fmtSoniya(c.medianFirstResponseSeconds),
       p: fmtSoniya(p.medianFirstResponseSeconds),
       d: ayir(c.medianFirstResponseSeconds, p.medianFirstResponseSeconds),
       teskari: true,
     },
     {
-      nom: 'Javobsiz sessiyalar',
+      nom: t('Javobsiz sessiyalar'),
       c: String(c.unansweredSessions),
       p: String(p.unansweredSessions),
       d: c.unansweredSessions - p.unansweredSessions,
       teskari: true,
     },
     {
-      nom: 'AI xarajat',
+      nom: t('AI xarajat'),
       c: c.aiCostUsd === null ? '—' : `$${c.aiCostUsd.toFixed(2)}`,
       p: p.aiCostUsd === null ? '—' : `$${p.aiCostUsd.toFixed(2)}`,
       d: ayir(c.aiCostUsd, p.aiCostUsd),
@@ -282,7 +318,7 @@ export function BiznesPulsi({ data, davr, dinamik = false }: { data: BoshMalumot
         <div className="puls-chap">
           <div className="puls-bosh">
             <span className="puls-yorliq" id="puls-sarlavha">
-              <Sparkles /> Biznes pulsi
+              <Sparkles /> {t('Biznes pulsi')}
             </span>
             <span className={`puls-holat ${holat.klass}`}>
               {eng && <TriangleAlert />}
@@ -298,36 +334,36 @@ export function BiznesPulsi({ data, davr, dinamik = false }: { data: BoshMalumot
                   {eng.qiymat} <Farq d={eng.d} />
                 </div>
                 <div className="puls-raqam-izoh">
-                  {eng.nom} · o'tgan davr {eng.oldin}
+                  {eng.nom} · {t("o'tgan davr {qiymat}", { qiymat: eng.oldin })}
                 </div>
               </div>
             ) : (
               <div>
                 <div className="puls-raqam">{k.lid.hot}</div>
                 <div className="puls-raqam-izoh">
-                  Issiq lidlar · odatda {k.lidOldin.hot}
+                  {t('Issiq lidlar')} · {t('odatda {n}', { n: k.lidOldin.hot })}
                 </div>
               </div>
             )}
             <div className="puls-grafik">
               {eng?.kalit === 'sifat' ? (
                 <Sparkline
-                  qiymatlar={data.trend.map((t) => t.avgScore)}
+                  qiymatlar={data.trend.map((n) => n.avgScore)}
                   kenglik={300}
                   balandlik={70}
                   rang="var(--past)"
-                  nom="Kunlik o'rtacha ball"
+                  nom={t("Kunlik o'rtacha ball")}
                 />
               ) : (
                 <Sparkline
-                  qiymatlar={data.trend.map((t) => t.conversations)}
+                  qiymatlar={data.trend.map((n) => n.conversations)}
                   kenglik={300}
                   balandlik={70}
                   rang={eng ? 'var(--past)' : 'var(--ia)'}
-                  nom="Kunlik suhbatlar soni"
+                  nom={t('Kunlik suhbatlar soni')}
                 />
               )}
-              <span className="puls-grafik-izoh">{eng?.kalit === 'sifat' ? 'Kunlik o\'rtacha ball' : 'Kunlik suhbatlar'}</span>
+              <span className="puls-grafik-izoh">{eng?.kalit === 'sifat' ? t("Kunlik o'rtacha ball") : t('Kunlik suhbatlar')}</span>
             </div>
           </div>
 
@@ -341,7 +377,7 @@ export function BiznesPulsi({ data, davr, dinamik = false }: { data: BoshMalumot
             ) : (
               !dinamik && (
                 <button className="btn" onClick={() => navigate('/analitika')}>
-                  Umumiy ko'rinish
+                  {t("Umumiy ko'rinish")}
                 </button>
               )
             )}
@@ -371,7 +407,7 @@ export function BiznesPulsi({ data, davr, dinamik = false }: { data: BoshMalumot
         onClick={() => setOchiq((v) => !v)}
         aria-expanded={ochiq}
       >
-        <ChevronDown /> Barcha raqamlar
+        <ChevronDown /> {t('Barcha raqamlar')}
       </button>
       {ochiq && (
         <div className="puls-jadval">
@@ -381,7 +417,7 @@ export function BiznesPulsi({ data, davr, dinamik = false }: { data: BoshMalumot
               <span className="qiymat">
                 {h.c} <Farq d={h.d} teskari={h.teskari} />
               </span>
-              <span className="oldin">o'tgan davr: {h.p}</span>
+              <span className="oldin">{t("o'tgan davr: {qiymat}", { qiymat: h.p })}</span>
             </div>
           ))}
         </div>
@@ -393,6 +429,7 @@ export function BiznesPulsi({ data, davr, dinamik = false }: { data: BoshMalumot
 // ─── SIFAT KO'RINISHI ───────────────────────────────────────────────────────
 
 export function SifatKorinishi({ data, davr }: { data: BoshMalumot; davr: Davr }) {
+  const t = useT();
   const k = korsatkichlar(data, davr);
   const { c, p } = k;
   const kunlar = Math.max(1, Math.round((davr.to.getTime() - davr.from.getTime()) / 86400_000));
@@ -400,30 +437,30 @@ export function SifatKorinishi({ data, davr }: { data: BoshMalumot; davr: Davr }
   const plitkalar: { qiymat: string; nom: string; izoh: string; d?: ReactNode; rang?: string }[] = [
     {
       qiymat: String(c.analyzed),
-      nom: 'Tahlil qilingan',
-      izoh: 'Davrda AI baholagan suhbatlar soni.',
+      nom: t('Tahlil qilingan'),
+      izoh: t('Davrda AI baholagan suhbatlar soni.'),
     },
     {
       qiymat: c.avgScore === null ? '—' : String(c.avgScore),
-      nom: 'O\'rtacha suhbat sifati',
-      izoh: 'Barcha baholangan suhbatlarning o\'rtacha bali.',
+      nom: t("O'rtacha suhbat sifati"),
+      izoh: t("Barcha baholangan suhbatlarning o'rtacha bali."),
       d: <Farq d={ayir(c.avgScore, p.avgScore)} />,
     },
     {
       qiymat: k.lidSifati === null ? '—' : `${Math.round(k.lidSifati)}%`,
-      nom: 'Lid sifati',
-      izoh: 'Lid sifati baholangan suhbatlarning issiq yoki iliq ulushi.',
+      nom: t('Lid sifati'),
+      izoh: t('Lid sifati baholangan suhbatlarning issiq yoki iliq ulushi.'),
     },
     {
       qiymat: String(c.unansweredSessions),
-      nom: 'Javobsiz',
-      izoh: 'Mijoz yozgan, lekin javob olmagan sessiyalar.',
+      nom: t('Javobsiz'),
+      izoh: t('Mijoz yozgan, lekin javob olmagan sessiyalar.'),
       rang: c.unansweredSessions > 0 ? 'var(--past)' : undefined,
     },
     {
       qiymat: davomiylikMatn(k.ortDavom),
-      nom: 'O\'rt. davomiylik',
-      izoh: 'Sessiyaning birinchi va oxirgi xabari orasidagi o\'rtacha vaqt.',
+      nom: t("O'rt. davomiylik"),
+      izoh: t("Sessiyaning birinchi va oxirgi xabari orasidagi o'rtacha vaqt."),
     },
   ];
 
@@ -431,21 +468,21 @@ export function SifatKorinishi({ data, davr }: { data: BoshMalumot; davr: Davr }
     <section className="card sifat" aria-labelledby="sifat-sarlavha">
       <div className="karta-bosh">
         <h2 id="sifat-sarlavha">
-          Sifat ko'rinishi <MalumotIkon matn="Tanlangan davrdagi suhbatlar sifati va lidlar holati" />
+          {t("Sifat ko'rinishi")} <MalumotIkon matn={t('Tanlangan davrdagi suhbatlar sifati va lidlar holati')} />
         </h2>
         <span className="mono-izoh">
-          {sanaOraliq(davr)} · {kunlar} kun
+          {sanaOraliq(davr)} · {t('{n} kun', { n: kunlar })}
         </span>
       </div>
 
       <div className="sifat-plitkalar">
-        {plitkalar.map((t) => (
-          <div className="sifat-plitka" key={t.nom}>
-            <div className="sifat-qiymat" style={t.rang ? { color: t.rang } : undefined}>
-              {t.qiymat} {t.d}
+        {plitkalar.map((pl) => (
+          <div className="sifat-plitka" key={pl.nom}>
+            <div className="sifat-qiymat" style={pl.rang ? { color: pl.rang } : undefined}>
+              {pl.qiymat} {pl.d}
             </div>
             <div className="sifat-nom">
-              {t.nom} <MalumotIkon matn={t.izoh} />
+              {pl.nom} <MalumotIkon matn={pl.izoh} />
             </div>
           </div>
         ))}
@@ -453,23 +490,23 @@ export function SifatKorinishi({ data, davr }: { data: BoshMalumot; davr: Davr }
 
       <div className="jamoa-ortacha">
         <div>
-          <div className="jamoa-yorliq">Jamoa o'rtachasi</div>
+          <div className="jamoa-yorliq">{t("Jamoa o'rtachasi")}</div>
           <div className="jamoa-qiymat">
             {c.avgScore === null ? '—' : `${c.avgScore.toFixed(2)}%`} <Farq d={ayir(c.avgScore, p.avgScore)} birlik="%" />
           </div>
           <div className="jamoa-izoh">
-            Og'irlikda hisoblangan · {c.conversations} suhbat · {data.board.length} menejer
+            {t("Og'irlikda hisoblangan · {n} suhbat · {m} menejer", { n: c.conversations, m: data.board.length })}
           </div>
         </div>
         <div className="jamoa-grafik">
           <Sparkline
-            qiymatlar={data.trend.map((t) => t.avgScore)}
+            qiymatlar={data.trend.map((n) => n.avgScore)}
             kenglik={180}
             balandlik={46}
             rang="var(--info)"
-            nom="Kunlik o'rtacha ball"
+            nom={t("Kunlik o'rtacha ball")}
           />
-          <span className="mono-izoh">{kunlar} kun · kunlik o'rtacha</span>
+          <span className="mono-izoh">{t("{n} kun · kunlik o'rtacha", { n: kunlar })}</span>
         </div>
       </div>
     </section>

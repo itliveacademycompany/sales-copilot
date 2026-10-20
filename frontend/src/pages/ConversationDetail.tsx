@@ -35,6 +35,7 @@ import { davomiylik, davomiylikMatn } from '../components/bosh/malumot';
 import { TepaPanel } from '../components/bosh/TepaPanel';
 import { useAuth } from '../auth';
 import { savolMatni } from '../components/anketa/savolMatni';
+import { joyla, tarjima, useT } from '../i18n';
 
 /**
  * TZ 8.3 dagi "eng muhim ekran": chapda transkript, o'ngda to'liq kontekst.
@@ -88,6 +89,7 @@ function EtirozHal({
   businessId: string;
   onTugadi: () => void;
 }) {
+  const t = useT();
   const [rejim, setRejim] = useState<'yopiq' | 'qabul' | 'rad'>('yopiq');
   const [ball, setBall] = useState(maxScore);
   const [iqtibos, setIqtibos] = useState('');
@@ -108,7 +110,7 @@ function EtirozHal({
       });
       onTugadi();
     } catch (e) {
-      setXato(e instanceof ApiError ? e.message : 'Saqlanmadi');
+      setXato(e instanceof ApiError ? e.message : t('Saqlanmadi'));
     } finally {
       setBand(false);
     }
@@ -118,10 +120,10 @@ function EtirozHal({
     return (
       <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
         <button className="btn kichik" onClick={() => setRejim('qabul')}>
-          Qabul qilish
+          {t('Qabul qilish')}
         </button>
         <button className="btn ikkinchi kichik" onClick={() => setRejim('rad')}>
-          Rad etish
+          {t('Rad etish')}
         </button>
       </div>
     );
@@ -132,7 +134,7 @@ function EtirozHal({
       {rejim === 'qabul' ? (
         <>
           <div className="maydon-blok">
-            <label htmlFor={`ball-${appeal.id}`}>Yangi ball</label>
+            <label htmlFor={`ball-${appeal.id}`}>{t('Yangi ball')}</label>
             <select
               id={`ball-${appeal.id}`}
               value={ball}
@@ -147,30 +149,29 @@ function EtirozHal({
           </div>
           <div className="maydon-blok">
             <label htmlFor={`iqtibos-${appeal.id}`}>
-              Yozishmadan iqtibos {isbotsiz ? '(majburiy)' : '(ixtiyoriy)'}
+              {isbotsiz ? t('Yozishmadan iqtibos (majburiy)') : t('Yozishmadan iqtibos (ixtiyoriy)')}
             </label>
             <textarea
               id={`iqtibos-${appeal.id}`}
               value={iqtibos}
               onChange={(e) => setIqtibos(e.target.value)}
               rows={2}
-              placeholder="Matnni yozishmadan aynan nusxalang"
+              placeholder={t('Matnni yozishmadan aynan nusxalang')}
             />
             <div className="yordam">
-              Iqtibos yozishmada bor-yo'qligi tekshiriladi — ball qo'ygan odam ham
-              isbot keltiradi, xuddi AI kabi.
+              {t("Iqtibos yozishmada bor-yo'qligi tekshiriladi — ball qo'ygan odam ham isbot keltiradi, xuddi AI kabi.")}
             </div>
           </div>
         </>
       ) : (
         <div className="maydon-blok">
-          <label htmlFor={`sabab-${appeal.id}`}>Rad etish sababi</label>
+          <label htmlFor={`sabab-${appeal.id}`}>{t('Rad etish sababi')}</label>
           <textarea
             id={`sabab-${appeal.id}`}
             value={izoh}
             onChange={(e) => setIzoh(e.target.value)}
             rows={2}
-            placeholder="Sotuvchi buni o'qiydi — sababni aniq yozing"
+            placeholder={t("Sotuvchi buni o'qiydi — sababni aniq yozing")}
           />
         </div>
       )}
@@ -181,10 +182,10 @@ function EtirozHal({
           disabled={band || (rejim === 'rad' && izoh.trim().length === 0)}
           onClick={() => void yubor(rejim === 'qabul' ? 'accepted' : 'rejected')}
         >
-          {band ? 'Saqlanmoqda…' : 'Tasdiqlash'}
+          {band ? t('Saqlanmoqda…') : t('Tasdiqlash')}
         </button>
         <button className="btn ikkinchi kichik" onClick={() => setRejim('yopiq')}>
-          Bekor
+          {t('Bekor')}
         </button>
       </div>
     </div>
@@ -197,7 +198,7 @@ const OYLAR = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgu
 /** "25 Iyun 2026, 11:26" */
 function toliqSana(iso: string): string {
   const d = new Date(iso);
-  return `${d.getDate()} ${OYLAR[d.getMonth()]} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${tarjima(`{kun} ${OYLAR[d.getMonth()]}`, { kun: d.getDate() })} ${d.getFullYear()}, ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
 const SOHA_NOMI: Record<string, string> = {
@@ -232,6 +233,7 @@ export function ConversationDetail() {
   const { id } = useParams<{ id: string }>();
   const { business, user } = useAuth();
   const navigate = useNavigate();
+  const tr = useT();
   const [params, setParams] = useSearchParams();
   const [d, setD] = useState<Detail | null>(null);
   const [yuklashXato, setYuklashXato] = useState(false);
@@ -426,8 +428,8 @@ export function ConversationDetail() {
         type="button"
         className="sd-orqaga"
         onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/qongiroqlar'))}
-        aria-label="Orqaga"
-        title="Orqaga"
+        aria-label={tr('Orqaga')}
+        title={tr('Orqaga')}
       >
         <ArrowLeft />
       </button>
@@ -446,9 +448,9 @@ export function ConversationDetail() {
       <div className="sd-sahifa">
         {tepa}
         <div className="card hech-narsa">
-          Suhbatni yuklab bo'lmadi.{' '}
+          {tr("Suhbatni yuklab bo'lmadi.")}{' '}
           <button type="button" className="btn ikkinchi kichik" onClick={load}>
-            Qayta urinish
+            {tr('Qayta urinish')}
           </button>
         </div>
       </div>
@@ -467,7 +469,7 @@ export function ConversationDetail() {
   const score = a?.overallScore === null || !a ? null : Number(a.overallScore);
   const coaching = a?.managerNote;
   const metrics = a?.dynamics?.replyMetrics;
-  const compliance = a?.compliance ? MUVOFIQLIK_NOMI[a.compliance] : null;
+  const compliance = a?.compliance && MUVOFIQLIK_NOMI[a.compliance] ? MUVOFIQLIK_NOMI[a.compliance]! : null;
   const ovozli = !!c.mediaUrl || c.channel === 'phone';
   const davom = c.durationSeconds ?? davomiylik(c);
   const mijozTel = c.direction === 'outbound' ? c.phoneTo : c.phoneFrom;
@@ -477,12 +479,12 @@ export function ConversationDetail() {
   const bahoKlass = ballKlass(score);
   // Muddati o'tgan va'dani "aniq kelishilgan" deb ko'rsatish chalg'itadi
   const keyingiHolat = !keyingi
-    ? { nom: 'Keyingi qadam kelishilmagan', klass: 'ogoh' }
+    ? { nom: tr('Keyingi qadam kelishilmagan'), klass: 'ogoh' }
     : keyingi.status === 'missed'
-      ? { nom: "Kelishilgan qadam muddati o'tgan", klass: 'xavf' }
+      ? { nom: tr("Kelishilgan qadam muddati o'tgan"), klass: 'xavf' }
       : keyingi.status === 'done'
-        ? { nom: 'Kelishilgan qadam bajarildi', klass: 'yaxshi' }
-        : { nom: 'Keyingi qadam aniq kelishilgan', klass: 'neytral' };
+        ? { nom: tr('Kelishilgan qadam bajarildi'), klass: 'yaxshi' }
+        : { nom: tr('Keyingi qadam aniq kelishilgan'), klass: 'neytral' };
   const mijozIsm = a?.clientExtracted?.name ?? d.contact?.name ?? null;
   const mijozKomp = a?.clientExtracted?.company ?? d.contact?.company ?? null;
   const mijozLav = a?.clientExtracted?.role ?? d.contact?.role ?? null;
@@ -512,7 +514,7 @@ export function ConversationDetail() {
       setEtirozSabab('');
       load();
     } catch (e) {
-      setXato(e instanceof ApiError ? e.message : 'E\'tiroz yuborilmadi');
+      setXato(e instanceof ApiError ? e.message : tr("E'tiroz yuborilmadi"));
     } finally {
       setBand(false);
     }
@@ -530,7 +532,7 @@ export function ConversationDetail() {
       setYangiIzoh('');
       load();
     } catch (e) {
-      setXato(e instanceof ApiError ? e.message : 'Izoh saqlanmadi');
+      setXato(e instanceof ApiError ? e.message : tr('Izoh saqlanmadi'));
     } finally {
       setBand(false);
     }
@@ -555,7 +557,7 @@ export function ConversationDetail() {
     const url = window.location.href.split('?')[0]!;
     try {
       if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
-        await navigator.share({ title: 'Suhbat tahlili', url });
+        await navigator.share({ title: tr('Suhbat tahlili'), url });
         return;
       }
       await navigator.clipboard.writeText(url);
@@ -587,10 +589,10 @@ export function ConversationDetail() {
 
   const holat =
     c.status === 'done'
-      ? { nom: 'Tahlil qilingan', klass: 'ok' }
+      ? { nom: tr('Tahlil qilingan'), klass: 'ok' }
       : c.status === 'filtered'
-        ? { nom: 'Filtrlangan', klass: 'kul' }
-        : { nom: 'Tahlil kutilmoqda', klass: 'sariq' };
+        ? { nom: tr('Filtrlangan'), klass: 'kul' }
+        : { nom: tr('Tahlil kutilmoqda'), klass: 'sariq' };
 
   return (
     <div className="sd-sahifa">
@@ -600,27 +602,29 @@ export function ConversationDetail() {
       <section className="card sd-bosh">
         <div className="sd-bosh-chap">
           <div className="sd-yorliq-qator">
-            <span className="sd-yorliq">Asosiy xulosa</span>
+            <span className="sd-yorliq">{tr('Asosiy xulosa')}</span>
             {a?.primaryGap ? (
               <span className="sd-holat-chip ogoh">{a.primaryGap}</span>
             ) : a ? (
-              <span className="sd-holat-chip ok">Asosiy kamchilik topilmadi</span>
+              <span className="sd-holat-chip ok">{tr('Asosiy kamchilik topilmadi')}</span>
             ) : null}
             {a?.isFlagged && (
               <span className="sd-holat-chip xavf">
-                <Flag /> {a.flaggedReason ?? "Ko'rik talab qilinadi"}
+                <Flag /> {a.flaggedReason ?? tr("Ko'rik talab qilinadi")}
               </span>
             )}
           </div>
-          <h1 className="sd-sarlavha">Qisqa suhbat xulosasi</h1>
-          <p className="sd-xulosa-matn">{a?.summary ?? c.summary ?? 'Xulosa hali tayyor emas.'}</p>
+          <h1 className="sd-sarlavha">{tr('Qisqa suhbat xulosasi')}</h1>
+          <p className="sd-xulosa-matn">{a?.summary ?? c.summary ?? tr('Xulosa hali tayyor emas.')}</p>
           <div className="sd-chiplar">
             <span className={`sd-chip ${holat.klass}`}>
               <CircleCheck /> {holat.nom}
             </span>
             <span className="sd-chip">{toliqSana(c.startedAt)}</span>
-            {c.direction !== 'na' && <span className="sd-chip">{YONALISH_NOMI[c.direction] ?? c.direction}</span>}
-            <span className="sd-chip">{KANAL_NOMI[c.channel] ?? c.channel}</span>
+            {c.direction !== 'na' && (
+              <span className="sd-chip">{YONALISH_NOMI[c.direction] ? tr(YONALISH_NOMI[c.direction]!) : c.direction}</span>
+            )}
+            <span className="sd-chip">{KANAL_NOMI[c.channel] ? tr(KANAL_NOMI[c.channel]!) : c.channel}</span>
             {c.managerName && <span className="sd-chip">{c.managerName}</span>}
             {davom !== null && (
               <span className="sd-chip">
@@ -633,26 +637,32 @@ export function ConversationDetail() {
         <div className="sd-bosh-ong">
           <div className="sd-amallar">
             <button type="button" className="btn ikkinchi" onClick={() => void ulash()}>
-              {nusxa ? <Check /> : <Share2 />} {nusxa ? 'Nusxalandi' : 'Ulashish'}
+              {nusxa ? <Check /> : <Share2 />} {nusxa ? tr('Nusxalandi') : tr('Ulashish')}
             </button>
             {a && (
               <button type="button" className="btn" onClick={mijozgaOt}>
-                <Link2 /> Lid tafsilotlari
+                <Link2 /> {tr('Lid tafsilotlari')}
               </button>
             )}
           </div>
           <div className="sd-sifat">
-            <span className="sd-yorliq">Suhbat sifati</span>
+            <span className="sd-yorliq">{tr('Suhbat sifati')}</span>
             <div className="sd-sifat-qator">
               <b className="sd-sifat-son">{score === null ? '—' : Math.round(score)}</b>
               <span className="sd-sifat-max">/100</span>
-              {score !== null && <span className={`sd-baho ${bahoKlass}`}>{BAHO_NOMI[bahoKlass]}</span>}
+              {score !== null && (
+                <span className={`sd-baho ${bahoKlass}`}>{BAHO_NOMI[bahoKlass] ? tr(BAHO_NOMI[bahoKlass]!) : ''}</span>
+              )}
             </div>
-            <div className="sd-sifat-chiziq" role="img" aria-label={`Sifat ${score ?? 'yo\'q'} / 100`}>
+            <div
+              className="sd-sifat-chiziq"
+              role="img"
+              aria-label={tr('Sifat {ball} / 100', { ball: score ?? tr("yo'q") })}
+            >
               <span style={{ width: `${score ?? 0}%`, background: ballRang(score) }} />
             </div>
             <button type="button" className="sd-qayta" onClick={() => void reanalyze()} disabled={reanalyzing}>
-              <RotateCw className={reanalyzing ? 'aylanuvchi' : ''} /> {reanalyzing ? "Navbatga qo'yildi…" : 'Qayta tahlil'}
+              <RotateCw className={reanalyzing ? 'aylanuvchi' : ''} /> {reanalyzing ? tr("Navbatga qo'yildi…") : tr('Qayta tahlil')}
             </button>
           </div>
         </div>
@@ -661,12 +671,12 @@ export function ConversationDetail() {
       {c.mediaUrl && <AudioPleyer ref={audioRef} src={c.mediaUrl} kind={c.mediaKind} duration={c.durationSeconds} />}
 
       {/* ─── Tablar ─── */}
-      <nav className="sd-tablar" role="tablist" aria-label="Suhbat bo'limlari">
+      <nav className="sd-tablar" role="tablist" aria-label={tr("Suhbat bo'limlari")}>
         {(
           [
-            ['xulosa', 'Xulosa'],
-            ['mezonlar', `Mezonlar${d.scores.length ? ` (${d.scores.length})` : ''}`],
-            ['transkript', ovozli ? 'Transkript' : 'Yozishma'],
+            ['xulosa', tr('Xulosa')],
+            ['mezonlar', `${tr('Mezonlar')}${d.scores.length ? ` (${d.scores.length})` : ''}`],
+            ['transkript', ovozli ? tr('Transkript') : tr('Yozishma')],
           ] as const
         ).map(([k, nom]) => (
           <button key={k} type="button" role="tab" aria-selected={tab === k} className={`sd-tab${tab === k ? ' faol' : ''}`} onClick={() => tabniOch(k)}>
@@ -683,8 +693,8 @@ export function ConversationDetail() {
               <Hourglass />
             </div>
             {c.status === 'filtered'
-              ? `Tahlil qilinmagan: ${c.excludedReason ?? 'filtrlangan'}`
-              : "Tahlil hali tayyor emas. Sessiya jim bo'lgach avtomatik boshlanadi."}
+              ? tr('Tahlil qilinmagan: {sabab}', { sabab: c.excludedReason ?? tr('filtrlangan') })
+              : tr("Tahlil hali tayyor emas. Sessiya jim bo'lgach avtomatik boshlanadi.")}
           </div>
         ) : (
           <div className="sd-bolim">
@@ -692,7 +702,7 @@ export function ConversationDetail() {
               <div className="sd-ikki">
                 <div>
                   <h2 className="sd-kichik-sarlavha yaxshi">
-                    <CheckCircle2 /> Yaxshi bajarilgan
+                    <CheckCircle2 /> {tr('Yaxshi bajarilgan')}
                   </h2>
                   {coaching?.strengths.length ? (
                     <ul className="sd-nuqtali yaxshi">
@@ -701,12 +711,12 @@ export function ConversationDetail() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="sd-bosh-matn">AI alohida kuchli tomon belgilamagan.</p>
+                    <p className="sd-bosh-matn">{tr('AI alohida kuchli tomon belgilamagan.')}</p>
                   )}
                 </div>
                 <div>
                   <h2 className="sd-kichik-sarlavha yomon">
-                    <AlertTriangle /> Yaxshilash kerak
+                    <AlertTriangle /> {tr('Yaxshilash kerak')}
                   </h2>
                   {coaching?.improvements.length || a.primaryGap ? (
                     <ul className="sd-nuqtali yomon">
@@ -715,7 +725,7 @@ export function ConversationDetail() {
                       ))}
                     </ul>
                   ) : (
-                    <p className="sd-bosh-matn">Yaxshilash kerak bo'lgan joy topilmadi.</p>
+                    <p className="sd-bosh-matn">{tr("Yaxshilash kerak bo'lgan joy topilmadi.")}</p>
                   )}
                 </div>
               </div>
@@ -723,7 +733,7 @@ export function ConversationDetail() {
               {coaching?.betterPhrases.map((p, i) => (
                 <div className="sd-ibora" key={i}>
                   <span className="sd-ibora-bosh">
-                    <MessageSquareQuote /> Tavsiya etilgan ibora
+                    <MessageSquareQuote /> {tr('Tavsiya etilgan ibora')}
                     {p.context && <small> — {p.context}</small>}
                   </span>
                   <p>“{p.suggestion}”</p>
@@ -731,21 +741,21 @@ export function ConversationDetail() {
               ))}
 
               <div className="sd-qatorlar">
-                <Qator nom="Shoshilinchlik darajasi">
+                <Qator nom={tr('Shoshilinchlik darajasi')}>
                   {a.signals?.urgency ? (
                     <span className={`sd-pill ${a.signals.urgency === 'high' ? 'xavf' : a.signals.urgency === 'medium' ? 'ogoh' : 'neytral'}`}>
-                      {SHOSHILINCHLIK_NOMI[a.signals.urgency]}
+                      {SHOSHILINCHLIK_NOMI[a.signals.urgency] ? tr(SHOSHILINCHLIK_NOMI[a.signals.urgency]!) : a.signals.urgency}
                     </span>
                   ) : (
-                    <span className="sd-pill neytral">Aniqlanmadi</span>
+                    <span className="sd-pill neytral">{tr('Aniqlanmadi')}</span>
                   )}
                 </Qator>
-                <Qator nom="Byudjet reaktsiyasi">
+                <Qator nom={tr('Byudjet reaktsiyasi')}>
                   <span className={`sd-pill ${a.signals?.budgetReaction ? 'neytral' : 'ogoh'}`}>
-                    {a.signals?.budgetReaction ?? 'Muhokama qilinmadi'}
+                    {a.signals?.budgetReaction ?? tr('Muhokama qilinmadi')}
                   </span>
                 </Qator>
-                <Qator nom="E'tirozlar">
+                <Qator nom={tr("E'tirozlar")}>
                   {a.signals?.objections?.length ? (
                     <span className="sd-pill-qator">
                       {a.signals.objections.map((o, i) => (
@@ -755,19 +765,19 @@ export function ConversationDetail() {
                       ))}
                     </span>
                   ) : (
-                    <span className="sd-pill neytral">E'tiroz bo'lmadi</span>
+                    <span className="sd-pill neytral">{tr("E'tiroz bo'lmadi")}</span>
                   )}
                 </Qator>
                 {a.deal?.amount ? (
-                  <Qator nom="Bitim">
+                  <Qator nom={tr('Bitim')}>
                     {a.deal.amount.toLocaleString('uz')} {a.deal.currency ?? ''}
                     {a.deal.stage && ` · ${a.deal.stage}`}
                   </Qator>
                 ) : null}
-                <Qator nom="Kelishuvlar: Mijoz">
+                <Qator nom={tr('Kelishuvlar: Mijoz')}>
                   <VadaRoyxat royxat={mijozVada} />
                 </Qator>
-                <Qator nom="Kelishuvlar: Menejer">
+                <Qator nom={tr('Kelishuvlar: Menejer')}>
                   <VadaRoyxat royxat={menejerVada} />
                 </Qator>
               </div>
@@ -779,24 +789,28 @@ export function ConversationDetail() {
               </div>
               <h2 className="sd-keyingi-matn">
                 {keyingi
-                  ? `${keyingi.byParty === 'manager' ? 'Menejer' : 'Mijoz'}: ${keyingi.what}`
-                  : "Suhbat aniq keyingi qadamsiz tugagan — menejer mijoz bilan qayta bog'lanishi kerak."}
+                  ? `${keyingi.byParty === 'manager' ? tr('Menejer') : tr('Mijoz')}: ${keyingi.what}`
+                  : tr("Suhbat aniq keyingi qadamsiz tugagan — menejer mijoz bilan qayta bog'lanishi kerak.")}
               </h2>
-              {keyingi?.deadline && <p className="sd-bosh-matn">Muddat: {fmtSana(keyingi.deadline)}</p>}
+              {keyingi?.deadline && (
+                <p className="sd-bosh-matn">{tr('Muddat: {sana}', { sana: fmtSana(keyingi.deadline) })}</p>
+              )}
             </section>
 
             <section className="card sd-karta" ref={mijozRef}>
-              <h2 className="sd-blok-sarlavha">Mijoz ma'lumotlari</h2>
+              <h2 className="sd-blok-sarlavha">{tr("Mijoz ma'lumotlari")}</h2>
               {mijozBor ? (
                 <div className="sd-qatorlar bir">
-                  {mijozIsm && <Qator nom="Ism">{mijozIsm}</Qator>}
-                  {mijozKomp && <Qator nom="Kompaniya">{mijozKomp}</Qator>}
-                  {mijozLav && <Qator nom="Lavozim">{mijozLav}</Qator>}
-                  {mijozTel && <Qator nom="Telefon">{mijozTel}</Qator>}
-                  {qarorQiluvchi !== null && <Qator nom="Qaror qabul qiluvchi">{qarorQiluvchi ? 'Ha' : "Yo'q"}</Qator>}
+                  {mijozIsm && <Qator nom={tr('Ism')}>{mijozIsm}</Qator>}
+                  {mijozKomp && <Qator nom={tr('Kompaniya')}>{mijozKomp}</Qator>}
+                  {mijozLav && <Qator nom={tr('Lavozim')}>{mijozLav}</Qator>}
+                  {mijozTel && <Qator nom={tr('Telefon')}>{mijozTel}</Qator>}
+                  {qarorQiluvchi !== null && (
+                    <Qator nom={tr('Qaror qabul qiluvchi')}>{qarorQiluvchi ? tr('Ha') : tr("Yo'q")}</Qator>
+                  )}
                 </div>
               ) : (
-                <p className="sd-bosh-matn">Suhbatdan mijoz ismi, kompaniyasi yoki lavozimi aniqlanmadi.</p>
+                <p className="sd-bosh-matn">{tr('Suhbatdan mijoz ismi, kompaniyasi yoki lavozimi aniqlanmadi.')}</p>
               )}
               {a.questionnaireAnswers && a.questionnaireAnswers.length > 0 && (
                 <ul className="sd-savolnoma">
@@ -811,41 +825,58 @@ export function ConversationDetail() {
             </section>
 
             <section className="card sd-karta">
-              <h2 className="sd-blok-sarlavha">{ovozli ? "Qo'ng'iroq konteksti" : 'Suhbat konteksti'}</h2>
+              <h2 className="sd-blok-sarlavha">{ovozli ? tr("Qo'ng'iroq konteksti") : tr('Suhbat konteksti')}</h2>
               <div className="sd-kontekst">
-                <Qator nom={ovozli ? "Qo'ng'iroq ID" : 'Suhbat ID'}>
+                <Qator nom={ovozli ? tr("Qo'ng'iroq ID") : tr('Suhbat ID')}>
                   <span className="sd-id">{c.id}</span>
                 </Qator>
-                <Qator nom="Sana">{toliqSana(c.startedAt)}</Qator>
-                <Qator nom="Davomiylik">{davomiylikMatn(davom)}</Qator>
-                <Qator nom="Yo'nalish">{YONALISH_NOMI[c.direction] ?? '—'}</Qator>
-                <Qator nom="Kanal">{KANAL_NOMI[c.channel] ?? c.channel}</Qator>
-                <Qator nom="Til">{c.language ? c.language.toUpperCase() : '—'}</Qator>
-                <Qator nom="Suhbat dinamikasi">
-                  {nisbat ? `Menejer gapirdi: ${nisbat.menejer}% · Mijoz gapirdi: ${nisbat.mijoz}%` : '—'}
+                <Qator nom={tr('Sana')}>{toliqSana(c.startedAt)}</Qator>
+                <Qator nom={tr('Davomiylik')}>{davomiylikMatn(davom)}</Qator>
+                <Qator nom={tr("Yo'nalish")}>{YONALISH_NOMI[c.direction] ? tr(YONALISH_NOMI[c.direction]!) : '—'}</Qator>
+                <Qator nom={tr('Kanal')}>{KANAL_NOMI[c.channel] ? tr(KANAL_NOMI[c.channel]!) : c.channel}</Qator>
+                <Qator nom={tr('Til')}>{c.language ? c.language.toUpperCase() : '—'}</Qator>
+                <Qator nom={tr('Suhbat dinamikasi')}>
+                  {nisbat
+                    ? tr('Menejer gapirdi: {menejer}% · Mijoz gapirdi: {mijoz}%', {
+                        menejer: nisbat.menejer,
+                        mijoz: nisbat.mijoz,
+                      })
+                    : '—'}
                 </Qator>
-                <Qator nom="Menejer">{c.managerName ?? '—'}</Qator>
-                <Qator nom="Qo'ng'iroq turi">{a.callFamily ? oilaNomi[a.callFamily] ?? a.callFamily : '—'}</Qator>
-                <Qator nom="Biznesga tegishliligi">{a.businessRelevance ? SOHA_NOMI[a.businessRelevance] ?? a.businessRelevance : '—'}</Qator>
-                <Qator nom="Baholash rejimi">{a.scoringMode ? BAHOLASH_REJIMI[a.scoringMode] ?? a.scoringMode : '—'}</Qator>
-                <Qator nom="Xizmat yo'nalishi">{a.serviceLine ?? '—'}</Qator>
-                <Qator nom="Xavf belgisi">
-                  {compliance ? <span className={`sd-pill ${a.compliance === 'ok' ? 'yaxshi' : a.compliance === 'warning' ? 'ogoh' : 'xavf'}`}>{compliance.nom}</span> : '—'}
+                <Qator nom={tr('Menejer')}>{c.managerName ?? '—'}</Qator>
+                <Qator nom={tr("Qo'ng'iroq turi")}>{a.callFamily ? oilaNomi[a.callFamily] ?? a.callFamily : '—'}</Qator>
+                <Qator nom={tr('Biznesga tegishliligi')}>
+                  {a.businessRelevance
+                    ? SOHA_NOMI[a.businessRelevance]
+                      ? tr(SOHA_NOMI[a.businessRelevance]!)
+                      : a.businessRelevance
+                    : '—'}
                 </Qator>
-                <Qator nom="Asosiy kamchilik">{a.primaryGap ?? '—'}</Qator>
+                <Qator nom={tr('Baholash rejimi')}>
+                  {a.scoringMode ? (BAHOLASH_REJIMI[a.scoringMode] ? tr(BAHOLASH_REJIMI[a.scoringMode]!) : a.scoringMode) : '—'}
+                </Qator>
+                <Qator nom={tr("Xizmat yo'nalishi")}>{a.serviceLine ?? '—'}</Qator>
+                <Qator nom={tr('Xavf belgisi')}>
+                  {compliance ? <span className={`sd-pill ${a.compliance === 'ok' ? 'yaxshi' : a.compliance === 'warning' ? 'ogoh' : 'xavf'}`}>{tr(compliance.nom)}</span> : '—'}
+                </Qator>
+                <Qator nom={tr('Asosiy kamchilik')}>{a.primaryGap ?? '—'}</Qator>
                 {metrics && (
                   <>
-                    <Qator nom="Birinchi javob">{fmtSoniya(metrics.firstResponseSeconds)}</Qator>
-                    <Qator nom="Javobsiz murojaat">
+                    <Qator nom={tr('Birinchi javob')}>{fmtSoniya(metrics.firstResponseSeconds)}</Qator>
+                    <Qator nom={tr('Javobsiz murojaat')}>
                       <span style={metrics.unansweredTurns > 0 ? { color: 'var(--past-text)' } : undefined}>
                         {metrics.unansweredTurns} / {metrics.customerTurns}
                       </span>
                     </Qator>
                   </>
                 )}
-                <Qator nom="Ish vaqti">{c.isOffHours ? 'Ish vaqtidan tashqari' : 'Ish vaqtida'}</Qator>
-                <Qator nom="Rollarni aniqlash">
-                  {a.speakerAttributionMethod ? SPEAKER_USUL_NOMI[a.speakerAttributionMethod] ?? a.speakerAttributionMethod : '—'}
+                <Qator nom={tr('Ish vaqti')}>{c.isOffHours ? tr('Ish vaqtidan tashqari') : tr('Ish vaqtida')}</Qator>
+                <Qator nom={tr('Rollarni aniqlash')}>
+                  {a.speakerAttributionMethod
+                    ? SPEAKER_USUL_NOMI[a.speakerAttributionMethod]
+                      ? tr(SPEAKER_USUL_NOMI[a.speakerAttributionMethod]!)
+                      : a.speakerAttributionMethod
+                    : '—'}
                 </Qator>
               </div>
             </section>
@@ -856,20 +887,20 @@ export function ConversationDetail() {
                   <PhoneOff />
                 </span>
                 <div>
-                  <b>Bu mijoz bilan oldingi suhbatlar topilmadi</b>
-                  <p>Oldingi suhbatlar bo'lsa, tahlil ularni kontekst sifatida hisobga oladi.</p>
+                  <b>{tr('Bu mijoz bilan oldingi suhbatlar topilmadi')}</b>
+                  <p>{tr("Oldingi suhbatlar bo'lsa, tahlil ularni kontekst sifatida hisobga oladi.")}</p>
                 </div>
               </section>
             ) : (
               <section className="card sd-karta">
-                <h2 className="sd-blok-sarlavha">Bu mijoz bilan oldingi suhbatlar</h2>
+                <h2 className="sd-blok-sarlavha">{tr('Bu mijoz bilan oldingi suhbatlar')}</h2>
                 {d.previousConversations.map((p) => (
                   <div className="tarix-satr" key={p.id}>
                     <span className={`ball ${ballKlass(p.overallScore === null ? null : Number(p.overallScore))}`} style={{ minWidth: 40, fontSize: 12 }}>
                       {p.overallScore === null ? '—' : `${Math.round(Number(p.overallScore))}%`}
                     </span>
                     <Link to={`/suhbatlar/${p.id}`} className="matn">
-                      {p.summary ?? "Xulosa yo'q"}
+                      {p.summary ?? tr("Xulosa yo'q")}
                     </Link>
                     <span className="sana">{fmtSana(p.startedAt)}</span>
                   </div>
@@ -880,14 +911,16 @@ export function ConversationDetail() {
             {/* Rahbar izohlari (FR-123): AI mezonlar doirasida gapiradi, rahbar kontekst beradi */}
             {(izohQoldiraOladi || umumiyIzohlar.length > 0) && (
               <section className="card sd-karta">
-                <h2 className="sd-blok-sarlavha">Rahbar izohi</h2>
-                {umumiyIzohlar.length === 0 && <p className="sd-bosh-matn">Hali izoh yo'q. AI baholaydi, siz kontekst berasiz.</p>}
+                <h2 className="sd-blok-sarlavha">{tr('Rahbar izohi')}</h2>
+                {umumiyIzohlar.length === 0 && (
+                  <p className="sd-bosh-matn">{tr("Hali izoh yo'q. AI baholaydi, siz kontekst berasiz.")}</p>
+                )}
                 {umumiyIzohlar.map((x) => (
                   <div className="izoh-blok" key={x.id}>
                     <div className="bosh">
-                      <b>{x.authorName ?? 'Rahbar'}</b>
+                      <b>{x.authorName ?? tr('Rahbar')}</b>
                       <span className="vaqt">{fmtSana(x.createdAt)}</span>
-                      {x.seenAt === null && <span className="badge kul">o'qilmagan</span>}
+                      {x.seenAt === null && <span className="badge kul">{tr("o'qilmagan")}</span>}
                     </div>
                     {x.body}
                   </div>
@@ -897,12 +930,14 @@ export function ConversationDetail() {
                     <textarea
                       value={yangiIzoh}
                       onChange={(e) => setYangiIzoh(e.target.value)}
-                      placeholder="Masalan: bu mijoz bilan o'tgan safar ham narx bosqichida to'xtab qolgansiz — keyingi safar qiymatni oldin ayting."
+                      placeholder={tr(
+                        "Masalan: bu mijoz bilan o'tgan safar ham narx bosqichida to'xtab qolgansiz — keyingi safar qiymatni oldin ayting.",
+                      )}
                       rows={3}
                       style={{ width: '100%' }}
                     />
                     <button className="btn kichik" style={{ marginTop: 6 }} disabled={band || yangiIzoh.trim().length < 2} onClick={() => void izohYubor()}>
-                      {band ? 'Saqlanmoqda…' : 'Izoh qoldirish'}
+                      {band ? tr('Saqlanmoqda…') : tr('Izoh qoldirish')}
                     </button>
                   </div>
                 )}
@@ -915,11 +950,13 @@ export function ConversationDetail() {
       {tab === 'mezonlar' && (
         <section className="card sd-karta">
           {categoryRollup.length === 0 ? (
-            <div className="hech-narsa">Bu suhbat mezonlar bo'yicha baholanmagan.</div>
+            <div className="hech-narsa">{tr("Bu suhbat mezonlar bo'yicha baholanmagan.")}</div>
           ) : (
             <>
               <p className="sd-bosh-matn" style={{ marginTop: 0 }}>
-                Isbotga bosing — {ovozli ? 'transkriptdagi' : 'yozishmadagi'} aynan o'sha joy ochiladi.
+                {ovozli
+                  ? tr("Isbotga bosing — transkriptdagi aynan o'sha joy ochiladi.")
+                  : tr("Isbotga bosing — yozishmadagi aynan o'sha joy ochiladi.")}
               </p>
               {categoryRollup.map((cat) => (
                 <div key={cat.code} className="sd-kategoriya">
@@ -949,7 +986,7 @@ export function ConversationDetail() {
                         </span>
                         <span className="nom">{s.criterionName}</span>
                         <span className={`ball ${s.score === null ? 'yoq' : s.score >= 2 ? 'yuqori' : s.score === 1 ? 'orta' : 'past'}`}>
-                          {s.score === null ? 'aniqlanmadi' : `${s.score}/${s.maxScore}`}
+                          {s.score === null ? tr('aniqlanmadi') : `${s.score}/${s.maxScore}`}
                         </span>
                       </div>
                       {s.evidenceQuote && (
@@ -964,7 +1001,7 @@ export function ConversationDetail() {
                               jumpTo(s.evidenceSegmentId, s.evidenceStartSeconds);
                             }
                           }}
-                          title={ovozli ? "Transkriptda ko'rsatish" : "Yozishmada ko'rsatish"}
+                          title={ovozli ? tr("Transkriptda ko'rsatish") : tr("Yozishmada ko'rsatish")}
                         >
                           <span className="vaqt-belgi">
                             {s.evidenceStartSeconds !== null ? (
@@ -984,7 +1021,7 @@ export function ConversationDetail() {
                         .filter((x) => x.criterionCode === s.criterionCode)
                         .map((x) => (
                           <div className="izoh-blok" key={x.id}>
-                            <b>{x.authorName ?? 'Rahbar'}:</b> {x.body}
+                            <b>{x.authorName ?? tr('Rahbar')}:</b> {x.body}
                           </div>
                         ))}
 
@@ -996,7 +1033,7 @@ export function ConversationDetail() {
                             <div className={`etiroz-holat ${etiroz.status}`}>
                               {etiroz.status === 'open' && (
                                 <>
-                                  <Hourglass /> E'tiroz: "{etiroz.reason}"
+                                  <Hourglass /> {tr("E'tiroz: \"{sabab}\"", { sabab: etiroz.reason })}
                                   {etirozHalQilaOladi && (
                                     <EtirozHal
                                       appeal={etiroz}
@@ -1010,13 +1047,18 @@ export function ConversationDetail() {
                               )}
                               {etiroz.status === 'accepted' && (
                                 <>
-                                  <Check /> E'tiroz qabul qilindi — ball {etiroz.originalScore ?? '—'} <ArrowRight /> <b>{etiroz.newScore}</b>
+                                  <Check />{' '}
+                                  {joyla(tr("E'tiroz qabul qilindi — ball {eski} {strelka} {yangi}"), {
+                                    eski: String(etiroz.originalScore ?? '—'),
+                                    strelka: <ArrowRight />,
+                                    yangi: <b>{etiroz.newScore}</b>,
+                                  })}
                                   {etiroz.resolutionNote && <> · {etiroz.resolutionNote}</>}
                                 </>
                               )}
                               {etiroz.status === 'rejected' && (
                                 <>
-                                  <X /> E'tiroz rad etildi: {etiroz.resolutionNote}
+                                  <X /> {tr("E'tiroz rad etildi: {izoh}", { izoh: etiroz.resolutionNote ?? '' })}
                                 </>
                               )}
                             </div>
@@ -1029,14 +1071,16 @@ export function ConversationDetail() {
                               <textarea
                                 value={etirozSabab}
                                 onChange={(e) => setEtirozSabab(e.target.value)}
-                                placeholder="Nega bu baho noto'g'ri deb hisoblaysiz? Yozishmadagi qaysi joyni AI o'tkazib yuborgan?"
+                                placeholder={tr(
+                                  "Nega bu baho noto'g'ri deb hisoblaysiz? Yozishmadagi qaysi joyni AI o'tkazib yuborgan?",
+                                )}
                                 rows={3}
                                 autoFocus
                               />
-                              <div className="yordam">Kamida 10 belgi. Rahbar buni ko'radi.</div>
+                              <div className="yordam">{tr("Kamida 10 belgi. Rahbar buni ko'radi.")}</div>
                               <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
                                 <button className="btn kichik" disabled={band || etirozSabab.trim().length < 10} onClick={() => void etirozYubor(s.id)}>
-                                  Yuborish
+                                  {tr('Yuborish')}
                                 </button>
                                 <button
                                   className="btn ikkinchi kichik"
@@ -1045,7 +1089,7 @@ export function ConversationDetail() {
                                     setEtirozSabab('');
                                   }}
                                 >
-                                  Bekor
+                                  {tr('Bekor')}
                                 </button>
                               </div>
                             </div>
@@ -1059,7 +1103,7 @@ export function ConversationDetail() {
                               setEtirozSabab('');
                             }}
                           >
-                            Bu baho noto'g'ri deb hisoblayman
+                            {tr("Bu baho noto'g'ri deb hisoblayman")}
                           </button>
                         );
                       })()}
@@ -1076,7 +1120,7 @@ export function ConversationDetail() {
       {tab === 'transkript' && (
         <section className="card sd-karta sd-transkript">
           {d.segments.length === 0 ? (
-            <div className="hech-narsa">{ovozli ? "Transkript hali tayyor emas." : "Yozishma bo'sh."}</div>
+            <div className="hech-narsa">{ovozli ? tr('Transkript hali tayyor emas.') : tr("Yozishma bo'sh.")}</div>
           ) : (
             <>
               {visibleSegments.map((s) => {
@@ -1096,7 +1140,7 @@ export function ConversationDetail() {
                       ? {
                           role: 'button',
                           tabIndex: 0,
-                          title: `Isbot: ${mezonlar.map((x) => x.kod).join(', ')} — bahoni ko'rish`,
+                          title: tr("Isbot: {kodlar} — bahoni ko'rish", { kodlar: mezonlar.map((x) => x.kod).join(', ') }),
                           onClick: () => mezongaSakra(mezonlar[0]!.kod),
                           onKeyDown: (e: React.KeyboardEvent) => {
                             if (e.key === 'Enter' || e.key === ' ') {
@@ -1107,7 +1151,7 @@ export function ConversationDetail() {
                         }
                       : {})}
                   >
-                    <div className="kim">{s.speaker === 'manager' ? 'Menejer' : 'Mijoz'}</div>
+                    <div className="kim">{s.speaker === 'manager' ? tr('Menejer') : tr('Mijoz')}</div>
                     {s.text}
                     {isbotli && (
                       <div className="isbot-belgilar">
@@ -1116,7 +1160,7 @@ export function ConversationDetail() {
                             {x.kod}
                           </span>
                         ))}
-                        <span className="isbot-izoh">bahoga asos bo'ldi</span>
+                        <span className="isbot-izoh">{tr("bahoga asos bo'ldi")}</span>
                       </div>
                     )}
                     <div className="vaqt">{vaqt(s.startSeconds)}</div>
@@ -1125,7 +1169,7 @@ export function ConversationDetail() {
               })}
               {hiddenCount > 0 && (
                 <button className="btn ikkinchi kichik" style={{ width: '100%' }} onClick={() => setShowFullTranscript(true)}>
-                  Yana {hiddenCount} ta xabarni ko'rsatish
+                  {tr("Yana {n} ta xabarni ko'rsatish", { n: hiddenCount })}
                 </button>
               )}
             </>
@@ -1139,11 +1183,13 @@ export function ConversationDetail() {
 }
 
 function VadaRoyxat({ royxat }: { royxat: Detail['commitments'] }) {
-  if (royxat.length === 0) return <span className="sd-xira">Kelishuv yo'q</span>;
+  const t = useT();
+  if (royxat.length === 0) return <span className="sd-xira">{t("Kelishuv yo'q")}</span>;
   return (
     <span className="sd-vadalar">
       {royxat.map((v) => {
-        const st = VADA_HOLAT_NOMI[v.status] ?? { nom: v.status, klass: 'kul' };
+        const vh = VADA_HOLAT_NOMI[v.status];
+        const st = vh ? { nom: t(vh.nom), klass: vh.klass } : { nom: v.status, klass: 'kul' };
         return (
           <span key={v.id} className="sd-vada">
             {v.what}

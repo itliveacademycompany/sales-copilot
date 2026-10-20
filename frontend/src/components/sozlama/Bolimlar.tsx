@@ -4,7 +4,7 @@ import { TanlovMenyu } from '../analitika/Ochiluvchi';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth';
-import { useTil, type Til } from '../../i18n';
+import { joyla, useT, useTil, type Til } from '../../i18n';
 import { api, ApiError, type AuthContext, type BillingStatus } from '../../api';
 
 /**
@@ -90,7 +90,7 @@ export function Korinish() {
       <div className="kr-bolim">
         <h3>{t('Mavzu')}</h3>
         <p>{t("Yorug', Qorong'i yoki Tizim rejimini tanlang. Tizim rejimi qurilma sozlamalariga amal qiladi.")}</p>
-        <div className="kr-mavzular" role="radiogroup" aria-label="Mavzu">
+        <div className="kr-mavzular" role="radiogroup" aria-label={t('Mavzu')}>
           {MAVZULAR.map((m) => (
             <button key={m.k} type="button" role="radio" aria-checked={mavzu === m.k} className={`kr-mavzu${mavzu === m.k ? ' faol' : ''}`} onClick={() => mavzuniQoll(m.k)}>
               <span className={`kr-namuna ${m.k}`} aria-hidden="true">
@@ -124,19 +124,19 @@ export function Korinish() {
           {tilHolat === 'xato' && <small className="kr-holat xato">{t("Saqlanmadi — qayta urinib ko'ring")}</small>}
         </h3>
         <p>{t("Interfeys tilini tanlang. Tarjima bosqichma-bosqich qo'shilmoqda — tarjima qilinmagan matnlar o'zbekcha qoladi.")}</p>
-        <div className="kr-tillar" role="radiogroup" aria-label="Til">
-          {TILLAR.map((t) => (
+        <div className="kr-tillar" role="radiogroup" aria-label={t('Til')}>
+          {TILLAR.map((tl) => (
             <button
-              key={t.k}
+              key={tl.k}
               type="button"
               role="radio"
-              aria-checked={til === t.k}
-              className={`kr-til${til === t.k ? ' faol' : ''}`}
+              aria-checked={til === tl.k}
+              className={`kr-til${til === tl.k ? ' faol' : ''}`}
               disabled={tilHolat === 'ketmoqda'}
-              onClick={() => void tilniSaqla(t.k)}
+              onClick={() => void tilniSaqla(tl.k)}
             >
-              <span className="kr-bayroq">{t.bayroq}</span>
-              {t.nom}
+              <span className="kr-bayroq">{tl.bayroq}</span>
+              {tl.nom}
             </button>
           ))}
         </div>
@@ -145,7 +145,7 @@ export function Korinish() {
       <div className="kr-bolim">
         <h3>{t('Yon menyu')}</h3>
         <p>{t("Tor — faqat ikonlar va qisqa nom; keng — to'liq nomlar bilan.")}</p>
-        <div className="kr-tillar" role="radiogroup" aria-label="Yon menyu">
+        <div className="kr-tillar" role="radiogroup" aria-label={t('Yon menyu')}>
           {(
             [
               ['tor', 'Tor'],
@@ -237,6 +237,7 @@ const BIZNES_TILLARI = [
 ];
 
 function YangiBiznesForma({ onYaratildi }: { onYaratildi: () => void }) {
+  const t = useT();
   const [nom, setNom] = useState('');
   const [slug, setSlug] = useState('');
   const [slugQolda, setSlugQolda] = useState(false);
@@ -247,9 +248,9 @@ function YangiBiznesForma({ onYaratildi }: { onYaratildi: () => void }) {
   const [tegildi, setTegildi] = useState(false);
 
   const domen = slugQolda ? slug : slugYasa(nom);
-  const nomXato = tegildi && nom.trim().length < 2 ? 'Kamida 2 ta belgi' : '';
+  const nomXato = tegildi && nom.trim().length < 2 ? t('Kamida 2 ta belgi') : '';
   const domenXato =
-    tegildi && !/^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])$/.test(domen) ? 'Kichik lotin harflari, raqam va chiziqcha — 3–50 belgi' : '';
+    tegildi && !/^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])$/.test(domen) ? t('Kichik lotin harflari, raqam va chiziqcha — 3–50 belgi') : '';
 
   const yubor = async (e: FormEvent) => {
     e.preventDefault();
@@ -264,22 +265,22 @@ function YangiBiznesForma({ onYaratildi }: { onYaratildi: () => void }) {
       if (err instanceof ApiError && (err.status === 404 || err.status === 405)) setHolat('qollanmaydi');
       else {
         setHolat('xato');
-        setXato(err instanceof Error ? err.message : 'Nomalum xato');
+        setXato(err instanceof Error ? err.message : t("Noma'lum xato"));
       }
     }
   };
 
   return (
     <form className="bzl-forma" onSubmit={(e) => void yubor(e)} noValidate>
-      <b className="bzl-forma-sarlavha">Yangi biznes yaratish</b>
+      <b className="bzl-forma-sarlavha">{t('Yangi biznes yaratish')}</b>
       <div className="bzl-forma-panjara">
         <div className="maydon-blok">
-          <label htmlFor="yb-nom">Nom *</label>
-          <input id="yb-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Biznes nomi" maxLength={120} autoFocus aria-invalid={!!nomXato} />
+          <label htmlFor="yb-nom">{t('Nom *')}</label>
+          <input id="yb-nom" value={nom} onChange={(e) => setNom(e.target.value)} placeholder={t('Biznes nomi')} maxLength={120} autoFocus aria-invalid={!!nomXato} />
           {nomXato && <div className="yordam bzl-xato">{nomXato}</div>}
         </div>
         <div className="maydon-blok">
-          <label htmlFor="yb-domen">Biznes domeni *</label>
+          <label htmlFor="yb-domen">{t('Biznes domeni *')}</label>
           <input
             id="yb-domen"
             value={domen}
@@ -295,14 +296,21 @@ function YangiBiznesForma({ onYaratildi }: { onYaratildi: () => void }) {
           {domenXato && <div className="yordam bzl-xato">{domenXato}</div>}
         </div>
         <div className="maydon-blok">
-          <label htmlFor="yb-tavsif">Tavsif</label>
-          <input id="yb-tavsif" value={tavsif} onChange={(e) => setTavsif(e.target.value)} placeholder="Qisqacha tavsif" maxLength={2000} />
+          <label htmlFor="yb-tavsif">{t('Tavsif')}</label>
+          <input id="yb-tavsif" value={tavsif} onChange={(e) => setTavsif(e.target.value)} placeholder={t('Qisqacha tavsif')} maxLength={2000} />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="yb-til">Biznes tili *</label>
-          <TanlovMenyu id="yb-til" aria="Biznes tili" qiymat={til} variantlar={BIZNES_TILLARI} onOzgar={setTil} kenglik="100%" />
+          <label htmlFor="yb-til">{t('Biznes tili *')}</label>
+          <TanlovMenyu
+            id="yb-til"
+            aria={t('Biznes tili')}
+            qiymat={til}
+            variantlar={BIZNES_TILLARI.map((v) => ({ ...v, nom: t(v.nom) }))}
+            onOzgar={setTil}
+            kenglik="100%"
+          />
           <div className="yordam">
-            Bu playbooklar va tizim ishlaydigan asosiy til. Uni biznes yaratishda bir marta tanlaysiz, keyin o'zgartirib bo'lmaydi. Bu interfeys tili emas.
+            {t("Bu playbooklar va tizim ishlaydigan asosiy til. Uni biznes yaratishda bir marta tanlaysiz, keyin o'zgartirib bo'lmaydi. Bu interfeys tili emas.")}
           </div>
         </div>
       </div>
@@ -310,20 +318,22 @@ function YangiBiznesForma({ onYaratildi }: { onYaratildi: () => void }) {
         <div className="bzl-izoh" role="alert">
           <Info aria-hidden="true" />
           <span>
-            Biznes yaratilmadi — server hali ilovadan yangi biznes yaratishni qo'llab-quvvatlamaydi. Administrator bilan bog'laning yoki{' '}
-            <Link to="/sozlamalar?b=muammo">so'rov yuboring</Link>.
+            {joyla(
+              t("Biznes yaratilmadi — server hali ilovadan yangi biznes yaratishni qo'llab-quvvatlamaydi. Administrator bilan bog'laning yoki {havola}."),
+              { havola: <Link to="/sozlamalar?b=muammo">{t("so'rov yuboring")}</Link> },
+            )}
           </span>
         </div>
       )}
       {holat === 'xato' && (
         <div className="bzl-izoh xato" role="alert">
           <TriangleAlert aria-hidden="true" />
-          <span>Biznes yaratilmadi: {xato}</span>
+          <span>{t('Biznes yaratilmadi: {xato}', { xato })}</span>
         </div>
       )}
       <div>
         <button type="submit" className="btn" disabled={holat === 'ketmoqda'}>
-          {holat === 'ketmoqda' ? 'Yaratilmoqda…' : 'Yaratish'}
+          {holat === 'ketmoqda' ? t('Yaratilmoqda…') : t('Yaratish')}
         </button>
       </div>
     </form>
@@ -331,6 +341,7 @@ function YangiBiznesForma({ onYaratildi }: { onYaratildi: () => void }) {
 }
 
 export function Bizneslar({ joriyId }: { joriyId: string }) {
+  const t = useT();
   const [royxat, setRoyxat] = useState<BiznesQator[] | null>(null);
   const [yangi, setYangi] = useState(false);
   const [yangila, setYangila] = useState(0);
@@ -363,15 +374,15 @@ export function Bizneslar({ joriyId }: { joriyId: string }) {
     <section className="card sz-karta bzl-karta">
       <div className="sz-karta-bosh">
         <div>
-          <h2>Bizneslarni boshqarish</h2>
-          <p>Bizneslaringizni yarating va boshqaring.</p>
+          <h2>{t('Bizneslarni boshqarish')}</h2>
+          <p>{t('Bizneslaringizni yarating va boshqaring.')}</p>
         </div>
         <button type="button" className={yangi ? "btn ikkinchi" : "btn"} aria-expanded={yangi} onClick={() => setYangi((v) => !v)}>
           {yangi ? (
-            "Bekor qilish"
+            t('Bekor qilish')
           ) : (
             <>
-              <Plus /> Yangi biznes
+              <Plus /> {t('Yangi biznes')}
             </>
           )}
         </button>
@@ -387,7 +398,7 @@ export function Bizneslar({ joriyId }: { joriyId: string }) {
       {!royxat ? (
         <div className="card skelet" style={{ height: 72 }} aria-busy="true" />
       ) : royxat.length === 0 ? (
-        <p className="sz-eslatma">Bizneslar ro'yxatini yuklab bo'lmadi.</p>
+        <p className="sz-eslatma">{t("Bizneslar ro'yxatini yuklab bo'lmadi.")}</p>
       ) : (
         <ul className="bzl-royxat">
           {royxat.map((b) => {
@@ -398,19 +409,19 @@ export function Bizneslar({ joriyId }: { joriyId: string }) {
                 <div className="bzl-matn">
                   <div className="bzl-nom">
                     <b>{b.name}</b>
-                    {joriy && <span className="bzl-pill joriy">Joriy</span>}
-                    {h && <span className={`bzl-pill ${h.ton}`}>{h.nom}</span>}
-                    <span className="bzl-rol">{ROL[b.role] ?? b.role}</span>
+                    {joriy && <span className="bzl-pill joriy">{t('Joriy')}</span>}
+                    {h && <span className={`bzl-pill ${h.ton}`}>{t(h.nom)}</span>}
+                    <span className="bzl-rol">{ROL[b.role] ? t(ROL[b.role]!) : b.role}</span>
                   </div>
-                  <p>{b.tavsif ?? <i>Tavsif kiritilmagan</i>}</p>
+                  <p>{b.tavsif ?? <i>{t('Tavsif kiritilmagan')}</i>}</p>
                 </div>
                 {joriy ? (
                   <Link to="/sozlamalar?b=biznes" className="bzl-amal">
-                    Tahrirlash
+                    {t('Tahrirlash')}
                   </Link>
                 ) : (
-                  <span className="bzl-amal ochiq-emas" title="Bizneslar orasida almashish hozircha qo'llab-quvvatlanmaydi">
-                    Tahrirlash
+                  <span className="bzl-amal ochiq-emas" title={t("Bizneslar orasida almashish hozircha qo'llab-quvvatlanmaydi")}>
+                    {t('Tahrirlash')}
                   </span>
                 )}
               </li>
@@ -419,7 +430,7 @@ export function Bizneslar({ joriyId }: { joriyId: string }) {
         </ul>
       )}
       {royxat && royxat.length > 1 && (
-        <p className="sz-eslatma">Bizneslar orasida almashish hozircha qo'llab-quvvatlanmaydi — faqat joriy biznesni tahrirlash mumkin.</p>
+        <p className="sz-eslatma">{t("Bizneslar orasida almashish hozircha qo'llab-quvvatlanmaydi — faqat joriy biznesni tahrirlash mumkin.")}</p>
       )}
     </section>
   );
@@ -428,19 +439,19 @@ export function Bizneslar({ joriyId }: { joriyId: string }) {
 // ─── Muammo haqida xabar berish ─────────────────────────────────────────────
 
 export function MuammoXabari({ biznes, foydalanuvchi }: { biznes: string; foydalanuvchi: string }) {
+  const t = useT();
   const [ochiq, setOchiq] = useState(false);
   return (
     <section className="card sz-karta mx-karta">
       <div className="mx-bosh">
-        <h2>Xabar yuborish</h2>
+        <h2>{t('Xabar yuborish')}</h2>
         <p>
-          Agar sizda tavsiyalar, talablar, texnik muammolar yoki buglar bo'lsa, shu yerga yozing. Kerak bo'lsa, batafsil ma'lumot uchun siz bilan
-          bog'lanamiz. Barcha taklif va tavsiyalar inobatga olinadi.
+          {t("Agar sizda tavsiyalar, talablar, texnik muammolar yoki buglar bo'lsa, shu yerga yozing. Kerak bo'lsa, batafsil ma'lumot uchun siz bilan bog'lanamiz. Barcha taklif va tavsiyalar inobatga olinadi.")}
         </p>
       </div>
       <div className="mx-amal">
         <button type="button" className="mx-tugma" aria-haspopup="dialog" onClick={() => setOchiq(true)}>
-          <Bug aria-hidden="true" /> Muammo haqida xabar berish
+          <Bug aria-hidden="true" /> {t('Muammo haqida xabar berish')}
         </button>
       </div>
       {ochiq && <MuammoOynasi biznes={biznes} foydalanuvchi={foydalanuvchi} onYop={() => setOchiq(false)} />}
@@ -449,6 +460,7 @@ export function MuammoXabari({ biznes, foydalanuvchi }: { biznes: string; foydal
 }
 
 function MuammoOynasi({ biznes, foydalanuvchi, onYop }: { biznes: string; foydalanuvchi: string; onYop: () => void }) {
+  const t = useT();
   const [tur, setTur] = useState('Xato');
   const [matn, setMatn] = useState('');
   const [nusxa, setNusxa] = useState(false);
@@ -459,57 +471,57 @@ function MuammoOynasi({ biznes, foydalanuvchi, onYop }: { biznes: string; foydal
   }, [onYop]);
 
   const kontekst = [
-    `Biznes: ${biznes}`,
-    `Foydalanuvchi: ${foydalanuvchi}`,
-    `Sahifa: ${window.location.pathname}`,
-    `Brauzer: ${navigator.userAgent}`,
-    `Ekran: ${window.innerWidth}×${window.innerHeight}`,
-    `Vaqt: ${new Date().toLocaleString('uz')}`,
+    t('Biznes: {v}', { v: biznes }),
+    t('Foydalanuvchi: {v}', { v: foydalanuvchi }),
+    t('Sahifa: {v}', { v: window.location.pathname }),
+    t('Brauzer: {v}', { v: navigator.userAgent }),
+    t('Ekran: {v}', { v: `${window.innerWidth}×${window.innerHeight}` }),
+    t('Vaqt: {v}', { v: new Date().toLocaleString('uz') }),
   ].join('\n');
-  const toliq = `[${tur}] ${matn.trim()}\n\n— Texnik ma'lumot —\n${kontekst}`;
+  const toliq = `[${t(tur)}] ${matn.trim()}\n\n— ${t("Texnik ma'lumot")} —\n${kontekst}`;
   const tayyor = matn.trim().length >= 10;
 
   return createPortal(
     <div className="vr-fon" onMouseDown={(e) => e.target === e.currentTarget && onYop()}>
       <div className="vr-oyna mx-oyna" role="dialog" aria-modal="true" aria-labelledby="mx-nom">
         <div className="vr-oyna-bosh">
-          <h3 id="mx-nom">Muammo haqida xabar berish</h3>
-          <button type="button" className="mj-yop" onClick={onYop} aria-label="Yopish">
+          <h3 id="mx-nom">{t('Muammo haqida xabar berish')}</h3>
+          <button type="button" className="mj-yop" onClick={onYop} aria-label={t('Yopish')}>
             <X />
           </button>
         </div>
-        <p className="sz-eslatma">Nima bo'lganini yozing — texnik ma'lumot avtomatik qo'shiladi.</p>
-        <div className="sz-turlar" role="radiogroup" aria-label="Xabar turi">
-          {['Xato', 'Taklif', 'Savol'].map((t) => (
-            <button key={t} type="button" role="radio" aria-checked={tur === t} className={`chip-tugma${tur === t ? ' faol' : ''}`} onClick={() => setTur(t)}>
-              {t}
+        <p className="sz-eslatma">{t("Nima bo'lganini yozing — texnik ma'lumot avtomatik qo'shiladi.")}</p>
+        <div className="sz-turlar" role="radiogroup" aria-label={t('Xabar turi')}>
+          {['Xato', 'Taklif', 'Savol'].map((k) => (
+            <button key={k} type="button" role="radio" aria-checked={tur === k} className={`chip-tugma${tur === k ? ' faol' : ''}`} onClick={() => setTur(k)}>
+              {t(k)}
             </button>
           ))}
         </div>
         <div className="maydon-blok">
-          <label htmlFor="sz-muammo">Tavsif</label>
+          <label htmlFor="sz-muammo">{t('Tavsif')}</label>
           <textarea
             id="sz-muammo"
             rows={5}
             value={matn}
             autoFocus
             onChange={(e) => setMatn(e.target.value)}
-            placeholder="Masalan: Analitika → Vazifalar tahlilida «Bugun uchun» kartasi bosilganda ro'yxat bo'sh chiqyapti"
+            placeholder={t("Masalan: Analitika → Vazifalar tahlilida «Bugun uchun» kartasi bosilganda ro'yxat bo'sh chiqyapti")}
           />
-          <div className="yordam">Kamida 10 belgi. Qadamlarni yozsangiz, tezroq tuzatiladi.</div>
+          <div className="yordam">{t('Kamida 10 belgi. Qadamlarni yozsangiz, tezroq tuzatiladi.')}</div>
         </div>
         <details className="sz-kontekst">
-          <summary>Qo'shiladigan texnik ma'lumot</summary>
+          <summary>{t("Qo'shiladigan texnik ma'lumot")}</summary>
           <pre>{kontekst}</pre>
         </details>
-        <p className="sz-eslatma">Ilovada qo'llab-quvvatlash xizmati manzili hali sozlanmagan — matnni nusxalab yoki email orqali odatdagi aloqa kanalingizga yuboring.</p>
+        <p className="sz-eslatma">{t("Ilovada qo'llab-quvvatlash xizmati manzili hali sozlanmagan — matnni nusxalab yoki email orqali odatdagi aloqa kanalingizga yuboring.")}</p>
         <div className="vr-oyna-past">
           <a
             className={`btn ikkinchi${tayyor ? '' : ' o-chiq'}`}
             aria-disabled={!tayyor}
-            href={tayyor ? `mailto:?subject=${encodeURIComponent(`SotuvAI: ${tur}`)}&body=${encodeURIComponent(toliq)}` : undefined}
+            href={tayyor ? `mailto:?subject=${encodeURIComponent(`SotuvAI: ${t(tur)}`)}&body=${encodeURIComponent(toliq)}` : undefined}
           >
-            <Mail /> Email orqali yuborish
+            <Mail /> {t('Email orqali yuborish')}
           </a>
           <button
             type="button"
@@ -522,7 +534,7 @@ function MuammoOynasi({ biznes, foydalanuvchi, onYop }: { biznes: string; foydal
               });
             }}
           >
-            {nusxa ? <Check /> : <Copy />} {nusxa ? 'Nusxalandi' : 'Nusxalash'}
+            {nusxa ? <Check /> : <Copy />} {nusxa ? t('Nusxalandi') : t('Nusxalash')}
           </button>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { Award, ChevronRight, Flame, Trophy } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { fmtSoniya } from '../../api';
+import { useT } from '../../i18n';
 import { MalumotIkon } from './Korsatkichlar';
 import {
   avatarRang,
@@ -25,6 +26,7 @@ type Rejim = 'sifat' | 'natija';
  * topilmaydi; sotuvga eng yaqin haqiqiy ko'rsatkich ishlatiladi.
  */
 export function Reyting({ data, davr }: { data: BoshMalumot; davr: Davr }) {
+  const t = useT();
   const [rejim, setRejim] = useState<Rejim>('sifat');
   const joriy = oraliqda(data.suhbatlar, davr.from, davr.to).filter((r) => r.status === 'done');
 
@@ -66,23 +68,23 @@ export function Reyting({ data, davr }: { data: BoshMalumot; davr: Davr }) {
       <div className="reyting-grid">
         <div className="reyting-chap">
           <h2 id="reyting-sarlavha">
-            Menejerlar reytingi <MalumotIkon matn="Tanlangan davr bo'yicha. Ma'lumot har yuklashda yangilanadi." />
+            {t('Menejerlar reytingi')} <MalumotIkon matn={t("Tanlangan davr bo'yicha. Ma'lumot har yuklashda yangilanadi.")} />
           </h2>
           <p>
             {rejim === 'sifat'
-              ? 'Suhbat sifati — baholash mezonlari bo\'yicha o\'rtacha ball.'
-              : 'Natija — AI issiq deb baholagan lidlar soni bo\'yicha.'}
+              ? t("Suhbat sifati — baholash mezonlari bo'yicha o'rtacha ball.")
+              : t("Natija — AI issiq deb baholagan lidlar soni bo'yicha.")}
           </p>
-          <div className="tab-qator" role="tablist" aria-label="Reyting turi">
+          <div className="tab-qator" role="tablist" aria-label={t('Reyting turi')}>
             <button role="tab" aria-selected={rejim === 'sifat'} className={`tab${rejim === 'sifat' ? ' active' : ''}`} onClick={() => setRejim('sifat')}>
-              Sifat
+              {t('Sifat')}
             </button>
             <button role="tab" aria-selected={rejim === 'natija'} className={`tab${rejim === 'natija' ? ' active' : ''}`} onClick={() => setRejim('natija')}>
-              Natija
+              {t('Natija')}
             </button>
           </div>
           <div className="reyting-jami">
-            <span>{rejim === 'sifat' ? 'Jamoa o\'rtachasi' : 'Jami issiq lidlar'}</span>
+            <span>{rejim === 'sifat' ? t("Jamoa o'rtachasi") : t('Jami issiq lidlar')}</span>
             <b>
               <span className="reyting-jami-ikon" aria-hidden="true">
                 {rejim === 'sifat' ? <Award /> : <Flame />}
@@ -95,13 +97,13 @@ export function Reyting({ data, davr }: { data: BoshMalumot; davr: Davr }) {
             </b>
           </div>
           <Link to="/analitika" className="havola">
-            Ko'rish <ChevronRight />
+            {t("Ko'rish")} <ChevronRight />
           </Link>
         </div>
 
         <div className="reyting-kartalar">
           {kartalar.length === 0 ? (
-            <div className="card hech-narsa">Bu davrda menejerlar faoliyati yo'q</div>
+            <div className="card hech-narsa">{t("Bu davrda menejerlar faoliyati yo'q")}</div>
           ) : (
             kartalar.map((k, i) => (
               <article className="card menejer-karta" key={k.seatId}>
@@ -114,9 +116,9 @@ export function Reyting({ data, davr }: { data: BoshMalumot; davr: Davr }) {
                       <b>{k.displayName}</b>
                     </Link>
                     <small>
-                      Menejer
+                      {t('Menejer')}
                       {i < 3 && (
-                        <span className={`mk-orin o${i + 1}`} title={`${i + 1}-o'rin`}>
+                        <span className={`mk-orin o${i + 1}`} title={t("{n}-o'rin", { n: i + 1 })}>
                           <Trophy /> {i + 1}
                         </span>
                       )}
@@ -126,15 +128,15 @@ export function Reyting({ data, davr }: { data: BoshMalumot; davr: Davr }) {
 
                 <div className="mk-statlar">
                   <div>
-                    <span>Issiq lidlar</span>
+                    <span>{t('Issiq lidlar')}</span>
                     <b>{k.issiq}</b>
                   </div>
                   <div>
-                    <span>Issiq ulushi</span>
+                    <span>{t('Issiq ulushi')}</span>
                     <b>{k.ulush === null ? '—' : `${k.ulush.toFixed(1)}%`}</b>
                   </div>
                   <div>
-                    <span>Baholangan</span>
+                    <span>{t('Baholangan')}</span>
                     <b>{k.analyzed}</b>
                   </div>
                 </div>
@@ -142,7 +144,7 @@ export function Reyting({ data, davr }: { data: BoshMalumot; davr: Davr }) {
                 <div className="mk-blok">
                   <div className="mk-blok-bosh">
                     <span>
-                      Suhbat sifati <MalumotIkon matn="Baholash mezonlari bo'yicha o'rtacha ball" />
+                      {t('Suhbat sifati')} <MalumotIkon matn={t("Baholash mezonlari bo'yicha o'rtacha ball")} />
                     </span>
                     <span className="mk-chip">{k.avgScore === null ? '—' : `${k.avgScore}%`}</span>
                   </div>
@@ -154,7 +156,7 @@ export function Reyting({ data, davr }: { data: BoshMalumot; davr: Davr }) {
                 {rejim === 'natija' ? (
                   <div className="mk-blok">
                     <div className="mk-blok-bosh">
-                      <span>Issiq lidlar</span>
+                      <span>{t('Issiq lidlar')}</span>
                       <span className="mk-chip">{k.issiq}</span>
                     </div>
                     <div className="mk-chiziq">
@@ -165,7 +167,7 @@ export function Reyting({ data, davr }: { data: BoshMalumot; davr: Davr }) {
                   <div className="mk-blok">
                     <div className="mk-blok-bosh">
                       <span>
-                        Javobsiz mijozlar <MalumotIkon matn="Mijoz yozgan, lekin javob olmagan sessiyalar" />
+                        {t('Javobsiz mijozlar')} <MalumotIkon matn={t('Mijoz yozgan, lekin javob olmagan sessiyalar')} />
                       </span>
                       <span className={`mk-chip${k.javobsiz ? ' xavf' : ''}`}>{k.javobsiz ?? '—'}</span>
                     </div>
@@ -179,11 +181,11 @@ export function Reyting({ data, davr }: { data: BoshMalumot; davr: Davr }) {
                 )}
 
                 <footer>
-                  <span>Javob tezligi</span>
+                  <span>{t('Javob tezligi')}</span>
                   <b>{fmtSoniya(k.medianFirstResponseSeconds)}</b>
                 </footer>
                 <footer>
-                  <span>O'rt. davomiylik</span>
+                  <span>{t("O'rt. davomiylik")}</span>
                   <b>{davomiylikMatn(k.davom)}</b>
                 </footer>
               </article>
@@ -198,17 +200,17 @@ export function Reyting({ data, davr }: { data: BoshMalumot; davr: Davr }) {
             <Award />
           </span>
           <div>
-            <small>O'tgan oyning ({oy.nom}) eng sifatli suhbatdoshi</small>
+            <small>{t("O'tgan oyning ({oy}) eng sifatli suhbatdoshi", { oy: oy.nom })}</small>
             {engSifatli ? (
               <>
                 <b>{engSifatli.displayName}</b>
                 <span className="mukofot-chiplar">
                   <span className="mk-chip">{engSifatli.avgScore}%</span>
-                  <span className="mk-chip kichik">{engSifatli.analyzed} suhbat</span>
+                  <span className="mk-chip kichik">{t('{n} suhbat', { n: engSifatli.analyzed })}</span>
                 </span>
               </>
             ) : (
-              <b className="bosh-matn">O'tgan oyda baholangan suhbat yo'q</b>
+              <b className="bosh-matn">{t("O'tgan oyda baholangan suhbat yo'q")}</b>
             )}
           </div>
         </div>
@@ -217,16 +219,16 @@ export function Reyting({ data, davr }: { data: BoshMalumot; davr: Davr }) {
             <Trophy />
           </span>
           <div>
-            <small>O'tgan oyning ({oy.nom}) eng ko'p issiq lid olgan sotuvchisi</small>
+            <small>{t("O'tgan oyning ({oy}) eng ko'p issiq lid olgan sotuvchisi", { oy: oy.nom })}</small>
             {engSotuvchi ? (
               <>
-                <b>{nomlar.get(engSotuvchi[0]) ?? 'Sotuvchi'}</b>
+                <b>{nomlar.get(engSotuvchi[0]) ?? t('Sotuvchi')}</b>
                 <span className="mukofot-chiplar">
-                  <span className="mk-chip">{engSotuvchi[1]} issiq lid</span>
+                  <span className="mk-chip">{t('{n} issiq lid', { n: engSotuvchi[1] })}</span>
                 </span>
               </>
             ) : (
-              <b className="bosh-matn">O'tgan oyda issiq lid yo'q</b>
+              <b className="bosh-matn">{t("O'tgan oyda issiq lid yo'q")}</b>
             )}
           </div>
         </div>

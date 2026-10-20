@@ -1,4 +1,5 @@
 import { FileText } from 'lucide-react';
+import { useT } from '../../i18n';
 import type { HisobotSozlama, Qism } from './hisobotMalumot';
 
 /**
@@ -21,6 +22,7 @@ export function HisobotNamunasi({
   xizmatlar: string[];
   savollar: string[];
 }) {
+  const t = useT();
   const bolim = (k: Qism, nom: string, qatorlar: string[]) =>
     s.qismlar[k] ? (
       <section key={k} className="hn-bolim">
@@ -40,12 +42,12 @@ export function HisobotNamunasi({
       <div className="hn-bosh">
         <FileText />
         <div>
-          <b>Hisobot namunasi</b>
-          <p>Tanlangan qismlar bilan kunlik hisobot qanday ko'rinishini ko'rsatadi. Nomlar biznesingizdan, raqamlar namunaviy.</p>
+          <b>{t('Hisobot namunasi')}</b>
+          <p>{t("Tanlangan qismlar bilan kunlik hisobot qanday ko'rinishini ko'rsatadi. Nomlar biznesingizdan, raqamlar namunaviy.")}</p>
         </div>
       </div>
       <div className="hn-matn">
-        {yoq && <p className="hn-bosh-holat">Hech bir qism tanlanmagan — hisobot bo'sh bo'ladi.</p>}
+        {yoq && <p className="hn-bosh-holat">{t("Hech bir qism tanlanmagan — hisobot bo'sh bo'ladi.")}</p>}
         {bolim('crm', 'CRM faolligi', [
           "- Jami qo'ng'iroqlar: 170",
           "- Bog'langan qo'ng'iroqlar: 92",

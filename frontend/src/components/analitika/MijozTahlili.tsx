@@ -1,5 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import type { ConversationDetail } from '../../api';
+import { tarjima, useT } from '../../i18n';
 import { MalumotIkon } from '../bosh/Korsatkichlar';
 import { avatarRang, boshHarf, oraliqda } from '../bosh/malumot';
 import { Donut, GorizontalUstun, TaqsimotGrafik, UstunliGrafik, type Bolak } from './grafiklar';
@@ -53,7 +54,7 @@ function bolaklarga(royxat: { nom: string; soni: number }[], cheklov = 5): Bolak
   const asosiy = royxat.slice(0, cheklov);
   const qolgan = royxat.slice(cheklov).reduce((s, x) => s + x.soni, 0);
   const b: Bolak[] = asosiy.map((x, i) => ({ kalit: x.nom, nom: x.nom, qiymat: x.soni, rang: SERIYA[i]! }));
-  if (qolgan > 0) b.push({ kalit: '__boshqa', nom: 'Boshqalar', qiymat: qolgan, rang: BOSHQA_RANG });
+  if (qolgan > 0) b.push({ kalit: '__boshqa', nom: tarjima('Boshqalar'), qiymat: qolgan, rang: BOSHQA_RANG });
   return b;
 }
 
@@ -109,6 +110,7 @@ function savollarniYig(tafsilot: ConversationDetail[], eLon: { question: string;
 // ─── Bo'lim ─────────────────────────────────────────────────────────────────
 
 export function MijozTahlili({ data, davr, q }: TabProps) {
+  const t = useT();
   const ism = useMemo(() => {
     const m = new Map<string, string>();
     for (const s of data.seats) m.set(s.id, s.displayName);
@@ -128,7 +130,7 @@ export function MijozTahlili({ data, davr, q }: TabProps) {
   const h = useMemo(() => {
     const a = tafsilot.map((d) => d.analysis!);
     // Bitimlar — eng ko'p uchragan valyuta bo'yicha (turli valyutani qo'shib bo'lmaydi)
-    const bitimlar = a.filter((x) => x.deal?.amount && x.deal.amount > 0).map((x) => ({ s: x.deal!.amount!, v: (x.deal!.currency ?? '').toUpperCase() || "so'm" }));
+    const bitimlar = a.filter((x) => x.deal?.amount && x.deal.amount > 0).map((x) => ({ s: x.deal!.amount!, v: (x.deal!.currency ?? '').toUpperCase() || t("so'm") }));
     const valyutalar = sanab(bitimlar.map((b) => b.v));
     const asosiyV = valyutalar[0]?.nom ?? '';
     const shu = bitimlar.filter((b) => kalit(b.v) === kalit(asosiyV));
@@ -138,16 +140,16 @@ export function MijozTahlili({ data, davr, q }: TabProps) {
 
     const shosh: Bolak[] = (['high', 'medium', 'low'] as const).map((k, i) => ({
       kalit: k,
-      nom: SHOSHILINCH[k]!,
+      nom: t(SHOSHILINCH[k]!),
       qiymat: a.filter((x) => x.signals?.urgency === k).length,
       rang: SERIYA[i]!,
     }));
     const shoshYoq = a.filter((x) => !x.signals?.urgency).length;
-    if (shoshYoq) shosh.push({ kalit: 'yoq', nom: 'Aniqlanmadi', qiymat: shoshYoq, rang: BOSHQA_RANG });
+    if (shoshYoq) shosh.push({ kalit: 'yoq', nom: t('Aniqlanmadi'), qiymat: shoshYoq, rang: BOSHQA_RANG });
 
-    const byudjet = sanab(a.map((x) => x.signals?.budgetReaction ?? 'Muhokama qilinmadi'));
+    const byudjet = sanab(a.map((x) => x.signals?.budgetReaction ?? t('Muhokama qilinmadi')));
     const xizmat = sanab(a.map((x) => x.serviceLine ?? '').filter(Boolean));
-    const oila = (x: (typeof a)[number]) => (x.callFamily ? data.playbook?.classificationPolicy.callFamilies.find((f) => f.key === x.callFamily)?.name ?? x.callFamily : 'Aniqlanmagan');
+    const oila = (x: (typeof a)[number]) => (x.callFamily ? data.playbook?.classificationPolicy.callFamilies.find((f) => f.key === x.callFamily)?.name ?? x.callFamily : t('Aniqlanmagan'));
     const baholangan = sanab(a.filter((x) => x.scoringMode === 'scored').map(oila));
     const baholanmagan = sanab(a.filter((x) => x.scoringMode !== 'scored').map(oila));
 
@@ -161,13 +163,13 @@ export function MijozTahlili({ data, davr, q }: TabProps) {
     const barchaSavollar = savollarniYig(tafsilot, data.playbook?.questionnaire.questions ?? []);
     const savollar = barchaSavollar.filter((s) => s.javoblar.length > 0);
     return { bitimSoni: shu.length, jami, asosiyV, boshqaValyuta: valyutalar.length > 1, etirozlar, shosh, byudjet, xizmat, baholangan, baholanmagan, sohalar, xizmatUstun, savollar, barchaSavollar };
-  }, [tafsilot, data.playbook]);
+  }, [tafsilot, data.playbook, t]);
 
   const yuklanmoqda = q.tafsilotKutilmoqda > 0;
   if (tafsilot.length === 0) {
     return (
       <div className="an-bolim">
-        <div className="card hech-narsa">{yuklanmoqda ? 'Tahlil tafsilotlari yuklanmoqda…' : "Bu davrda tahlil qilingan suhbat yo'q."}</div>
+        <div className="card hech-narsa">{yuklanmoqda ? t('Tahlil tafsilotlari yuklanmoqda…') : t("Bu davrda tahlil qilingan suhbat yo'q.")}</div>
       </div>
     );
   }
@@ -177,70 +179,70 @@ export function MijozTahlili({ data, davr, q }: TabProps) {
 
   return (
     <div className="an-bolim">
-      {yuklanmoqda && <div className="an-eslatma">Tahlil tafsilotlari yuklanmoqda — yana {q.tafsilotKutilmoqda} ta…</div>}
+      {yuklanmoqda && <div className="an-eslatma">{t('Tahlil tafsilotlari yuklanmoqda — yana {n} ta…', { n: q.tafsilotKutilmoqda })}</div>}
 
       <div className="mt-kpi">
-        <Kpi qiymat={h.bitimSoni ? pul(h.jami) : '0'} nom="Jami bitim summasi" izoh={`Suhbatlarda aytilgan bitim summalari${h.boshqaValyuta ? ' (faqat eng ko\'p uchragan valyuta)' : ''}`} rang="yuqori" />
-        <Kpi qiymat={String(h.bitimSoni)} nom="Bitimlar soni" izoh="Summasi aniqlangan bitimli suhbatlar" rang="ia" />
-        <Kpi qiymat={h.bitimSoni ? pul(h.jami / h.bitimSoni) : '—'} nom="O'rtacha bitim" izoh="Jami summa / bitimlar soni" />
+        <Kpi qiymat={h.bitimSoni ? pul(h.jami) : '0'} nom={t('Jami bitim summasi')} izoh={h.boshqaValyuta ? t("Suhbatlarda aytilgan bitim summalari (faqat eng ko'p uchragan valyuta)") : t('Suhbatlarda aytilgan bitim summalari')} rang="yuqori" />
+        <Kpi qiymat={String(h.bitimSoni)} nom={t('Bitimlar soni')} izoh={t('Summasi aniqlangan bitimli suhbatlar')} rang="ia" />
+        <Kpi qiymat={h.bitimSoni ? pul(h.jami / h.bitimSoni) : '—'} nom={t("O'rtacha bitim")} izoh={t('Jami summa / bitimlar soni')} />
       </div>
 
       <section className="card an-karta">
         <div className="karta-bosh">
           <h2>
-            Top e'tirozlar <MalumotIkon matn="Mijozlar suhbatda bildirgan e'tirozlar — necha suhbatda uchragani" />
+            {t("Top e'tirozlar")} <MalumotIkon matn={t("Mijozlar suhbatda bildirgan e'tirozlar — necha suhbatda uchragani")} />
           </h2>
         </div>
-        {h.etirozlar.length === 0 ? <div className="jm-bosh">Bu davrda e'tiroz qayd etilmagan.</div> : <GorizontalUstun royxat={h.etirozlar} rang="var(--s2)" />}
+        {h.etirozlar.length === 0 ? <div className="jm-bosh">{t("Bu davrda e'tiroz qayd etilmagan.")}</div> : <GorizontalUstun royxat={h.etirozlar} rang="var(--s2)" />}
       </section>
 
       <div className="mt-uchlik">
-        <Karta sarlavha="Shoshilinchlik darajasi" izoh="Mijoz qaror qilishga qanchalik shoshayotgani (AI baholashi)">
-          <Donut bolaklar={h.shosh} markazNom="Suhbat" ixcham chipLegenda />
+        <Karta sarlavha={t('Shoshilinchlik darajasi')} izoh={t('Mijoz qaror qilishga qanchalik shoshayotgani (AI baholashi)')}>
+          <Donut bolaklar={h.shosh} markazNom={t('Suhbat')} ixcham chipLegenda />
         </Karta>
-        <Karta sarlavha="Byudjet reaksiyasi" izoh="Narx yoki byudjet aytilganda mijoz qanday javob berdi">
-          <Donut bolaklar={bolaklarga(h.byudjet)} markazNom="Suhbat" ixcham chipLegenda />
+        <Karta sarlavha={t('Byudjet reaksiyasi')} izoh={t('Narx yoki byudjet aytilganda mijoz qanday javob berdi')}>
+          <Donut bolaklar={bolaklarga(h.byudjet)} markazNom={t('Suhbat')} ixcham chipLegenda />
         </Karta>
-        <Karta sarlavha="Xizmat yo'nalishlari taqsimoti" izoh="Suhbat qaysi xizmat haqida bo'lgani">
-          {h.xizmat.length === 0 ? <BoshDonut matn="Xizmat yo'nalishi aniqlanmagan" izoh="Mezonlar → Xizmat yo'nalishlari bo'limida yo'nalishlarni kiriting — AI suhbatlarni ularga ajratadi" /> : <Donut bolaklar={bolaklarga(h.xizmat)} markazNom="Suhbat" ixcham chipLegenda />}
+        <Karta sarlavha={t("Xizmat yo'nalishlari taqsimoti")} izoh={t("Suhbat qaysi xizmat haqida bo'lgani")}>
+          {h.xizmat.length === 0 ? <BoshDonut matn={t("Xizmat yo'nalishi aniqlanmagan")} izoh={t("Mezonlar → Xizmat yo'nalishlari bo'limida yo'nalishlarni kiriting — AI suhbatlarni ularga ajratadi")} /> : <Donut bolaklar={bolaklarga(h.xizmat)} markazNom={t('Suhbat')} ixcham chipLegenda />}
         </Karta>
-        <Karta sarlavha="Baholanadigan turlar" izoh="Mezonlar bo'yicha baholangan suhbatlar qaysi qo'ng'iroq turiga tegishli">
-          {h.baholangan.length === 0 ? <BoshDonut matn="Baholangan suhbat yo'q" /> : <Donut bolaklar={bolaklarga(h.baholangan)} markazNom="Baholangan" ixcham chipLegenda />}
+        <Karta sarlavha={t('Baholanadigan turlar')} izoh={t("Mezonlar bo'yicha baholangan suhbatlar qaysi qo'ng'iroq turiga tegishli")}>
+          {h.baholangan.length === 0 ? <BoshDonut matn={t("Baholangan suhbat yo'q")} /> : <Donut bolaklar={bolaklarga(h.baholangan)} markazNom={t('Baholangan')} ixcham chipLegenda />}
         </Karta>
-        <Karta sarlavha="Baholanmagan qo'ng'iroqlar" izoh="Tahlil qilingan, lekin mezonlar bo'yicha baholanmagan suhbatlar turi">
-          {h.baholanmagan.length === 0 ? <BoshDonut matn="Hamma suhbat baholangan" izoh="Baholanmaydigan turdagi suhbat bu davrda bo'lmagan" yaxshi /> : <Donut bolaklar={bolaklarga(h.baholanmagan)} markazNom="Baholanmagan" ixcham chipLegenda />}
+        <Karta sarlavha={t("Baholanmagan qo'ng'iroqlar")} izoh={t("Tahlil qilingan, lekin mezonlar bo'yicha baholanmagan suhbatlar turi")}>
+          {h.baholanmagan.length === 0 ? <BoshDonut matn={t('Hamma suhbat baholangan')} izoh={t("Baholanmaydigan turdagi suhbat bu davrda bo'lmagan")} yaxshi /> : <Donut bolaklar={bolaklarga(h.baholanmagan)} markazNom={t('Baholanmagan')} ixcham chipLegenda />}
         </Karta>
       </div>
 
       <section className="card an-karta">
         <div className="karta-bosh">
           <h2>
-            Xizmat yo'nalishi bo'yicha natijalar <MalumotIkon matn="Har xizmat yo'nalishida suhbatlar qaysi turga tegishli (AI tasnifi)" />
+            {t("Xizmat yo'nalishi bo'yicha natijalar")} <MalumotIkon matn={t("Har xizmat yo'nalishida suhbatlar qaysi turga tegishli (AI tasnifi)")} />
           </h2>
         </div>
         {h.xizmatUstun.length === 0 ? (
-          <BoshGrafik matn="Xizmat yo'nalishi aniqlanmagan" izoh="Yo'nalishlar kiritilgach, har yo'nalishda suhbatlar qaysi turga tegishli ekani shu yerda ustunlarda ko'rinadi." />
+          <BoshGrafik matn={t("Xizmat yo'nalishi aniqlanmagan")} izoh={t("Yo'nalishlar kiritilgach, har yo'nalishda suhbatlar qaysi turga tegishli ekani shu yerda ustunlarda ko'rinadi.")} />
         ) : (
           <UstunliGrafik
             ustunlar={h.xizmatUstun}
-            seriyalar={h.sohalar.map((s, i) => ({ kalit: s, nom: SOHA[s]!, rang: SERIYA[i]! }))}
+            seriyalar={h.sohalar.map((s, i) => ({ kalit: s, nom: t(SOHA[s]!), rang: SERIYA[i]! }))}
             balandlik={280}
-            nom="Xizmat yo'nalishi bo'yicha natijalar"
-            birlik=" ta"
+            nom={t("Xizmat yo'nalishi bo'yicha natijalar")}
+            birlik={t(' ta')}
           />
         )}
       </section>
 
       <h2 className="sn-bolim-sarlavha">
-        So'rovnoma <MalumotIkon matn="Playbook so'rovnomasi savollariga AI suhbatdan topgan javoblar" />
+        {t("So'rovnoma")} <MalumotIkon matn={t("Playbook so'rovnomasi savollariga AI suhbatdan topgan javoblar")} />
       </h2>
       {h.barchaSavollar.length > 0 && <Matritsa savollar={h.barchaSavollar} seatlar={seatlar} ism={ism} tafsilot={tafsilot} />}
       {h.barchaSavollar.length === 0 && (
-        <div className="card hech-narsa">So'rovnoma savollariga javob topilmadi. Savollarni Mezonlar bo'limidagi playbook'da qo'shish mumkin.</div>
+        <div className="card hech-narsa">{t("So'rovnoma savollariga javob topilmadi. Savollarni Mezonlar bo'limidagi playbook'da qo'shish mumkin.")}</div>
       )}
 
       {/* Uchala tur har doim ko'rinadi — savol bo'lmasa, nima qilish kerakligi aytiladi */}
-      <Karta sarlavha="Ha/Yo'q savollari" izoh="Javob berilgan suhbatlarda Ha va Yo'q ulushi. Chiziq ustiga olib boring — aniq son ko'rinadi">
+      <Karta sarlavha={t("Ha/Yo'q savollari")} izoh={t("Javob berilgan suhbatlarda Ha va Yo'q ulushi. Chiziq ustiga olib boring — aniq son ko'rinadi")}>
         {h.savollar.some((s) => s.turi === 'haYoq') ? (
           <div className="mt-hayoq">
             {h.savollar
@@ -250,11 +252,11 @@ export function MijozTahlili({ data, davr, q }: TabProps) {
               ))}
           </div>
         ) : (
-          <BoshSavol tur="Ha/Yo'q" misol="«Mijoz bepul konsultatsiyaga rozi bo'ldimi?»" />
+          <BoshSavol matn={t("Bu davrda Ha/Yo'q savollarga javob topilmadi.")} misol={t("«Mijoz bepul konsultatsiyaga rozi bo'ldimi?»")} />
         )}
       </Karta>
 
-      <Karta sarlavha="Raqamli savollar" izoh="Raqamli javoblar taqsimoti — har qiymat necha marta uchragani, o'rtacha qiymat belgisi bilan">
+      <Karta sarlavha={t('Raqamli savollar')} izoh={t("Raqamli javoblar taqsimoti — har qiymat necha marta uchragani, o'rtacha qiymat belgisi bilan")}>
         {h.savollar.some((s) => s.turi === 'raqam') ? (
           <div className="mt-panjara">
             {h.savollar
@@ -264,11 +266,11 @@ export function MijozTahlili({ data, davr, q }: TabProps) {
               ))}
           </div>
         ) : (
-          <BoshSavol tur="raqamli" misol="«O'quvchining yoshi nechada?»" />
+          <BoshSavol matn={t('Bu davrda raqamli savollarga javob topilmadi.')} misol={t("«O'quvchining yoshi nechada?»")} />
         )}
       </Karta>
 
-      <Karta sarlavha="Tanlash savollari" izoh="Bir nechta variantdan biri bilan javob beriladigan savollar">
+      <Karta sarlavha={t('Tanlash savollari')} izoh={t('Bir nechta variantdan biri bilan javob beriladigan savollar')}>
         {h.savollar.some((s) => s.turi === 'tanlov') ? (
           <div className="mt-panjara">
             {h.savollar
@@ -277,19 +279,19 @@ export function MijozTahlili({ data, davr, q }: TabProps) {
                 <div key={s.savol} className="mt-ichki">
                   <div className="mt-ichki-bosh">
                     <b>{s.savol}</b>
-                    <small>{s.javoblar.length} javob</small>
+                    <small>{t('{n} javob', { n: s.javoblar.length })}</small>
                   </div>
-                  <Donut bolaklar={bolaklarga(sanab(s.javoblar.map((j) => j.javob)))} markazNom="Javob" saralash ixcham chipLegenda />
+                  <Donut bolaklar={bolaklarga(sanab(s.javoblar.map((j) => j.javob)))} markazNom={t('Javob')} saralash ixcham chipLegenda />
                 </div>
               ))}
           </div>
         ) : (
-          <BoshSavol tur="tanlash" misol="«Kurs kim uchun: farzandi uchun yoki o'zi uchun?»" />
+          <BoshSavol matn={t('Bu davrda tanlash savollarga javob topilmadi.')} misol={t("«Kurs kim uchun: farzandi uchun yoki o'zi uchun?»")} />
         )}
       </Karta>
 
       {h.savollar.some((s) => s.turi === 'matn') && (
-        <Karta sarlavha="Ochiq savollar" izoh="Erkin matnli javoblar — eng ko'p uchraganlari">
+        <Karta sarlavha={t('Ochiq savollar')} izoh={t("Erkin matnli javoblar — eng ko'p uchraganlari")}>
           <div className="mt-panjara">
             {h.savollar
               .filter((s) => s.turi === 'matn')
@@ -297,7 +299,7 @@ export function MijozTahlili({ data, davr, q }: TabProps) {
                 <div key={s.savol} className="mt-ichki">
                   <div className="mt-ichki-bosh">
                     <b>{s.savol}</b>
-                    <small>{s.javoblar.length} javob</small>
+                    <small>{t('{n} javob', { n: s.javoblar.length })}</small>
                   </div>
                   <ul className="jm-sanoq">
                     {sanab(s.javoblar.map((j) => j.javob))
@@ -374,18 +376,20 @@ function Kpi({ qiymat, nom, izoh, rang }: { qiymat: string; nom: string; izoh: s
   );
 }
 
-function BoshSavol({ tur, misol }: { tur: string; misol: string }) {
+function BoshSavol({ matn, misol }: { matn: string; misol: string }) {
+  const t = useT();
   return (
     <div className="mt-bosh-savol">
-      <b>Bu davrda {tur} savollarga javob topilmadi.</b>
+      <b>{matn}</b>
       <span>
-        Playbook so'rovnomasiga shunday savol qo'shing, masalan {misol} — AI har suhbatdan javobni o'zi topadi.
+        {t("Playbook so'rovnomasiga shunday savol qo'shing, masalan {misol} — AI har suhbatdan javobni o'zi topadi.", { misol })}
       </span>
     </div>
   );
 }
 
 function HaYoqQator({ savol }: { savol: Savol }) {
+  const t = useT();
   const [faol, setFaol] = useState<{ tur: 'ha' | 'yoq'; x: number } | null>(null);
   const ha = savol.javoblar.filter((j) => haYoq(j.javob) === true).length;
   const yoq = savol.javoblar.filter((j) => haYoq(j.javob) === false).length;
@@ -399,36 +403,37 @@ function HaYoqQator({ savol }: { savol: Savol }) {
     <div className="mt-hayoq-qator">
       <div className="mt-hayoq-bosh">
         <b>{savol.savol}</b>
-        <small>{jami} javob</small>
+        <small>{t('{n} javob', { n: jami })}</small>
       </div>
-      <div className="mt-hayoq-chiziq" role="img" aria-label={`Ha ${ha}, Yo'q ${yoq}`} onMouseLeave={() => setFaol(null)}>
+      <div className="mt-hayoq-chiziq" role="img" aria-label={t("Ha {ha}, Yo'q {yoq}", { ha, yoq })} onMouseLeave={() => setFaol(null)}>
         <div className="mt-hayoq-ichki">
         {ha > 0 && (
           <span className={`ha${faol?.tur === 'yoq' ? ' xira' : ''}`} style={{ flexGrow: ha }} onMouseMove={harakat('ha')}>
-            {hf >= 8 && `Ha ${hf}%`}
+            {hf >= 8 && t('Ha {n}%', { n: hf })}
           </span>
         )}
         {yoq > 0 && (
           <span className={`yoq${faol?.tur === 'ha' ? ' xira' : ''}`} style={{ flexGrow: yoq }} onMouseMove={harakat('yoq')}>
-            {100 - hf >= 8 && `Yo'q ${100 - hf}%`}
+            {100 - hf >= 8 && t("Yo'q {n}%", { n: 100 - hf })}
           </span>
         )}
         </div>
         {faol && (
           <span className="mt-hayoq-maslahat" style={{ left: faol.x }} role="tooltip">
-            {faol.tur === 'ha' ? `Ha: ${ha} (${hf}%)` : `Yo'q: ${yoq} (${100 - hf}%)`}
+            {faol.tur === 'ha' ? t('Ha: {n} ({f}%)', { n: ha, f: hf }) : t("Yo'q: {n} ({f}%)", { n: yoq, f: 100 - hf })}
           </span>
         )}
       </div>
       <div className="mt-hayoq-past">
-        <span>Ha: {ha}</span>
-        <span>Yo'q: {yoq}</span>
+        <span>{t('Ha: {n}', { n: ha })}</span>
+        <span>{t("Yo'q: {n}", { n: yoq })}</span>
       </div>
     </div>
   );
 }
 
 function RaqamTaqsimoti({ savol }: { savol: Savol }) {
+  const t = useT();
   const sonlar = savol.javoblar.map((j) => raqam(j.javob)).filter((v): v is number => v !== null).sort((a, b) => a - b);
   const ortacha = sonlar.reduce((s, v) => s + v, 0) / Math.max(1, sonlar.length);
   const mediana = sonlar.length ? sonlar[Math.floor(sonlar.length / 2)]! : 0;
@@ -445,17 +450,17 @@ function RaqamTaqsimoti({ savol }: { savol: Savol }) {
     <div className="mt-ichki">
       <div className="mt-ichki-bosh">
         <b>{savol.savol}</b>
-        <small>{sonlar.length} javob</small>
+        <small>{t('{n} javob', { n: sonlar.length })}</small>
       </div>
       <div className="mt-statlar">
         <span>
-          O'rtacha <b>{Math.round(ortacha * 10) / 10}</b>
+          {t("O'rtacha")} <b>{Math.round(ortacha * 10) / 10}</b>
         </span>
         <span>
-          Mediana <b>{mediana}</b>
+          {t('Mediana')} <b>{mediana}</b>
         </span>
         <span>
-          Oraliq <b>
+          {t('Oraliq')} <b>
             {min}–{maxV}
           </b>
         </span>
@@ -484,26 +489,27 @@ function Matritsa({
   ism: Map<string, string>;
   tafsilot: ConversationDetail[];
 }) {
+  const t = useT();
   const ustunNom: Record<SavolTuri, string> = { haYoq: 'Ha soni', raqam: "O'rtacha", tanlov: 'Javoblar soni', matn: 'Javoblar soni' };
   return (
     <section className="card an-karta">
       <div className="karta-bosh">
         <h2>
-          Menejer × savol issiqligi{' '}
-          <MalumotIkon matn="Har menejer suhbatlarida savolga javob topilgan ulush (rang) va qiymat. Qizil — menejer bu savolni deyarli so'ramaydi" />
+          {t('Menejer × savol issiqligi')}{' '}
+          <MalumotIkon matn={t("Har menejer suhbatlarida savolga javob topilgan ulush (rang) va qiymat. Qizil — menejer bu savolni deyarli so'ramaydi")} />
         </h2>
       </div>
       <div className="mt-matritsa-qobiq">
         <table className="mt-matritsa">
           <thead>
             <tr>
-              <th>Menejer</th>
+              <th>{t('Menejer')}</th>
               {savollar.map((s) => (
                 <th key={s.savol}>
                   {/* Uzun savol qisqartiriladi — to'liq matni ustiga kelganda chiqadi */}
                   <span className="mt-th" tabIndex={0} aria-label={s.savol}>
                     <span className="mt-savol">{s.savol}</span>
-                    <small>({ustunNom[s.turi]})</small>
+                    <small>({t(ustunNom[s.turi])})</small>
                     <span className="mt-maslahat pastga" role="tooltip">
                       {s.savol}
                     </span>
@@ -515,7 +521,7 @@ function Matritsa({
           <tbody>
             {seatlar.map((seat) => {
               const jami = tafsilot.filter((d) => d.conversation.seatId === seat).length;
-              const nom = ism.get(seat) ?? 'Menejer';
+              const nom = ism.get(seat) ?? t('Menejer');
               return (
                 <tr key={seat}>
                   <td>
@@ -542,7 +548,7 @@ function Matritsa({
                         <span className={`mt-katak2 ${qamrovKlass(qamrov, bu.length > 0)}`} tabIndex={0}>
                           {qiymat}
                           <span className="mt-maslahat" role="tooltip">
-                            {bu.length} / {jami} suhbatda javob topilgan ({Math.round(qamrov * 100)}%)
+                            {t('{n} / {jami} suhbatda javob topilgan ({f}%)', { n: bu.length, jami, f: Math.round(qamrov * 100) })}
                           </span>
                         </span>
                       </td>
@@ -555,15 +561,15 @@ function Matritsa({
         </table>
       </div>
       <div className="mt-shkala2">
-        <span>Savolga javob topilgan suhbatlar:</span>
+        <span>{t('Savolga javob topilgan suhbatlar:')}</span>
         <span>
-          <i className="mt-katak2 yaxshi" /> 60% va ko'p
+          <i className="mt-katak2 yaxshi" /> {t("60% va ko'p")}
         </span>
         <span>
           <i className="mt-katak2 orta" /> 30–60%
         </span>
         <span>
-          <i className="mt-katak2 past" /> 30% dan kam
+          <i className="mt-katak2 past" /> {t('30% dan kam')}
         </span>
       </div>
     </section>

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api, fmtSana, type SeatRow, type TaskAnalytics, type TaskRow } from '../api';
 import { useAuth } from '../auth';
+import { useT } from '../i18n';
 
 const KORINISHLAR = [
   { key: '', nom: 'Hammasi' },
@@ -20,6 +21,7 @@ const HOLAT_NOMI: Record<TaskRow['status'], string> = {
 
 export function Tasks() {
   const { business } = useAuth();
+  const tr = useT();
   // Boshqa sahifadan "?view=overdue" bilan kelinsa — shu ko'rinish ochiladi
   const [view, setView] = useState(() => {
     const v = new URLSearchParams(window.location.search).get('view') ?? '';
@@ -84,34 +86,34 @@ export function Tasks() {
     <>
       <div className="sahifa-bosh">
         <div>
-          <h1>Vazifalar</h1>
-          <div className="izoh">AI suhbatlardagi va'dalardan avtomatik yaratadi</div>
+          <h1>{tr('Vazifalar')}</h1>
+          <div className="izoh">{tr("AI suhbatlardagi va'dalardan avtomatik yaratadi")}</div>
         </div>
         <button className="btn" onClick={() => setShowForm((v) => !v)}>
-          + Yangi vazifa
+          + {tr('Yangi vazifa')}
         </button>
       </div>
 
       {stats && (
         <div className="kpi-grid">
           <div className="card kpi">
-            <div className="nom">Ochiq</div>
+            <div className="nom">{tr('Ochiq')}</div>
             <div className="qiymat">{stats.pending + stats.inProgress}</div>
           </div>
           <div className="card kpi">
-            <div className="nom">Kechikkan</div>
+            <div className="nom">{tr('Kechikkan')}</div>
             <div className="qiymat" style={{ color: stats.overdue > 0 ? 'var(--qizil)' : undefined }}>
               {stats.overdue}
             </div>
           </div>
           <div className="card kpi">
-            <div className="nom">Bajarilish</div>
+            <div className="nom">{tr('Bajarilish')}</div>
             <div className="qiymat">
               {stats.completionRatePct === null ? '—' : `${stats.completionRatePct}%`}
             </div>
           </div>
           <div className="card kpi">
-            <div className="nom">AI yaratgan</div>
+            <div className="nom">{tr('AI yaratgan')}</div>
             <div className="qiymat">{stats.fromAi}</div>
           </div>
         </div>
@@ -121,20 +123,20 @@ export function Tasks() {
         <form className="card" style={{ marginBottom: 14 }} onSubmit={(e) => void create(e)}>
           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 10, alignItems: 'end' }}>
             <div>
-              <label className="maydon">Vazifa</label>
+              <label className="maydon">{tr('Vazifa')}</label>
               <input
                 className="input"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 required
                 minLength={3}
-                placeholder="Masalan: Mijozga taklif yuborish"
+                placeholder={tr('Masalan: Mijozga taklif yuborish')}
               />
             </div>
             <div>
-              <label className="maydon">Sotuvchi</label>
+              <label className="maydon">{tr('Sotuvchi')}</label>
               <select className="input" value={seatId} onChange={(e) => setSeatId(e.target.value)}>
-                <option value="">— tanlanmagan —</option>
+                <option value="">— {tr('tanlanmagan')} —</option>
                 {seats.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.displayName}
@@ -143,7 +145,7 @@ export function Tasks() {
               </select>
             </div>
             <div>
-              <label className="maydon">Muddat</label>
+              <label className="maydon">{tr('Muddat')}</label>
               <input
                 className="input"
                 type="datetime-local"
@@ -151,7 +153,7 @@ export function Tasks() {
                 onChange={(e) => setDueAt(e.target.value)}
               />
             </div>
-            <button className="btn">Saqlash</button>
+            <button className="btn">{tr('Saqlash')}</button>
           </div>
         </form>
       )}
@@ -164,7 +166,7 @@ export function Tasks() {
               className={`tab${view === k.key ? ' active' : ''}`}
               onClick={() => setView(k.key)}
             >
-              {k.nom}
+              {tr(k.nom)}
             </button>
           ))}
         </div>
@@ -172,21 +174,21 @@ export function Tasks() {
 
       <div className="card">
         {loading ? (
-          <div className="yuklanmoqda">Yuklanmoqda…</div>
+          <div className="yuklanmoqda">{tr('Yuklanmoqda…')}</div>
         ) : rows.length === 0 ? (
           <div className="hech-narsa">
             <div className="katta-ikon"><ListChecks /></div>
-            Bu ko'rinishda vazifa yo'q
+            {tr("Bu ko'rinishda vazifa yo'q")}
           </div>
         ) : (
           <table className="jadval">
             <thead>
               <tr>
-                <th>Vazifa</th>
-                <th>Sotuvchi</th>
-                <th>Muddat</th>
-                <th>Manba</th>
-                <th>Holat</th>
+                <th>{tr('Vazifa')}</th>
+                <th>{tr('Sotuvchi')}</th>
+                <th>{tr('Muddat')}</th>
+                <th>{tr('Manba')}</th>
+                <th>{tr('Holat')}</th>
               </tr>
             </thead>
             <tbody>
@@ -204,7 +206,7 @@ export function Tasks() {
                           to={`/suhbatlar/${t.conversationId}`}
                           style={{ fontSize: 12, color: 'var(--ia-text)', fontWeight: 500 }}
                         >
-                          suhbatni ko'rish <ChevronRight />
+                          {tr("suhbatni ko'rish")} <ChevronRight />
                         </Link>
                       )}
                     </td>
@@ -212,14 +214,14 @@ export function Tasks() {
                     <td style={{ whiteSpace: 'nowrap' }}>
                       {t.isOverdue && (
                         <span className="badge qizil" style={{ marginRight: 6 }}>
-                          kechikkan
+                          {tr('kechikkan')}
                         </span>
                       )}
                       {fmtSana(t.dueAt)}
                     </td>
                     <td>
                       <span className={`badge ${t.source === 'manual' ? 'navy' : 'toq'}`}>
-                        {t.source === 'manual' ? 'qo\'lda' : 'AI'}
+                        {t.source === 'manual' ? tr("qo'lda") : 'AI'}
                       </span>
                     </td>
                     <td>
@@ -231,7 +233,7 @@ export function Tasks() {
                       >
                         {(Object.keys(HOLAT_NOMI) as TaskRow['status'][]).map((h) => (
                           <option key={h} value={h}>
-                            {HOLAT_NOMI[h]}
+                            {tr(HOLAT_NOMI[h])}
                           </option>
                         ))}
                       </select>

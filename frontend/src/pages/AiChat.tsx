@@ -13,6 +13,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api, fmtSana, type AlertRow } from '../api';
 import { useAuth } from '../auth';
+import { useT } from '../i18n';
 import { TepaPanel } from '../components/bosh/TepaPanel';
 import { davrniTop, javobBer, niyatniTop, type Javob, type Niyat } from '../components/chat/javob';
 
@@ -97,6 +98,7 @@ function oqi(kalit: string): Sessiya[] {
 
 export function AiChat() {
   const { business, user } = useAuth();
+  const tr = useT();
   const KALIT = `sotuvai-chat-${user?.id ?? 'mehmon'}`;
 
   const [sessiyalar, setSessiyalar] = useState<Sessiya[]>(() => oqi(KALIT));
@@ -195,11 +197,9 @@ export function AiChat() {
     if (!niyat) {
       xabarQosh(sid, {
         rol: 'yordamchi',
-        matn:
-          'Bu savolga hozircha javob bera olmayman — erkin savollarga javob beruvchi AI yordamchi ' +
-          'server tomonda hali ulanmagan.\nQuyidagi mavzular bo\'yicha so\'rang — ularga sizning ' +
-          'ma\'lumotlaringizdan aniq javob beraman: ko\'rsatkichlar, eng yaxshi menejer, zaif bosqich, ' +
-          'lidlar holati, javobsiz mijozlar, kechikkan vazifalar.',
+        matn: tr(
+          "Bu savolga hozircha javob bera olmayman — erkin savollarga javob beruvchi AI yordamchi server tomonda hali ulanmagan.\nQuyidagi mavzular bo'yicha so'rang — ularga sizning ma'lumotlaringizdan aniq javob beraman: ko'rsatkichlar, eng yaxshi menejer, zaif bosqich, lidlar holati, javobsiz mijozlar, kechikkan vazifalar.",
+        ),
       });
       return;
     }
@@ -209,7 +209,7 @@ export function AiChat() {
       const j = await javobBer(niyat, business, davrniTop(t));
       xabarQosh(sid, { rol: 'yordamchi', matn: j.matn, havola: j.havola });
     } catch {
-      xabarQosh(sid, { rol: 'yordamchi', matn: 'Ma\'lumotni olib bo\'lmadi. Birozdan keyin qayta urinib ko\'ring.' });
+      xabarQosh(sid, { rol: 'yordamchi', matn: tr("Ma'lumotni olib bo'lmadi. Birozdan keyin qayta urinib ko'ring.") });
     } finally {
       setBand(false);
       maydon.current?.focus();
@@ -253,20 +253,20 @@ export function AiChat() {
         value={matn}
         onChange={(e) => setMatn(e.target.value)}
         onKeyDown={klaviatura}
-        placeholder="Xabar yozing…"
-        aria-label="Xabar"
+        placeholder={tr('Xabar yozing…')}
+        aria-label={tr('Xabar')}
         disabled={band}
         autoFocus
       />
       <span className="chat2-ishora" aria-hidden="true">
-        <CornerDownLeft /> Yuborish
+        <CornerDownLeft /> {tr('Yuborish')}
       </span>
       <button
         type="button"
         className="chat2-yubor"
         onClick={yubor}
         disabled={band || matn.trim() === ''}
-        aria-label="Yuborish"
+        aria-label={tr('Yuborish')}
       >
         <SendHorizontal />
       </button>
@@ -287,32 +287,32 @@ export function AiChat() {
         {tarixOchiq ? (
           <>
             {/* Telefonda panel kontent ustida ochiladi — fonga bosilsa yopiladi */}
-            <button className="chat2-parda" aria-label="Tarixni yopish" onClick={() => tarixniAlmashtir(false)} />
-            <aside className="chat2-tarix" aria-label="Suhbatlar tarixi">
+            <button className="chat2-parda" aria-label={tr('Tarixni yopish')} onClick={() => tarixniAlmashtir(false)} />
+            <aside className="chat2-tarix" aria-label={tr('Suhbatlar tarixi')}>
               <div className="chat2-tarix-bosh">
                 <button
                   type="button"
                   className="chat2-asbob"
                   onClick={() => tarixniAlmashtir(false)}
                   aria-expanded
-                  aria-label="Suhbatlar panelini yopish"
-                  title="Panelni yopish"
+                  aria-label={tr('Suhbatlar panelini yopish')}
+                  title={tr('Panelni yopish')}
                 >
                   <MessagesSquare />
                 </button>
-                <span className="chat2-tarix-nom">Suhbatlar</span>
+                <span className="chat2-tarix-nom">{tr('Suhbatlar')}</span>
                 <button
                   type="button"
                   className="chat2-yopish"
                   onClick={yangiSuhbat}
-                  aria-label="Yangi suhbat"
-                  title="Yangi suhbat"
+                  aria-label={tr('Yangi suhbat')}
+                  title={tr('Yangi suhbat')}
                 >
                   <MessageSquarePlus />
                 </button>
               </div>
               {sessiyalar.length === 0 ? (
-                <div className="chat2-tarix-bosh-matn">Suhbatlar mavjud emas</div>
+                <div className="chat2-tarix-bosh-matn">{tr('Suhbatlar mavjud emas')}</div>
               ) : (
                 <ul>
                   {sessiyalar.map((s) => (
@@ -327,14 +327,14 @@ export function AiChat() {
                       >
                         <b>{s.sarlavha}</b>
                         <small>
-                          {fmtSana(s.yangilangan)} · {s.xabarlar.length} xabar
+                          {fmtSana(s.yangilangan)} · {tr('{n} xabar', { n: s.xabarlar.length })}
                         </small>
                       </button>
                       <button
                         type="button"
                         className="chat2-ochir"
-                        aria-label="Suhbatni o'chirish"
-                        title="O'chirish"
+                        aria-label={tr("Suhbatni o'chirish")}
+                        title={tr("O'chirish")}
                         onClick={() => {
                           setSessiyalar((v) => v.filter((x) => x.id !== s.id));
                           if (faolId === s.id) setFaolId(null);
@@ -355,14 +355,14 @@ export function AiChat() {
               className="chat2-asbob"
               onClick={() => tarixniAlmashtir(true)}
               aria-expanded={false}
-              aria-label="Suhbatlar tarixini ochish"
-              title="Suhbatlar tarixi"
+              aria-label={tr('Suhbatlar tarixini ochish')}
+              title={tr('Suhbatlar tarixi')}
             >
               <MessagesSquare />
               {sessiyalar.length > 0 && <span className="chat2-asbob-son">{sessiyalar.length}</span>}
             </button>
             {faol && (
-              <button type="button" className="chat2-asbob" onClick={yangiSuhbat} aria-label="Yangi suhbat" title="Yangi suhbat">
+              <button type="button" className="chat2-asbob" onClick={yangiSuhbat} aria-label={tr('Yangi suhbat')} title={tr('Yangi suhbat')}>
                 <MessageSquarePlus />
               </button>
             )}
@@ -375,8 +375,8 @@ export function AiChat() {
             <span className="chat2-logo" aria-hidden="true">
               <Sparkles />
             </span>
-            <h1>Salom{ism ? `, ${ism}` : ''}</h1>
-            <p>Bugun sizga qanday yordam bera olaman?</p>
+            <h1>{ism ? tr('Salom, {ism}', { ism }) : tr('Salom')}</h1>
+            <p>{tr('Bugun sizga qanday yordam bera olaman?')}</p>
             {tarkib}
             <div className="chat2-kartalar">
               {kartalar.map((k) => (
@@ -384,18 +384,19 @@ export function AiChat() {
                   key={k.sarlavha}
                   type="button"
                   className="chat2-karta"
-                  onClick={() => void sora(k.savol, k.niyat)}
+                  onClick={() => void sora(tr(k.savol), k.niyat)}
                   disabled={band}
                 >
-                  <b>{k.sarlavha}</b>
-                  <span>{k.savol}</span>
+                  <b>{tr(k.sarlavha)}</b>
+                  <span>{tr(k.savol)}</span>
                   <ArrowRight className="chat2-karta-strelka" aria-hidden="true" />
                 </button>
               ))}
             </div>
             <p className="chat2-eslatma">
-              Javoblar sizning haqiqiy ma'lumotlaringizdan hisoblanadi. Erkin savollarga AI javobi server
-              tomonda ulangach ishlaydi.
+              {tr(
+                "Javoblar sizning haqiqiy ma'lumotlaringizdan hisoblanadi. Erkin savollarga AI javobi server tomonda ulangach ishlaydi.",
+              )}
             </p>
           </div>
         ) : (
@@ -412,13 +413,13 @@ export function AiChat() {
                     <div className="chat2-matn">{x.matn}</div>
                     {x.havola && (
                       <Link to={x.havola.to} className="chat2-havola">
-                        {x.havola.nom} <ArrowRight />
+                        {tr(x.havola.nom)} <ArrowRight />
                       </Link>
                     )}
                     {x.rol === 'yordamchi' && (
-                      <button type="button" className="chat2-nusxa" onClick={() => void nusxaOl(x)} title="Nusxa olish">
+                      <button type="button" className="chat2-nusxa" onClick={() => void nusxaOl(x)} title={tr('Nusxa olish')}>
                         {nusxa === x.id ? <Check /> : <Copy />}
-                        {nusxa === x.id ? 'Nusxa olindi' : 'Nusxa'}
+                        {nusxa === x.id ? tr('Nusxa olindi') : tr('Nusxa')}
                       </button>
                     )}
                   </div>
@@ -429,7 +430,7 @@ export function AiChat() {
                   <span className="chat2-avatar" aria-hidden="true">
                     <Sparkles />
                   </span>
-                  <div className="chat2-pufak chat-yozmoqda" aria-label="Javob tayyorlanmoqda">
+                  <div className="chat2-pufak chat-yozmoqda" aria-label={tr('Javob tayyorlanmoqda')}>
                     <span />
                     <span />
                     <span />
@@ -443,8 +444,8 @@ export function AiChat() {
             <div className="chat2-pastki">
               <div className="chat2-takliflar">
                 {QOSHIMCHA.map((q) => (
-                  <button key={q.matn} type="button" className="chip-tugma" disabled={band} onClick={() => void sora(q.matn, q.niyat)}>
-                    {q.matn}
+                  <button key={q.matn} type="button" className="chip-tugma" disabled={band} onClick={() => void sora(tr(q.matn), q.niyat)}>
+                    {tr(q.matn)}
                   </button>
                 ))}
               </div>

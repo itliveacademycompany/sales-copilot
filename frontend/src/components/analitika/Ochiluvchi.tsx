@@ -1,5 +1,6 @@
 import { Check, ChevronDown } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useT } from '../../i18n';
 import { useTashqiBosish } from '../qongiroq/Filtrlar';
 
 /**
@@ -24,7 +25,7 @@ export function Ochiluvchi({
   qiymat,
   variantlar,
   onOzgar,
-  hammasiNomi = 'Hammasi',
+  hammasiNomi,
   kenglik,
   boshMatn,
 }: {
@@ -38,6 +39,7 @@ export function Ochiluvchi({
   /** Variant yo'q bo'lganda ro'yxat ostidagi izoh (masalan, qayerdan qo'shish). */
   boshMatn?: ReactNode;
 }) {
+  const t = useT();
   const [ochiq, setOchiq] = useState(false);
   const [faol, setFaol] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
@@ -45,7 +47,7 @@ export function Ochiluvchi({
   const id = useId();
   useTashqiBosish(ref, ochiq, () => setOchiq(false));
 
-  const hammasi: Variant[] = [{ qiymat: '', nom: hammasiNomi }, ...variantlar];
+  const hammasi: Variant[] = [{ qiymat: '', nom: hammasiNomi ?? t('Hammasi') }, ...variantlar];
   const tanlangan = hammasi.find((v) => v.qiymat === qiymat) ?? hammasi[0]!;
 
   useEffect(() => {
@@ -130,7 +132,7 @@ export function Ochiluvchi({
               </li>
             );
           })}
-          {variantlar.length === 0 && <li className="och-bosh">{boshMatn ?? "Boshqa variant yo'q"}</li>}
+          {variantlar.length === 0 && <li className="och-bosh">{boshMatn ?? t("Boshqa variant yo'q")}</li>}
         </ul>
       )}
     </div>

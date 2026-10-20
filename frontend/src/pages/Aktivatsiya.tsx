@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { ParolInput } from '../components/ParolInput';
 import { useAuth } from '../auth';
+import { joyla, useT } from '../i18n';
 
 /**
  * FR-04: menejer aktivatsiyasi — rahbar bergan havoladan parol o'rnatish.
@@ -29,6 +30,7 @@ export function Aktivatsiya() {
   const { token } = useParams<{ token: string }>();
   const { refresh } = useAuth();
   const navigate = useNavigate();
+  const t = useT();
 
   const [malumot, setMalumot] = useState<Malumot | null>(null);
   const [yuklashXato, setYuklashXato] = useState('');
@@ -43,7 +45,8 @@ export function Aktivatsiya() {
     void api
       .post<Malumot>('/api/v1/auth/activate/info', { token })
       .then(setMalumot)
-      .catch((err: unknown) => setYuklashXato(err instanceof ApiError ? err.message : "Server bilan bog'lanib bo'lmadi"));
+      .catch((err: unknown) => setYuklashXato(err instanceof ApiError ? err.message : t("Server bilan bog'lanib bo'lmadi")));
+    // `t` ataylab bog'liqlik emas: til almashganda havolani qayta tekshirish shart emas
   }, [token]);
 
   const loginKerak = malumot !== null && malumot.login === null;
@@ -64,7 +67,7 @@ export function Aktivatsiya() {
       await refresh();
       navigate('/', { replace: true });
     } catch (err) {
-      setXato(err instanceof ApiError ? err.message : "Server bilan bog'lanib bo'lmadi");
+      setXato(err instanceof ApiError ? err.message : t("Server bilan bog'lanib bo'lmadi"));
     } finally {
       setBand(false);
     }
@@ -79,27 +82,32 @@ export function Aktivatsiya() {
 
         {yuklashXato ? (
           <>
-            <div className="kirish-izoh">Hisobni faollashtirish</div>
+            <div className="kirish-izoh">{t('Hisobni faollashtirish')}</div>
             <div className="xato-banner">
               {yuklashXato}
-              <div style={{ marginTop: 6, fontSize: 12 }}>Havola bir marta ishlaydi va 7 kun amal qiladi. Rahbaringizdan yangisini so'rang.</div>
+              <div style={{ marginTop: 6, fontSize: 12 }}>
+                {t("Havola bir marta ishlaydi va 7 kun amal qiladi. Rahbaringizdan yangisini so'rang.")}
+              </div>
             </div>
           </>
         ) : !malumot ? (
           <div className="kirish-izoh" aria-busy="true">
-            Havola tekshirilmoqda…
+            {t('Havola tekshirilmoqda…')}
           </div>
         ) : (
           <>
             <div className="kirish-izoh">
-              Salom, <b>{malumot.displayName}</b>! <b>{malumot.businessName}</b> jamoasiga kirish uchun parol o'rnating.
+              {joyla(t("Salom, {ism}! {biznes} jamoasiga kirish uchun parol o'rnating."), {
+                ism: <b>{malumot.displayName}</b>,
+                biznes: <b>{malumot.businessName}</b>,
+              })}
             </div>
 
             {xato && <div className="xato-banner">{xato}</div>}
 
             <div className="maydon-blok">
               <label className="maydon" htmlFor="akt-login">
-                Login
+                {t('Login')}
               </label>
               {loginKerak ? (
                 <>
@@ -113,10 +121,10 @@ export function Aktivatsiya() {
                     spellCheck={false}
                     autoFocus
                     aria-invalid={login.length > 0 && !loginTogri}
-                    placeholder="masalan: aziz.karimov"
+                    placeholder={t('masalan: aziz.karimov')}
                   />
                   <div className="yordam" style={login.length > 0 && !loginTogri ? { color: 'var(--past)' } : undefined}>
-                    3–40 belgi: lotin harflari, raqam va . _ -
+                    {t('3–40 belgi: lotin harflari, raqam va . _ -')}
                   </div>
                 </>
               ) : (
@@ -128,7 +136,7 @@ export function Aktivatsiya() {
             </div>
 
             <div className="maydon-blok">
-              <label className="maydon">Parol</label>
+              <label className="maydon">{t('Parol')}</label>
               <ParolInput
                 ikon={<Lock />}
                 value={parol}
@@ -138,25 +146,25 @@ export function Aktivatsiya() {
                 autoComplete="new-password"
                 autoFocus={!loginKerak}
               />
-              <div className="yordam">Kamida 10 belgi. Uzunlik murakkablikdan muhimroq.</div>
+              <div className="yordam">{t('Kamida 10 belgi. Uzunlik murakkablikdan muhimroq.')}</div>
             </div>
 
             <div className="maydon-blok">
-              <label className="maydon">Parolni takrorlang</label>
+              <label className="maydon">{t('Parolni takrorlang')}</label>
               <ParolInput ikon={<Lock />} value={takror} onChange={(e) => setTakror(e.target.value)} required autoComplete="new-password" />
               {takror.length > 0 && parol !== takror && (
                 <div className="yordam" style={{ color: 'var(--past)' }}>
-                  Parollar mos kelmadi
+                  {t('Parollar mos kelmadi')}
                 </div>
               )}
             </div>
 
             <button className="btn" style={{ width: '100%', justifyContent: 'center' }} disabled={band || !mos}>
-              {band ? 'Faollashtirilmoqda…' : 'Hisobni faollashtirish'}
+              {band ? t('Faollashtirilmoqda…') : t('Hisobni faollashtirish')}
             </button>
 
             <div style={{ marginTop: 12, fontSize: 12, textAlign: 'center', color: 'var(--text-muted)' }}>
-              Keyingi safar shu login va parol bilan kirasiz.
+              {t('Keyingi safar shu login va parol bilan kirasiz.')}
             </div>
           </>
         )}

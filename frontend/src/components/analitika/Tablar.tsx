@@ -26,6 +26,7 @@ import {
   type BoshMalumot,
   type Davr,
 } from '../bosh/malumot';
+import { useT } from '../../i18n';
 import { csvYukla } from '../qongiroq/eksport';
 import { ChiziqliGrafik, Donut, type Bolak as DonutBolak } from './grafiklar';
 import { bolakda, bolaklar, useAnalitikaQoshimcha } from './qoshimcha';
@@ -122,8 +123,9 @@ function Bosh({ matn }: { matn: string }) {
 }
 
 function TafsilotEslatma({ q }: { q: Qoshimcha }) {
+  const t = useT();
   if (q.tafsilotKutilmoqda === 0) return null;
-  return <div className="an-eslatma">Tahlil tafsilotlari yuklanmoqda — yana {q.tafsilotKutilmoqda} ta…</div>;
+  return <div className="an-eslatma">{t('Tahlil tafsilotlari yuklanmoqda — yana {n} ta…', { n: q.tafsilotKutilmoqda })}</div>;
 }
 
 /** Sotuvchilar bo'yicha joriy davr hisobi — bir nechta bo'limda kerak. */
@@ -146,6 +148,7 @@ function sotuvchiHisobi(data: BoshMalumot, joriy: ConversationRow[]) {
 // ═══ 1. UMUMIY KO'RINISH ════════════════════════════════════════════════════
 
 export function UmumiyKorinish({ data, davr, q }: TabProps) {
+  const t = useT();
   const joriy = useJoriy(data, davr);
   const k = korsatkichlar(data, davr);
   const { c, p } = k;
@@ -155,11 +158,11 @@ export function UmumiyKorinish({ data, davr, q }: TabProps) {
   const sifatTrend = royxat.map((b) => {
     const ichi = bolakda(tahlil, b);
     const v = ortacha(ichi.map(ball).filter((x): x is number => x !== null));
-    return { nom: b.nom, qiymat: v, izoh: `${ichi.length} ta tahlil` };
+    return { nom: b.nom, qiymat: v, izoh: t('{n} ta tahlil', { n: ichi.length }) };
   });
   const ulushTrend = royxat.map((b) => {
     const ichi = bolakda(tahlil, b);
-    return { nom: b.nom, qiymat: foiz(lidHisobi(ichi).hot, ichi.length), izoh: `${ichi.length} ta tahlil` };
+    return { nom: b.nom, qiymat: foiz(lidHisobi(ichi).hot, ichi.length), izoh: t('{n} ta tahlil', { n: ichi.length }) };
   });
 
   const natija: Record<string, number> = {};
@@ -171,11 +174,11 @@ export function UmumiyKorinish({ data, davr, q }: TabProps) {
   const donut: DonutBolak[] = [
     ...['sales', 'support', 'internal', 'spam', 'other'].map((s, i) => ({
       kalit: s,
-      nom: SOHA[s]!,
+      nom: t(SOHA[s]!),
       qiymat: natija[s] ?? 0,
       rang: SERIYA[i]!,
     })),
-    { kalit: 'filtered', nom: 'Filtrlangan', qiymat: filtrlangan, rang: SERIYA[5]! },
+    { kalit: 'filtered', nom: t('Filtrlangan'), qiymat: filtrlangan, rang: SERIYA[5]! },
   ];
 
   const vazifaJami = q.vazifaStat?.total ?? q.vazifalar?.length ?? null;
@@ -187,33 +190,33 @@ export function UmumiyKorinish({ data, davr, q }: TabProps) {
       <BiznesPulsi data={data} davr={davr} dinamik />
 
       <div className="an-kpi-grid">
-        <KpiKarta ikon={<Flame />} nom="Issiq lidlar" izoh="AI issiq deb baholagan, yopilishga eng yaqin mijozlar" qiymat={String(k.lid.hot)} farq={<Farq d={k.lid.hot - k.lidOldin.hot} aniqlik={0} />} />
-        <KpiKarta ikon={<MessagesSquare />} nom="Suhbatlar" izoh="Davrdagi barcha suhbatlar (filtrlanganlar bilan)" qiymat={String(c.conversations)} farq={<Farq d={c.conversations - p.conversations} aniqlik={0} />} />
-        <KpiKarta ikon={<Percent />} nom="Issiq lid ulushi" izoh="Tahlil qilingan suhbatlarning issiq lid bilan tugagan ulushi" qiymat={k.issiqUlush === null ? '—' : `${k.issiqUlush.toFixed(2)}%`} farq={<Farq d={k.issiqUlush !== null && k.issiqUlushOldin !== null ? k.issiqUlush - k.issiqUlushOldin : null} birlik="%" />} />
-        <KpiKarta ikon={<Timer />} nom="Javob tezligi" izoh="Mijozning birinchi xabariga javob vaqti (median). Kamaygani yaxshi" qiymat={fmtSoniya(c.medianFirstResponseSeconds)} farq={<Farq d={c.medianFirstResponseSeconds !== null && p.medianFirstResponseSeconds !== null ? (c.medianFirstResponseSeconds - p.medianFirstResponseSeconds) / 60 : null} teskari birlik=" daq" />} />
-        <KpiKarta ikon={<Gauge />} nom="Suhbat sifati" izoh="Baholash mezonlari bo'yicha o'rtacha ball" qiymat={c.avgScore === null ? '—' : `${c.avgScore}%`} rang={ballRang(c.avgScore)} farq={<Farq d={dSifat} birlik="%" />} />
-        <KpiKarta ikon={<MessageSquareX />} nom="Javobsiz mijozlar" izoh="Mijoz yozgan, lekin javob olmagan sessiyalar. Kamaygani yaxshi" qiymat={String(c.unansweredSessions)} rang={c.unansweredSessions > 0 ? 'var(--past)' : undefined} farq={<Farq d={c.unansweredSessions - p.unansweredSessions} teskari aniqlik={0} />} />
-        <KpiKarta ikon={<ListChecks />} nom="Vazifalar" izoh="Suhbatlardagi va'dalardan yaratilgan va qo'lda qo'shilgan vazifalar" qiymat={vazifaJami === null ? '—' : String(vazifaJami)} />
-        <KpiKarta ikon={<CircleCheck />} nom="Bajarilishi" izoh="Vazifalarning bajarilgan ulushi" qiymat={bajarilish === null ? '—' : `${Math.round(bajarilish)}%`} />
+        <KpiKarta ikon={<Flame />} nom={t('Issiq lidlar')} izoh={t('AI issiq deb baholagan, yopilishga eng yaqin mijozlar')} qiymat={String(k.lid.hot)} farq={<Farq d={k.lid.hot - k.lidOldin.hot} aniqlik={0} />} />
+        <KpiKarta ikon={<MessagesSquare />} nom={t('Suhbatlar')} izoh={t('Davrdagi barcha suhbatlar (filtrlanganlar bilan)')} qiymat={String(c.conversations)} farq={<Farq d={c.conversations - p.conversations} aniqlik={0} />} />
+        <KpiKarta ikon={<Percent />} nom={t('Issiq lid ulushi')} izoh={t('Tahlil qilingan suhbatlarning issiq lid bilan tugagan ulushi')} qiymat={k.issiqUlush === null ? '—' : `${k.issiqUlush.toFixed(2)}%`} farq={<Farq d={k.issiqUlush !== null && k.issiqUlushOldin !== null ? k.issiqUlush - k.issiqUlushOldin : null} birlik="%" />} />
+        <KpiKarta ikon={<Timer />} nom={t('Javob tezligi')} izoh={t('Mijozning birinchi xabariga javob vaqti (median). Kamaygani yaxshi')} qiymat={fmtSoniya(c.medianFirstResponseSeconds)} farq={<Farq d={c.medianFirstResponseSeconds !== null && p.medianFirstResponseSeconds !== null ? (c.medianFirstResponseSeconds - p.medianFirstResponseSeconds) / 60 : null} teskari birlik={t(" daq")} />} />
+        <KpiKarta ikon={<Gauge />} nom={t('Suhbat sifati')} izoh={t("Baholash mezonlari bo'yicha o'rtacha ball")} qiymat={c.avgScore === null ? '—' : `${c.avgScore}%`} rang={ballRang(c.avgScore)} farq={<Farq d={dSifat} birlik="%" />} />
+        <KpiKarta ikon={<MessageSquareX />} nom={t('Javobsiz mijozlar')} izoh={t('Mijoz yozgan, lekin javob olmagan sessiyalar. Kamaygani yaxshi')} qiymat={String(c.unansweredSessions)} rang={c.unansweredSessions > 0 ? 'var(--past)' : undefined} farq={<Farq d={c.unansweredSessions - p.unansweredSessions} teskari aniqlik={0} />} />
+        <KpiKarta ikon={<ListChecks />} nom={t('Vazifalar')} izoh={t("Suhbatlardagi va'dalardan yaratilgan va qo'lda qo'shilgan vazifalar")} qiymat={vazifaJami === null ? '—' : String(vazifaJami)} />
+        <KpiKarta ikon={<CircleCheck />} nom={t('Bajarilishi')} izoh={t('Vazifalarning bajarilgan ulushi')} qiymat={bajarilish === null ? '—' : `${Math.round(bajarilish)}%`} />
       </div>
 
       <div className="an-grid-2">
-        <Karta sarlavha="Sifat va konversiya trendi" izoh="Ikki xil o'lchov — shuning uchun ikki alohida grafik, umumiy vaqt o'qi bilan">
+        <Karta sarlavha={t('Sifat va konversiya trendi')} izoh={t("Ikki xil o'lchov — shuning uchun ikki alohida grafik, umumiy vaqt o'qi bilan")}>
           <div className="an-trend-qism">
             <span className="an-trend-nom">
-              <i className="g-belgi" style={{ background: 'var(--s1)' }} /> Suhbat sifati, %
+              <i className="g-belgi" style={{ background: 'var(--s1)' }} /> {t('Suhbat sifati, %')}
             </span>
-            <ChiziqliGrafik nuqtalar={sifatTrend} birlik="%" yMax={100} rang="var(--s1)" balandlik={170} nom="Suhbat sifati" />
+            <ChiziqliGrafik nuqtalar={sifatTrend} birlik="%" yMax={100} rang="var(--s1)" balandlik={170} nom={t('Suhbat sifati')} />
           </div>
           <div className="an-trend-qism">
             <span className="an-trend-nom">
-              <i className="g-belgi" style={{ background: 'var(--s3)' }} /> Issiq lid ulushi, %
+              <i className="g-belgi" style={{ background: 'var(--s3)' }} /> {t('Issiq lid ulushi, %')}
             </span>
-            <ChiziqliGrafik nuqtalar={ulushTrend} birlik="%" yMax={100} rang="var(--s3)" balandlik={170} nom="Issiq lid ulushi" />
+            <ChiziqliGrafik nuqtalar={ulushTrend} birlik="%" yMax={100} rang="var(--s3)" balandlik={170} nom={t('Issiq lid ulushi')} />
           </div>
         </Karta>
-        <Karta sarlavha="Suhbat natijalari" izoh="Tahlil qilingan suhbatlar qaysi turga tegishli (AI tasnifi) va filtrlanganlar">
-          <Donut bolaklar={donut} markazNom="Suhbatlar" saralash />
+        <Karta sarlavha={t('Suhbat natijalari')} izoh={t('Tahlil qilingan suhbatlar qaysi turga tegishli (AI tasnifi) va filtrlanganlar')}>
+          <Donut bolaklar={donut} markazNom={t('Suhbatlar')} saralash />
           <TafsilotEslatma q={q} />
         </Karta>
       </div>
@@ -224,6 +227,7 @@ export function UmumiyKorinish({ data, davr, q }: TabProps) {
 }
 
 function ReytingJadvali({ data, joriy, davr }: { data: BoshMalumot; joriy: ConversationRow[]; davr: Davr }) {
+  const t = useT();
   const [rejim, setRejim] = useState<'natija' | 'sifat'>('natija');
   const qatorlar = sotuvchiHisobi(data, joriy).sort((a, b) =>
     rejim === 'natija'
@@ -233,8 +237,8 @@ function ReytingJadvali({ data, joriy, davr }: { data: BoshMalumot; joriy: Conve
 
   const eksport = () =>
     csvYukla(
-      `menejerlar_reytingi_${davr.from.toISOString().slice(0, 10)}`,
-      ['O\'rin', 'Menejer', 'Suhbatlar', 'Issiq lidlar', 'Issiq lid ulushi (%)', 'Suhbat sifati (%)', 'O\'rt. davomiylik', 'Javob tezligi'],
+      `${t('menejerlar_reytingi')}_${davr.from.toISOString().slice(0, 10)}`,
+      [t("O'rin"), t('Menejer'), t('Suhbatlar'), t('Issiq lidlar'), t('Issiq lid ulushi (%)'), t('Suhbat sifati (%)'), t("O'rt. davomiylik"), t('Javob tezligi')],
       qatorlar.map((r, i) => [
         i + 1,
         r.displayName,
@@ -249,16 +253,16 @@ function ReytingJadvali({ data, joriy, davr }: { data: BoshMalumot; joriy: Conve
 
   return (
     <Karta
-      sarlavha="Menejerlar reytingi"
-      izoh="Natija — issiq lidlar soni bo'yicha; Sifat — suhbat sifati bo'yicha"
+      sarlavha={t('Menejerlar reytingi')}
+      izoh={t("Natija — issiq lidlar soni bo'yicha; Sifat — suhbat sifati bo'yicha")}
       amal={
         <div className="an-amallar">
           <div className="tab-qator">
             <button className={`tab${rejim === 'natija' ? ' active' : ''}`} onClick={() => setRejim('natija')}>
-              Natija
+              {t('Natija')}
             </button>
             <button className={`tab${rejim === 'sifat' ? ' active' : ''}`} onClick={() => setRejim('sifat')}>
-              Sifat
+              {t('Sifat')}
             </button>
           </div>
           <button className="btn ikkinchi kichik" onClick={eksport} disabled={qatorlar.length === 0}>
@@ -268,21 +272,21 @@ function ReytingJadvali({ data, joriy, davr }: { data: BoshMalumot; joriy: Conve
       }
     >
       <p className="an-izoh-matn">
-        {rejim === 'natija' ? 'Issiq lidlar soni bo\'yicha reyting.' : 'Suhbat sifati bo\'yicha reyting.'} Ma'lumot
-        tanlangan davr bo'yicha.
+        {rejim === 'natija' ? t("Issiq lidlar soni bo'yicha reyting.") : t("Suhbat sifati bo'yicha reyting.")}{' '}
+        {t("Ma'lumot tanlangan davr bo'yicha.")}
       </p>
       {qatorlar.length === 0 ? (
-        <Bosh matn="Bu davrda menejerlar faoliyati yo'q" />
+        <Bosh matn={t("Bu davrda menejerlar faoliyati yo'q")} />
       ) : (
         <table className="jadval an-jadval">
           <thead>
             <tr>
-              <th>Menejer</th>
-              <th>Issiq lidlar</th>
-              <th>Issiq lid ulushi</th>
-              <th>Suhbat sifati</th>
-              <th>O'rt. davomiylik</th>
-              <th>Javob tezligi</th>
+              <th>{t('Menejer')}</th>
+              <th>{t('Issiq lidlar')}</th>
+              <th>{t('Issiq lid ulushi')}</th>
+              <th>{t('Suhbat sifati')}</th>
+              <th>{t("O'rt. davomiylik")}</th>
+              <th>{t('Javob tezligi')}</th>
             </tr>
           </thead>
           <tbody>

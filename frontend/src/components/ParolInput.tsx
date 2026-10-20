@@ -1,5 +1,6 @@
 import { Eye, EyeOff } from 'lucide-react';
 import { useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { useT } from '../i18n';
 
 /**
  * Ikonli input va ko'zchali parol maydoni.
@@ -42,8 +43,9 @@ interface ParolProps extends InputProps {
  * aytiladi.
  */
 export function ParolInput({ ikon, className, ...rest }: ParolProps) {
+  const t = useT();
   const [korinadi, setKorinadi] = useState(false);
-  const nom = korinadi ? 'Parolni yashirish' : 'Parolni ko\'rsatish';
+  const nom = t(korinadi ? 'Parolni yashirish' : "Parolni ko'rsatish");
 
   return (
     <div className={`input-qobiq parol${ikon ? ' ikonli' : ''}`}>

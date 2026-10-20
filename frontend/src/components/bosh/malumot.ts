@@ -14,6 +14,7 @@ import {
   type SeatRow,
   type TrendPoint,
 } from '../../api';
+import { tarjima } from '../../i18n';
 import { tafsilotOl } from '../tafsilotKesh';
 
 /**
@@ -67,7 +68,7 @@ export function otganOy(): { from: Date; to: Date; nom: string } {
   const from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const to = new Date(now.getFullYear(), now.getMonth(), 1);
   const OYLAR = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentabr', 'oktabr', 'noyabr', 'dekabr'];
-  return { from, to, nom: OYLAR[from.getMonth()]! };
+  return { from, to, nom: tarjima(OYLAR[from.getMonth()]!) };
 }
 
 export function qs(from: Date, to: Date): string {
@@ -205,7 +206,7 @@ export function useBoshMalumot(business: BusinessAccess | null, davr: Davr) {
           seatKabinet,
         });
       } catch {
-        if (!bekor) setXato('Ma\'lumotni yuklab bo\'lmadi. Sahifani yangilab ko\'ring.');
+        if (!bekor) setXato(tarjima("Ma'lumotni yuklab bo'lmadi. Sahifani yangilab ko'ring."));
       } finally {
         if (!bekor) setLoading(false);
       }
@@ -269,19 +270,19 @@ export function foiz(qism: number, jami: number): number | null {
 /** "3 oy oldin", "5 daq oldin" — nisbiy vaqt. */
 export function qachon(iso: string): string {
   const s = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (s < 60) return 'hozirgina';
-  if (s < 3600) return `${Math.floor(s / 60)} daq oldin`;
-  if (s < 86400) return `${Math.floor(s / 3600)} soat oldin`;
-  if (s < 30 * 86400) return `${Math.floor(s / 86400)} kun oldin`;
-  if (s < 365 * 86400) return `${Math.floor(s / (30 * 86400))} oy oldin`;
-  return `${Math.floor(s / (365 * 86400))} yil oldin`;
+  if (s < 60) return tarjima('hozirgina');
+  if (s < 3600) return tarjima('{n} daq oldin', { n: Math.floor(s / 60) });
+  if (s < 86400) return tarjima('{n} soat oldin', { n: Math.floor(s / 3600) });
+  if (s < 30 * 86400) return tarjima('{n} kun oldin', { n: Math.floor(s / 86400) });
+  if (s < 365 * 86400) return tarjima('{n} oy oldin', { n: Math.floor(s / (30 * 86400)) });
+  return tarjima('{n} yil oldin', { n: Math.floor(s / (365 * 86400)) });
 }
 
 /** "1:28" — daqiqa:soniya; uzun bo'lsa "2 soat 5 daq". */
 export function davomiylikMatn(s: number | null): string {
   if (s === null) return '—';
   // 10 daqiqadan uzun "16:00" soat vaqtiga o'xshab qoladi — so'z bilan yoziladi.
-  if (s >= 600 && s < 3600) return `${Math.round(s / 60)} daq`;
+  if (s >= 600 && s < 3600) return tarjima('{m} daq', { m: Math.round(s / 60) });
   if (s < 3600) {
     const m = Math.floor(s / 60);
     const ss = Math.round(s % 60);
@@ -289,7 +290,7 @@ export function davomiylikMatn(s: number | null): string {
   }
   const h = Math.floor(s / 3600);
   const m = Math.round((s % 3600) / 60);
-  return m > 0 ? `${h} soat ${m} daq` : `${h} soat`;
+  return m > 0 ? tarjima('{h} soat {m} daq', { h, m }) : tarjima('{h} soat', { h });
 }
 
 /** Ism → bosh harflar ("Malika Karimova" → "MK"). */

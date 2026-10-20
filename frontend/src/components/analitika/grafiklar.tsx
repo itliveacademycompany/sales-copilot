@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type MouseEvent as SichqonchaHodisa, type ReactNode } from 'react';
+import { useT } from '../../i18n';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -86,6 +87,7 @@ export function ChiziqliGrafik({
   balandlik?: number;
   nom: string;
 }) {
+  const t = useT();
   const { ref, kenglik } = useKenglik<HTMLDivElement>();
   const [faol, setFaol] = useState<number | null>(null);
   const CHAP = 42;
@@ -121,7 +123,7 @@ export function ChiziqliGrafik({
           width={kenglik}
           height={balandlik}
           role="img"
-          aria-label={`${nom}: ${nuqtalar.map((p) => `${p.nom} ${p.qiymat ?? 'yo\'q'}`).join(', ')}`}
+          aria-label={`${nom}: ${nuqtalar.map((p) => `${p.nom} ${p.qiymat ?? t("yo'q")}`).join(', ')}`}
           onMouseLeave={() => setFaol(null)}
           onMouseMove={(e) => {
             const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
@@ -177,7 +179,7 @@ export function ChiziqliGrafik({
                     <b>{fp.nom}</b>
                     <span>
                       <i className="g-belgi" style={{ background: rang }} />
-                      {nom}: {fp.qiymat === null ? 'ma\'lumot yo\'q' : `${yaxlit(fp.qiymat)}${birlik}`}
+                      {nom}: {fp.qiymat === null ? t("ma'lumot yo'q") : `${yaxlit(fp.qiymat)}${birlik}`}
                     </span>
                     {fp.izoh && <small>{fp.izoh}</small>}
                   </>
@@ -448,6 +450,7 @@ export function TaqsimotGrafik({
   rang?: string;
   nom: string;
 }) {
+  const t = useT();
   const { ref, kenglik } = useKenglik<HTMLDivElement>();
   const [faol, setFaol] = useState<number | null>(null);
   const gradId = useRef(`tq-${Math.random().toString(36).slice(2, 8)}`).current;
@@ -486,7 +489,7 @@ export function TaqsimotGrafik({
           width={kenglik}
           height={balandlik}
           role="img"
-          aria-label={`${nom}: o'rtacha ${yaxlitO}`}
+          aria-label={`${nom}: ${t("o'rtacha {n}", { n: yaxlitO })}`}
           onMouseLeave={() => setFaol(null)}
           onMouseMove={(e) => {
             const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
@@ -524,8 +527,7 @@ export function TaqsimotGrafik({
           {/* O'rtacha qiymat belgisi */}
           <line className="g-krosh g-ortacha" x1={x(ortaI)} x2={x(ortaI)} y1={TEPA} y2={TEPA + h} />
           <text className="g-ortacha-yorliq" x={x(ortaI)} y={TEPA - 8} textAnchor="middle">
-            O'rtacha: {yaxlitO}
-            {birlik}
+            {t("O'rtacha: {n}", { n: `${yaxlitO}${birlik}` })}
           </text>
           {faol !== null && fp && (
             <>
@@ -549,7 +551,7 @@ export function TaqsimotGrafik({
                     </b>
                     <span>
                       <i className="g-belgi" style={{ background: rang }} />
-                      {fp.soni} ta javob
+                      {t('{n} ta javob', { n: fp.soni })}
                     </span>
                   </>
                 ),
@@ -957,6 +959,7 @@ export function UstunliGrafik({
   birlik?: string;
   nom: string;
 }) {
+  const t = useT();
   const { ref, kenglik } = useKenglik<HTMLDivElement>();
   const [faol, setFaol] = useState<number | null>(null);
   const CHAP = 36;
@@ -1062,7 +1065,7 @@ export function UstunliGrafik({
                         {birlik}
                       </span>
                     ))}
-                    {seriyalar.length > 1 && <small>Jami: {jamlar[faol]}</small>}
+                    {seriyalar.length > 1 && <small>{t('Jami: {n}', { n: jamlar[faol]! })}</small>}
                   </>
                 ),
               }
@@ -1080,13 +1083,14 @@ const KUN_TOLIQ = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'S
 
 /** `matritsa[kun][soat]` — suhbatlar soni (kun 0 = dushanba). */
 export function SoatXaritasi({ matritsa }: { matritsa: number[][] }) {
+  const t = useT();
   const [faol, setFaol] = useState<{ k: number; s: number } | null>(null);
   const max = Math.max(1, ...matritsa.flat());
   const daraja = (v: number) => (v === 0 ? 0 : Math.min(5, Math.ceil((v / max) * 5)));
 
   return (
     <div className="g-soat">
-      <div className="g-soat-grid" role="grid" aria-label="Hafta kunlari va soatlar bo'yicha suhbatlar">
+      <div className="g-soat-grid" role="grid" aria-label={t("Hafta kunlari va soatlar bo'yicha suhbatlar")}>
         <span />
         {Array.from({ length: 24 }, (_, s) => (
           <span key={s} className="g-soat-bosh">
@@ -1095,7 +1099,7 @@ export function SoatXaritasi({ matritsa }: { matritsa: number[][] }) {
         ))}
         {matritsa.map((qator, k) => (
           <div key={k} className="g-soat-qator" role="row">
-            <span className="g-soat-kun">{KUNLAR[k]}</span>
+            <span className="g-soat-kun">{t(KUNLAR[k]!)}</span>
             {qator.map((v, s) => (
               <span
                 key={s}
@@ -1103,7 +1107,7 @@ export function SoatXaritasi({ matritsa }: { matritsa: number[][] }) {
                 className={`g-soat-katak d${daraja(v)}${faol?.k === k && faol.s === s ? ' faol' : ''}`}
                 onMouseEnter={() => setFaol({ k, s })}
                 onMouseLeave={() => setFaol(null)}
-                aria-label={`${KUN_TOLIQ[k]} ${s}:00 — ${v} ta suhbat`}
+                aria-label={t('{kun} {soat} — {n} ta suhbat', { kun: t(KUN_TOLIQ[k]!), soat: `${s}:00`, n: v })}
               />
             ))}
           </div>
@@ -1112,15 +1116,19 @@ export function SoatXaritasi({ matritsa }: { matritsa: number[][] }) {
       <div className="g-soat-pastki">
         <span className="g-soat-faol">
           {faol
-            ? `${KUN_TOLIQ[faol.k]}, ${String(faol.s).padStart(2, '0')}:00–${String(faol.s + 1).padStart(2, '0')}:00 — ${matritsa[faol.k]![faol.s]} ta suhbat`
-            : 'Katak ustiga olib boring — aniq son ko\'rinadi'}
+            ? t('{kun}, {soat} — {n} ta suhbat', {
+                kun: t(KUN_TOLIQ[faol.k]!),
+                soat: `${String(faol.s).padStart(2, '0')}:00–${String(faol.s + 1).padStart(2, '0')}:00`,
+                n: matritsa[faol.k]![faol.s]!,
+              })
+            : t("Katak ustiga olib boring — aniq son ko'rinadi")}
         </span>
         <span className="g-soat-shkala">
-          Kam
+          {t('Kam')}
           {[1, 2, 3, 4, 5].map((d) => (
             <i key={d} className={`g-soat-katak d${d}`} />
           ))}
-          Ko'p
+          {t("Ko'p")}
         </span>
       </div>
     </div>

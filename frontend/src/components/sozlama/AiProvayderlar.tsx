@@ -1,6 +1,7 @@
 import { Check, KeyRound, Plus, RefreshCw, Trash2, TriangleAlert } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, fmtSana } from '../../api';
+import { useT } from '../../i18n';
 import './aiProvayderlar.css';
 
 /**
@@ -103,6 +104,7 @@ const host = (u: string | null) => {
 };
 
 export function AiProvayderlar() {
+  const t = useT();
   const [royxat, setRoyxat] = useState<Provayder[] | null>(null);
   const [yuklashXato, setYuklashXato] = useState<string | null>(null);
   const [xabar, setXabar] = useState<{ ok: boolean; matn: string } | null>(null);
@@ -114,9 +116,9 @@ export function AiProvayderlar() {
       setRoyxat(await api.get<Provayder[]>('/api/v1/admin/providers'));
       setYuklashXato(null);
     } catch (e) {
-      setYuklashXato(xatoMatni(e, "Ro'yxatni yuklab bo'lmadi"));
+      setYuklashXato(xatoMatni(e, t("Ro'yxatni yuklab bo'lmadi")));
     }
-  }, []);
+  }, [t]);
   useEffect(() => {
     void yukla();
   }, [yukla]);
@@ -129,7 +131,7 @@ export function AiProvayderlar() {
       if (muvaffaqiyat) setXabar({ ok: true, matn: muvaffaqiyat });
       await yukla();
     } catch (e) {
-      setXabar({ ok: false, matn: xatoMatni(e, 'Bajarilmadi') });
+      setXabar({ ok: false, matn: xatoMatni(e, t('Bajarilmadi')) });
     } finally {
       setBand(null);
     }
@@ -158,14 +160,13 @@ export function AiProvayderlar() {
     <section className="card sz-karta">
       <div className="sz-karta-bosh">
         <div>
-          <h2>AI provayderlar</h2>
+          <h2>{t('AI provayderlar')}</h2>
           <p>
-            Suhbatlarni baholaydigan AI modellar. Faol provayder limitga yetsa, so'rov o'zi zaxiradagi keyingi provayderga o'tadi — bitta kalit
-            tugashi baholashni to'xtatmaydi.
+            {t("Suhbatlarni baholaydigan AI modellar. Faol provayder limitga yetsa, so'rov o'zi zaxiradagi keyingi provayderga o'tadi — bitta kalit tugashi baholashni to'xtatmaydi.")}
           </p>
         </div>
         <button type="button" className="btn" onClick={() => setYangiOchiq((v) => !v)} aria-expanded={yangiOchiq}>
-          <Plus /> {yangiOchiq ? 'Yopish' : 'Provayder qo\'shish'}
+          <Plus /> {yangiOchiq ? t('Yopish') : t("Provayder qo'shish")}
         </button>
       </div>
 
@@ -190,24 +191,24 @@ export function AiProvayderlar() {
       {!faolBor && (
         <div className="bzl-izoh xato" role="alert" style={{ marginBottom: 12 }}>
           <TriangleAlert aria-hidden="true" />
-          <span>Faol LLM provayderi yo'q — tahlil ishlamaydi. Provayderlardan birini «Faol qilish» bilan yoqing.</span>
+          <span>{t("Faol LLM provayderi yo'q — tahlil ishlamaydi. Provayderlardan birini «Faol qilish» bilan yoqing.")}</span>
         </div>
       )}
 
       <div className="ai-prov-royxat">
-        {llm.length === 0 && <div className="bn-bosh-holat">Hali provayder qo'shilmagan.</div>}
+        {llm.length === 0 && <div className="bn-bosh-holat">{t("Hali provayder qo'shilmagan.")}</div>}
         {llm.map((p) => (
           <ProvayderQatori
             key={p.id}
             p={p}
             band={band === p.id}
             onTekshir={() => void tekshir(p)}
-            onFaol={() => void amal(p.id, () => api.post(`/api/v1/admin/providers/${p.id}/activate`), `${p.label} endi faol provayder.`)}
+            onFaol={() => void amal(p.id, () => api.post(`/api/v1/admin/providers/${p.id}/activate`), t('{nom} endi faol provayder.', { nom: p.label }))}
             onZaxira={(order) =>
               void amal(
                 p.id,
                 () => api.patch(`/api/v1/admin/providers/${p.id}`, { fallbackOrder: order }),
-                order ? `${p.label} zaxiraga qo'shildi (#${order}).` : `${p.label} zaxiradan chiqarildi.`,
+                order ? t("{nom} zaxiraga qo'shildi (#{n}).", { nom: p.label, n: order }) : t('{nom} zaxiradan chiqarildi.', { nom: p.label }),
               )
             }
             keyingiNavbat={keyingiNavbat}
@@ -215,7 +216,12 @@ export function AiProvayderlar() {
               void amal(p.id, async () => {
                 await api.patch(`/api/v1/admin/providers/${p.id}`, { apiKey: kalit });
                 const r = await api.post<TekshiruvNatija>(`/api/v1/admin/providers/${p.id}/test`);
-                setXabar({ ok: r.ok, matn: r.ok ? `Kalit almashtirildi va ishlayapti: ${r.note}` : `Kalit saqlandi, lekin tekshiruv o'tmadi: ${r.problems.join('; ')}` });
+                setXabar({
+                  ok: r.ok,
+                  matn: r.ok
+                    ? t('Kalit almashtirildi va ishlayapti: {izoh}', { izoh: r.note })
+                    : t("Kalit saqlandi, lekin tekshiruv o'tmadi: {xato}", { xato: r.problems.join('; ') }),
+                });
               })
             }
             onModel={(model, split) =>
@@ -224,21 +230,25 @@ export function AiProvayderlar() {
                   models: { stage2: model, stage3: model, playbookBuilder: model, ...(split ? { splitFields: split } : {}) },
                 });
                 const r = await api.post<TekshiruvNatija>(`/api/v1/admin/providers/${p.id}/test`);
-                setXabar({ ok: r.ok, matn: r.ok ? `Model almashtirildi va ishlayapti: ${r.note}` : `Model saqlandi, lekin tekshiruv o'tmadi: ${r.problems.join('; ')}` });
+                setXabar({
+                  ok: r.ok,
+                  matn: r.ok
+                    ? t('Model almashtirildi va ishlayapti: {izoh}', { izoh: r.note })
+                    : t("Model saqlandi, lekin tekshiruv o'tmadi: {xato}", { xato: r.problems.join('; ') }),
+                });
               })
             }
             onOchir={() => {
-              if (!window.confirm(`«${p.label}» o'chirilsinmi? Kaliti ham o'chadi.${p.isActive ? ' DIQQAT: bu faol provayder — tahlil to\'xtaydi.' : ''}`)) return;
-              void amal(p.id, () => api.del(`/api/v1/admin/providers/${p.id}`), `${p.label} o'chirildi.`);
+              const savol = t("«{nom}» o'chirilsinmi? Kaliti ham o'chadi.", { nom: p.label });
+              if (!window.confirm(p.isActive ? `${savol} ${t("DIQQAT: bu faol provayder — tahlil to'xtaydi.")}` : savol)) return;
+              void amal(p.id, () => api.del(`/api/v1/admin/providers/${p.id}`), t("{nom} o'chirildi.", { nom: p.label }));
             }}
           />
         ))}
       </div>
 
       <p className="sz-eslatma">
-        Kalitlar shifrlangan holda saqlanadi va qayta ko'rsatilmaydi — faqat oxirgi belgilari. «Tekshirish» provayderga haqiqiy kichik so'rov yuboradi
-        (kalit, manzil va model nomi birga tekshiriladi). Bepul tariflarda suhbat matnlari provayder tomonidan o'z maqsadlarida ishlatilishi mumkin —
-        mijozlar ma'lumoti uchun pullik tarif xavfsizroq.
+        {t("Kalitlar shifrlangan holda saqlanadi va qayta ko'rsatilmaydi — faqat oxirgi belgilari. «Tekshirish» provayderga haqiqiy kichik so'rov yuboradi (kalit, manzil va model nomi birga tekshiriladi). Bepul tariflarda suhbat matnlari provayder tomonidan o'z maqsadlarida ishlatilishi mumkin — mijozlar ma'lumoti uchun pullik tarif xavfsizroq.")}
       </p>
     </section>
   );
@@ -265,13 +275,18 @@ function ProvayderQatori({
   onModel: (model: string, split: number | null) => void;
   onOchir: () => void;
 }) {
+  const t = useT();
   const [kalitOchiq, setKalitOchiq] = useState(false);
   const [kalit, setKalit] = useState('');
   const [modelOchiq, setModelOchiq] = useState(false);
   const [model, setModel] = useState(asosiyModel(p));
   const [split, setSplit] = useState(p.models.splitFields ? String(p.models.splitFields) : '');
   const splitTogri = split.trim() === '' || (/^\d+$/.test(split.trim()) && Number(split) >= 1 && Number(split) <= 50);
-  const holat = p.isActive ? { nom: 'Faol', ton: 'ok' } : p.fallbackOrder ? { nom: `Zaxira #${p.fallbackOrder}`, ton: 'info' } : { nom: "Ishlatilmaydi", ton: '' };
+  const holat = p.isActive
+    ? { nom: t('Faol'), ton: 'ok' }
+    : p.fallbackOrder
+      ? { nom: t('Zaxira #{n}', { n: p.fallbackOrder }), ton: 'info' }
+      : { nom: t('Ishlatilmaydi'), ton: '' };
 
   return (
     <div className="ai-prov-qator">
@@ -281,41 +296,41 @@ function ProvayderQatori({
           <span className={`bzl-pill ${holat.ton}`}>{holat.nom}</span>
         </div>
         <small>
-          {host(p.baseUrl)} · model <code>{asosiyModel(p)}</code>
-          {p.models.splitFields ? ` · bo'lib so'rash: ${p.models.splitFields}` : ''} · kalit {p.apiKeyHint ?? <b>kiritilmagan</b>}
+          {host(p.baseUrl) === 'standart' ? t('standart') : host(p.baseUrl)} · {t('model')} <code>{asosiyModel(p)}</code>
+          {p.models.splitFields ? ` · ${t("bo'lib so'rash: {n}", { n: p.models.splitFields })}` : ''} · {t('kalit')} {p.apiKeyHint ?? <b>{t('kiritilmagan')}</b>}
         </small>
         {p.lastCheckAt && (
           <small className={p.lastCheckOk ? 'bn-ok' : 'bzl-xato'}>
-            {p.lastCheckOk ? '✓ Ishlayapti' : `✗ ${p.lastCheckError ?? 'Tekshiruv o\'tmadi'}`} · {fmtSana(p.lastCheckAt)}
+            {p.lastCheckOk ? `✓ ${t('Ishlayapti')}` : `✗ ${p.lastCheckError ?? t("Tekshiruv o'tmadi")}`} · {fmtSana(p.lastCheckAt)}
           </small>
         )}
       </div>
       <div className="ai-prov-amallar">
         <button type="button" className="btn ikkinchi kichik" disabled={band} onClick={onTekshir}>
-          <RefreshCw /> {band ? '…' : 'Tekshirish'}
+          <RefreshCw /> {band ? '…' : t('Tekshirish')}
         </button>
         {!p.isActive && (
           <button type="button" className="btn ikkinchi kichik" disabled={band || !p.apiKeyHint} onClick={onFaol}>
-            Faol qilish
+            {t('Faol qilish')}
           </button>
         )}
         {!p.isActive &&
           (p.fallbackOrder ? (
             <button type="button" className="btn ikkinchi kichik" disabled={band} onClick={() => onZaxira(null)}>
-              Zaxiradan chiqarish
+              {t('Zaxiradan chiqarish')}
             </button>
           ) : (
             <button type="button" className="btn ikkinchi kichik" disabled={band || !p.apiKeyHint} onClick={() => onZaxira(keyingiNavbat)}>
-              Zaxiraga qo'shish
+              {t("Zaxiraga qo'shish")}
             </button>
           ))}
         <button type="button" className="btn ikkinchi kichik" disabled={band} onClick={() => setModelOchiq((v) => !v)} aria-expanded={modelOchiq}>
-          Model
+          {t('Model')}
         </button>
         <button type="button" className="btn ikkinchi kichik" disabled={band} onClick={() => setKalitOchiq((v) => !v)} aria-expanded={kalitOchiq}>
-          <KeyRound /> Kalit
+          <KeyRound /> {t('Kalit')}
         </button>
-        <button type="button" className="bzl-amal bn-uz" disabled={band} onClick={onOchir} aria-label={`${p.label} — o'chirish`}>
+        <button type="button" className="bzl-amal bn-uz" disabled={band} onClick={onOchir} aria-label={t("{nom} — o'chirish", { nom: p.label })}>
           <Trash2 />
         </button>
       </div>
@@ -329,10 +344,10 @@ function ProvayderQatori({
             setModelOchiq(false);
           }}
         >
-          <input className="input" value={model} onChange={(e) => setModel(e.target.value)} spellCheck={false} aria-label={`${p.label} — model`} placeholder="model nomi" autoFocus />
-          <input className="input" style={{ maxWidth: 170 }} value={split} onChange={(e) => setSplit(e.target.value)} inputMode="numeric" aria-invalid={!splitTogri} aria-label="Bo'lib so'rash" placeholder="bo'lib so'rash" />
+          <input className="input" value={model} onChange={(e) => setModel(e.target.value)} spellCheck={false} aria-label={t('{nom} — model', { nom: p.label })} placeholder={t('model nomi')} autoFocus />
+          <input className="input" style={{ maxWidth: 170 }} value={split} onChange={(e) => setSplit(e.target.value)} inputMode="numeric" aria-invalid={!splitTogri} aria-label={t("Bo'lib so'rash")} placeholder={t("bo'lib so'rash")} />
           <button type="submit" className="btn kichik" disabled={!model.trim() || !splitTogri}>
-            Saqlash va tekshirish
+            {t('Saqlash va tekshirish')}
           </button>
         </form>
       )}
@@ -351,14 +366,14 @@ function ProvayderQatori({
             type="password"
             autoComplete="off"
             className="input"
-            placeholder="Yangi API kalit"
+            placeholder={t('Yangi API kalit')}
             value={kalit}
             onChange={(e) => setKalit(e.target.value)}
-            aria-label={`${p.label} — yangi API kalit`}
+            aria-label={t('{nom} — yangi API kalit', { nom: p.label })}
             autoFocus
           />
           <button type="submit" className="btn kichik" disabled={kalit.trim().length < 8}>
-            Saqlash va tekshirish
+            {t('Saqlash va tekshirish')}
           </button>
         </form>
       )}
@@ -367,6 +382,7 @@ function ProvayderQatori({
 }
 
 function YangiProvayder({ keyingiNavbat, onQoshildi }: { keyingiNavbat: number | null; onQoshildi: (matn: string, ok: boolean) => Promise<void> }) {
+  const t = useT();
   const [preset, setPreset] = useState<PresetKalit>('groq');
   const [nom, setNom] = useState<string>(PRESETLAR.groq.nom);
   const [kalit, setKalit] = useState('');
@@ -380,7 +396,7 @@ function YangiProvayder({ keyingiNavbat, onQoshildi }: { keyingiNavbat: number |
   const tanla = (k: PresetKalit) => {
     const p = PRESETLAR[k];
     setPreset(k);
-    setNom(p.nom);
+    setNom(t(p.nom));
     setBaseUrl(p.baseUrl);
     setModel(p.model);
     setSplit(p.split);
@@ -404,18 +420,23 @@ function YangiProvayder({ keyingiNavbat, onQoshildi }: { keyingiNavbat: number |
         models: { stage2: m, stage3: m, playbookBuilder: m, ...(split.trim() ? { splitFields: Number(split) } : {}) },
       });
       setKalit('');
-      const t = await api.post<TekshiruvNatija>(`/api/v1/admin/providers/${yaratildi.id}/test`);
-      if (t.ok && zaxiraga && keyingiNavbat) {
+      const tek = await api.post<TekshiruvNatija>(`/api/v1/admin/providers/${yaratildi.id}/test`);
+      if (tek.ok && zaxiraga && keyingiNavbat) {
         await api.patch(`/api/v1/admin/providers/${yaratildi.id}`, { fallbackOrder: keyingiNavbat });
       }
       await onQoshildi(
-        t.ok
-          ? `${nom.trim()} qo'shildi va ishlayapti (${t.note})${zaxiraga && keyingiNavbat ? ` — zaxira #${keyingiNavbat}` : ''}.`
-          : `${nom.trim()} saqlandi, lekin tekshiruv o'tmadi: ${t.problems.join('; ')}. Kalit yoki model nomini tekshirib, «Kalit» orqali almashtiring.`,
-        t.ok,
+        tek.ok
+          ? zaxiraga && keyingiNavbat
+            ? t("{nom} qo'shildi va ishlayapti ({izoh}) — zaxira #{n}.", { nom: nom.trim(), izoh: tek.note, n: keyingiNavbat })
+            : t("{nom} qo'shildi va ishlayapti ({izoh}).", { nom: nom.trim(), izoh: tek.note })
+          : t("{nom} saqlandi, lekin tekshiruv o'tmadi: {xato}. Kalit yoki model nomini tekshirib, «Kalit» orqali almashtiring.", {
+              nom: nom.trim(),
+              xato: tek.problems.join('; '),
+            }),
+        tek.ok,
       );
     } catch (e) {
-      setXato(xatoMatni(e, 'Saqlanmadi'));
+      setXato(xatoMatni(e, t('Saqlanmadi')));
     } finally {
       setHolat('tinch');
     }
@@ -431,44 +452,45 @@ function YangiProvayder({ keyingiNavbat, onQoshildi }: { keyingiNavbat: number |
         if (tayyor) void saqla();
       }}
     >
-      <div className="bn-turlar" role="radiogroup" aria-label="Provayder turi">
+      <div className="bn-turlar" role="radiogroup" aria-label={t('Provayder turi')}>
         {(Object.keys(PRESETLAR) as PresetKalit[]).map((k) => (
           <button key={k} type="button" role="radio" aria-checked={preset === k} className={`bn-tur${preset === k ? ' faol' : ''}`} onClick={() => tanla(k)}>
-            {PRESETLAR[k].nom}
+            {t(PRESETLAR[k].nom)}
           </button>
         ))}
       </div>
       <div className="yordam">
-        {PRESETLAR[preset].izoh} Kalit: <b>{PRESETLAR[preset].kalitJoyi}</b>.
+        {t(PRESETLAR[preset].izoh)} {t('Kalit:')} <b>{t(PRESETLAR[preset].kalitJoyi)}</b>.
       </div>
 
       <div className="bzl-forma-panjara bn-ulash-panjara">
         <div className="maydon-blok">
-          <label htmlFor="aip-nom">Nomi</label>
+          <label htmlFor="aip-nom">{t('Nomi')}</label>
           <input id="aip-nom" value={nom} onChange={(e) => setNom(e.target.value)} maxLength={80} />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="aip-kalit">API kalit</label>
-          <input id="aip-kalit" type="password" autoComplete="off" value={kalit} onChange={(e) => setKalit(e.target.value)} placeholder="Shu yerga joylang" />
+          <label htmlFor="aip-kalit">{t('API kalit')}</label>
+          <input id="aip-kalit" type="password" autoComplete="off" value={kalit} onChange={(e) => setKalit(e.target.value)} placeholder={t('Shu yerga joylang')} />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="aip-model">Model</label>
-          <input id="aip-model" value={model} onChange={(e) => setModel(e.target.value)} spellCheck={false} placeholder="masalan: openai/gpt-oss-120b" />
+          <label htmlFor="aip-model">{t('Model')}</label>
+          <input id="aip-model" value={model} onChange={(e) => setModel(e.target.value)} spellCheck={false} placeholder={t('masalan: openai/gpt-oss-120b')} />
         </div>
       </div>
       <div className="bzl-forma-panjara bn-ulash-panjara">
         <div className="maydon-blok" style={{ gridColumn: 'span 2' }}>
-          <label htmlFor="aip-url">Bazaviy URL</label>
+          <label htmlFor="aip-url">{t('Bazaviy URL')}</label>
           <input id="aip-url" value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} spellCheck={false} aria-invalid={!!baseUrl && !urlTogri} placeholder="https://…/v1" />
         </div>
         <div className="maydon-blok">
-          <label htmlFor="aip-split">Bo'lib so'rash (ixtiyoriy)</label>
-          <input id="aip-split" value={split} onChange={(e) => setSplit(e.target.value)} inputMode="numeric" aria-invalid={!splitTogri} placeholder="zaif modellar uchun 4" />
+          <label htmlFor="aip-split">{t("Bo'lib so'rash (ixtiyoriy)")}</label>
+          <input id="aip-split" value={split} onChange={(e) => setSplit(e.target.value)} inputMode="numeric" aria-invalid={!splitTogri} placeholder={t('zaif modellar uchun 4')} />
         </div>
       </div>
       {keyingiNavbat && (
         <label className="ai-prov-belgi">
-          <input type="checkbox" checked={zaxiraga} onChange={(e) => setZaxiraga(e.target.checked)} /> Ishlasa, zaxira zanjiriga qo'shish (#{keyingiNavbat})
+          <input type="checkbox" checked={zaxiraga} onChange={(e) => setZaxiraga(e.target.checked)} />{' '}
+          {t("Ishlasa, zaxira zanjiriga qo'shish (#{n})", { n: keyingiNavbat })}
         </label>
       )}
       {xato && (
@@ -479,7 +501,7 @@ function YangiProvayder({ keyingiNavbat, onQoshildi }: { keyingiNavbat: number |
       )}
       <div>
         <button type="submit" className="btn" disabled={!tayyor || holat === 'ketmoqda'}>
-          {holat === 'ketmoqda' ? 'Saqlanmoqda va tekshirilmoqda…' : 'Saqlash va tekshirish'}
+          {holat === 'ketmoqda' ? t('Saqlanmoqda va tekshirilmoqda…') : t('Saqlash va tekshirish')}
         </button>
       </div>
     </form>

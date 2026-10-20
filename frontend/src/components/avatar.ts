@@ -7,14 +7,16 @@
  * gacha qabul qiladi va formatini tekshiradi (`media/image.ts`).
  */
 
+import { tarjima } from '../i18n';
+
 export const MAX_HAJM = 2 * 1024 * 1024;
 const OLCHAM = 256;
 
 /** Faylni o'qib, markazdan kvadrat kesadi va JPEG data-URL qaytaradi. */
 export function rasmniTayyorla(fayl: File): Promise<string> {
   return new Promise((ok, xato) => {
-    if (!/^image\/(png|jpe?g|webp)$/.test(fayl.type)) return xato(new Error('Faqat JPG, PNG yoki WEBP rasm'));
-    if (fayl.size > MAX_HAJM) return xato(new Error('Rasm 2 MB dan katta'));
+    if (!/^image\/(png|jpe?g|webp)$/.test(fayl.type)) return xato(new Error(tarjima('Faqat JPG, PNG yoki WEBP rasm')));
+    if (fayl.size > MAX_HAJM) return xato(new Error(tarjima('Rasm 2 MB dan katta')));
     const url = URL.createObjectURL(fayl);
     const img = new Image();
     img.onload = () => {
@@ -30,7 +32,7 @@ export function rasmniTayyorla(fayl: File): Promise<string> {
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      xato(new Error("Rasmni o'qib bo'lmadi"));
+      xato(new Error(tarjima("Rasmni o'qib bo'lmadi")));
     };
     img.src = url;
   });
