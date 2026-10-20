@@ -1,0 +1,5 @@
+# Linux konteynerida ishlaydigan skriptlar CRLF bilan buziladi ("set: -\r").
+*.sh text eol=lf
+deploy/Caddyfile text eol=lf
+*.Dockerfile text eol=lf
+Dockerfile text eol=lf
