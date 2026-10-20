@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
+import { Agent, fetch as uzunFetch } from 'undici';
 import { decryptSecret } from '../crypto/secrets.js';
 import { withoutTenantIsolation } from '../db/index.js';
 import { aiProvider } from '../db/schema/index.js';
@@ -197,6 +198,20 @@ function parseJsonLoose(text: string, model: string): unknown {
  * SDK o'rniga `fetch` ishlatilgan: bitta HTTP chaqiruv uchun yangi
  * bog'liqlik qo'shish oqlanmaydi.
  */
+/**
+ * Node'ning global `fetch`i javob sarlavhasini ko'pi bilan 300 s kutadi
+ * (undici `headersTimeout`). Fikrlovchi modellar (GLM-5.3-Flash) katta
+ * birlashtirilgan so'rovda bundan uzoq o'ylaydi — so'rov "fetch failed"
+ * bilan uzilar, zaxira zanjiri esa buni jimgina keyingi (zaif) modelga
+ * o'tkazib yuborardi. Shuning uchun LLM so'rovlari uchun alohida, 15
+ * daqiqalik kutishli ulanish.
+ */
+const LLM_ULANISH = new Agent({
+  headersTimeout: 15 * 60_000,
+  bodyTimeout: 15 * 60_000,
+  connectTimeout: 30_000,
+});
+
 export class OpenAiCompatLlm implements LlmClient {
   constructor(
     private apiKey: string,
@@ -225,7 +240,8 @@ export class OpenAiCompatLlm implements LlmClient {
       : req.system;
     const maxTokens = (req.maxTokens ?? 8192) * (jsonObjectOnly ? 2 : 1);
 
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
+    const res = await uzunFetch(`${this.baseUrl}/chat/completions`, {
+      dispatcher: LLM_ULANISH,
       method: 'POST',
       headers: {
         authorization: `Bearer ${this.apiKey}`,
@@ -456,6 +472,10 @@ export class ZaxiraLlm implements LlmClient {
         const m = err instanceof Error ? err.message : String(err);
         if (!boshqasigaOtiladimi(m)) throw err;
         if (limitXatosimi(m)) sovuganlar.set(z.nom, Date.now() + PROVAYDER_SOVUSH_MS);
+        // Asl sababni yozib qo'yamiz: aks holda faqat oxirgi (zaxira)
+        // provayderning xatosi ko'rinadi va asosiy provayder nega
+        // yiqilgani noma'lum qoladi (amalda shunday bo'ldi).
+        console.warn(`[llm] «${z.nom}» ishlamadi, zaxiraga o'tiladi: ${m.slice(0, 400)}`);
         oxirgiXato = err;
       }
     }
