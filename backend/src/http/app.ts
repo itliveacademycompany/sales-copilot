@@ -114,11 +114,16 @@ export async function buildApp(): Promise<FastifyInstance> {
     global: true,
     max: 300,
     timeWindow: '1 minute',
+    /**
+     * `preHandler` — auth plagini (`onRequest`) foydalanuvchini aniqlab
+     * bo'lgandan KEYIN. Ilgari limit `onRequest` da, ya'ni auth'dan oldin
+     * ishlardi va noto'g'ri maydonni (`req.user`, aslida `req.auth`)
+     * o'qirdi — natijada doim IP bo'yicha sanalardi: bitta NAT ortidagi
+     * butun ofis 300 talik bitta limitni bo'lishardi.
+     */
+    hook: 'preHandler',
     // Kirgan foydalanuvchi bo'yicha, aks holda IP bo'yicha.
-    keyGenerator: (req) => {
-      const userId = (req as { user?: { id?: string } }).user?.id;
-      return userId ?? req.ip;
-    },
+    keyGenerator: (req) => req.auth?.user.id ?? req.ip,
     // Javob boshqa xatolar bilan bir xil formatda (RFC 7807) bo'lishi uchun.
     errorResponseBuilder: (_req, ctx) => ({
       type: 'about:blank#too-many-requests',

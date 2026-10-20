@@ -108,8 +108,21 @@ export function registerErrorHandler(app: FastifyInstance): void {
     }
 
     // ── Fastify o'zining xatolari (rate limit, payload hajmi...) ──
-    const known = err as { statusCode?: number; message?: string };
-    const status = known.statusCode ?? 500;
+    // `@fastify/rate-limit` errorResponseBuilder qaytargan obyektni xato
+    // sifatida tashlaydi — unda `statusCode` emas, `status` bor. Ilgari
+    // bu 500 "Serverda xatolik" bo'lib ketardi (foydalanuvchi limitga
+    // urilganini bilmasdi, log esa "kutilmagan xato" bilan to'lardi).
+    const known = err as { statusCode?: number; status?: number; message?: string; title?: string };
+    const status = known.statusCode ?? (typeof known.status === 'number' ? known.status : 500);
+    if (status === 429) {
+      reply.status(429).type('application/problem+json').send({
+        type: 'about:blank#too-many-requests',
+        title: known.title ?? 'Juda ko\'p so\'rov. Biroz kuting.',
+        status: 429,
+        traceId,
+      } satisfies Problem);
+      return;
+    }
     if (status < 500) {
       reply.status(status).type('application/problem+json').send({
         type: 'about:blank#request-error',

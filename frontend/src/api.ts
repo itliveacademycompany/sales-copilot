@@ -197,6 +197,13 @@ export interface ConversationRow {
   summary: string | null;
   isFlagged: boolean | null;
   scoringMode: string | null;
+  callFamily: string | null;
+  serviceLine: string | null;
+  businessRelevance: string | null;
+  phoneFrom: string | null;
+  phoneTo: string | null;
+  durationSeconds: number | null;
+  contactName: string | null;
   segmentCount: number;
 }
 
