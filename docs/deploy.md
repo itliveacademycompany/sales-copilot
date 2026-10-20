@@ -68,10 +68,10 @@ Qiymatlar:
    - Secrets: `DEPLOY_HOST` (server IP), `DEPLOY_USER` = `deploy`,
      `DEPLOY_SSH_KEY` (`sotuv_deploy` fayl mazmuni — yopiq kalit).
    - Variables: `DEPLOY_ENABLED` = `true`.
-4. Obrazlarga kirish: birinchi deploy'dan keyin GitHub → profil → **Packages** →
-   `sales-copilot-backend` va `sales-copilot-web` → *Package settings* →
-   **Change visibility → Public** (repo ham ochiq; obrazda sir yo'q).
-   Private qoldirmoqchi bo'lsangiz — `read:packages` huquqli token yarating va
+4. Obrazlar (`ghcr.io/itliveacademycompany/sales-copilot-backend` va `-web`)
+   ochiq repodan meros olib **public** — server ularni tokensiz tortadi
+   (2026-10-20 tekshirilgan). Obrazlarda sir yo'q: kalitlar faqat serverdagi `.env` da.
+   Kelajakda private qilinsa — `read:packages` huquqli token yarating va
    `GHCR_READ_TOKEN` secret sifatida qo'shing.
 
 Shundan keyin har `git push origin main`:
