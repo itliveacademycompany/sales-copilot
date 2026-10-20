@@ -66,6 +66,23 @@ const schema = z.object({
   WORKER_POLL_MS: z.coerce.number().int().min(200).default(5000),
 
   /**
+   * Tahlil navbatini bir vaqtda nechta yo'l (lane) bajaradi. Fikrlovchi
+   * modellar (GLM) bitta qo'ng'iroqqa 3+ daqiqa oladi — bitta yo'lda soatiga
+   * ~17 ta. `FOR UPDATE SKIP LOCKED` tufayli yo'llar bir ishni olmaydi.
+   * Provayder bir vaqtdagi so'rovlarni cheklasa (429) — kamaytiring.
+   */
+  WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(2),
+
+  /**
+   * Bir vaqtda nechta lokal STT (GigaAM) jarayoni ishlasin. Har biri GPU'siz
+   * bir necha GB RAM va barcha yadrolarni oladi: 16 GB li kompyuterda 1,
+   * 48 GB / 12 yadroli serverda 2 xavfsiz. Ko'paytirsangiz, `.env` da
+   * `OMP_NUM_THREADS` ni (yadrolar soni / STT_CONCURRENCY) qilib qo'ying —
+   * aks holda jarayonlar bir-birining yadrosini talashadi.
+   */
+  STT_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
+
+  /**
    * Telegram sessiyasi qancha "jim" turgandan keyin tahlilga yuboriladi
    * (daqiqa). Juda qisqa — yarim suhbat baholanadi; juda uzun — mijoz
    * natijani kech ko'radi. TZ 9.3: birinchi natijagacha < 30 daqiqa.

@@ -1,3 +1,4 @@
+import { config } from '../config.js';
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { limitXatosimi, type LlmClient } from '../ai/llm.js';
@@ -708,6 +709,29 @@ async function yozuvniYukla(url: string): Promise<{ audio: Buffer; mime: string 
 }
 
 /**
+ * Lokal STT (GigaAM + torch) har ishga tushganda bir necha GB xotira oladi.
+ * Kam xotirali kompyuterda ikki qo'ng'iroq PARALLEL bajarilganda ikkita STT
+ * jarayoni bir vaqtda ochilib, `WinError 1455: paging file is too small` va
+ * «STT model yuklanmoqda» xatolari paydo bo'ldi. Shuning uchun bir vaqtdagi
+ * STT soni `STT_CONCURRENCY` bilan cheklanadi (standart 1); sekin qism —
+ * LLM baholash — esa bundan mustaqil, parallel ketadi.
+ */
+let sttBand = 0;
+const sttKutayotganlar: (() => void)[] = [];
+async function sttNavbatda<T>(fn: () => Promise<T>): Promise<T> {
+  while (sttBand >= config.STT_CONCURRENCY) {
+    await new Promise<void>((resolve) => sttKutayotganlar.push(resolve));
+  }
+  sttBand++;
+  try {
+    return await fn();
+  } finally {
+    sttBand--;
+    sttKutayotganlar.shift()?.();
+  }
+}
+
+/**
  * Kutayotgan qo'ng'iroqlarni baholaydi.
  *
  * Bir tikda oz (standart 2): har biri STT + LLM — o'nlab soniya. Ko'p
@@ -775,17 +799,23 @@ export async function qongiroqlarniQaytaIshla(
   // Playbook biznes boshiga bir marta.
   const pbKesh = new Map<string, Awaited<ReturnType<typeof loadActivePlaybookAndBusiness>>>();
 
-  for (const c of nomzodlar) {
-    if (baholashPauzasi(c.businessId)) continue;
+  /**
+   * Nomzodlar PARALLEL bajariladi (standart 2 ta). Fikrlovchi modellar (GLM)
+   * bitta qo'ng'iroqqa ~3 daqiqa oladi, STT esa ~5 soniya — ketma-ket
+   * ishlasa tezlikni LLM kutishi belgilaydi. Umumiy holat (`n`, `qolgan`,
+   * `pauzalar`) JS bir ipli bo'lgani uchun poyga qilmaydi.
+   */
+  const bajar = async (c: (typeof nomzodlar)[number]): Promise<void> => {
+    if (baholashPauzasi(c.businessId)) return;
     const q = qolgan.get(c.businessId);
-    if (q !== undefined && q <= 0) continue;
+    if (q !== undefined && q <= 0) return;
     if (!pbKesh.has(c.businessId)) {
       pbKesh.set(c.businessId, await loadActivePlaybookAndBusiness(c.businessId));
     }
     const pb = pbKesh.get(c.businessId);
     // Playbook yo'q — baholab bo'lmaydi. Qo'ng'iroq `received` da qoladi
     // va playbook yaratilgach o'zi baholanadi; hozir pul sarflamaymiz.
-    if (!pb) continue;
+    if (!pb) return;
 
     const egallandi = await withoutTenantIsolation('moizvonki: qo\'ng\'iroqni egallash', (tx) =>
       tx
@@ -794,19 +824,21 @@ export async function qongiroqlarniQaytaIshla(
         .where(and(eq(conversation.id, c.id), eq(conversation.status, 'received')))
         .returning({ id: conversation.id }),
     );
-    if (egallandi.length === 0) continue;
+    if (egallandi.length === 0) return;
     n.qayta++;
     if (q !== undefined) qolgan.set(c.businessId, q - 1);
 
     const boshlandi = Date.now();
     try {
       const { audio, mime } = await yozuvniYukla(c.mediaUrl!);
-      const stt = await transkriptQil(audio, {
-        mimeType: mime,
-        filename: `${c.externalId ?? c.id}.mp3`,
-        speakerCount: 2,
-        stt: opts.stt,
-      });
+      const stt = await sttNavbatda(() =>
+        transkriptQil(audio, {
+          mimeType: mime,
+          filename: `${c.externalId ?? c.id}.mp3`,
+          speakerCount: 2,
+          stt: opts.stt,
+        }),
+      );
       if (stt.utterances.length === 0) throw new Error('Yozuvda nutq topilmadi');
 
       const merged = await refineAndAnalyzeTranscript(
@@ -871,7 +903,7 @@ export async function qongiroqlarniQaytaIshla(
             .set({ status: 'received', updatedAt: new Date() })
             .where(eq(conversation.id, c.id)),
         );
-        continue;
+        return;
       }
       n.xato++;
       await withoutTenantIsolation('moizvonki: qo\'ng\'iroq xatosini yozish', (tx) =>
@@ -881,7 +913,8 @@ export async function qongiroqlarniQaytaIshla(
           .where(eq(conversation.id, c.id)),
       );
     }
-  }
+  };
+  await Promise.all(nomzodlar.map(bajar));
   return n;
 }
 

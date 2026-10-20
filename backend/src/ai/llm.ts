@@ -58,6 +58,12 @@ const PRICES: Record<string, { in: number; out: number }> = {
   // FALLBACK bilan hisoblash xarajatni sun'iy oshirib ko'rsatardi.
   'gemini-2.5-flash': { in: 0.3, out: 2.5 },
   'gemini-2.5-pro': { in: 1.25, out: 10 },
+  // GLM-5.3-Flash: hujjatda token narxi ko'rsatilmagan. Ishlatilayotgani
+  // oldindan sotib olingan paket (100 mln token, 2026-10-19 dan 3 oy) —
+  // har chaqiruvning qo'shimcha pul narxi 0. Paket tugasa yangilang.
+  'glm-5.3-flash': { in: 0, out: 0 },
+  // Taxminiy (hujjatda narx yo'q) — paketsiz hisob uchun.
+  'glm-5.3': { in: 1, out: 3.2 },
 };
 const FALLBACK_PRICE = { in: 10, out: 50 };
 
@@ -202,6 +208,23 @@ export class OpenAiCompatLlm implements LlmClient {
   async completeJson(req: LlmJsonRequest): Promise<LlmJsonResponse> {
     const model = this.models[req.stage] ?? this.defaultModel;
 
+    /**
+     * Z.ai (GLM) hujjatida (guides/capabilities/struct-output) faqat
+     * `json_object` rejimi bor — `json_schema` yo'q. Sxema promptga matn
+     * sifatida qo'shiladi, kodda esa baribir zod bilan tekshiriladi
+     * (javob sxemaga mos kelishi kafolatlanmaydi).
+     *
+     * GLM-5.3-Flash'da fikrlash o'chirib bo'lmaydi (`thinking` faqat
+     * `enabled`) va fikrlash tokenlari ham chiqish limitidan yeyiladi —
+     * shuning uchun limit ikki baravar qilinadi, aks holda javob JSON
+     * boshlanmasdan kesilib qolishi mumkin.
+     */
+    const jsonObjectOnly = /api\.z\.ai|bigmodel\.cn/.test(this.baseUrl);
+    const system = jsonObjectOnly
+      ? `${req.system}\n\nJavobni FAQAT bitta JSON obyekt sifatida qaytar, u quyidagi JSON Schema'ga to'liq mos bo'lsin (barcha required maydonlar bo'lsin, boshqa matn yozma):\n${JSON.stringify(req.schema)}`
+      : req.system;
+    const maxTokens = (req.maxTokens ?? 8192) * (jsonObjectOnly ? 2 : 1);
+
     const res = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -210,16 +233,18 @@ export class OpenAiCompatLlm implements LlmClient {
       },
       body: JSON.stringify({
         model,
-        max_completion_tokens: req.maxTokens ?? 8192,
+        ...(jsonObjectOnly ? { max_tokens: maxTokens } : { max_completion_tokens: maxTokens }),
         temperature: 0,
         messages: [
-          { role: 'system', content: req.system },
+          { role: 'system', content: system },
           { role: 'user', content: req.user },
         ],
-        response_format: {
-          type: 'json_schema',
-          json_schema: { name: 'natija', strict: true, schema: req.schema },
-        },
+        response_format: jsonObjectOnly
+          ? { type: 'json_object' }
+          : {
+              type: 'json_schema',
+              json_schema: { name: 'natija', strict: true, schema: req.schema },
+            },
       }),
     });
 

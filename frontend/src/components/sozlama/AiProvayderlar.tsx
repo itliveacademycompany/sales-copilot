@@ -57,6 +57,14 @@ const PRESETLAR = {
     kalitJoyi: 'aistudio.google.com → Get API key',
     izoh: "Sinalgan: o'zbekcha suhbatlarda yaxshi natija. Bepul tarifda kunlik kvota kichik; to'lov ulansa limit amalda yo'qoladi.",
   },
+  glm: {
+    nom: 'Z.ai GLM',
+    baseUrl: 'https://api.z.ai/api/paas/v4',
+    model: 'glm-5.3-flash',
+    split: '',
+    kalitJoyi: 'z.ai → API Keys (Usage Bundles — oldindan olingan token paketi)',
+    izoh: "Rasmiy hujjatdagi model: glm-5.3-flash (1M kontekst, fikrlash o'chmaydi). Faqat json_object rejimi bor — sxema promptga qo'shiladi.",
+  },
   groq: {
     nom: 'Groq',
     baseUrl: 'https://api.groq.com/openai/v1',

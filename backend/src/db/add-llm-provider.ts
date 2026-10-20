@@ -59,6 +59,12 @@ const PRESETLAR: Record<string, Preset> = {
     model: 'gemini-2.5-flash',
     izoh: 'aistudio.google.com — bepul, kartasiz, OpenRouter\'dan yuqori limit',
   },
+  /** Z.ai (Zhipu) GLM — OpenAI-uyg'un. Xitoy hududi: https://open.bigmodel.cn/api/paas/v4 */
+  glm: {
+    baseUrl: 'https://api.z.ai/api/paas/v4',
+    model: 'glm-5.3-flash',
+    izoh: 'z.ai — rasmiy hujjatdagi model nomi; faqat json_object rejimi (sxema promptga qo\'shiladi)',
+  },
 };
 
 const KALIT = process.env.LLM_API_KEY;

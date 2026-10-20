@@ -36,8 +36,8 @@ export interface TickResult {
  * Bitta ishni olib bajarish. Testlar shu funksiyani mock LLM bilan
  * to'g'ridan-to'g'ri chaqiradi — sikl va taymerlarsiz.
  */
-export async function runWorkerTick(llm?: LlmClient): Promise<TickResult> {
-  const job = await claimNextJob(workerId);
+export async function runWorkerTick(llm?: LlmClient, id: string = workerId): Promise<TickResult> {
+  const job = await claimNextJob(id);
   if (!job) return { processed: false };
 
   try {
@@ -89,7 +89,7 @@ export function startWorkerLoop(log: {
 }): void {
   stopRequested = false;
 
-  loopPromise = (async () => {
+  const mainLoop = (async () => {
     let lastSweep = 0;
     let lastNotify = 0;
     let lastMzSync = 0;
@@ -212,22 +212,6 @@ export function startWorkerLoop(log: {
           }
         }
 
-        const tick = await runWorkerTick();
-        if (tick.processed) {
-          if (tick.error) {
-            log.error(
-              { jobId: tick.jobId, conversationId: tick.conversationId, err: tick.error, fate: tick.outcome },
-              'worker: tahlil xatosi',
-            );
-          } else {
-            log.info(
-              { jobId: tick.jobId, conversationId: tick.conversationId, outcome: tick.outcome },
-              'worker: tahlil yakunlandi',
-            );
-          }
-          // Navbatda ish bor ekan — kutmasdan davom etamiz.
-          continue;
-        }
       } catch (err) {
         // Sikl hech qachon o'lmasligi kerak — xato loglanadi, davom etiladi.
         log.error({ err }, 'worker: sikl xatosi');
@@ -236,6 +220,48 @@ export function startWorkerLoop(log: {
       await sleep(config.WORKER_POLL_MS);
     }
   })();
+
+  /**
+   * Tahlil yo'llari — yuqoridagi xizmat siklidan ALOHIDA. Avval tahlil
+   * shu siklning ichida ketma-ket bajarilardi: sekin model bitta ishga
+   * daqiqalar sarflasa, qolgan hamma narsa (va keyingi qo'ng'iroq) kutardi.
+   */
+  const lanes = Array.from({ length: config.WORKER_CONCURRENCY }, (_, i) =>
+    analysisLane(`${workerId}-${i + 1}`, log),
+  );
+  loopPromise = Promise.all([mainLoop, ...lanes]).then(() => undefined);
+}
+
+async function analysisLane(
+  id: string,
+  log: {
+    info: (obj: unknown, msg?: string) => void;
+    error: (obj: unknown, msg?: string) => void;
+  },
+): Promise<void> {
+  while (!stopRequested) {
+    try {
+      const tick = await runWorkerTick(undefined, id);
+      if (tick.processed) {
+        if (tick.error) {
+          log.error(
+            { lane: id, jobId: tick.jobId, conversationId: tick.conversationId, err: tick.error, fate: tick.outcome },
+            'worker: tahlil xatosi',
+          );
+        } else {
+          log.info(
+            { lane: id, jobId: tick.jobId, conversationId: tick.conversationId, outcome: tick.outcome },
+            'worker: tahlil yakunlandi',
+          );
+        }
+        // Navbatda ish bor ekan — kutmasdan davom etamiz.
+        continue;
+      }
+    } catch (err) {
+      log.error({ lane: id, err }, 'worker: tahlil yo\'li xatosi');
+    }
+    await sleep(config.WORKER_POLL_MS);
+  }
 }
 
 export async function stopWorkerLoop(): Promise<void> {
