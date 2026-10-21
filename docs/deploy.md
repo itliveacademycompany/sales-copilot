@@ -59,6 +59,29 @@ Qiymatlar:
 | `HF_TOKEN` | lokal `backend/.env` dagi qiymat |
 | `SITE_ADDRESS`, `WEB_ORIGIN`, `PUBLIC_URL` | domen bo'lsa `sotuv.example.uz` / `https://sotuv.example.uz`; bo'lmasa `:80` / `http://SERVER_IP` |
 
+### SaaS: mijoz kabinetlari serverda
+
+Super admin **Sozlamalar → Mijozlar** da yaratgan har kabinet o'z
+subdomenida ochiladi. Alohida sozlama shart emas — hammasi `WEB_ORIGIN` dan:
+
+| Holat | `.env` | Kabinet manzili |
+|---|---|---|
+| Domensiz (hozir) | `SITE_ADDRESS=:80`, `WEB_ORIGIN=http://SERVER_IP` | `http://acme.SERVER_IP.sslip.io` |
+| Domen bilan | `SITE_ADDRESS=sotuv.uz`, `WEB_ORIGIN=https://sotuv.uz` | `https://acme.sotuv.uz` |
+
+- **Domensiz:** IP ga subdomen qo'yib bo'lmaydi, shuning uchun kabinetlar
+  [sslip.io](https://sslip.io) orqali ochiladi (`acme.1.2.3.4.sslip.io` →
+  `1.2.3.4`, ommaviy wildcard DNS). Hech narsa sozlanmaydi. Faqat HTTP.
+- **Domen olinganda:** DNS da ikkita yozuv — `A @ → SERVER_IP` va
+  `A * → SERVER_IP` (wildcard). `.env` da `SITE_ADDRESS` va `WEB_ORIGIN`
+  (`PUBLIC_URL` ham) ni domenga almashtirib `docker compose up -d`.
+  Caddy har kabinet uchun HTTPS sertifikatini birinchi kirishda o'zi oladi,
+  faqat mavjud kabinetlarga (`/api/v1/public/tls-check`).
+- Login cookie'si `Secure` faqat `WEB_ORIGIN` `https://` bo'lganda — HTTP
+  rejimida ham kirish ishlaydi. Har kabinet sessiyasi o'z subdomenida.
+- Eski kabinet havolalari domenga o'tilganda o'zgaradi (`*.sslip.io` →
+  `*.sotuv.uz`) — mijozlarga yangi manzilni bering.
+
 ## 3. CI/CD ni ulash (GitHub, bir marta)
 
 1. Kompyuteringizda deploy uchun alohida kalit: `ssh-keygen -t ed25519 -f sotuv_deploy -N ""`

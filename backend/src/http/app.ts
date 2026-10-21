@@ -5,7 +5,7 @@ import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { sql } from 'drizzle-orm';
-import { config, isProd } from '../config.js';
+import { config, isProd, secureCookie } from '../config.js';
 import { db } from '../db/index.js';
 import { registerAuth } from './auth-plugin.js';
 import { AppError, registerErrorHandler } from './errors.js';
@@ -92,7 +92,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     secret: config.COOKIE_SECRET,
     parseOptions: {
       httpOnly: true,
-      secure: isProd,
+      secure: secureCookie,
       sameSite: 'lax',
       path: '/',
     },

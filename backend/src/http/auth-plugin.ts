@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { isProd } from '../config.js';
+import { secureCookie } from '../config.js';
 import { loadAuthContext, type AuthContext, type BusinessAccess } from '../auth/context.js';
 import { hasPermission, type Permission } from '../auth/permissions.js';
 import { validateSession } from '../auth/session.js';
@@ -47,7 +47,7 @@ function bearerYoliOchiqmi(method: string, url: string): boolean {
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: isProd,
+  secure: secureCookie,
   sameSite: 'lax' as const,
   path: '/',
   // 30 kun — sessiyaning mutlaq muddati bilan bir xil.

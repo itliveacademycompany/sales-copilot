@@ -1,7 +1,23 @@
 # SITE_ADDRESS:
 #   domen bo'lsa  →  sotuv.example.uz   (HTTPS avtomatik)
 #   hali domen yo'q  →  :80              (faqat HTTP, IP orqali sinov uchun)
-{$SITE_ADDRESS::80} {
+#
+# SaaS mijoz kabinetlari (<slug>.<domen>):
+#   - domensiz (:80): :80 bloki HAMMA xostni qabul qiladi, kabinetlar
+#     http://<slug>.<IP>.sslip.io da ochiladi (backend/src/http/tenant.ts).
+#   - domen bilan: pastdagi `https://` bloki istalgan subdomenga sertifikatni
+#     birinchi so'rovda oladi (on-demand TLS). Sertifikat faqat backend
+#     tasdiqlagan (mavjud kabinet) xostga beriladi — aks holda tasodifiy
+#     subdomenlar Let's Encrypt limitini tugatardi.
+#   DNS: domen uchun  A  @  →  IP  va  A  *  →  IP  (wildcard) yozuvlari kerak.
+
+{
+	on_demand_tls {
+		ask http://backend:3000/api/v1/public/tls-check
+	}
+}
+
+(ilova) {
 	encode zstd gzip
 
 	# Backend yo'llari. DIQQAT: `/mcp` faqat ANIQ yo'l — `/mcp/ruxsat`
@@ -39,4 +55,18 @@
 		output stdout
 		format console
 	}
+}
+
+# Asosiy sayt (landing, umumiy kirish, super admin). Domensiz rejimda
+# kabinet subdomenlari ham shu yerga tushadi.
+{$SITE_ADDRESS::80} {
+	import ilova
+}
+
+# Mijoz kabinetlari HTTPS da (faqat domen bilan ishlatiladi).
+https:// {
+	tls {
+		on_demand
+	}
+	import ilova
 }
