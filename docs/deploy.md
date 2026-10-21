@@ -109,6 +109,7 @@ Moi Zvonki'dan bir xil qo'ng'iroqlarni olib, GLM tokenini ikki marta sarflaydi.
 docker compose ps                       # holat
 docker compose logs -f --tail=100 backend
 IMAGE_TAG=<oldingi-commit-sha> docker compose up -d   # orqaga qaytish (rollback)
+docker compose pull db && docker compose up -d db     # Postgres'ni yangilash (CI buni qilmaydi)
 crontab -e   # zaxira:  15 3 * * * /opt/sotuv/backup.sh >> /opt/sotuv/backups/backup.log 2>&1
 ```
 
