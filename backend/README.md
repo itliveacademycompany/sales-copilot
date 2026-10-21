@@ -672,10 +672,10 @@ o'zi 127.0.0.1 ga yo'naltiradi, Vite proxy `Host` ni saqlaydi).
 Test: `npm run verify:tenants` (34 tekshiruv — izolyatsiya, kirish
 cheklovi, taklif, subdomen almashtirish, TLS).
 
-⚠️ `POST /api/v1/auth/register` (ochiq ro'yxatdan o'tish) hali faol —
-interfeysda yo'q, lekin API orqali ishlaydi va testlar undan
-foydalanadi. Mijozlarni faqat super admin yaratishi kerak bo'lsa,
-ishlab chiqarishda uni o'chirish (yoki bayroq bilan yopish) kerak.
+`POST /api/v1/auth/register` (ochiq ro'yxatdan o'tish) **production'da
+yopiq** (403) — mijozni faqat super admin yaratadi. Ishlab chiqishda
+ochiq: `verify:*` testlari test foydalanuvchisini shu yo'l bilan yaratadi.
+`OPEN_REGISTRATION=true|false` bilan majburan yoqish/o'chirish mumkin.
 
 ## Test ma'lumotlari o'zidan keyin tozalanadi
 

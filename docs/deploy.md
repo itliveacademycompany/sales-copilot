@@ -77,6 +77,8 @@ subdomenida ochiladi. Alohida sozlama shart emas — hammasi `WEB_ORIGIN` dan:
   (`PUBLIC_URL` ham) ni domenga almashtirib `docker compose up -d`.
   Caddy har kabinet uchun HTTPS sertifikatini birinchi kirishda o'zi oladi,
   faqat mavjud kabinetlarga (`/api/v1/public/tls-check`).
+- Ochiq ro'yxatdan o'tish serverda yopiq — yangi mijozni faqat super admin
+  yaratadi (`OPEN_REGISTRATION`, `.env.example`).
 - Login cookie'si `Secure` faqat `WEB_ORIGIN` `https://` bo'lganda — HTTP
   rejimida ham kirish ishlaydi. Har kabinet sessiyasi o'z subdomenida.
 - Eski kabinet havolalari domenga o'tilganda o'zgaradi (`*.sslip.io` →
