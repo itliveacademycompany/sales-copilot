@@ -1119,7 +1119,19 @@ export function ConversationDetail() {
       {/* ═══ TRANSKRIPT ═══ */}
       {tab === 'transkript' && (
         <section className="card sd-karta sd-transkript">
-          {d.segments.length === 0 ? (
+          {d.segments.length === 0 && d.dastlabkiTranskript?.length ? (
+            <>
+              <div className="yordam" style={{ marginBottom: 10 }}>
+                {tr("Dastlabki transkript. Kim gapirgani (menejer/mijoz) va imlo AI tahlilidan keyin aniqlanadi.")}
+              </div>
+              {d.dastlabkiTranskript.map((s) => (
+                <div key={s.seq} className="xabar">
+                  {s.text}
+                  <div className="vaqt">{vaqt(s.startSeconds)}</div>
+                </div>
+              ))}
+            </>
+          ) : d.segments.length === 0 ? (
             <div className="hech-narsa">{ovozli ? tr('Transkript hali tayyor emas.') : tr("Yozishma bo'sh.")}</div>
           ) : (
             <>

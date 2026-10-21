@@ -359,6 +359,11 @@ export interface ConversationDetail {
     mediaKind: string | null;
     durationSeconds: number | null;
   };
+  /**
+   * STT tayyor, LLM hali baholamagan bo'lsa — xom transkript (rolsiz).
+   * Yakuniy `segments` bo'lsa null.
+   */
+  dastlabkiTranskript?: { seq: number; text: string; startSeconds: number }[] | null;
   segments: Segment[];
   analysis: Analysis | null;
   scores: CriterionScoreRow[];

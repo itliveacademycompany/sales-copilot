@@ -717,6 +717,10 @@ const ISH: Lugat = {
   },
   "Bu baho noto'g'ri deb hisoblayman": { en: 'I think this score is wrong', ru: 'Я считаю эту оценку неверной' },
   'Transkript hali tayyor emas.': { en: 'The transcript is not ready yet.', ru: 'Расшифровка ещё не готова.' },
+  "Dastlabki transkript. Kim gapirgani (menejer/mijoz) va imlo AI tahlilidan keyin aniqlanadi.": {
+    en: 'Preliminary transcript. Speakers (manager/client) and spelling are finalized after the AI analysis.',
+    ru: 'Предварительная расшифровка. Говорящие (менеджер/клиент) и орфография уточняются после AI-анализа.',
+  },
   "Yozishma bo'sh.": { en: 'The chat is empty.', ru: 'Переписка пуста.' },
   "Isbot: {kodlar} — bahoni ko'rish": { en: 'Evidence: {kodlar} — view score', ru: 'Доказательство: {kodlar} — посмотреть оценку' },
   "bahoga asos bo'ldi": { en: 'used as evidence', ru: 'основание для оценки' },

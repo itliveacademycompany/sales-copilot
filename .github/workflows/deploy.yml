@@ -135,8 +135,11 @@ jobs:
             # Deploy'dan oldin zaxira — migratsiya buzsa, qaytish nuqtasi bor.
             if docker compose ps --status running db | grep -q db; then ./backup.sh; fi
             export IMAGE_TAG
-            docker compose pull
-            docker compose up -d --remove-orphans
+            # Faqat bizning obrazlar. Postgres obrazi (`postgres:18-bookworm`)
+            # yuqorida yangilansa, `pull` hammasini tortib bazani har deploy'da
+            # qayta ishga tushirardi — baza versiyasini yangilash qo'lda qilinadi.
+            docker compose pull backend web
+            docker compose up -d --remove-orphans backend web
             # Backend sog'ligini kutamiz (migratsiya + ishga tushish).
             for i in $(seq 1 30); do
               if docker compose exec -T backend curl -fsS http://127.0.0.1:3000/readyz >/dev/null 2>&1; then

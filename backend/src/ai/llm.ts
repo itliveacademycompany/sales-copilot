@@ -24,6 +24,8 @@ export interface LlmJsonRequest {
   /** Javob majburan shu JSON sxemaga tushadi (structured outputs). */
   schema: Record<string, unknown>;
   maxTokens?: number;
+  /** Faqat Z.ai (GLM): shu so'rov uchun `reasoning_effort` (LLM_REASONING_EFFORT dan ustun). */
+  reasoningEffort?: 'low' | 'high' | 'max';
 }
 
 export interface LlmJsonResponse {
@@ -247,7 +249,9 @@ export class OpenAiCompatLlm implements LlmClient {
     const maxTokens = jsonObjectOnly
       ? Math.min((req.maxTokens ?? 8192) * 4, 131_072)
       : (req.maxTokens ?? 8192);
-    const effort = jsonObjectOnly ? process.env.LLM_REASONING_EFFORT?.trim() : undefined;
+    const effort = jsonObjectOnly
+      ? (req.reasoningEffort ?? process.env.LLM_REASONING_EFFORT?.trim())
+      : undefined;
 
     const res = await uzunFetch(`${this.baseUrl}/chat/completions`, {
       dispatcher: LLM_ULANISH,
