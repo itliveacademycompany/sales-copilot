@@ -1,7 +1,6 @@
 import {
   Bell,
   Box,
-  Building2,
   Globe,
   CalendarDays,
   Check,
@@ -32,7 +31,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Bizneslar, Korinish, MuammoXabari } from '../components/sozlama/Bolimlar';
+import { Korinish, MuammoXabari } from '../components/sozlama/Bolimlar';
 import { Bildirishnomalar } from '../components/sozlama/Bildirishnomalar';
 import { ProfileStep } from './Onboarding';
 import { BaholashMezonlari } from '../components/mezonlar/BaholashMezonlari';
@@ -85,7 +84,6 @@ type Bolim =
   | 'profil'
   | 'korinish'
   | 'biznes'
-  | 'bizneslar'
   | 'mijozlar'
   | 'bildirishnoma'
   | 'rahbarlar'
@@ -145,7 +143,6 @@ export function Settings() {
     { key: 'profil', nom: 'Profil', guruh: 'umumiy', ikon: <UserRound />, korinadi: true },
     { key: 'korinish', nom: "Ko'rinish", guruh: 'umumiy', ikon: <Palette />, korinadi: true },
     { key: 'biznes', nom: 'Umumiy', guruh: 'umumiy', ikon: <Settings2 />, korinadi: bizneskoradi },
-    { key: 'bizneslar', nom: 'Bizneslar', guruh: 'umumiy', ikon: <Building2 />, korinadi: true },
     // SaaS: mijoz kabinetlarini yaratish — faqat platforma egasi (server boshqalarga 404)
     { key: 'mijozlar', nom: 'Mijozlar', guruh: 'umumiy', ikon: <Globe />, korinadi: user?.systemRole === 'super_admin' },
     { key: 'bildirishnoma', nom: 'Bildirishnomalar', guruh: 'umumiy', ikon: <Bell />, korinadi: bizneskoradi },
@@ -226,7 +223,6 @@ export function Settings() {
         {bolim.key === 'profil' && <Profil user={user} business={business} onSaqlandi={refresh} />}
         {bolim.key === 'korinish' && <Korinish />}
         {bolim.key === 'biznes' && business && <Biznes businessId={business.businessId} yozaOladi={bizneYozadi} onSaqlandi={refresh} />}
-        {bolim.key === 'bizneslar' && business && <Bizneslar joriyId={business.businessId} />}
         {bolim.key === 'bildirishnoma' && business && <Bildirishnomalar businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
         {bolim.key === 'rahbarlar' && business && <Rahbarlar businessId={business.businessId} />}
         {bolim.key === 'sotuvchilar' && business && <Menejerlar businessId={business.businessId} />}
