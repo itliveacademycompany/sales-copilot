@@ -62,9 +62,13 @@ async function verifyRls(client: postgres.Sql): Promise<void> {
       --   playbook_template          — umumiy shablonlar kutubxonasi
       --   ai_provider, platform_setting — platforma darajasi, super-admin
       --   prompt_template            — platforma darajasidagi prompt versiyalari (FR-88)
+      --   oauth_client, oauth_code,  — MCP OAuth: foydalanuvchiga bog'langan
+      --   oauth_token                  (business_id yo'q), token xeshi bo'yicha
+      --                                qidiriladi — session bilan bir toifa
       AND c.relname NOT IN (
         'app_user', 'session', 'password_reset', 'playbook_template',
         'ai_provider', 'platform_setting', 'prompt_template',
+        'oauth_client', 'oauth_code', 'oauth_token',
         '__drizzle_migrations'
       )
     ORDER BY c.relname

@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { and, eq, isNotNull, or } from 'drizzle-orm';
+import { Agent, fetch as uzunFetch } from 'undici';
 import { decryptSecret } from '../crypto/secrets.js';
 import { withoutTenantIsolation } from '../db/index.js';
 import { aiProvider } from '../db/schema/index.js';
@@ -58,6 +59,12 @@ const PRICES: Record<string, { in: number; out: number }> = {
   // FALLBACK bilan hisoblash xarajatni sun'iy oshirib ko'rsatardi.
   'gemini-2.5-flash': { in: 0.3, out: 2.5 },
   'gemini-2.5-pro': { in: 1.25, out: 10 },
+  // GLM-5.3-Flash: hujjatda token narxi ko'rsatilmagan. Ishlatilayotgani
+  // oldindan sotib olingan paket (100 mln token, 2026-10-19 dan 3 oy) —
+  // har chaqiruvning qo'shimcha pul narxi 0. Paket tugasa yangilang.
+  'glm-5.3-flash': { in: 0, out: 0 },
+  // Taxminiy (hujjatda narx yo'q) — paketsiz hisob uchun.
+  'glm-5.3': { in: 1, out: 3.2 },
 };
 const FALLBACK_PRICE = { in: 10, out: 50 };
 
@@ -191,6 +198,20 @@ function parseJsonLoose(text: string, model: string): unknown {
  * SDK o'rniga `fetch` ishlatilgan: bitta HTTP chaqiruv uchun yangi
  * bog'liqlik qo'shish oqlanmaydi.
  */
+/**
+ * Node'ning global `fetch`i javob sarlavhasini ko'pi bilan 300 s kutadi
+ * (undici `headersTimeout`). Fikrlovchi modellar (GLM-5.3-Flash) katta
+ * birlashtirilgan so'rovda bundan uzoq o'ylaydi — so'rov "fetch failed"
+ * bilan uzilar, zaxira zanjiri esa buni jimgina keyingi (zaif) modelga
+ * o'tkazib yuborardi. Shuning uchun LLM so'rovlari uchun alohida, 15
+ * daqiqalik kutishli ulanish.
+ */
+const LLM_ULANISH = new Agent({
+  headersTimeout: 15 * 60_000,
+  bodyTimeout: 15 * 60_000,
+  connectTimeout: 30_000,
+});
+
 export class OpenAiCompatLlm implements LlmClient {
   constructor(
     private apiKey: string,
@@ -202,7 +223,34 @@ export class OpenAiCompatLlm implements LlmClient {
   async completeJson(req: LlmJsonRequest): Promise<LlmJsonResponse> {
     const model = this.models[req.stage] ?? this.defaultModel;
 
-    const res = await fetch(`${this.baseUrl}/chat/completions`, {
+    /**
+     * Z.ai (GLM) hujjatida (guides/capabilities/struct-output) faqat
+     * `json_object` rejimi bor — `json_schema` yo'q. Sxema promptga matn
+     * sifatida qo'shiladi, kodda esa baribir zod bilan tekshiriladi
+     * (javob sxemaga mos kelishi kafolatlanmaydi).
+     *
+     * GLM-5.3-Flash'da fikrlash o'chirib bo'lmaydi va fikrlash tokenlari
+     * chiqish limitidan yeyiladi. Serverda o'lchangan (2026-10-21, 75 ta
+     * qo'ng'iroq): o'rtacha 24k, p90 30.5k, maks 31.8k chiqish tokeni —
+     * avvalgi x2 (32k) chegarasida javoblar "kesildi" bilan yiqila
+     * boshladi. Shuning uchun x4, model chegarasi (128K) bilan.
+     *
+     * `reasoning_effort` — Z.ai standarti `max` (eng uzun fikrlash).
+     * `LLM_REASONING_EFFORT` bilan pasaytirish mumkin (max|xhigh|high|
+     * medium|low|minimal|none) — token va vaqtni kesadi, sifatni esa
+     * o'lchab tanlash kerak.
+     */
+    const jsonObjectOnly = /api\.z\.ai|bigmodel\.cn/.test(this.baseUrl);
+    const system = jsonObjectOnly
+      ? `${req.system}\n\nJavobni FAQAT bitta JSON obyekt sifatida qaytar, u quyidagi JSON Schema'ga to'liq mos bo'lsin (barcha required maydonlar bo'lsin, boshqa matn yozma):\n${JSON.stringify(req.schema)}`
+      : req.system;
+    const maxTokens = jsonObjectOnly
+      ? Math.min((req.maxTokens ?? 8192) * 4, 131_072)
+      : (req.maxTokens ?? 8192);
+    const effort = jsonObjectOnly ? process.env.LLM_REASONING_EFFORT?.trim() : undefined;
+
+    const res = await uzunFetch(`${this.baseUrl}/chat/completions`, {
+      dispatcher: LLM_ULANISH,
       method: 'POST',
       headers: {
         authorization: `Bearer ${this.apiKey}`,
@@ -210,16 +258,19 @@ export class OpenAiCompatLlm implements LlmClient {
       },
       body: JSON.stringify({
         model,
-        max_completion_tokens: req.maxTokens ?? 8192,
+        ...(jsonObjectOnly ? { max_tokens: maxTokens } : { max_completion_tokens: maxTokens }),
+        ...(effort ? { reasoning_effort: effort } : {}),
         temperature: 0,
         messages: [
-          { role: 'system', content: req.system },
+          { role: 'system', content: system },
           { role: 'user', content: req.user },
         ],
-        response_format: {
-          type: 'json_schema',
-          json_schema: { name: 'natija', strict: true, schema: req.schema },
-        },
+        response_format: jsonObjectOnly
+          ? { type: 'json_object' }
+          : {
+              type: 'json_schema',
+              json_schema: { name: 'natija', strict: true, schema: req.schema },
+            },
       }),
     });
 
@@ -431,6 +482,10 @@ export class ZaxiraLlm implements LlmClient {
         const m = err instanceof Error ? err.message : String(err);
         if (!boshqasigaOtiladimi(m)) throw err;
         if (limitXatosimi(m)) sovuganlar.set(z.nom, Date.now() + PROVAYDER_SOVUSH_MS);
+        // Asl sababni yozib qo'yamiz: aks holda faqat oxirgi (zaxira)
+        // provayderning xatosi ko'rinadi va asosiy provayder nega
+        // yiqilgani noma'lum qoladi (amalda shunday bo'ldi).
+        console.warn(`[llm] «${z.nom}» ishlamadi, zaxiraga o'tiladi: ${m.slice(0, 400)}`);
         oxirgiXato = err;
       }
     }

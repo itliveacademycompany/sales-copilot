@@ -122,6 +122,16 @@ export const conversation = pgTable(
     mediaFilename: text('media_filename'),
     mediaKind: text('media_kind'), // audio/mpeg, audio/ogg...
     mediaBytes: integer('media_bytes'),
+    /**
+     * STT natijasi (xom bo'laklar) — baholashdan OLDIN saqlanadi.
+     *
+     * Transkript qilish (lokal, bepul, tez) va LLM baholash (sekin, token)
+     * alohida bosqichlar: STT navbatdagi hamma qo'ng'iroqlarni oldindan
+     * transkript qilib chiqaveradi, LLM esa tayyorlarini o'z tezligida
+     * baholaydi. Bu yerda — `{ utterances, language, costUsd, model,
+     * mediaBytes, mediaKind }`. Audio o'zi saqlanmaydi.
+     */
+    sttResult: jsonb('stt_result'),
     /** Stereo bo'lsa kanal bo'yicha rol aniqlanadi — FR-84 ning eng ishonchli yo'li. */
     mediaChannels: integer('media_channels'),
 

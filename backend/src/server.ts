@@ -1,3 +1,4 @@
+import { gigaamXizmatiniToxtat } from './calls/gigaam-xizmat.js';
 import { config } from './config.js';
 import { closeDb } from './db/index.js';
 import { buildApp } from './http/app.js';
@@ -27,6 +28,7 @@ async function shutdown(signal: string): Promise<void> {
 
   try {
     await stopWorkerLoop();
+    gigaamXizmatiniToxtat();
     await app.close();
     await closeDb();
     app.log.info('to\'xtatildi');

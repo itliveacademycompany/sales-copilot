@@ -58,6 +58,16 @@ const loginBody = z.object({
   password: z.string().min(1).max(200),
 });
 
+/**
+ * Rate-limit kaliti uchun so'rov tanasidan login/email (validatsiyadan
+ * oldin — shuning uchun ehtiyotkor o'qiladi). Topilmasa — bo'sh qator,
+ * ya'ni noto'g'ri tana yuborganlar IP bo'yicha bitta guruhda sanaladi.
+ */
+function loginKaliti(body: unknown, maydon: 'email' | 'emailOrLogin' = 'email'): string {
+  const qiymat = (body as Record<string, unknown> | null | undefined)?.[maydon];
+  return typeof qiymat === 'string' ? qiymat.trim().toLowerCase().slice(0, 255) : '';
+}
+
 /** Aktivatsiya xatolari — foydalanuvchiga tushunarli matn. */
 const AKTIVATSIYA_XATO: Record<AktivatsiyaXato, string> = {
   invalid: 'Havola noto\'g\'ri yoki allaqachon ishlatilgan — rahbardan yangisini so\'rang',
@@ -181,7 +191,20 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.post(
     '/api/v1/auth/login',
     {
-      config: { rateLimit: { max: 10, timeWindow: '15 minutes' } },
+      config: {
+        rateLimit: {
+          max: 10,
+          timeWindow: '15 minutes',
+          /**
+           * IP + kiritilgan login bo'yicha. Faqat IP bo'yicha bo'lganda bitta
+           * NAT ortidagi butun ofis 15 daqiqada 10 ta urinishni bo'lishardi —
+           * hamma qayta kirishi kerak bo'lgan kuni (masalan serverga
+           * ko'chishda) xodimlar bir-birini bloklab qo'yardi. Bitta akkauntni
+           * parol terib buzish himoyasi esa saqlanadi.
+           */
+          keyGenerator: (req) => `${req.ip}:${loginKaliti(req.body)}`,
+        },
+      },
     },
     async (req, reply) => {
       const body = loginBody.parse(req.body);
@@ -283,7 +306,15 @@ export function registerAuthRoutes(app: FastifyInstance): void {
   app.post(
     '/api/v1/auth/password-reset/request',
     {
-      config: { rateLimit: { max: 5, timeWindow: '15 minutes' } },
+      config: {
+        rateLimit: {
+          max: 5,
+          timeWindow: '15 minutes',
+          // IP + nishon akkaunt: bitta odamni bezovta qilish himoyasi
+          // saqlanadi, ofisdagi boshqa xodimlar esa bloklanmaydi.
+          keyGenerator: (req) => `${req.ip}:${loginKaliti(req.body, 'emailOrLogin')}`,
+        },
+      },
     },
     async (req) => {
       const body = z.object({ emailOrLogin: z.string().trim().min(3).max(200) }).parse(req.body);

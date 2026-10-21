@@ -316,9 +316,94 @@ def transcribe_qwen(wav_path: Path) -> list[str]:
     return [f"[00:00] {result[0].text}"]
 
 
+def load_gigaam():
+    """GigaAM modelini yuklaydi (GPU bo'lsa unga o'tkazadi)."""
+    from transformers import AutoModel
+
+    model = AutoModel.from_pretrained(
+        "ai-sage/GigaAM-Multilingual",
+        revision="large_ctc",
+        trust_remote_code=True,
+    )
+    return gpu_ga_otkaz(model)
+
+
+def gigaam_lines(model, wav_path: Path, mode: str, chunk_seconds: int, words: bool) -> list[str]:
+    if mode == "longform":
+        try:
+            return transcribe_longform(model, wav_path, words)
+        except Exception as exc:  # noqa: BLE001 — longform xatosida bo'laklash zaxira
+            print(f"Longform xatosi: {exc}", file=sys.stderr)
+            print("Fallback: oddiy bo'laklash rejimi ishlatiladi.", file=sys.stderr)
+    return transcribe_chunks(model, wav_path, chunk_seconds, words)
+
+
+def serve(engine: str, latin: bool, mode: str, chunk_seconds: int) -> int:
+    """Doimiy xizmat: model BIR MARTA yuklanadi, so'rovlar stdin'dan keladi.
+
+    Protokol (har qator — bitta JSON):
+      kirish:  {"id": "...", "input": "/yo'l/audio.mp3", "out": "/yo'l/natija.txt"}
+      chiqish: {"ready": true}  — model yuklangach bir marta
+               {"id": "...", "ok": true, "seconds": 3.1}
+               {"id": "...", "ok": false, "error": "..."}
+
+    Har so'rov uchun model qayta yuklanmaydi (avval ~15 s har qo'ng'iroqda).
+    Kutubxonalar stdout'ga yozib protokolni buzmasligi uchun haqiqiy stdout
+    alohida saqlanadi, fd 1 esa stderr'ga yo'naltiriladi. Har so'rovning
+    vaqtinchalik fayllari (WAV, bo'laklar) o'z papkasida yaratilib, oxirida
+    o'chiriladi — avval `/tmp/gigaam-input-*` lar to'planib qolardi.
+    """
+    import json
+
+    if engine != "gigaam":
+        print(f"--serve hozircha faqat gigaam uchun (berilgan: {engine})", file=sys.stderr)
+        return 2
+
+    proto = os.fdopen(os.dup(1), "w", buffering=1, encoding="utf-8")
+    os.dup2(2, 1)
+    sys.stdout = sys.stderr
+
+    def javob(obj: dict) -> None:
+        proto.write(json.dumps(obj, ensure_ascii=False) + "\n")
+        proto.flush()
+
+    load_backend_env()
+    ensure_ffmpeg()
+    started = time.time()
+    model = load_gigaam()
+    print(f"Model tayyor (xizmat): {time.time() - started:.1f}s", file=sys.stderr)
+    javob({"ready": True})
+
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        req_id = None
+        req_dir = tempfile.mkdtemp(prefix="gigaam-req-")
+        try:
+            req = json.loads(line)
+            req_id = req.get("id")
+            tempfile.tempdir = req_dir
+            t0 = time.time()
+            wav_path = to_wav_16k_mono(Path(req["input"]))
+            lines = gigaam_lines(model, wav_path, mode, chunk_seconds, False)
+            output = "\n".join(lines)
+            if latin:
+                output = cyrillic_to_latin(output)
+            Path(req["out"]).write_text(output, encoding="utf-8")
+            javob({"id": req_id, "ok": True, "seconds": round(time.time() - t0, 2)})
+        except Exception as exc:  # noqa: BLE001 — xizmat bitta so'rov xatosidan o'lmasin
+            javob({"id": req_id, "ok": False, "error": f"{type(exc).__name__}: {exc}"[-800:]})
+        finally:
+            tempfile.tempdir = None
+            shutil.rmtree(req_dir, ignore_errors=True)
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Audio faylni tanlangan lokal STT model bilan transkript qiladi")
-    parser.add_argument("audio", help="Audio fayl yo'li")
+    parser.add_argument("audio", nargs="?", help="Audio fayl yo'li (--serve rejimida kerak emas)")
+    parser.add_argument("--serve", action="store_true", help="Doimiy xizmat: model bir marta yuklanadi, so'rovlar stdin'dan")
     parser.add_argument("--out", help="Natijani faylga yozish")
     parser.add_argument(
         "--engine",
@@ -330,6 +415,12 @@ def main() -> int:
     parser.add_argument("--latin", action="store_true", help="Kirill natijani lotinga oddiy transliteratsiya qiladi")
     parser.add_argument("--words", action="store_true", help="So'z vaqtlarini ham chiqarish")
     args = parser.parse_args()
+
+    if args.serve:
+        return serve(args.engine, args.latin, args.mode, args.chunk_seconds)
+    if not args.audio:
+        print("Audio fayl berilmadi", file=sys.stderr)
+        return 1
 
     audio_path = Path(args.audio)
     if not audio_path.exists():
@@ -343,24 +434,9 @@ def main() -> int:
     print(f"STT model yuklanmoqda: {args.engine}", file=sys.stderr)
     started = time.time()
     if args.engine == "gigaam":
-        from transformers import AutoModel
-
-        model = AutoModel.from_pretrained(
-            "ai-sage/GigaAM-Multilingual",
-            revision="large_ctc",
-            trust_remote_code=True,
-        )
-        model = gpu_ga_otkaz(model)
+        model = load_gigaam()
         print(f"Model tayyor: {time.time() - started:.1f}s", file=sys.stderr)
-        if args.mode == "longform":
-            try:
-                lines = transcribe_longform(model, wav_path, args.words)
-            except Exception as exc:
-                print(f"Longform xatosi: {exc}", file=sys.stderr)
-                print("Fallback: oddiy bo'laklash rejimi ishlatiladi.", file=sys.stderr)
-                lines = transcribe_chunks(model, wav_path, args.chunk_seconds, args.words)
-        else:
-            lines = transcribe_chunks(model, wav_path, args.chunk_seconds, args.words)
+        lines = gigaam_lines(model, wav_path, args.mode, args.chunk_seconds, args.words)
     elif args.engine == "kotib":
         lines = transcribe_hf_pipeline("Kotib/uzbek_stt_v1", wav_path, args.chunk_seconds)
     else:

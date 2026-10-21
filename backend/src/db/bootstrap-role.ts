@@ -38,7 +38,14 @@ async function main(): Promise<void> {
   }
 
   const dbName = decodeURIComponent(new URL(adminUrl).pathname.replace(/^\//, ''));
-  const password = randomBytes(24).toString('base64url');
+  /**
+   * Docker/server rejimi: parol `APP_DB_PASSWORD` dan olinadi va `.env`
+   * yozilmaydi — `DATABASE_URL` docker-compose'da shu paroldan quriladi.
+   * Har ishga tushishda idempotent: rol bor bo'lsa paroli shu qiymatga
+   * tenglashtiriladi, huquqlar qayta beriladi.
+   */
+  const fixedPassword = process.env.APP_DB_PASSWORD;
+  const password = fixedPassword || randomBytes(24).toString('base64url');
 
   const sql = postgres(adminUrl, { max: 1 });
 
@@ -91,6 +98,11 @@ async function main(): Promise<void> {
       );
     }
     console.log('Tekshirildi: rol superuser emas va RLS ni chetlab o\'tmaydi.');
+
+    if (fixedPassword) {
+      console.log('APP_DB_PASSWORD berilgan — .env yozilmaydi (Docker rejimi).');
+      return;
+    }
 
     // ── .env ni yangilash ──
     const url = new URL(adminUrl);

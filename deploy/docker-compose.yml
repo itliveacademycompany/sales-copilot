@@ -1,0 +1,77 @@
+# Serverda: /opt/sotuv/docker-compose.yml (CI har deploy'da shu faylni yangilaydi)
+# Yonida:   /opt/sotuv/.env  (namuna: deploy/.env.example — git'ga TUSHMAYDI)
+#
+#   docker compose up -d                     # ishga tushirish
+#   docker compose logs -f backend           # loglar
+#   IMAGE_TAG=<commit-sha> docker compose up -d   # oldingi versiyaga qaytish
+
+name: sotuv
+
+# Docker loglari standartda CHEKSIZ o'sadi — 400 GB diskni ham yillar
+# davomida sekin to'ldiradi. Har xizmat uchun 3 × 20 MB bilan cheklanadi.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "3"
+
+services:
+  db:
+    # Lokal baza 18.3 — dump/restore mos bo'lishi uchun xuddi shu major.
+    image: postgres:18-bookworm
+    logging: *logging
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sotuv
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD .env da yo'q}
+    # PG 18 obrazida ma'lumot /var/lib/postgresql/18/docker ichida — shuning
+    # uchun hajm ota papkaga ulanadi (rasmiy tavsiya).
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./backups:/backups
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sotuv"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # Port tashqariga OCHILMAYDI — faqat ichki tarmoqda.
+
+  backend:
+    image: ghcr.io/itliveacademycompany/sales-copilot-backend:${IMAGE_TAG:-latest}
+    logging: *logging
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL_ADMIN: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/sotuv
+      DATABASE_URL: postgresql://sotuv_app:${APP_DB_PASSWORD:?APP_DB_PASSWORD .env da yo'q}@db:5432/sotuv
+    volumes:
+      # GigaAM/pyannote modellari (~1-2 GB) — har deploy'da qayta yuklanmasin.
+      - hfcache:/data/hf
+    stop_grace_period: 30s
+
+  web:
+    image: ghcr.io/itliveacademycompany/sales-copilot-web:${IMAGE_TAG:-latest}
+    logging: *logging
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  hfcache:
+  caddy_data:
+  caddy_config:

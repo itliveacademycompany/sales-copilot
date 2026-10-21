@@ -4,7 +4,6 @@ import { createPortal } from 'react-dom';
 import { api, ApiError, type CallFamily, type ConversationRow, type PlaybookBody, type PlaybookVersion, type SeatRow } from '../../api';
 import { useAuth } from '../../auth';
 import { TanlovMenyu } from '../analitika/Ochiluvchi';
-import { tafsilotOl } from '../tafsilotKesh';
 import { joyla, tarjima, useT } from '../../i18n';
 
 /**
@@ -148,19 +147,17 @@ export function QongiroqOilalari() {
         ]);
         const ism = new Map(seats.map((s) => [s.id, s.displayName]));
         const m = new Map<string, Namuna[]>();
-        const navbat = r.conversations.filter((c) => c.summary);
-        for (let i = 0; i < navbat.length; i += 6) {
-          const d = await Promise.all(navbat.slice(i, i + 6).map((c) => tafsilotOl(base, c.id).catch(() => null)));
-          for (const tf of d) {
-            const k = tf?.analysis?.callFamily;
-            const matn = tf?.analysis?.summary ?? tf?.conversation.summary;
-            if (!k || !matn) continue;
-            const ro = m.get(k) ?? [];
-            if (ro.length < 2) ro.push({ kim: tf.conversation.managerName ?? (tf.conversation.seatId ? ism.get(tf.conversation.seatId) : null) ?? tarjima('Menejer'), matn });
-            m.set(k, ro);
-          }
-          if (tirik) setNamunalar(new Map(m));
+        // Suhbat turi va xulosa ro'yxat API'sining o'zida keladi — har
+        // suhbat uchun alohida detal so'rovi (ilgari 40 tagacha) kerak emas.
+        for (const c of r.conversations) {
+          const k = c.callFamily;
+          const matn = c.summary;
+          if (!k || !matn) continue;
+          const ro = m.get(k) ?? [];
+          if (ro.length < 2) ro.push({ kim: (c.seatId ? ism.get(c.seatId) : null) ?? tarjima('Menejer'), matn });
+          m.set(k, ro);
         }
+        if (tirik) setNamunalar(new Map(m));
       } catch {
         /* namunasiz ham bo'lim to'liq ishlaydi */
       }

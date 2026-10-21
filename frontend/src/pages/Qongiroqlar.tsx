@@ -25,7 +25,6 @@ import {
   lidTuri,
   type AlertRow,
   type BusinessProfile,
-  type ConversationDetail,
   type ConversationRow,
   type PlaybookBody,
   type SeatRow,
@@ -48,7 +47,6 @@ import {
   type Tanlov,
 } from '../components/qongiroq/Filtrlar';
 import { SuhbatYuklash } from '../components/SuhbatYuklash';
-import { tafsilotOl } from '../components/tafsilotKesh';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -58,16 +56,14 @@ import { tafsilotOl } from '../components/tafsilotKesh';
  * Filtrlar URL'da saqlanadi (`?holat=done&sana=7kun`) — havolani ulashsa,
  * hamkasbi aynan shu ko'rinishni ochadi, sahifa yangilansa filtr yo'qolmaydi.
  *
- * Ro'yxat API'si kanal, suhbat turi va xizmat bo'yicha filtrlamaydi, telefon
- * raqamini ham bermaydi. Shuning uchun: davr bo'yicha suhbatlar sahifalab
- * yuklanadi, telefon kanali ajratiladi, so'ng har qo'ng'iroq tafsiloti
- * cheklangan parallellikda yuklanib keshlanadi. Tafsilot kelmaguncha unga
- * bog'liq filtrlar shu qatorni ko'rsatmaydi — bu holat ekranda yoziladi.
+ * Davr bo'yicha suhbatlar sahifalab yuklanadi va telefon kanali ajratiladi.
+ * Suhbat turi, xizmat, telefon, mijoz ismi va davomiylik ro'yxat API'sining
+ * o'zida keladi. Ilgari ular har qator uchun alohida detal so'rovi bilan
+ * olinardi (N+1, 300 tagacha so'rov) — sahifa bir ochilishda rate-limitga
+ * urilib, butun ofisda sayt bir daqiqa "Serverda xatolik" berardi.
  */
 
 const SAHIFA = 25;
-const TAFSILOT_CHEGARA = 300;
-const PARALLEL = 6;
 const TARIX_KALIT = 'sotuvai-qongiroq-tarix';
 
 const HOLATLAR: { qiymat: string; nom: string; mos: (r: ConversationRow) => boolean }[] = [
@@ -184,7 +180,6 @@ export function Qongiroqlar() {
   const [playbook, setPlaybook] = useState<PlaybookBody | null>(null);
   const [profilXizmat, setProfilXizmat] = useState<string[]>([]);
   const [ogohSoni, setOgohSoni] = useState(0);
-  const [tafsilot, setTafsilot] = useState<Record<string, ConversationDetail>>({});
   const [yangilash, setYangilash] = useState(0);
 
   const biz = business ? `/api/v1/businesses/${business.businessId}` : '';
@@ -229,29 +224,6 @@ export function Qongiroqlar() {
     };
   }, [business, biz, fromMs, toMs, yangilash]);
 
-  // Tafsilotlar — cheklangan parallellik, keshlanadi
-  const tafsilotRef = useRef(tafsilot);
-  tafsilotRef.current = tafsilot;
-  useEffect(() => {
-    if (!business || rows.length === 0) return;
-    let bekor = false;
-    const navbat = rows
-      .slice(0, TAFSILOT_CHEGARA)
-      .map((r) => r.id)
-      .filter((id) => !tafsilotRef.current[id]);
-    const ishchi = async () => {
-      while (!bekor && navbat.length > 0) {
-        const id = navbat.shift()!;
-        const d = await tafsilotOl(biz, id).catch(() => null);
-        if (d && !bekor) setTafsilot((v) => ({ ...v, [id]: d }));
-      }
-    };
-    void Promise.all(Array.from({ length: PARALLEL }, ishchi));
-    return () => {
-      bekor = true;
-    };
-  }, [business, biz, rows]);
-
   // ─── Filtrlash ───
   const seatNom = useMemo(() => new Map(seats.map((s) => [s.id, s.displayName])), [seats]);
   const oilaNom = useMemo(
@@ -263,16 +235,15 @@ export function Qongiroqlar() {
     holat.length === 0 || HOLATLAR.some((h) => holat.includes(h.qiymat) && h.mos(r));
   const mosOila = (r: ConversationRow) => {
     if (oila.length === 0) return true;
-    const a = tafsilot[r.id]?.analysis;
     return oila.some((o) => {
       if (o === MAXSUS_YAQIN) return lidTuri(r.leadQuality) === 'hot';
-      if (o === MAXSUS_BIZNES) return !!a?.businessRelevance && a.businessRelevance !== 'sales';
-      return a?.callFamily === o;
+      if (o === MAXSUS_BIZNES) return !!r.businessRelevance && r.businessRelevance !== 'sales';
+      return r.callFamily === o;
     });
   };
   const mosXizmat = (r: ConversationRow) => {
     if (xizmat.length === 0) return true;
-    const s = tafsilot[r.id]?.analysis?.serviceLine?.toLowerCase();
+    const s = r.serviceLine?.toLowerCase();
     return !!s && xizmat.some((x) => x.toLowerCase() === s);
   };
   const mosMenejer = (r: ConversationRow) =>
@@ -280,15 +251,14 @@ export function Qongiroqlar() {
   const mosQidiruv = (r: ConversationRow) => {
     const q = qidiruv.trim().toLowerCase();
     if (!q) return true;
-    const t = tafsilot[r.id];
     const qismlar = [
       r.summary,
       r.primaryGap,
       r.seatId ? seatNom.get(r.seatId) : null,
-      t?.conversation.phoneFrom,
-      t?.conversation.phoneTo,
-      t?.contact?.name,
-      t?.analysis?.callFamily ? oilaNom.get(t.analysis.callFamily) : null,
+      r.phoneFrom,
+      r.phoneTo,
+      r.contactName,
+      r.callFamily ? oilaNom.get(r.callFamily) : null,
     ];
     return qismlar.some((s) => s?.toLowerCase().includes(q));
   };
@@ -298,19 +268,16 @@ export function Qongiroqlar() {
     const r = rows.filter((x) => mosHolat(x) && mosOila(x) && mosXizmat(x) && mosMenejer(x) && mosQidiruv(x));
     const qiymat = (x: ConversationRow): number => {
       if (saralash.ustun === 'ball') return x.overallScore === null ? -1 : Number(x.overallScore);
-      if (saralash.ustun === 'davom') return tafsilot[x.id]?.conversation.durationSeconds ?? davomiylik(x) ?? -1;
+      if (saralash.ustun === 'davom') return x.durationSeconds ?? davomiylik(x) ?? -1;
       return new Date(x.startedAt).getTime();
     };
     return r.sort((a, b) => (saralash.yon === 'kamayish' ? qiymat(b) - qiymat(a) : qiymat(a) - qiymat(b)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, tafsilot, params, saralash, seatNom, oilaNom]);
+  }, [rows, params, saralash, seatNom, oilaNom]);
 
   const [korsatish, setKorsatish] = useState(SAHIFA);
   useEffect(() => setKorsatish(SAHIFA), [params]);
 
-  const tafsilotKutilmoqda =
-    (oila.length > 0 || xizmat.length > 0 || qidiruv) &&
-    rows.slice(0, TAFSILOT_CHEGARA).some((r) => !tafsilot[r.id]);
   const filtrBor =
     holat.length + oila.length + xizmat.length + menejer.length > 0 || !!qidiruv || sanaTuri !== '30kun';
 
@@ -323,23 +290,23 @@ export function Qongiroqlar() {
    * kiritilmagan (lekin AI aniqlagan) qiymat bo'yicha filtrlab bo'lmasdi
    * va ro'yxat bo'sh qolib "ishlamayapti" taassurotini berardi.
    */
-  const uchragan = (olish: (d: ConversationDetail) => string | null | undefined) =>
-    [...new Set(Object.values(tafsilot).map(olish).filter((v): v is string => !!v))];
+  const uchragan = (olish: (r: ConversationRow) => string | null | undefined) =>
+    [...new Set(rows.map(olish).filter((v): v is string => !!v))];
   const oilaKalitlar = [
     ...(playbook?.classificationPolicy.callFamilies ?? []).map((f) => f.key),
-    ...uchragan((d) => d.analysis?.callFamily),
+    ...uchragan((r) => r.callFamily),
   ];
   const oilaTanlov: Tanlov[] = [...new Set(oilaKalitlar)].map((k) => ({
     qiymat: k,
     nom: oilaNom.get(k) ?? k,
-    soni: sanoq((r) => tafsilot[r.id]?.analysis?.callFamily === k),
+    soni: sanoq((r) => r.callFamily === k),
   }));
   const maxsusTanlov: Tanlov[] = [
     {
       qiymat: MAXSUS_BIZNES,
       nom: tr('Biznesga oid emas'),
       soni: sanoq((r) => {
-        const b = tafsilot[r.id]?.analysis?.businessRelevance;
+        const b = r.businessRelevance;
         return !!b && b !== 'sales';
       }),
     },
@@ -351,7 +318,7 @@ export function Qongiroqlar() {
   for (const s of [
     ...(playbook?.classificationPolicy.serviceLines ?? []),
     ...profilXizmat,
-    ...uchragan((d) => d.analysis?.serviceLine),
+    ...uchragan((r) => r.serviceLine),
   ]) {
     const t = s.trim();
     if (t && !xizmatKalitlar.has(t.toLowerCase())) xizmatKalitlar.set(t.toLowerCase(), t);
@@ -359,7 +326,7 @@ export function Qongiroqlar() {
   const xizmatTanlov: Tanlov[] = [...xizmatKalitlar.values()].map((s) => ({
     qiymat: s,
     nom: s,
-    soni: sanoq((r) => tafsilot[r.id]?.analysis?.serviceLine?.toLowerCase() === s.toLowerCase()),
+    soni: sanoq((r) => r.serviceLine?.toLowerCase() === s.toLowerCase()),
   }));
   const menejerTanlov: Tanlov[] = [
     ...seats.map((s) => ({ qiymat: s.id, nom: s.displayName, soni: sanoq((r) => r.seatId === s.id) })),
@@ -387,18 +354,17 @@ export function Qongiroqlar() {
       'Xizmat', 'Davomiylik', 'Xulosa', 'Eng zaif joy', 'Havola',
     ].map((s) => tr(s));
     const qatorlar: Katak[][] = filtrlangan.map((r) => {
-      const t = tafsilot[r.id];
       const lid = lidTuri(r.leadQuality);
       return [
         fmtSana(r.startedAt),
         r.seatId ? seatNom.get(r.seatId) ?? '' : tr('Biriktirilmagan'),
-        t?.conversation.phoneFrom ?? t?.conversation.phoneTo ?? '',
+        r.phoneFrom ?? r.phoneTo ?? '',
         HOLAT_BELGI[r.status] ? tr(HOLAT_BELGI[r.status]!.nom) : r.status,
         r.overallScore === null ? null : Math.round(Number(r.overallScore) * 10) / 10,
         lid === 'hot' ? tr('Issiq') : lid === 'warm' ? tr('Iliq') : lid === 'cold' ? tr('Sovuq') : '',
-        t?.analysis?.callFamily ? oilaNom.get(t.analysis.callFamily) ?? t.analysis.callFamily : '',
-        t?.analysis?.serviceLine ?? '',
-        davomiylikMatn(t?.conversation.durationSeconds ?? davomiylik(r)),
+        r.callFamily ? oilaNom.get(r.callFamily) ?? r.callFamily : '',
+        r.serviceLine ?? '',
+        davomiylikMatn(r.durationSeconds ?? davomiylik(r)),
         r.summary ?? '',
         r.primaryGap ?? '',
         `${window.location.origin}/suhbatlar/${r.id}`,
@@ -608,9 +574,6 @@ export function Qongiroqlar() {
             {filtrlangan.length !== rows.length && ` ${tr('(jami {n})', { n: rows.length })}`} · {sanaMatn(from, to)}
           </span>
         )}
-        {tafsilotKutilmoqda && (
-          <span className="qongiroq-yuklanmoqda">{tr("Tafsilotlar yuklanmoqda — natija to'ldirilmoqda…")}</span>
-        )}
       </div>
 
       <div className="card qongiroq-jadval-karta">
@@ -662,14 +625,13 @@ export function Qongiroqlar() {
               </thead>
               <tbody>
                 {filtrlangan.slice(0, korsatish).map((r) => {
-                  const t = tafsilot[r.id];
                   const b = r.overallScore === null ? null : Number(r.overallScore);
                   const hb = HOLAT_BELGI[r.status];
                   const h = hb ? { nom: tr(hb.nom), klass: hb.klass } : { nom: r.status, klass: 'kul' };
                   const ism = r.seatId ? seatNom.get(r.seatId) ?? tr('Menejer') : tr('Biriktirilmagan');
                   const lid = lidTuri(r.leadQuality);
-                  const turi = t?.analysis?.callFamily ? oilaNom.get(t.analysis.callFamily) ?? t.analysis.callFamily : null;
-                  const mijoz = t?.contact?.name ?? t?.conversation.phoneFrom ?? t?.conversation.phoneTo ?? null;
+                  const turi = r.callFamily ? oilaNom.get(r.callFamily) ?? r.callFamily : null;
+                  const mijoz = r.contactName ?? r.phoneFrom ?? r.phoneTo ?? null;
                   return (
                     <tr
                       key={r.id}
@@ -694,7 +656,7 @@ export function Qongiroqlar() {
                         <span className="q-teglar">
                           {mijoz && <b>{mijoz}</b>}
                           {turi && <span className="teg kok">{turi}</span>}
-                          {t?.analysis?.serviceLine && <span className="teg">{t.analysis.serviceLine}</span>}
+                          {r.serviceLine && <span className="teg">{r.serviceLine}</span>}
                           {lid === 'hot' && <span className="teg yuqori">{tr('Issiq lid')}</span>}
                           {lid === 'warm' && <span className="teg orta">{tr('Iliq lid')}</span>}
                           {r.isFlagged && (
@@ -707,7 +669,7 @@ export function Qongiroqlar() {
                           {r.summary ?? r.excludedReason ?? tr('Tahlil kutilmoqda')}
                         </span>
                       </td>
-                      <td className="q-son">{davomiylikMatn(t?.conversation.durationSeconds ?? davomiylik(r))}</td>
+                      <td className="q-son">{davomiylikMatn(r.durationSeconds ?? davomiylik(r))}</td>
                       <td>
                         <span className={`badge ${h.klass}`}>{h.nom}</span>
                       </td>

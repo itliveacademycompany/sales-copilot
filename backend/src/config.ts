@@ -83,6 +83,43 @@ const schema = z.object({
   WORKER_POLL_MS: z.coerce.number().int().min(200).default(5000),
 
   /**
+   * Tahlil navbatini bir vaqtda nechta yo'l (lane) bajaradi. Fikrlovchi
+   * modellar (GLM) bitta qo'ng'iroqqa 3+ daqiqa oladi — bitta yo'lda soatiga
+   * ~17 ta. `FOR UPDATE SKIP LOCKED` tufayli yo'llar bir ishni olmaydi.
+   * Provayder bir vaqtdagi so'rovlarni cheklasa (429) — kamaytiring.
+   */
+  WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(8).default(2),
+
+  /**
+   * Bir vaqtda nechta lokal STT (GigaAM) jarayoni ishlasin. Har biri GPU'siz
+   * bir necha GB RAM va barcha yadrolarni oladi: 16 GB li kompyuterda 1,
+   * 48 GB / 12 yadroli serverda 2 xavfsiz. Ko'paytirsangiz, `.env` da
+   * `OMP_NUM_THREADS` ni (yadrolar soni / STT_CONCURRENCY) qilib qo'ying —
+   * aks holda jarayonlar bir-birining yadrosini talashadi.
+   */
+  STT_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
+
+  /**
+   * GigaAM'ni doimiy xizmat sifatida ishlatish (calls/gigaam-xizmat.ts):
+   * model bir marta yuklanadi va xotirada turadi (har jarayon ~3-5 GB RAM,
+   * soni = STT_CONCURRENCY). `false` — eski usul: har qo'ng'iroqqa yangi
+   * jarayon, model har safar yuklanadi (~15 s qo'shimcha).
+   */
+  STT_PERSISTENT: z
+    .string()
+    .default('true')
+    .transform((v) => v !== 'false'),
+
+  /**
+   * Moi Zvonki qo'ng'iroqlari bir vaqtda nechtadan baholanadi. Sekin qism —
+   * LLM (GLM bitta qo'ng'iroqqa ~8 daqiqa), STT esa `STT_CONCURRENCY` bilan
+   * alohida cheklangan. Serverda (2026-10-21) 2 ta bilan soatiga ~3-4 ta
+   * chiqdi va protsessor 99% bo'sh turdi. Provayder 429 bersa, qo'ng'iroqlar
+   * yo'qolmaydi: navbatga qaytadi va baholash 15 daqiqaga to'xtaydi.
+   */
+  MOIZVONKI_PARALLEL: z.coerce.number().int().min(1).max(16).default(2),
+
+  /**
    * Telegram sessiyasi qancha "jim" turgandan keyin tahlilga yuboriladi
    * (daqiqa). Juda qisqa — yarim suhbat baholanadi; juda uzun — mijoz
    * natijani kech ko'radi. TZ 9.3: birinchi natijagacha < 30 daqiqa.

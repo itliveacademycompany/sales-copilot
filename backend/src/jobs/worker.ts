@@ -4,7 +4,7 @@ import { analyzeConversation } from '../ai/analyze.js';
 import { getActiveLlm, LlmRefusalError, type LlmClient } from '../ai/llm.js';
 import { runBillingTick } from '../billing/engine.js';
 import { dispatchTaskExports } from '../integrations/crm-export.js';
-import { qongiroqlarniQaytaIshla, sinxronla } from '../integrations/moizvonki.js';
+import { oldindanTranskriptQil, qongiroqlarniQaytaIshla, sinxronla } from '../integrations/moizvonki.js';
 import { runDailyReportTick } from '../reports/daily.js';
 import { markOverdueCommitments } from './maintenance.js';
 import { dispatchAlertNotifications } from './notify.js';
@@ -36,8 +36,8 @@ export interface TickResult {
  * Bitta ishni olib bajarish. Testlar shu funksiyani mock LLM bilan
  * to'g'ridan-to'g'ri chaqiradi — sikl va taymerlarsiz.
  */
-export async function runWorkerTick(llm?: LlmClient): Promise<TickResult> {
-  const job = await claimNextJob(workerId);
+export async function runWorkerTick(llm?: LlmClient, id: string = workerId): Promise<TickResult> {
+  const job = await claimNextJob(id);
   if (!job) return { processed: false };
 
   try {
@@ -81,6 +81,7 @@ let loopPromise: Promise<void> | null = null;
  */
 let mzSinxronBand = false;
 let mzQaytaIshlashBand = false;
+let mzSttBand = false;
 
 /** Server bilan birga ishga tushadigan doimiy sikl. */
 export function startWorkerLoop(log: {
@@ -89,11 +90,12 @@ export function startWorkerLoop(log: {
 }): void {
   stopRequested = false;
 
-  loopPromise = (async () => {
+  const mainLoop = (async () => {
     let lastSweep = 0;
     let lastNotify = 0;
     let lastMzSync = 0;
     let lastMzProcess = 0;
+    let lastMzStt = 0;
     let lastReclaim = 0;
     let lastBilling = 0;
     let lastReport = 0;
@@ -139,7 +141,7 @@ export function startWorkerLoop(log: {
 
         /**
          * Moi Zvonki: yangi qo'ng'iroqlarni olish — har 2 daqiqada,
-         * kutayotganlarni baholash — har 15 soniyada (bir tikda 2 tadan).
+         * kutayotganlarni baholash — har 15 soniyada (bir tikda MOIZVONKI_PARALLEL tadan, standart 2).
          * Ikkalasi ham fonda — sabab yuqoridagi bayroqlar izohida.
          */
         if (now - lastMzSync > 120_000 && !mzSinxronBand) {
@@ -158,10 +160,31 @@ export function startWorkerLoop(log: {
               mzSinxronBand = false;
             });
         }
+        /**
+         * STT — baholashdan ALOHIDA oqim: navbatdagi qo'ng'iroqlarni LLM'ni
+         * kutmasdan transkript qilib chiqaveradi. Ish bo'lsa darhol keyingi
+         * partiyani oladi (10 s kutmasdan) — butun navbat imkon qadar tez
+         * transkript bo'ladi.
+         */
+        if (now - lastMzStt > 10_000 && !mzSttBand) {
+          lastMzStt = now;
+          mzSttBand = true;
+          void oldindanTranskriptQil()
+            .then((r) => {
+              if (r.transkript > 0 || r.xato > 0) {
+                log.info(r, 'moizvonki: qo\'ng\'iroqlar transkript qilindi');
+                lastMzStt = 0; // navbatda yana bor bo'lishi mumkin — kutmasdan davom
+              }
+            })
+            .catch((err: unknown) => log.error({ err }, 'moizvonki: transkript yiqildi'))
+            .finally(() => {
+              mzSttBand = false;
+            });
+        }
         if (now - lastMzProcess > 15_000 && !mzQaytaIshlashBand) {
           lastMzProcess = now;
           mzQaytaIshlashBand = true;
-          void qongiroqlarniQaytaIshla()
+          void qongiroqlarniQaytaIshla({ faqatTranskriptlangan: true })
             .then((r) => {
               if (r.qayta > 0) log.info(r, 'moizvonki: qo\'ng\'iroqlar baholandi');
               if (r.pauza > 0) log.error(r, 'moizvonki: AI limiti — baholash 15 daqiqaga to\'xtatildi, qo\'ng\'iroqlar navbatda');
@@ -212,22 +235,6 @@ export function startWorkerLoop(log: {
           }
         }
 
-        const tick = await runWorkerTick();
-        if (tick.processed) {
-          if (tick.error) {
-            log.error(
-              { jobId: tick.jobId, conversationId: tick.conversationId, err: tick.error, fate: tick.outcome },
-              'worker: tahlil xatosi',
-            );
-          } else {
-            log.info(
-              { jobId: tick.jobId, conversationId: tick.conversationId, outcome: tick.outcome },
-              'worker: tahlil yakunlandi',
-            );
-          }
-          // Navbatda ish bor ekan — kutmasdan davom etamiz.
-          continue;
-        }
       } catch (err) {
         // Sikl hech qachon o'lmasligi kerak — xato loglanadi, davom etiladi.
         log.error({ err }, 'worker: sikl xatosi');
@@ -236,6 +243,48 @@ export function startWorkerLoop(log: {
       await sleep(config.WORKER_POLL_MS);
     }
   })();
+
+  /**
+   * Tahlil yo'llari — yuqoridagi xizmat siklidan ALOHIDA. Avval tahlil
+   * shu siklning ichida ketma-ket bajarilardi: sekin model bitta ishga
+   * daqiqalar sarflasa, qolgan hamma narsa (va keyingi qo'ng'iroq) kutardi.
+   */
+  const lanes = Array.from({ length: config.WORKER_CONCURRENCY }, (_, i) =>
+    analysisLane(`${workerId}-${i + 1}`, log),
+  );
+  loopPromise = Promise.all([mainLoop, ...lanes]).then(() => undefined);
+}
+
+async function analysisLane(
+  id: string,
+  log: {
+    info: (obj: unknown, msg?: string) => void;
+    error: (obj: unknown, msg?: string) => void;
+  },
+): Promise<void> {
+  while (!stopRequested) {
+    try {
+      const tick = await runWorkerTick(undefined, id);
+      if (tick.processed) {
+        if (tick.error) {
+          log.error(
+            { lane: id, jobId: tick.jobId, conversationId: tick.conversationId, err: tick.error, fate: tick.outcome },
+            'worker: tahlil xatosi',
+          );
+        } else {
+          log.info(
+            { lane: id, jobId: tick.jobId, conversationId: tick.conversationId, outcome: tick.outcome },
+            'worker: tahlil yakunlandi',
+          );
+        }
+        // Navbatda ish bor ekan — kutmasdan davom etamiz.
+        continue;
+      }
+    } catch (err) {
+      log.error({ lane: id, err }, 'worker: tahlil yo\'li xatosi');
+    }
+    await sleep(config.WORKER_POLL_MS);
+  }
 }
 
 export async function stopWorkerLoop(): Promise<void> {

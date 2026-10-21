@@ -94,6 +94,19 @@ export function registerConversationRoutes(app: FastifyInstance): void {
             summary: analysis.summary,
             isFlagged: analysis.isFlagged,
             scoringMode: analysis.scoringMode,
+            /**
+             * Qo'ng'iroqlar sahifasi filtr va jadval uchun shu maydonlarni
+             * har qator uchun alohida detal so'rovi bilan olardi (N+1, 300
+             * tagacha so'rov) — bitta ochishda rate-limitga urilardi va
+             * butun ofis uchun sayt bir daqiqa "Serverda xatolik" berardi.
+             */
+            callFamily: analysis.callFamily,
+            serviceLine: analysis.serviceLine,
+            businessRelevance: analysis.businessRelevance,
+            phoneFrom: conversation.phoneFrom,
+            phoneTo: conversation.phoneTo,
+            durationSeconds: conversation.durationSeconds,
+            contactName: contact.name,
             segmentCount: sql<number>`(
               select count(*)::int from transcript_segment ts
               where ts.conversation_id = ${conversation.id}
@@ -101,6 +114,7 @@ export function registerConversationRoutes(app: FastifyInstance): void {
           })
           .from(conversation)
           .leftJoin(analysis, eq(analysis.conversationId, conversation.id))
+          .leftJoin(contact, eq(contact.id, conversation.contactId))
           .where(
             and(
               q.status ? eq(conversation.status, q.status) : undefined,

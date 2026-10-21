@@ -1,0 +1,1 @@
+ALTER TABLE "conversation" ADD COLUMN "stt_result" jsonb;
