@@ -13,7 +13,6 @@ import {
   assignTimes,
   formatTime,
   speakerSchema,
-  withRetry,
   type RefineInputSegment,
   type RefinedTurn,
 } from './transcript-refine.js';
@@ -307,16 +306,39 @@ export async function refineAndAnalyzeTranscript(
   const dateLine = startedAt ? `SUHBAT SANASI: ${startedAt.toISOString()}\n` : '';
   const system = buildSystemPrompt(body, businessContext);
 
-  const res = await withRetry(async () => {
-    const llm = llmClient ?? (await getActiveLlm());
-    return llm.completeJson({
-      stage: 'stage2',
-      maxTokens: 16000,
-      schema: mergedJsonSchema,
-      system,
-      user: `${dateLine}Quyidagi STT bo'laklarini tozala, klassifikatsiya qil va bahola:\n\n${transcript}`,
-    });
-  });
+  /**
+   * Javob kesilsa ("kesildi (max_tokens)") — fikrlash juda uzun bo'lgan:
+   * uzun (10-15 daq) qo'ng'iroqda GLM `max` darajada 64k tokenni ham to'ldirib,
+   * deyarli so'rov vaqt chegarasiga (15 daq) yetadi. Bunday holda BIR MARTA
+   * `high` darajada qayta so'raladi (~3 baravar kam token). Ilgari `withRetry`
+   * kesilishni oddiy vaqtinchalik xato deb 3 marta takrorlardi — har biri ~64k
+   * token behuda. Vaqtinchalik xatolar (429/5xx/tarmoq) uchun qayta urinish
+   * avvalgidek: 3 marta, kutish bilan.
+   */
+  let effort: 'high' | undefined;
+  let res: Awaited<ReturnType<LlmClient['completeJson']>> | undefined;
+  for (let urinish = 1; !res; urinish++) {
+    try {
+      const llm = llmClient ?? (await getActiveLlm());
+      res = await llm.completeJson({
+        stage: 'stage2',
+        maxTokens: 16000,
+        schema: mergedJsonSchema,
+        system,
+        user: `${dateLine}Quyidagi STT bo'laklarini tozala, klassifikatsiya qil va bahola:\n\n${transcript}`,
+        ...(effort ? { reasoningEffort: effort } : {}),
+      });
+    } catch (err) {
+      const m = err instanceof Error ? err.message : String(err);
+      if (/kesildi \(max_tokens\)/.test(m)) {
+        if (effort) throw err; // `high` ham sig'madi — boshqa urinish foydasiz
+        effort = 'high';
+        continue;
+      }
+      if (/\((400|401|403|404)\b/.test(m) || urinish >= 3) throw err;
+      await new Promise((r) => setTimeout(r, 1500 * urinish));
+    }
+  }
 
   const parsed = mergedResponseSchema.parse(res.json);
   const bySeq = new Map(limited.map((s) => [s.seq, s]));
@@ -349,6 +371,7 @@ export async function refineAndAnalyzeTranscript(
     costUsd: res.costUsd,
     tokensIn: res.tokensIn,
     tokensOut: res.tokensOut,
-    model: res.model,
+    // `@high` — javob kesilgani uchun kamroq fikrlash bilan qayta baholangan (audit uchun).
+    model: effort ? `${res.model}@${effort}` : res.model,
   };
 }

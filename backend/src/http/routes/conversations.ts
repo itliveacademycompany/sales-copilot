@@ -184,6 +184,7 @@ export function registerConversationRoutes(app: FastifyInstance): void {
             mediaUrl: conversation.mediaUrl,
             mediaKind: conversation.mediaKind,
             durationSeconds: conversation.durationSeconds,
+            sttResult: conversation.sttResult,
           })
           .from(conversation)
           .leftJoin(seat, eq(seat.id, conversation.seatId))
@@ -387,8 +388,25 @@ export function registerConversationRoutes(app: FastifyInstance): void {
         : [];
       const authorById = new Map(authors.map((u) => [u.id, u.displayName]));
 
+      /**
+       * STT allaqachon tayyor, lekin LLM hali baholamagan bo'lsa — xom
+       * transkript (rolsiz, imlo tuzatilmagan). STT baholashdan ancha oldin
+       * ketadi (Moi Zvonki: oldindanTranskriptQil), foydalanuvchi esa
+       * baholashni kutmasdan suhbat matnini o'qiy olishi kerak. Yakuniy
+       * `segments` paydo bo'lgach bu maydon bo'sh qaytadi.
+       */
+      const { sttResult, ...conv } = result.conv;
+      const xom = z
+        .object({ utterances: z.array(z.object({ text: z.string(), startSeconds: z.number() })) })
+        .safeParse(sttResult);
+      const dastlabkiTranskript =
+        result.segments.length === 0 && xom.success
+          ? xom.data.utterances.map((u, seq) => ({ seq, text: u.text, startSeconds: u.startSeconds }))
+          : null;
+
       return {
-        conversation: result.conv,
+        conversation: conv,
+        dastlabkiTranskript,
         segments: result.segments.map((s) => ({ ...s, id: String(s.id) })),
         analysis: result.analysis,
         scores: result.scores.map((s) => ({

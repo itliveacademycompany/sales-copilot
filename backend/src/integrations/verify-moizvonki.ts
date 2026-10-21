@@ -2,6 +2,8 @@ import { createServer, type Server } from 'node:http';
 import { and, eq, sql } from 'drizzle-orm';
 import type { LlmClient, LlmJsonRequest } from '../ai/llm.js';
 import type { SttClient } from '../ai/stt.js';
+import { refineAndAnalyzeTranscript } from '../ai/refine-and-analyze.js';
+import { loadActivePlaybookAndBusiness } from '../calls/pipeline.js';
 import { cleanupTestData, TEST_EMAIL_DOMAIN } from '../db/clean-test-data.js';
 import { closeDb, withoutTenantIsolation } from '../db/index.js';
 import { analysis, contact, conversation, criterionScore, seat } from '../db/schema/index.js';
@@ -599,6 +601,34 @@ async function main(): Promise<void> {
       "baholangach holat done, audio hajmi transkriptdan yozildi",
       g2.every((r) => r.s === 'done' && (r.b ?? 0) > 0),
       JSON.stringify(g2.map((r) => ({ e: r.e, s: r.s, b: r.b }))),
+    );
+
+    // Javob kesilsa — BIR MARTA `high` bilan qayta so'raladi, cheksiz emas.
+    const pbk = await loadActivePlaybookAndBusiness(businessId);
+    const segs = [
+      { seq: 0, text: 'Assalomu alaykum, IT Live akademiyasi, eshitaman.', startSeconds: 0, endSeconds: 3 },
+      { seq: 1, text: 'Salom, frontend kursi narxi qancha?', startSeconds: 3, endSeconds: 6 },
+    ];
+    const kesiluvchi = (necha: number, effortlar: (string | undefined)[]): LlmClient => ({
+      async completeJson(req) {
+        effortlar.push(req.reasoningEffort);
+        if (effortlar.length <= necha) throw new Error('LLM javobi kesildi (max_tokens): glm-5.3-flash');
+        return soxtaLlm.completeJson(req);
+      },
+    });
+    const e1: (string | undefined)[] = [];
+    const k1 = await refineAndAnalyzeTranscript(segs, pbk!.body, pbk!.businessContext, undefined, kesiluvchi(1, e1));
+    check(
+      "javob kesilsa 'high' bilan qayta so'raladi va muvaffaqiyatli",
+      e1.length === 2 && e1[0] === undefined && e1[1] === 'high' && k1.model.endsWith('@high'),
+      JSON.stringify({ e1, model: k1.model }),
+    );
+    const e2: (string | undefined)[] = [];
+    const k2 = await refineAndAnalyzeTranscript(segs, pbk!.body, pbk!.businessContext, undefined, kesiluvchi(9, e2)).catch((e: Error) => e);
+    check(
+      "'high' ham kesilsa — to'xtaydi (3-urinish va behuda token yo'q)",
+      k2 instanceof Error && e2.length === 2,
+      JSON.stringify({ urinishlar: e2.length }),
     );
 
     // ═══ H: ADMIN HUQUQI YO'Q ═══
