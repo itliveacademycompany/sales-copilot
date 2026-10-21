@@ -6,6 +6,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   FileText,
+  Handshake,
   LayoutGrid,
   LogOut,
   Menu,
@@ -79,6 +80,7 @@ export function Layout() {
    */
   const rahbar = business?.permissions.includes('analytics:read:all') ?? false;
   const ogohKoradi = business?.permissions.includes('alert:read') ?? false;
+  const crmKoradi = business?.permissions.includes('integration:manage') ?? false;
 
   /**
    * Menyu ikki ko'rinishda: tor (ikon tepada, nom pastda) va keng.
@@ -177,6 +179,7 @@ export function Layout() {
           {rahbar && item('/analitika', <ChartNoAxesColumnIncreasing />, 'Analitika')}
           {rahbar && item('/kunlik-hisobot', <CalendarDays />, 'Kunlik hisobot')}
           {item('/lidlar', <FileText />, 'Lid xulosalari')}
+          {crmKoradi && item('/crm', <Handshake />, 'CRM')}
           {ogohKoradi && item('/ogohlantirishlar', <Bell />, 'Ogohlantirishlar', unseen)}
           {/* Suhbatlar, Vazifalar, Mezonlar, To'lov menyudan olib tashlandi —
               sahifalar manzili saqlanadi (boshqa bo'limlardagi havolalar ishlaydi) */}

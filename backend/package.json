@@ -37,6 +37,7 @@
     "verify:settings": "tsx src/business/verify-settings.ts",
     "verify:notify": "tsx src/jobs/verify-notify.ts",
     "verify:moizvonki": "tsx src/integrations/verify-moizvonki.ts",
+    "verify:amocrm": "tsx src/integrations/verify-amocrm.ts",
     "verify:crm": "tsx src/integrations/verify-crm-export.ts",
     "verify:password-reset": "tsx src/http/verify-password-reset.ts",
     "verify:activation": "tsx src/http/verify-activation.ts",

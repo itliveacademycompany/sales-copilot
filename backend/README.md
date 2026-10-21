@@ -72,6 +72,7 @@ Oxirgi qadam **405/405 o'tishi shart**. O'tmasa — davom etmang.
 | `npm run verify:password-reset` | Parol tiklash: token, muddat, oshkor qilmaslik |
 | `npm run verify:import` | Transkript parseri + qo'lda yuklash |
 | `npm run verify:stt` | STT javobini qayta ishlash (API'siz) |
+| `npm run verify:amocrm` | amoCRM ulanishi: manzil xavfsizligi, token, hisob, tuzilish (soxta server, bazasiz) |
 | `npm run provider:stt` | Google STT kalitini qo'shish va tekshirish |
 | `npm run db:studio` | Bazani brauzerda ko'rish |
 
@@ -676,6 +677,28 @@ cheklovi, taklif, subdomen almashtirish, TLS).
 yopiq** (403) — mijozni faqat super admin yaratadi. Ishlab chiqishda
 ochiq: `verify:*` testlari test foydalanuvchisini shu yo'l bilan yaratadi.
 `OPEN_REGISTRATION=true|false` bilan majburan yoqish/o'chirish mumkin.
+
+## CRM: amoCRM ulanishi
+
+Menyudagi **CRM** bo'limi (ega va rahbar — `integration:manage`). Biznes
+amoCRM hisobini **uzoq muddatli token** bilan ulaydi (amoCRM → amoМаркет →
+«Создать интеграцию» → «Ключи и доступы» → «Долгосрочный токен»).
+
+- Token saqlashdan OLDIN `GET /api/v4/account` bilan tekshiriladi va
+  manzildagi hisobga tegishli ekani solishtiriladi; `integration`
+  jadvalida (`kind = amocrm`) shifrlangan holda yotadi, hech qachon
+  qaytarilmaydi. Muddati JWT `exp` dan olinadi (`token_expires_at`).
+- Manzil faqat `*.amocrm.ru`, `*.amocrm.com`, `*.kommo.com` (SSRF himoyasi).
+- Hozircha faqat O'QISH: hisob, voronkalar, bosqichlar, foydalanuvchilar.
+  amoCRM ga hech narsa yozilmaydi.
+
+```
+GET    /api/v1/businesses/:id/integrations/amocrm            holat (tarmoqsiz)
+PUT    /api/v1/businesses/:id/integrations/amocrm            ulash / tokenni almashtirish
+POST   /api/v1/businesses/:id/integrations/amocrm/check      qayta tekshirish
+GET    /api/v1/businesses/:id/integrations/amocrm/structure  voronkalar, foydalanuvchilar
+DELETE /api/v1/businesses/:id/integrations/amocrm            uzish
+```
 
 ## Test ma'lumotlari o'zidan keyin tozalanadi
 

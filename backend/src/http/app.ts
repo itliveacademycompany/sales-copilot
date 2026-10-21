@@ -22,6 +22,7 @@ import { registerAnalyticsRoutes } from './routes/analytics.js';
 import { registerLeadRoutes } from './routes/leads.js';
 import { registerDashboardRoutes } from './routes/dashboard.js';
 import { registerTaskRoutes } from './routes/tasks.js';
+import { registerAmocrmRoutes } from './routes/amocrm.js';
 import { registerMoizvonkiRoutes } from './routes/moizvonki.js';
 import { registerMcpRoutes } from './routes/mcp.js';
 import { registerOauthRoutes } from './routes/oauth.js';
@@ -155,6 +156,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerTelegramRoutes(app);
   registerCrmRoutes(app);
   registerMoizvonkiRoutes(app);
+  registerAmocrmRoutes(app);
   registerReportRoutes(app);
   registerAppealRoutes(app);
   registerConversationRoutes(app);

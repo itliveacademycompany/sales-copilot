@@ -92,6 +92,7 @@ export function App() {
    * "bo'sh ekran" o'rniga foydali ekran ko'rsatiladi.
    */
   const rahbar = business.permissions.includes('analytics:read:all');
+  const crmKoradi = business.permissions.includes('integration:manage');
 
   return (
     <Routes>
@@ -119,6 +120,7 @@ export function App() {
         <Route path="/playbook" element={<SAHIFA.playbook />} />
         <Route path="/billing" element={<SAHIFA.billing />} />
         <Route path="/sozlamalar" element={<SAHIFA.settings />} />
+        {crmKoradi && <Route path="/crm" element={<SAHIFA.crm />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

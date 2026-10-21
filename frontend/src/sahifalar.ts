@@ -52,6 +52,7 @@ function sahifa<T extends ComponentType<Record<string, never>>>(
  * yozilgani uzunroq, lekin tip xavfsiz.
  */
 export const SAHIFA = {
+  crm: sahifa(() => import('./pages/Crm').then((m) => ({ default: m.Crm }))),
   dashboard: sahifa(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard }))),
   seatCabinet: sahifa(() => import('./pages/SeatCabinet').then((m) => ({ default: m.SeatCabinet }))),
   analitika: sahifa(() => import('./pages/Analitika').then((m) => ({ default: m.Analitika }))),
@@ -91,4 +92,5 @@ export const MANZIL_SAHIFA: Record<string, { oldindanYukla: () => void }> = {
   '/playbook': SAHIFA.playbook,
   '/billing': SAHIFA.billing,
   '/sozlamalar': SAHIFA.settings,
+  '/crm': SAHIFA.crm,
 };

@@ -15,6 +15,7 @@ const SAHIFALAR = [
   { nom: 'Analitika', yol: '/analitika' },
   { nom: 'Kunlik hisobot', yol: '/kunlik-hisobot' },
   { nom: 'Lid xulosalari', yol: '/lidlar' },
+  { nom: 'CRM', yol: '/crm' },
   { nom: 'Ogohlantirishlar', yol: '/ogohlantirishlar' },
   { nom: 'Suhbatlar', yol: '/suhbatlar' },
   { nom: 'Vazifalar', yol: '/vazifalar' },
