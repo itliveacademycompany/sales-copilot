@@ -83,6 +83,15 @@ const schema = z.object({
   STT_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
 
   /**
+   * Moi Zvonki qo'ng'iroqlari bir vaqtda nechtadan baholanadi. Sekin qism —
+   * LLM (GLM bitta qo'ng'iroqqa ~8 daqiqa), STT esa `STT_CONCURRENCY` bilan
+   * alohida cheklangan. Serverda (2026-10-21) 2 ta bilan soatiga ~3-4 ta
+   * chiqdi va protsessor 99% bo'sh turdi. Provayder 429 bersa, qo'ng'iroqlar
+   * yo'qolmaydi: navbatga qaytadi va baholash 15 daqiqaga to'xtaydi.
+   */
+  MOIZVONKI_PARALLEL: z.coerce.number().int().min(1).max(16).default(2),
+
+  /**
    * Telegram sessiyasi qancha "jim" turgandan keyin tahlilga yuboriladi
    * (daqiqa). Juda qisqa — yarim suhbat baholanadi; juda uzun — mijoz
    * natijani kech ko'radi. TZ 9.3: birinchi natijagacha < 30 daqiqa.

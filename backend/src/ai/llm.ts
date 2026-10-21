@@ -229,16 +229,25 @@ export class OpenAiCompatLlm implements LlmClient {
      * sifatida qo'shiladi, kodda esa baribir zod bilan tekshiriladi
      * (javob sxemaga mos kelishi kafolatlanmaydi).
      *
-     * GLM-5.3-Flash'da fikrlash o'chirib bo'lmaydi (`thinking` faqat
-     * `enabled`) va fikrlash tokenlari ham chiqish limitidan yeyiladi —
-     * shuning uchun limit ikki baravar qilinadi, aks holda javob JSON
-     * boshlanmasdan kesilib qolishi mumkin.
+     * GLM-5.3-Flash'da fikrlash o'chirib bo'lmaydi va fikrlash tokenlari
+     * chiqish limitidan yeyiladi. Serverda o'lchangan (2026-10-21, 75 ta
+     * qo'ng'iroq): o'rtacha 24k, p90 30.5k, maks 31.8k chiqish tokeni —
+     * avvalgi x2 (32k) chegarasida javoblar "kesildi" bilan yiqila
+     * boshladi. Shuning uchun x4, model chegarasi (128K) bilan.
+     *
+     * `reasoning_effort` — Z.ai standarti `max` (eng uzun fikrlash).
+     * `LLM_REASONING_EFFORT` bilan pasaytirish mumkin (max|xhigh|high|
+     * medium|low|minimal|none) — token va vaqtni kesadi, sifatni esa
+     * o'lchab tanlash kerak.
      */
     const jsonObjectOnly = /api\.z\.ai|bigmodel\.cn/.test(this.baseUrl);
     const system = jsonObjectOnly
       ? `${req.system}\n\nJavobni FAQAT bitta JSON obyekt sifatida qaytar, u quyidagi JSON Schema'ga to'liq mos bo'lsin (barcha required maydonlar bo'lsin, boshqa matn yozma):\n${JSON.stringify(req.schema)}`
       : req.system;
-    const maxTokens = (req.maxTokens ?? 8192) * (jsonObjectOnly ? 2 : 1);
+    const maxTokens = jsonObjectOnly
+      ? Math.min((req.maxTokens ?? 8192) * 4, 131_072)
+      : (req.maxTokens ?? 8192);
+    const effort = jsonObjectOnly ? process.env.LLM_REASONING_EFFORT?.trim() : undefined;
 
     const res = await uzunFetch(`${this.baseUrl}/chat/completions`, {
       dispatcher: LLM_ULANISH,
@@ -250,6 +259,7 @@ export class OpenAiCompatLlm implements LlmClient {
       body: JSON.stringify({
         model,
         ...(jsonObjectOnly ? { max_tokens: maxTokens } : { max_completion_tokens: maxTokens }),
+        ...(effort ? { reasoning_effort: effort } : {}),
         temperature: 0,
         messages: [
           { role: 'system', content: system },

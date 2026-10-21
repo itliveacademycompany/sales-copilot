@@ -157,3 +157,21 @@ Cheklovlar:
    uni faqat ruxsati bor foydalanuvchiga ko'rsatadi, lekin havola nusxalanib
    tarqalishi mumkin. Kerak bo'lsa: audioni backend orqali (login tekshiruvi
    bilan) uzatish va havolani brauzerga bermaslik.
+
+## 8. GLM fikrlash darajasi va tezlik (o'lchov, 2026-10-21)
+
+Bitta qo'ng'iroq vaqtining ~90% i GLM tahliliga ketadi (STT ~10%). Z.ai'da
+`reasoning_effort` standarti `max`. `glm-5.3-flash` faqat `low`, `high`, `max`
+ni qabul qiladi (`medium`/`xhigh` → 400). Bir xil 6 ta real qo'ng'iroqda:
+
+| Daraja | Vaqt | Token / qo'ng'iroq | Iqtibos topildi | `max` dan ball farqi |
+|---|---|---|---|---|
+| `low` | 46 s | 10.5k | 78% | o'rt. 7.9, maks 15.6 |
+| `high` | 99 s | 14.3k | 97% | 1 tasida qo'ng'iroq turi xato (42 ball) |
+| `max` | 325 s | 30.7k | 100% | — |
+
+Qaror: hozircha `max` (sifat — mahsulotning asosiy qiymati). Tezlik
+`MOIZVONKI_PARALLEL=4` bilan olinadi (tajribada 6 ta parallel so'rov 429'siz
+o'tdi). Paket hisobi: 100M / ~31k ≈ 3 200 qo'ng'iroq. `high` ga o'tishdan
+oldin kattaroq namunada (30+ qo'ng'iroq) qayta o'lchang. O'zgartirish:
+serverdagi `.env` da `LLM_REASONING_EFFORT=high` va `docker compose up -d backend`.

@@ -507,7 +507,10 @@ async function main(): Promise<void> {
       },
     };
     const p1 = await qongiroqlarniQaytaIshla({ businessId, stt: soxtaStt, llm: limitLlm, limit: 10 });
-    check('AI limiti: «xato» emas — pauza', p1.pauza === 1 && p1.xato === 0 && p1.baholandi === 0, JSON.stringify(p1));
+    // Nomzodlar parallel bajariladi: bir partiyadagi barchasi limitga birga
+    // urilishi mumkin, shuning uchun pauza soni >= 1. Muhimi — hech biri
+    // «xato» bo'lmaydi va baholanmaydi (navbatga qaytadi).
+    check('AI limiti: «xato» emas — pauza', p1.pauza >= 1 && p1.xato === 0 && p1.baholandi === 0, JSON.stringify(p1));
     const navbat = await holatlar('mz:1007', 'mz:1008');
     check("ikkala qo'ng'iroq navbatda qoldi", navbat.length === 2 && navbat.every((s) => s === 'received'), JSON.stringify(navbat));
     check('pauza qo\'yildi', baholashPauzasi(businessId) !== null);

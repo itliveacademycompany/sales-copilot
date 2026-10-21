@@ -139,7 +139,7 @@ export function startWorkerLoop(log: {
 
         /**
          * Moi Zvonki: yangi qo'ng'iroqlarni olish — har 2 daqiqada,
-         * kutayotganlarni baholash — har 15 soniyada (bir tikda 2 tadan).
+         * kutayotganlarni baholash — har 15 soniyada (bir tikda MOIZVONKI_PARALLEL tadan, standart 2).
          * Ikkalasi ham fonda — sabab yuqoridagi bayroqlar izohida.
          */
         if (now - lastMzSync > 120_000 && !mzSinxronBand) {

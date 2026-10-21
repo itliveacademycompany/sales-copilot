@@ -793,7 +793,7 @@ export async function qongiroqlarniQaytaIshla(
           ),
         )
         .orderBy(asc(conversation.startedAt))
-        .limit(opts.limit ?? 2),
+        .limit(opts.limit ?? config.MOIZVONKI_PARALLEL),
   );
 
   // Playbook biznes boshiga bir marta.
@@ -807,15 +807,31 @@ export async function qongiroqlarniQaytaIshla(
    */
   const bajar = async (c: (typeof nomzodlar)[number]): Promise<void> => {
     if (baholashPauzasi(c.businessId)) return;
+    /**
+     * Kunlik limitdan joy SHU ZAHOTI (birinchi `await` dan oldin) band
+     * qilinadi. Nomzodlar parallel ishlaydi: ilgari tekshiruv va kamaytirish
+     * orasida `await` bor edi — ikki qo'ng'iroq bir vaqtda "1 joy qoldi"
+     * ni ko'rib, ikkalasi ham baholanardi (verify:moizvonki ushladi).
+     * Qo'ng'iroq olinmasa — joy qaytariladi.
+     */
     const q = qolgan.get(c.businessId);
     if (q !== undefined && q <= 0) return;
+    if (q !== undefined) qolgan.set(c.businessId, q - 1);
+    const joyniQaytar = () => {
+      const hozir = qolgan.get(c.businessId);
+      if (hozir !== undefined) qolgan.set(c.businessId, hozir + 1);
+    };
+
     if (!pbKesh.has(c.businessId)) {
       pbKesh.set(c.businessId, await loadActivePlaybookAndBusiness(c.businessId));
     }
     const pb = pbKesh.get(c.businessId);
     // Playbook yo'q — baholab bo'lmaydi. Qo'ng'iroq `received` da qoladi
     // va playbook yaratilgach o'zi baholanadi; hozir pul sarflamaymiz.
-    if (!pb) return;
+    if (!pb) {
+      joyniQaytar();
+      return;
+    }
 
     const egallandi = await withoutTenantIsolation('moizvonki: qo\'ng\'iroqni egallash', (tx) =>
       tx
@@ -824,9 +840,11 @@ export async function qongiroqlarniQaytaIshla(
         .where(and(eq(conversation.id, c.id), eq(conversation.status, 'received')))
         .returning({ id: conversation.id }),
     );
-    if (egallandi.length === 0) return;
+    if (egallandi.length === 0) {
+      joyniQaytar();
+      return;
+    }
     n.qayta++;
-    if (q !== undefined) qolgan.set(c.businessId, q - 1);
 
     const boshlandi = Date.now();
     try {
