@@ -11,6 +11,7 @@ import {
   bugunBaholangan,
   limitXatosimi,
   mzIdlar,
+  oldindanTranskriptQil,
   osilganlarniQaytar,
   pauzalarniTozala,
   qongiroqlarniQaytaIshla,
@@ -483,7 +484,7 @@ async function main(): Promise<void> {
     );
 
     // 1006 (buzuq yozuv) bu bo'limga aralashmasin.
-    const holatiniQoy = (extId: string, status: 'failed' | 'transcribing', updatedAt = new Date()) =>
+    const holatiniQoy = (extId: string, status: 'failed' | 'transcribing' | 'analyzing' | 'received', updatedAt = new Date()) =>
       withoutTenantIsolation('test: holatni qo\'yish', (tx) =>
         tx.update(conversation).set({ status, updatedAt }).where(eq(conversation.externalId, extId)),
       );
@@ -549,7 +550,56 @@ async function main(): Promise<void> {
     check("20 daqiqa osilgan qo'ng'iroq navbatga qaytdi", qaytdi === 1 && (await holatlar('mz:1006'))[0] === 'received', `qaytdi: ${qaytdi}`);
     await holatiniQoy('mz:1006', 'transcribing');
     check("hozirgina egallangani TEGILMAYDI", (await osilganlarniQaytar()) === 0);
+    // Baholash (LLM) uzoq davom etadi — 15 daqiqada tortib olinmasligi kerak.
+    await holatiniQoy('mz:1006', 'analyzing', new Date(Date.now() - 20 * 60_000));
+    check("baholanayotgani 20 daqiqada TEGILMAYDI (GLM uzoq o'ylaydi)", (await osilganlarniQaytar()) === 0);
+    await holatiniQoy('mz:1006', 'analyzing', new Date(Date.now() - 35 * 60_000));
+    check("baholash 35 daqiqa osilgani navbatga qaytdi", (await osilganlarniQaytar()) === 1);
     await holatiniQoy('mz:1006', 'failed');
+
+    // ═══ G3: STT BAHOLASHNI KUTMAYDI ═══
+    console.log('\n— G3: oldindan transkript (STT ↔ LLM ajratilgan) —');
+    QONGIROQLAR.push(
+      { db_call_id: 1009, direction: 0, client_number: '998973333333', start_time: soat + 800, end_time: soat + 880, duration: 80, answered: 1, recording: yangiYozuv(1009), user_id: 501 },
+      { db_call_id: 1010, direction: 0, client_number: '998974444444', start_time: soat + 900, end_time: soat + 990, duration: 90, answered: 1, recording: yangiYozuv(1010), user_id: 501 },
+    );
+    await sinxronla(businessId);
+    const sttMalumot = async (...idlar: string[]) =>
+      (await withoutTenantIsolation('test: stt natijasi', (tx) =>
+        tx
+          .select({ e: conversation.externalId, s: conversation.status, r: conversation.sttResult, b: conversation.mediaBytes })
+          .from(conversation)
+          .where(eq(conversation.businessId, businessId)),
+      )).filter((r) => idlar.includes(r.e ?? ''));
+    /** Chaqirilsa test yiqiladi — baholash bosqichi STT'ni qayta ishlatmasligini isbotlaydi. */
+    const portlovchiStt: SttClient = {
+      async transcribe() {
+        throw new Error("STT qayta chaqirilmasligi kerak edi");
+      },
+    };
+
+    const bosh = await qongiroqlarniQaytaIshla({ businessId, stt: portlovchiStt, llm: soxtaLlm, limit: 10, faqatTranskriptlangan: true });
+    check("faqatTranskriptlangan: transkripti yo'qlar olinmaydi", bosh.qayta === 0, JSON.stringify(bosh));
+
+    const t1 = await oldindanTranskriptQil({ businessId, stt: soxtaStt, limit: 10 });
+    const g1 = await sttMalumot('mz:1009', 'mz:1010');
+    check('oldindan transkript: ikkalasi transkript qilindi', t1.transkript === 2 && t1.xato === 0, JSON.stringify(t1));
+    check(
+      "transkript saqlandi, qo'ng'iroq navbatda (baholanmagan)",
+      g1.length === 2 && g1.every((r) => r.s === 'received' && r.r !== null),
+      JSON.stringify(g1.map((r) => ({ e: r.e, s: r.s, bor: r.r !== null }))),
+    );
+    const t2 = await oldindanTranskriptQil({ businessId, stt: portlovchiStt, limit: 10 });
+    check("qayta ishga tushganda tayyorlari QAYTA transkript qilinmaydi", t2.transkript === 0 && t2.xato === 0, JSON.stringify(t2));
+
+    const b1 = await qongiroqlarniQaytaIshla({ businessId, stt: portlovchiStt, llm: soxtaLlm, limit: 10, faqatTranskriptlangan: true });
+    const g2 = await sttMalumot('mz:1009', 'mz:1010');
+    check('baholash saqlangan transkriptdan (STT chaqirilmadi)', b1.baholandi === 2 && b1.xato === 0, JSON.stringify(b1));
+    check(
+      "baholangach holat done, audio hajmi transkriptdan yozildi",
+      g2.every((r) => r.s === 'done' && (r.b ?? 0) > 0),
+      JSON.stringify(g2.map((r) => ({ e: r.e, s: r.s, b: r.b }))),
+    );
 
     // ═══ H: ADMIN HUQUQI YO'Q ═══
     console.log('\n— H: admin huquqisiz —');

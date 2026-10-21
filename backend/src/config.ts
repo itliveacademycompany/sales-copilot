@@ -83,6 +83,17 @@ const schema = z.object({
   STT_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
 
   /**
+   * GigaAM'ni doimiy xizmat sifatida ishlatish (calls/gigaam-xizmat.ts):
+   * model bir marta yuklanadi va xotirada turadi (har jarayon ~3-5 GB RAM,
+   * soni = STT_CONCURRENCY). `false` — eski usul: har qo'ng'iroqqa yangi
+   * jarayon, model har safar yuklanadi (~15 s qo'shimcha).
+   */
+  STT_PERSISTENT: z
+    .string()
+    .default('true')
+    .transform((v) => v !== 'false'),
+
+  /**
    * Moi Zvonki qo'ng'iroqlari bir vaqtda nechtadan baholanadi. Sekin qism —
    * LLM (GLM bitta qo'ng'iroqqa ~8 daqiqa), STT esa `STT_CONCURRENCY` bilan
    * alohida cheklangan. Serverda (2026-10-21) 2 ta bilan soatiga ~3-4 ta

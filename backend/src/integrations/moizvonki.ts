@@ -1,5 +1,5 @@
 import { config } from '../config.js';
-import { and, asc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { limitXatosimi, type LlmClient } from '../ai/llm.js';
 import { refineAndAnalyzeTranscript } from '../ai/refine-and-analyze.js';
@@ -650,8 +650,23 @@ export async function osilganlarniQaytar(): Promise<number> {
       .where(
         and(
           eq(conversation.externalSource, 'moizvonki'),
-          inArray(conversation.status, ['transcribing', 'analyzing']),
-          sql`${conversation.updatedAt} < now() - interval '15 minutes'`,
+          /**
+           * STT (`transcribing`) — 15 daqiqa. Baholash (`analyzing`) — 30:
+           * fikrlovchi model (GLM, `max`) bitta qo'ng'iroqqa 10 daqiqadan
+           * ko'proq o'ylashi mumkin (so'rov chegarasi 15 daq). 15 daqiqalik
+           * umumiy chegara hali ishlanayotgan qo'ng'iroqni tortib olib,
+           * ikkinchi marta (ikki baravar token bilan) baholatishi mumkin edi.
+           */
+          or(
+            and(
+              eq(conversation.status, 'transcribing'),
+              sql`${conversation.updatedAt} < now() - interval '15 minutes'`,
+            ),
+            and(
+              eq(conversation.status, 'analyzing'),
+              sql`${conversation.updatedAt} < now() - interval '30 minutes'`,
+            ),
+          ),
         ),
       )
       .returning({ id: conversation.id }),
@@ -731,6 +746,132 @@ async function sttNavbatda<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/** `conversation.stt_result` — baholashdan oldin saqlangan STT natijasi. */
+const sttSaqlanganSchema = z.object({
+  utterances: z.array(
+    z.object({ text: z.string(), startSeconds: z.number(), endSeconds: z.number() }),
+  ),
+  language: z.string().nullable(),
+  costUsd: z.number(),
+  model: z.string(),
+  mediaBytes: z.number().int(),
+  mediaKind: z.string(),
+});
+type SttSaqlangan = z.infer<typeof sttSaqlanganSchema>;
+
+/** Yozuvni yuklab, transkript qiladi (STT soni `STT_CONCURRENCY` bilan cheklangan). */
+async function yozuvniTranskriptQil(
+  c: { id: string; mediaUrl: string | null; externalId: string | null },
+  stt?: SttClient,
+): Promise<SttSaqlangan> {
+  const { audio, mime } = await yozuvniYukla(c.mediaUrl!);
+  const natija = await sttNavbatda(() =>
+    transkriptQil(audio, {
+      mimeType: mime,
+      filename: `${c.externalId ?? c.id}.mp3`,
+      speakerCount: 2,
+      stt,
+    }),
+  );
+  if (natija.utterances.length === 0) throw new Error('Yozuvda nutq topilmadi');
+  return {
+    utterances: natija.utterances.map((u) => ({
+      text: u.text,
+      startSeconds: u.startSeconds,
+      endSeconds: u.endSeconds,
+    })),
+    language: natija.language ?? null,
+    costUsd: natija.costUsd,
+    model: natija.model,
+    mediaBytes: audio.length,
+    mediaKind: mime,
+  };
+}
+
+export interface TranskriptNatija {
+  transkript: number;
+  xato: number;
+}
+
+/**
+ * OLDINDAN TRANSKRIPT — LLM baholashni kutmasdan.
+ *
+ * STT lokal va bepul (doimiy GigaAM xizmati bilan ~15-20 s), LLM esa sekin
+ * (GLM ~5-10 daqiqa). Ilgari ikkalasi bitta zanjirda edi: STT ham LLM
+ * navbatini kutardi. Endi bu bosqich navbatdagi qo'ng'iroqlarni o'zi
+ * transkript qilib, natijani `stt_result` ga yozadi va qo'ng'iroqni yana
+ * `received` ga qaytaradi; baholash bosqichi tayyorlarini oladi.
+ *
+ * Kunlik limit va AI pauzasi bu bosqichga TEGISHLI EMAS — ular token
+ * sarfini cheklaydi, STT esa token sarflamaydi. Avto-tahlil o'chiq yoki
+ * obuna to'xtagan biznes esa umuman qayta ishlanmaydi.
+ */
+export async function oldindanTranskriptQil(
+  opts: { limit?: number; stt?: SttClient; businessId?: string } = {},
+): Promise<TranskriptNatija> {
+  const n: TranskriptNatija = { transkript: 0, xato: 0 };
+  await osilganlarniQaytar();
+
+  const avtomatik = (await ulanganlar(opts.businessId)).filter((i) => i.cfg.autoAnalyze);
+  const ruxsat: string[] = [];
+  for (const i of avtomatik) {
+    if (await isAnalysisBlocked(i.businessId)) continue;
+    ruxsat.push(i.businessId);
+  }
+  if (ruxsat.length === 0) return n;
+
+  const nomzodlar = await withoutTenantIsolation('moizvonki: transkript kutayotgan qo\'ng\'iroqlar', (tx) =>
+    tx
+      .select({ id: conversation.id, mediaUrl: conversation.mediaUrl, externalId: conversation.externalId })
+      .from(conversation)
+      .where(
+        and(
+          eq(conversation.externalSource, 'moizvonki'),
+          eq(conversation.status, 'received'),
+          isNull(conversation.sttResult),
+          isNotNull(conversation.seatId),
+          isNotNull(conversation.mediaUrl),
+          inArray(conversation.businessId, ruxsat),
+        ),
+      )
+      .orderBy(asc(conversation.startedAt))
+      .limit(opts.limit ?? config.STT_CONCURRENCY * 2),
+  );
+
+  await Promise.all(
+    nomzodlar.map(async (c) => {
+      const egallandi = await withoutTenantIsolation('moizvonki: transkript uchun egallash', (tx) =>
+        tx
+          .update(conversation)
+          .set({ status: 'transcribing', updatedAt: new Date() })
+          .where(and(eq(conversation.id, c.id), eq(conversation.status, 'received'), isNull(conversation.sttResult)))
+          .returning({ id: conversation.id }),
+      );
+      if (egallandi.length === 0) return;
+      try {
+        const saqlangan = await yozuvniTranskriptQil(c, opts.stt);
+        await withoutTenantIsolation('moizvonki: transkriptni saqlash', (tx) =>
+          tx
+            .update(conversation)
+            .set({ sttResult: saqlangan, status: 'received', updatedAt: new Date() })
+            .where(eq(conversation.id, c.id)),
+        );
+        n.transkript++;
+      } catch (err) {
+        n.xato++;
+        const m = err instanceof Error ? err.message : String(err);
+        await withoutTenantIsolation('moizvonki: transkript xatosini yozish', (tx) =>
+          tx
+            .update(conversation)
+            .set({ status: 'failed', excludedReason: m.slice(0, 600), updatedAt: new Date() })
+            .where(eq(conversation.id, c.id)),
+        );
+      }
+    }),
+  );
+  return n;
+}
+
 /**
  * Kutayotgan qo'ng'iroqlarni baholaydi.
  *
@@ -743,7 +884,18 @@ async function sttNavbatda<T>(fn: () => Promise<T>): Promise<T> {
  * qo'ng'iroq ikki marta baholanmaydi (ya'ni ikki marta pul sarflanmaydi).
  */
 export async function qongiroqlarniQaytaIshla(
-  opts: { limit?: number; stt?: SttClient; llm?: LlmClient; businessId?: string } = {},
+  opts: {
+    limit?: number;
+    stt?: SttClient;
+    llm?: LlmClient;
+    businessId?: string;
+    /**
+     * Faqat oldindan transkript qilinganlarni olish (ishchi sikl shunday
+     * chaqiradi — STT `oldindanTranskriptQil` da alohida ketadi). Berilmasa,
+     * transkripti yo'q qo'ng'iroq shu yerda o'zi transkript qilinadi.
+     */
+    faqatTranskriptlangan?: boolean;
+  } = {},
 ): Promise<QaytaIshlashNatija> {
   const n: QaytaIshlashNatija = { qayta: 0, baholandi: 0, xato: 0, pauza: 0 };
 
@@ -781,6 +933,7 @@ export async function qongiroqlarniQaytaIshla(
           startedAt: conversation.startedAt,
           mediaUrl: conversation.mediaUrl,
           externalId: conversation.externalId,
+          sttResult: conversation.sttResult,
         })
         .from(conversation)
         .where(
@@ -790,9 +943,11 @@ export async function qongiroqlarniQaytaIshla(
             isNotNull(conversation.seatId),
             isNotNull(conversation.mediaUrl),
             inArray(conversation.businessId, ruxsat),
+            opts.faqatTranskriptlangan ? isNotNull(conversation.sttResult) : undefined,
           ),
         )
-        .orderBy(asc(conversation.startedAt))
+        // Transkripti tayyorlari birinchi — ular LLM'dan boshqa hech narsa kutmaydi.
+        .orderBy(sql`${conversation.sttResult} is null`, asc(conversation.startedAt))
         .limit(opts.limit ?? config.MOIZVONKI_PARALLEL),
   );
 
@@ -836,7 +991,7 @@ export async function qongiroqlarniQaytaIshla(
     const egallandi = await withoutTenantIsolation('moizvonki: qo\'ng\'iroqni egallash', (tx) =>
       tx
         .update(conversation)
-        .set({ status: 'transcribing', updatedAt: new Date() })
+        .set({ status: c.sttResult ? 'analyzing' : 'transcribing', updatedAt: new Date() })
         .where(and(eq(conversation.id, c.id), eq(conversation.status, 'received')))
         .returning({ id: conversation.id }),
     );
@@ -848,16 +1003,20 @@ export async function qongiroqlarniQaytaIshla(
 
     const boshlandi = Date.now();
     try {
-      const { audio, mime } = await yozuvniYukla(c.mediaUrl!);
-      const stt = await sttNavbatda(() =>
-        transkriptQil(audio, {
-          mimeType: mime,
-          filename: `${c.externalId ?? c.id}.mp3`,
-          speakerCount: 2,
-          stt: opts.stt,
-        }),
-      );
-      if (stt.utterances.length === 0) throw new Error('Yozuvda nutq topilmadi');
+      // Oldindan transkript qilingan bo'lsa — shuni ishlatamiz (yozuv qayta
+      // yuklanmaydi, STT qayta ishlamaydi). Bo'lmasa — shu yerda, va natija
+      // darhol saqlanadi: LLM yiqilsa, keyingi urinishda STT takrorlanmaydi.
+      const oldin = sttSaqlanganSchema.safeParse(c.sttResult);
+      let stt: SttSaqlangan;
+      if (oldin.success) {
+        stt = oldin.data;
+      } else {
+        stt = await yozuvniTranskriptQil(c, opts.stt);
+        const saqlash = stt;
+        await withoutTenantIsolation('moizvonki: transkriptni saqlash', (tx) =>
+          tx.update(conversation).set({ sttResult: saqlash, updatedAt: new Date() }).where(eq(conversation.id, c.id)),
+        );
+      }
 
       const merged = await refineAndAnalyzeTranscript(
         stt.utterances.map((u, seq) => ({
@@ -879,8 +1038,8 @@ export async function qongiroqlarniQaytaIshla(
           .set({
             status: 'analyzing',
             language: stt.language,
-            mediaBytes: audio.length,
-            mediaKind: mime,
+            mediaBytes: stt.mediaBytes,
+            mediaKind: stt.mediaKind,
             updatedAt: new Date(),
           })
           .where(eq(conversation.id, c.id));

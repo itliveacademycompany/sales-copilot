@@ -10,7 +10,9 @@ import { prefilterTelegramSession } from '../ai/prefilter.js';
 import type { Stage2Result, Stage3Result } from '../ai/prompts.js';
 import { getActiveStt, SttError, type SttClient, type SttResult } from '../ai/stt.js';
 import type { SpeakerRole } from '../ai/transcript-refine.js';
+import { config } from '../config.js';
 import { withTenant, type Tx } from '../db/index.js';
+import { gigaamXizmatida } from './gigaam-xizmat.js';
 import { business, conversation, playbook, transcriptSegment } from '../db/schema/index.js';
 import { playbookBodySchema, type PlaybookBody } from '../playbook/schema.js';
 
@@ -68,11 +70,16 @@ export async function transcribeWithLocalStt(
   const script = join(process.cwd(), '..', 'tools', 'gigaam-local.py');
 
   try {
-    await execFileAsync(python, [script, input, '--engine', model, '--out', output, '--latin'], {
-      timeout: 10 * 60_000,
-      maxBuffer: 5 * 1024 * 1024,
-      env: process.env,
-    });
+    if (model === 'gigaam' && config.STT_PERSISTENT) {
+      // Doimiy xizmat: model xotirada, har qo'ng'iroqda qayta yuklanmaydi.
+      await gigaamXizmatida(input, output);
+    } else {
+      await execFileAsync(python, [script, input, '--engine', model, '--out', output, '--latin'], {
+        timeout: 10 * 60_000,
+        maxBuffer: 5 * 1024 * 1024,
+        env: process.env,
+      });
+    }
     const transcript = await readFile(output, 'utf8');
     const utterances = parseGigaamTranscript(transcript);
     if (utterances.length === 0) throw new SttError('GigaAM transkript qaytarmadi');
