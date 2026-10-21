@@ -3,7 +3,7 @@
    Ranglar faqat tema tokenlaridan: qorong'i mavzu avtomatik ishlaydi.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-.crm-sahifa { display: flex; flex-direction: column; gap: 18px; max-width: 980px; animation: paydo 0.3s var(--ease) both; }
+.crm-sahifa { display: flex; flex-direction: column; gap: 18px; animation: paydo 0.3s var(--ease) both; }
 .crm-bosh h1 { margin: 0 0 4px; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
 .crm-bosh p { margin: 0; color: var(--text-secondary); font-size: 14.5px; max-width: 70ch; }
 
@@ -25,8 +25,15 @@
 .crm-logo.bitrix { background: var(--info-soft); color: var(--info-text); }
 .crm-logo svg { width: 20px; height: 20px; }
 
+/* ─── Kartalar qatori ─── */
+.crm-panjara { display: flex; flex-wrap: wrap; gap: 16px; }
+/* Ixcham kartalar qatorni teng bo'lishadi; kengaygani (ulangan / forma) — birinchi, butun qator */
+.crm-panjara > .crm-karta { flex: 1 1 300px; min-width: 0; }
+.crm-panjara > .crm-karta.keng { flex-basis: 100%; order: -1; }
+
 /* ─── CRM kartasi ─── */
 .crm-karta { display: flex; flex-direction: column; gap: 14px; }
+.crm-karta-matn { margin: 0; flex: 1; font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); }
 .crm-karta.ulangan { box-shadow: var(--shadow), inset 0 0 0 1.5px var(--yuqori-soft); }
 .crm-karta-bosh { display: flex; align-items: center; gap: 12px; }
 .crm-karta-sarlavha { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -181,10 +188,48 @@
 .crm-foydalanuvchilar li.nofaol { color: var(--text-muted); }
 .crm-teg { font-size: 11px; font-weight: 600; color: var(--text-muted); }
 
-/* ─── Boshqa CRM (webhook) ─── */
-.crm-kichik { display: flex; align-items: flex-start; gap: 12px; }
-.crm-kichik-nom { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 4px; }
-.crm-kichik .yordam a { color: var(--ia-text); }
+/* ─── Qanday ishlaydi (hech qaysi CRM ulanmaganda) ─── */
+.crm-qanday h2 { margin: 6px 0 12px; font-size: 16px; }
+.crm-qanday ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 16px;
+}
+.crm-qanday li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border-strong);
+}
+.crm-qanday li b { font-size: 14.5px; }
+.crm-qanday li > span:last-child { font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); }
+.crm-qanday-ikon {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--ia-soft);
+  color: var(--ia-text);
+  margin-bottom: 4px;
+}
+.crm-qanday-ikon svg { width: 19px; height: 19px; }
+.crm-qanday-raqam {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-muted);
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
 
 @media (max-width: 720px) {
   .crm-malumot { grid-template-columns: 1fr; }

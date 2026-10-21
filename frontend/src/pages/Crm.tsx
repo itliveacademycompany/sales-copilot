@@ -4,16 +4,19 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  NotebookPen,
+  PhoneCall,
+  PlugZap,
   RefreshCw,
   TriangleAlert,
   Unplug,
   Webhook,
 } from 'lucide-react';
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { api, ApiError, fmtSana } from '../api';
 import { useAuth } from '../auth';
-import { joyla, useT } from '../i18n';
+import { useT } from '../i18n';
 // Kalit (switch) va sozlama qatorlari — Sozlamalar bilan bir xil uslub
 import '../components/sozlama/integratsiyalar.css';
 import './crm.css';
@@ -124,28 +127,82 @@ export function Crm() {
       {xato && <div className="card xato-qator">{xato}</div>}
       {!crmlar && !xato && <div className="card yuklanmoqda">{t('Yuklanmoqda…')}</div>}
 
-      {tartib.map((c) => (
-        <CrmKarta key={c.kind} c={c} base={`${base}/${c.kind}`} band={faol !== null && faol.kind !== c.kind ? faol.name : null} onOzgardi={yukla} />
-      ))}
-
+      {/* To'r: ulanmagan CRM lar ixcham kartalar bo'lib yonma-yon turadi,
+          ulangani yoki formasi ochilgani butun qatorni egallaydi */}
       {crmlar && (
-        <div className="card crm-kichik">
-          <span className="crm-logo boshqa" aria-hidden="true">
-            <Webhook />
-          </span>
-          <div>
-            <div className="crm-kichik-nom">{t('Boshqa CRM')}</div>
-            <div className="yordam">
-              {joyla(t("Ro'yxatda yo'q CRM ga vazifalarni imzolangan webhook orqali yuborish mumkin: {havola}."), {
-                havola: <Link to="/sozlamalar?b=crmEksport">{t('Sozlamalar → Vazifalarni CRM ga yuborish')}</Link>,
-              })}
+        <div className="crm-panjara">
+          {tartib.map((c) => (
+            <CrmKarta key={c.kind} c={c} base={`${base}/${c.kind}`} band={faol !== null && faol.kind !== c.kind ? faol.name : null} onOzgardi={yukla} />
+          ))}
+
+          <section className="card crm-karta" aria-labelledby="crm-boshqa-nom">
+            <div className="crm-karta-bosh">
+              <span className="crm-logo boshqa" aria-hidden="true">
+                <Webhook />
+              </span>
+              <div className="crm-karta-sarlavha">
+                <h2 id="crm-boshqa-nom">{t('Boshqa CRM')}</h2>
+                <span className="yordam">{t('Webhook orqali')}</span>
+              </div>
             </div>
-          </div>
+            <p className="crm-karta-matn">
+              {t("Ro'yxatda yo'q CRM ga vazifalarni imzolangan webhook orqali yuborish mumkin (n8n, Make yoki CRM ning o'z webhooki).")}
+            </p>
+            <div className="crm-tugmalar">
+              <Link to="/sozlamalar?b=crmEksport" className="btn ikkinchi">
+                {t('Sozlash')}
+              </Link>
+            </div>
+          </section>
         </div>
       )}
+
+      {/* Hali hech qaysi CRM ulanmagan — ulashdan oldin nima bo'lishini ko'rsatamiz */}
+      {crmlar && !faol && <QandayIshlaydi />}
     </div>
   );
 }
+
+function QandayIshlaydi() {
+  const t = useT();
+  const qadamlar: { ikon: ReactNode; sarlavha: string; matn: string }[] = [
+    {
+      ikon: <PlugZap />,
+      sarlavha: 'CRM ni ulang',
+      matn: "Kalitni bir marta kiriting — SotuvAI uni CRM da tekshiradi va shifrlab saqlaydi.",
+    },
+    {
+      ikon: <PhoneCall />,
+      sarlavha: "Qo'ng'iroq tahlil qilinadi",
+      matn: "Har qo'ng'iroq mijoz telefoni bo'yicha CRM dagi ochiq sdelkaga bog'lanadi.",
+    },
+    {
+      ikon: <NotebookPen />,
+      sarlavha: 'Natija CRM ga yoziladi',
+      matn: "Sdelkada baho, xulosa va keyingi qadam izohi paydo bo'ladi, menejerga vazifa tushadi.",
+    },
+  ];
+  return (
+    <section className="crm-qanday" aria-labelledby="crm-qanday-nom">
+      <h2 id="crm-qanday-nom">{t('Qanday ishlaydi')}</h2>
+      <ol>
+        {qadamlar.map((q, i) => (
+          <li key={q.sarlavha}>
+            <span className="crm-qanday-ikon" aria-hidden="true">
+              {q.ikon}
+            </span>
+            <span className="crm-qanday-raqam">{i + 1}</span>
+            <b>{t(q.sarlavha)}</b>
+            <span>{t(q.matn)}</span>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/** Ulanmagan karta tagidagi qisqa tavsif — SotuvAI shu CRM bilan nima qiladi. */
+const IMKONIYAT = "Har qo'ng'iroq tahlili sdelkaga izoh bo'lib yoziladi, vazifalar menejerga tushadi.";
 
 // ─── Bitta CRM kartasi ───────────────────────────────────────────────────────
 
@@ -192,7 +249,10 @@ function CrmKarta({ c, base, band, onOzgardi }: { c: Crm; base: string; band: st
   };
 
   return (
-    <section className={`card crm-karta${ulangan ? ' ulangan' : ''}`} aria-labelledby={`crm-${c.kind}-nom`}>
+    <section
+      className={`card crm-karta${ulangan ? ' ulangan' : ''}${ulangan || formaOchiq ? ' keng' : ''}`}
+      aria-labelledby={`crm-${c.kind}-nom`}
+    >
       <div className="crm-karta-bosh">
         <span className={`crm-logo ${logo.sinf}`} aria-hidden="true">
           {logo.matn}
@@ -287,6 +347,7 @@ function CrmKarta({ c, base, band, onOzgardi }: { c: Crm; base: string; band: st
       )}
 
       {/* ─── Ulanmagan: tugma → forma ─── */}
+      {!ulangan && !formaOchiq && <p className="crm-karta-matn">{t(IMKONIYAT)}</p>}
       {!ulangan && !formaOchiq && (
         <div className="crm-tugmalar">
           <button type="button" className="btn" disabled={band !== null} onClick={() => setFormaOchiq(true)}>

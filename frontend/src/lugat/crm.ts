@@ -11,11 +11,31 @@ const CRM: Lugat = {
     ru: 'Подключите CRM — SotuvAI запишет анализ каждого звонка в сделку клиента и поставит задачу менеджеру.',
   },
   'Boshqa CRM': { en: 'Other CRM', ru: 'Другая CRM' },
-  "Ro'yxatda yo'q CRM ga vazifalarni imzolangan webhook orqali yuborish mumkin: {havola}.": {
-    en: 'For a CRM not on the list, tasks can be sent via a signed webhook: {havola}.',
-    ru: 'В CRM, которой нет в списке, задачи можно отправлять через подписанный webhook: {havola}.',
+  "Ro'yxatda yo'q CRM ga vazifalarni imzolangan webhook orqali yuborish mumkin (n8n, Make yoki CRM ning o'z webhooki).": {
+    en: 'For a CRM not on the list, tasks can be sent via a signed webhook (n8n, Make or the CRM’s own webhook).',
+    ru: 'В CRM, которой нет в списке, задачи можно отправлять через подписанный webhook (n8n, Make или webhook самой CRM).',
   },
-  'Sozlamalar → Vazifalarni CRM ga yuborish': { en: 'Settings → Send tasks to CRM', ru: 'Настройки → Отправка задач в CRM' },
+  'Webhook orqali': { en: 'Via webhook', ru: 'Через webhook' },
+  'Qanday ishlaydi': { en: 'How it works', ru: 'Как это работает' },
+  'CRM ni ulang': { en: 'Connect your CRM', ru: 'Подключите CRM' },
+  'Kalitni bir marta kiriting — SotuvAI uni CRM da tekshiradi va shifrlab saqlaydi.': {
+    en: 'Enter the key once — SotuvAI checks it in the CRM and stores it encrypted.',
+    ru: 'Введите ключ один раз — SotuvAI проверит его в CRM и сохранит в зашифрованном виде.',
+  },
+  "Qo'ng'iroq tahlil qilinadi": { en: 'The call is analysed', ru: 'Звонок анализируется' },
+  "Har qo'ng'iroq mijoz telefoni bo'yicha CRM dagi ochiq sdelkaga bog'lanadi.": {
+    en: 'Each call is linked to the open deal in the CRM by the client’s phone.',
+    ru: 'Каждый звонок привязывается к открытой сделке в CRM по телефону клиента.',
+  },
+  'Natija CRM ga yoziladi': { en: 'The result goes to the CRM', ru: 'Результат записывается в CRM' },
+  "Sdelkada baho, xulosa va keyingi qadam izohi paydo bo'ladi, menejerga vazifa tushadi.": {
+    en: 'A note with the score, summary and next step appears on the deal, and the manager gets a task.',
+    ru: 'В сделке появляется примечание с оценкой, итогом и следующим шагом, а менеджер получает задачу.',
+  },
+  "Har qo'ng'iroq tahlili sdelkaga izoh bo'lib yoziladi, vazifalar menejerga tushadi.": {
+    en: 'Every call analysis is written to the deal as a note, and tasks go to the manager.',
+    ru: 'Анализ каждого звонка записывается в сделку примечанием, задачи уходят менеджеру.',
+  },
 
   // ─── Karta va holat ───
   ulangan: { en: 'connected', ru: 'подключено' },
