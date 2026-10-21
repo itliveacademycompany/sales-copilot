@@ -97,3 +97,52 @@ export const syncLog = pgTable(
   },
   (t) => [index('sync_log_integration_idx').on(t.integrationId, t.createdAt)],
 );
+
+/**
+ * CRM ga yozilgan har bir narsa — bitta qator (outbox + jurnal).
+ *
+ * `entity = conversation` — tahlil qilingan qo'ng'iroq: CRM da topilgan
+ * sdelka/kontakt va unga yozilgan izoh. `entity = task` — SotuvAI vazifasi
+ * CRM da vazifa bo'lib yaratilgani.
+ *
+ * `(integration_id, entity, local_id)` unikal — worker qayta ishga tushsa
+ * yoki ikki nusxada ishlasa ham CRM ga bir xil izoh ikki marta tushmaydi.
+ * Xato bo'lsa `attempts` oshadi va keyinroq qayta uriniladi.
+ */
+export const crmSyncItem = pgTable(
+  'crm_sync_item',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => business.id, { onDelete: 'cascade' }),
+    integrationId: uuid('integration_id')
+      .notNull()
+      .references(() => integration.id, { onDelete: 'cascade' }),
+    kind: integrationKind('kind').notNull(),
+
+    entity: text('entity').notNull(), // conversation | task
+    localId: uuid('local_id').notNull(),
+
+    status: text('status').notNull(), // ok | skipped | error
+    /** CRM dagi bog'langan yozuv: `deal` | `contact`. */
+    crmEntity: text('crm_entity'),
+    crmEntityId: text('crm_entity_id'),
+    crmEntityName: text('crm_entity_name'),
+    crmUrl: text('crm_url'),
+    /** CRM da yaratilgan izoh yoki vazifa ID si. */
+    crmRecordId: text('crm_record_id'),
+    /** CRM dagi mas'ul xodim (vazifa unga beriladi). */
+    crmResponsibleId: text('crm_responsible_id'),
+
+    error: text('error'),
+    attempts: integer('attempts').notNull().default(0),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('crm_sync_item_uq').on(t.integrationId, t.entity, t.localId),
+    index('crm_sync_item_business_idx').on(t.businessId, t.updatedAt),
+  ],
+);

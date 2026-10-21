@@ -1,78 +1,134 @@
-import { CircleCheck, ExternalLink, KeyRound, RefreshCw, TriangleAlert, Unplug, Webhook } from 'lucide-react';
+import {
+  CircleCheck,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  KeyRound,
+  RefreshCw,
+  TriangleAlert,
+  Unplug,
+  Webhook,
+} from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api, ApiError, fmtSana } from '../api';
 import { useAuth } from '../auth';
 import { joyla, useT } from '../i18n';
+// Kalit (switch) va sozlama qatorlari — Sozlamalar bilan bir xil uslub
+import '../components/sozlama/integratsiyalar.css';
 import './crm.css';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CRM — CRM tizimini ulash
+ * CRM — istalgan CRM ni bitta tugma bilan ulash
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * Hozircha amoCRM: uzoq muddatli token bilan ulanadi, server uni amoCRM da
- * tekshiradi va shifrlab saqlaydi. Ulangandan keyin hisob tuzilishi
- * (voronkalar, bosqichlar, foydalanuvchilar) jonli ko'rsatiladi — ulanish
- * haqiqatan ishlayotganining isboti. amoCRM ga hech narsa yozilmaydi.
+ * Sahifa CRM larni O'ZI BILMAYDI: ro'yxat, forma maydonlari va qo'llanma
+ * backenddagi adapterlardan keladi (`GET /crm`). Yangi CRM qo'shilsa,
+ * sahifa o'zgarmaydi — faqat logotip rangi (`LOGO`) ixtiyoriy.
  *
- * Token hech qachon qaytarilmaydi: sahifa faqat niqobini ko'radi.
+ * Ulangandan keyin SotuvAI har tahlil qilingan qo'ng'iroqni mijoz telefoni
+ * bo'yicha CRM dagi sdelkaga bog'laydi va (sozlamaga ko'ra) izoh hamda
+ * menejerga vazifa yozadi.
+ *
+ * Sir (token, webhook) hech qachon qaytarilmaydi: sahifa faqat niqobni ko'radi.
  */
 
-interface AmoHolat {
-  connected: boolean;
-  status: 'connected' | 'error' | 'disconnected' | 'paused';
-  account: {
-    id: number | null;
-    name: string;
-    subdomain: string;
-    baseDomain: string;
-    url: string;
-    country: string | null;
-    currency: string | null;
-    connectedAt: string | null;
-  } | null;
-  lastAddress: string | null;
-  tokenHint: string | null;
-  tokenExpiresAt: string | null;
-  lastCheckAt: string | null;
-  lastError: string | null;
+interface Maydon {
+  kalit: string;
+  nom: string;
+  tur: 'matn' | 'sir';
+  placeholder: string;
+  yordam?: string;
 }
 
-interface AmoTuzilish {
-  pipelines: {
-    id: number;
-    name: string;
-    isMain: boolean;
-    statuses: { id: number; name: string; tur: 'ochiq' | 'muvaffaqiyat' | 'yopilgan' }[];
-  }[];
-  users: { id: number; name: string; isAdmin: boolean; isActive: boolean }[];
+interface Crm {
+  kind: string;
+  name: string;
+  description: string;
+  guide: string[];
+  fields: Maydon[];
+  connected: boolean;
+  status: 'connected' | 'error' | 'disconnected' | 'paused';
+  account: { name: string; url: string | null; address: string | null } | null;
+  lastAddress: string | null;
+  secretHint: string | null;
+  tokenExpiresAt: string | null;
+  connectedAt: string | null;
+  lastCheckAt: string | null;
+  lastError: string | null;
+  settings: { izoh: boolean; vazifa: boolean; boshlanish: string | null };
+}
+
+interface Tuzilish {
+  pipelines: { id: string; name: string; isMain: boolean; statuses: { id: string; name: string; tur: 'ochiq' | 'muvaffaqiyat' | 'yopilgan' }[] }[];
+  users: { id: string; name: string; isAdmin: boolean; isActive: boolean }[];
   leadFieldCount: number;
 }
+
+interface Jurnal {
+  counts: { ok: number; skipped: number; error: number };
+  items: {
+    id: string;
+    entity: 'conversation' | 'task';
+    localId: string;
+    status: 'ok' | 'skipped' | 'error';
+    crmEntity: 'deal' | 'contact' | null;
+    crmEntityName: string | null;
+    crmUrl: string | null;
+    error: string | null;
+    updatedAt: string;
+  }[];
+}
+
+/** Logotip belgisi — faqat ko'rinish; noma'lum CRM uchun bosh harflar. */
+const LOGO: Record<string, { matn: string; sinf: string }> = {
+  amocrm: { matn: 'amo', sinf: 'amo' },
+  bitrix24: { matn: 'B24', sinf: 'bitrix' },
+};
 
 const KUN = 86_400_000;
 
 export function Crm() {
   const t = useT();
+  const { business } = useAuth();
+  const base = `/api/v1/businesses/${business?.businessId}/crm`;
+  const [crmlar, setCrmlar] = useState<Crm[] | null>(null);
+  const [xato, setXato] = useState<string | null>(null);
+
+  const yukla = useCallback(async () => {
+    try {
+      const r = await api.get<{ crmlar: Crm[] }>(base);
+      setCrmlar(r.crmlar);
+      setXato(null);
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t("Ma'lumotni yuklab bo'lmadi"));
+    }
+  }, [base, t]);
+
+  useEffect(() => {
+    void yukla();
+  }, [yukla]);
+
+  const faol = crmlar?.find((c) => c.connected) ?? null;
+  // Ulangan CRM birinchi, qolganlari tartib bo'yicha
+  const tartib = crmlar ? [...crmlar].sort((a, b) => Number(b.connected) - Number(a.connected)) : [];
+
   return (
     <div className="crm-sahifa">
       <div className="crm-bosh">
         <h1>{t('CRM')}</h1>
-        <p>{t("CRM tizimingizni ulang — SotuvAI sdelkalar, voronkalar va menejerlarni ko'radi.")}</p>
+        <p>{t("CRM tizimingizni ulang — SotuvAI har qo'ng'iroq tahlilini mijozning sdelkasiga yozadi va menejerga vazifa qo'yadi.")}</p>
       </div>
 
-      <AmoCrm />
+      {xato && <div className="card xato-qator">{xato}</div>}
+      {!crmlar && !xato && <div className="card yuklanmoqda">{t('Yuklanmoqda…')}</div>}
 
-      <div className="crm-boshqa">
-        <div className="card crm-kichik">
-          <span className="crm-logo bitrix" aria-hidden="true">B24</span>
-          <div>
-            <div className="crm-kichik-nom">
-              Bitrix24 <span className="badge kul">{t('Tez orada')}</span>
-            </div>
-            <div className="yordam">{t("Bitrix24 bilan to'g'ridan-to'g'ri ulanish keyingi bosqichda qo'shiladi.")}</div>
-          </div>
-        </div>
+      {tartib.map((c) => (
+        <CrmKarta key={c.kind} c={c} base={`${base}/${c.kind}`} band={faol !== null && faol.kind !== c.kind ? faol.name : null} onOzgardi={yukla} />
+      ))}
+
+      {crmlar && (
         <div className="card crm-kichik">
           <span className="crm-logo boshqa" aria-hidden="true">
             <Webhook />
@@ -80,151 +136,84 @@ export function Crm() {
           <div>
             <div className="crm-kichik-nom">{t('Boshqa CRM')}</div>
             <div className="yordam">
-              {joyla(t('Istalgan CRM ga vazifalarni imzolangan webhook orqali yuborish mumkin: {havola}.'), {
+              {joyla(t("Ro'yxatda yo'q CRM ga vazifalarni imzolangan webhook orqali yuborish mumkin: {havola}."), {
                 havola: <Link to="/sozlamalar?b=crmEksport">{t('Sozlamalar → Vazifalarni CRM ga yuborish')}</Link>,
               })}
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
-// ─── amoCRM ──────────────────────────────────────────────────────────────────
+// ─── Bitta CRM kartasi ───────────────────────────────────────────────────────
 
-function AmoCrm() {
+function CrmKarta({ c, base, band, onOzgardi }: { c: Crm; base: string; band: string | null; onOzgardi: () => Promise<void> }) {
   const t = useT();
-  const { business } = useAuth();
-  const businessId = business?.businessId;
-  const base = `/api/v1/businesses/${businessId}/integrations/amocrm`;
-
-  const [h, setH] = useState<AmoHolat | null>(null);
-  const [yuklashXato, setYuklashXato] = useState<string | null>(null);
-  const [manzil, setManzil] = useState('');
-  const [token, setToken] = useState('');
   const [formaOchiq, setFormaOchiq] = useState(false);
-  const [band, setBand] = useState<'ulash' | 'tekshir' | 'uzish' | null>(null);
+  const [jarayon, setJarayon] = useState<'tekshir' | 'uzish' | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [xabar, setXabar] = useState<string | null>(null);
-  const [tuzilish, setTuzilish] = useState<AmoTuzilish | null>(null);
-  const [tuzilishXato, setTuzilishXato] = useState<string | null>(null);
 
-  const yukla = useCallback(async () => {
-    try {
-      const r = await api.get<AmoHolat>(base);
-      setH(r);
-      setYuklashXato(null);
-      if (r.lastAddress) setManzil((eski) => eski || r.lastAddress!);
-      return r;
-    } catch (e) {
-      setYuklashXato(e instanceof ApiError ? t(e.message) : t("Ma'lumotni yuklab bo'lmadi"));
-      return null;
-    }
-  }, [base, t]);
+  const ulangan = c.connected;
+  const buzilgan = ulangan && c.status === 'error';
+  const logo = LOGO[c.kind] ?? { matn: c.name.slice(0, 3), sinf: 'boshqa' };
+  const muddatKun = c.tokenExpiresAt ? Math.ceil((new Date(c.tokenExpiresAt).getTime() - Date.now()) / KUN) : null;
 
-  const tuzilishniYukla = useCallback(async () => {
-    setTuzilishXato(null);
-    try {
-      setTuzilish(await api.get<AmoTuzilish>(`${base}/structure`));
-    } catch (e) {
-      setTuzilish(null);
-      setTuzilishXato(e instanceof ApiError ? t(e.message) : t("amoCRM ma'lumotini olib bo'lmadi"));
-    }
-  }, [base, t]);
-
-  useEffect(() => {
-    void yukla().then((r) => {
-      if (r?.connected) void tuzilishniYukla();
-    });
-  }, [yukla, tuzilishniYukla]);
-
-  if (yuklashXato) return <div className="card xato-qator">{yuklashXato}</div>;
-  if (!h) return <div className="card yuklanmoqda">{t('Yuklanmoqda…')}</div>;
-
-  const ulangan = h.connected;
-  const buzilgan = ulangan && h.status === 'error';
-  const muddatKun = h.tokenExpiresAt ? Math.ceil((new Date(h.tokenExpiresAt).getTime() - Date.now()) / KUN) : null;
-  const formaKorinadi = !ulangan || formaOchiq;
-
-  const ulash = async (e: FormEvent) => {
-    e.preventDefault();
-    setBand('ulash');
+  const amal = async (tur: 'tekshir' | 'uzish', fn: () => Promise<void>) => {
+    setJarayon(tur);
     setXato(null);
     setXabar(null);
     try {
-      const r = await api.put<{ account: { name: string } }>(base, {
-        address: manzil.trim(),
-        token: token.trim() ? token.trim() : null,
-      });
-      setToken('');
-      setFormaOchiq(false);
-      setXabar(t('{nom} hisobi ulandi', { nom: r.account.name }));
-      await yukla();
-      await tuzilishniYukla();
-    } catch (err) {
-      setXato(err instanceof ApiError ? t(err.message) : t("Ulab bo'lmadi"));
+      await fn();
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t('Ulanishda xato'));
     } finally {
-      setBand(null);
+      setJarayon(null);
     }
   };
 
-  const tekshir = async () => {
-    setBand('tekshir');
-    setXato(null);
-    setXabar(null);
-    try {
+  const tekshir = () =>
+    amal('tekshir', async () => {
       const r = await api.post<{ ok: boolean; error?: string }>(`${base}/check`);
-      if (r.ok) {
-        setXabar(t('Ulanish ishlayapti'));
-        await tuzilishniYukla();
-      } else setXato(r.error ? t(r.error) : t('Ulanishda xato'));
-      await yukla();
-    } catch (err) {
-      setXato(err instanceof ApiError ? t(err.message) : t('Ulanishda xato'));
-    } finally {
-      setBand(null);
-    }
-  };
+      if (r.ok) setXabar(t('Ulanish ishlayapti'));
+      else setXato(r.error ? t(r.error) : t('Ulanishda xato'));
+      await onOzgardi();
+    });
 
-  const uzish = async () => {
-    if (!window.confirm(t("amoCRM uzilsinmi? Token o'chiriladi, amoCRM dagi ma'lumotlarga tegilmaydi."))) return;
-    setBand('uzish');
-    setXato(null);
-    setXabar(null);
-    try {
+  const uzish = () => {
+    if (!window.confirm(t('{nom} uzilsinmi? Kalit o‘chiriladi, CRM dagi maʼlumotlarga tegilmaydi.', { nom: c.name }))) return;
+    void amal('uzish', async () => {
       await api.del(base);
-      setTuzilish(null);
       setFormaOchiq(false);
-      await yukla();
-    } catch (err) {
-      setXato(err instanceof ApiError ? t(err.message) : t("Uzib bo'lmadi"));
-    } finally {
-      setBand(null);
-    }
+      await onOzgardi();
+    });
   };
 
   return (
-    <section className="card crm-amo" aria-labelledby="crm-amo-nom">
-      <div className="crm-amo-bosh">
-        <span className="crm-logo amo" aria-hidden="true">amo</span>
-        <div className="crm-amo-sarlavha">
-          <h2 id="crm-amo-nom">amoCRM</h2>
-          <span className="yordam">{t("Sdelkalar, kontaktlar va qo'ng'iroqlar")}</span>
+    <section className={`card crm-karta${ulangan ? ' ulangan' : ''}`} aria-labelledby={`crm-${c.kind}-nom`}>
+      <div className="crm-karta-bosh">
+        <span className={`crm-logo ${logo.sinf}`} aria-hidden="true">
+          {logo.matn}
+        </span>
+        <div className="crm-karta-sarlavha">
+          <h2 id={`crm-${c.kind}-nom`}>{c.name}</h2>
+          <span className="yordam">{t(c.description)}</span>
         </div>
         <span className={`badge ${buzilgan ? 'qizil' : ulangan ? 'ok' : 'kul'}`}>
           {buzilgan ? t('xato') : ulangan ? t('ulangan') : t('ulanmagan')}
         </span>
       </div>
 
-      {/* ─── Ulangan hisob ─── */}
-      {ulangan && h.account && (
+      {/* ─── Ulangan ─── */}
+      {ulangan && (
         <>
-          {buzilgan && h.lastError && (
+          {buzilgan && c.lastError && (
             <div className="crm-ogoh past" role="alert">
               <TriangleAlert aria-hidden="true" />
               <span>
-                {t(h.lastError)}. {t('Yangi token kiriting yoki ulanishni qayta tekshiring.')}
+                {t(c.lastError)}. {t('Yangi kalit kiriting yoki ulanishni qayta tekshiring.')}
               </span>
             </div>
           )}
@@ -233,7 +222,7 @@ function AmoCrm() {
               <TriangleAlert aria-hidden="true" />
               <span>
                 {muddatKun <= 0
-                  ? t('Token muddati tugagan — amoCRM da yangisini yarating.')
+                  ? t('Token muddati tugagan — CRM da yangisini yarating.')
                   : t('Token {n} kundan keyin tugaydi — oldindan yangisini yarating.', { n: muddatKun })}
               </span>
             </div>
@@ -243,50 +232,44 @@ function AmoCrm() {
             <div>
               <dt>{t('Hisob')}</dt>
               <dd>
-                <a href={h.account.url} target="_blank" rel="noopener noreferrer" className="crm-havola">
-                  {h.account.name} <ExternalLink aria-hidden="true" />
-                </a>
-              </dd>
-            </div>
-            <div>
-              <dt>{t('Manzil')}</dt>
-              <dd>
-                {h.account.subdomain}.{h.account.baseDomain}
-              </dd>
-            </div>
-            <div>
-              <dt>{t('Token')}</dt>
-              <dd>
-                <code>{h.tokenHint}</code>
-                {h.tokenExpiresAt && (
-                  <span className="crm-izoh"> · {t('{sana} gacha', { sana: fmtSana(h.tokenExpiresAt) })}</span>
+                {c.account?.url ? (
+                  <a href={c.account.url} target="_blank" rel="noopener noreferrer" className="crm-havola">
+                    {c.account.name} <ExternalLink aria-hidden="true" />
+                  </a>
+                ) : (
+                  c.account?.name
                 )}
               </dd>
             </div>
             <div>
+              <dt>{t('Kalit')}</dt>
+              <dd>
+                <code>{c.secretHint}</code>
+                {c.tokenExpiresAt && <span className="crm-izoh"> · {t('{sana} gacha', { sana: fmtSana(c.tokenExpiresAt) })}</span>}
+              </dd>
+            </div>
+            <div>
+              <dt>{t('Ulangan')}</dt>
+              <dd>{c.connectedAt ? fmtSana(c.connectedAt) : '—'}</dd>
+            </div>
+            <div>
               <dt>{t('Oxirgi tekshiruv')}</dt>
-              <dd>{h.lastCheckAt ? fmtSana(h.lastCheckAt) : t("hali bo'lmagan")}</dd>
+              <dd>{c.lastCheckAt ? fmtSana(c.lastCheckAt) : t("hali bo'lmagan")}</dd>
             </div>
           </dl>
 
           <div className="crm-tugmalar">
-            <button type="button" className="btn ikkinchi" disabled={band !== null} onClick={() => void tekshir()}>
-              <RefreshCw aria-hidden="true" className={band === 'tekshir' ? 'aylan' : undefined} />
-              {band === 'tekshir' ? t('Tekshirilmoqda…') : t('Ulanishni tekshirish')}
+            <button type="button" className="btn ikkinchi" disabled={jarayon !== null} onClick={() => void tekshir()}>
+              <RefreshCw aria-hidden="true" className={jarayon === 'tekshir' ? 'aylan' : undefined} />
+              {jarayon === 'tekshir' ? t('Tekshirilmoqda…') : t('Ulanishni tekshirish')}
             </button>
-            <button
-              type="button"
-              className="btn ikkinchi"
-              disabled={band !== null}
-              aria-expanded={formaOchiq}
-              onClick={() => setFormaOchiq((v) => !v)}
-            >
+            <button type="button" className="btn ikkinchi" disabled={jarayon !== null} aria-expanded={formaOchiq} onClick={() => setFormaOchiq((v) => !v)}>
               <KeyRound aria-hidden="true" />
-              {t('Tokenni almashtirish')}
+              {t('Kalitni almashtirish')}
             </button>
-            <button type="button" className="btn ikkinchi crm-uzish" disabled={band !== null} onClick={() => void uzish()}>
+            <button type="button" className="btn ikkinchi crm-uzish" disabled={jarayon !== null} onClick={uzish}>
               <Unplug aria-hidden="true" />
-              {band === 'uzish' ? t('Uzilmoqda…') : t('Uzish')}
+              {jarayon === 'uzish' ? t('Uzilmoqda…') : t('Uzish')}
             </button>
           </div>
         </>
@@ -303,139 +286,418 @@ function AmoCrm() {
         </div>
       )}
 
-      {/* ─── Ulash formasi ─── */}
-      {formaKorinadi && (
-        <form className="crm-forma" onSubmit={(e) => void ulash(e)}>
-          {!ulangan && (
-            <p className="yordam">
-              {t("amoCRM hisobingizni uzoq muddatli token bilan ulang. Token shifrlangan holda saqlanadi va keyin hech qachon to'liq ko'rsatilmaydi.")}
-            </p>
-          )}
-
-          <details className="crm-qollanma" open={!ulangan}>
-            <summary>{t('Tokenni qayerdan olaman?')}</summary>
-            <ol>
-              <li>{joyla(t('amoCRM da {yol} oching.'), { yol: <b>amoМаркет → «⋯» → «Создать интеграцию»</b> })}</li>
-              <li>{t('Integratsiyaga nom bering (masalan «SotuvAI») va hisob maʼlumotlariga kirish ruxsatini belgilang.')}</li>
-              <li>{joyla(t('Saqlang, so‘ng {tab} bo‘limida {token} yarating.'), { tab: <b>«Ключи и доступы»</b>, token: <b>«Долгосрочный токен»</b> })}</li>
-              <li>{t('Muddatini tanlang (uzoqroq — qulayroq), tokenni nusxalab shu yerga qo‘ying.')}</li>
-            </ol>
-            <p className="yordam">{t('Tokenni hech kimga, jumladan chatga yubormang — faqat shu maydonga kiriting.')}</p>
-          </details>
-
-          <div className="maydon-blok">
-            <label htmlFor="amo-manzil">{t('Hisob manzili')}</label>
-            <input
-              id="amo-manzil"
-              value={manzil}
-              placeholder="kompaniya.amocrm.ru"
-              autoComplete="off"
-              spellCheck={false}
-              maxLength={300}
-              required
-              onChange={(e) => setManzil(e.target.value)}
-            />
-            <div className="yordam">{t('Brauzerdagi amoCRM manzilini nusxalab qo‘yishingiz mumkin.')}</div>
-          </div>
-          <div className="maydon-blok">
-            <label htmlFor="amo-token">{t('Uzoq muddatli token')}</label>
-            <input
-              id="amo-token"
-              type="password"
-              value={token}
-              placeholder={h.tokenHint ?? 'eyJ0eXAiOiJKV1Qi…'}
-              autoComplete="off"
-              spellCheck={false}
-              maxLength={4000}
-              required={!ulangan}
-              onChange={(e) => setToken(e.target.value)}
-            />
-          </div>
-
-          <div className="crm-tugmalar">
-            <button type="submit" className="btn" disabled={band !== null || !manzil.trim() || (!ulangan && !token.trim())}>
-              {band === 'ulash' ? t('Tekshirilmoqda…') : ulangan ? t('Saqlash va tekshirish') : t('Ulash')}
-            </button>
-            {ulangan && (
-              <button type="button" className="btn ikkinchi" onClick={() => setFormaOchiq(false)}>
-                {t('Bekor qilish')}
-              </button>
-            )}
-          </div>
-        </form>
+      {/* ─── Ulanmagan: tugma → forma ─── */}
+      {!ulangan && !formaOchiq && (
+        <div className="crm-tugmalar">
+          <button type="button" className="btn" disabled={band !== null} onClick={() => setFormaOchiq(true)}>
+            {t('Ulash')}
+          </button>
+          {band && <span className="yordam">{t('Avval {nom} ni uzing — bir vaqtda bitta CRM ulanadi.', { nom: band })}</span>}
+        </div>
       )}
 
-      {/* ─── Hisob tuzilishi ─── */}
+      {formaOchiq && (
+        <UlashForma
+          c={c}
+          base={base}
+          onBekor={() => setFormaOchiq(false)}
+          onUlandi={async (nom) => {
+            setFormaOchiq(false);
+            setXato(null);
+            setXabar(t('{nom} hisobi ulandi', { nom }));
+            await onOzgardi();
+          }}
+        />
+      )}
+
       {ulangan && !buzilgan && (
-        <div className="crm-tuzilish">
-          <h3>{t('Hisob tuzilishi')}</h3>
-          <p className="yordam">{t("amoCRM dan jonli o'qildi. SotuvAI hozircha amoCRM ga hech narsa yozmaydi.")}</p>
-          {tuzilishXato && <div className="xato-qator">{tuzilishXato}</div>}
-          {!tuzilish && !tuzilishXato && <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}
-          {tuzilish && <Tuzilish d={tuzilish} />}
-        </div>
+        <>
+          <Sozlama c={c} base={base} onOzgardi={onOzgardi} />
+          <Faoliyat base={base} />
+          <TuzilishBolimi base={base} />
+        </>
       )}
     </section>
   );
 }
 
-function Tuzilish({ d }: { d: AmoTuzilish }) {
+// ─── Ulash formasi (adapter maydonlaridan) ───────────────────────────────────
+
+function UlashForma({
+  c,
+  base,
+  onBekor,
+  onUlandi,
+}: {
+  c: Crm;
+  base: string;
+  onBekor: () => void;
+  onUlandi: (nom: string) => Promise<void>;
+}) {
   const t = useT();
-  const faol = d.users.filter((u) => u.isActive);
-  const bosqichlar = d.pipelines.reduce((n, p) => n + p.statuses.length, 0);
+  const [qiymat, setQiymat] = useState<Record<string, string>>(() =>
+    Object.fromEntries(c.fields.map((m) => [m.kalit, m.kalit === 'address' && c.lastAddress ? c.lastAddress : ''])),
+  );
+  const [ketmoqda, setKetmoqda] = useState(false);
+  const [xato, setXato] = useState<string | null>(null);
+
+  // Qayta ulashda sir bo'sh qoldirilsa — saqlangani ishlatiladi
+  const toliq = c.fields.every((m) => qiymat[m.kalit]?.trim() || (m.tur === 'sir' && c.connected));
+
+  const yubor = async (e: FormEvent) => {
+    e.preventDefault();
+    setKetmoqda(true);
+    setXato(null);
+    try {
+      const r = await api.put<{ account: { nom: string } }>(base, {
+        maydonlar: Object.fromEntries(Object.entries(qiymat).map(([k, v]) => [k, v.trim()])),
+      });
+      await onUlandi(r.account.nom);
+    } catch (err) {
+      setXato(err instanceof ApiError ? t(err.message) : t("Ulab bo'lmadi"));
+    } finally {
+      setKetmoqda(false);
+    }
+  };
+
   return (
-    <>
-      <div className="crm-raqamlar">
+    // autoComplete="off" + noyob `name`lar + parol maydoni yo'q: brauzer bu
+    // formani login deb o'ylab, saqlangan email va parolni qo'ymasin
+    <form className="crm-forma" onSubmit={(e) => void yubor(e)} autoComplete="off" data-lpignore="true">
+      <details className="crm-qollanma" open={!c.connected}>
+        <summary>{t('Kalitni qayerdan olaman?')}</summary>
+        <ol>
+          {c.guide.map((q) => (
+            <li key={q}>{t(q)}</li>
+          ))}
+        </ol>
+        <p className="yordam">{t('Kalitni hech kimga, jumladan chatga yubormang — faqat shu maydonga kiriting.')}</p>
+      </details>
+
+      {c.fields.map((m) => (
+        <div className="maydon-blok" key={m.kalit}>
+          <label htmlFor={`crm-${c.kind}-${m.kalit}`}>{t(m.nom)}</label>
+          {m.tur === 'sir' ? (
+            <SirMaydon
+              id={`crm-${c.kind}-${m.kalit}`}
+              qiymat={qiymat[m.kalit] ?? ''}
+              placeholder={c.connected && c.secretHint ? c.secretHint : m.placeholder}
+              majburiy={!c.connected}
+              onChange={(v) => setQiymat((q) => ({ ...q, [m.kalit]: v }))}
+            />
+          ) : (
+            <input
+              id={`crm-${c.kind}-${m.kalit}`}
+              name={`sotuvai-crm-${c.kind}-${m.kalit}`}
+              value={qiymat[m.kalit] ?? ''}
+              placeholder={m.placeholder}
+              autoComplete="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              maxLength={300}
+              required
+              data-lpignore="true"
+              data-1p-ignore="true"
+              onChange={(e) => setQiymat((q) => ({ ...q, [m.kalit]: e.target.value }))}
+            />
+          )}
+          {m.yordam && <div className="yordam">{t(m.yordam)}</div>}
+          {m.tur === 'sir' && c.connected && <div className="yordam">{t("Bo'sh qoldirsangiz saqlangan kalit ishlatiladi.")}</div>}
+        </div>
+      ))}
+
+      {xato && (
+        <div className="xato-qator" role="alert">
+          {xato}
+        </div>
+      )}
+      <div className="crm-tugmalar">
+        <button type="submit" className="btn" disabled={ketmoqda || !toliq}>
+          {ketmoqda ? t('Tekshirilmoqda…') : c.connected ? t('Saqlash va tekshirish') : t('Ulash')}
+        </button>
+        <button type="button" className="btn ikkinchi" onClick={onBekor}>
+          {t('Bekor qilish')}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Sir maydoni — ko'zcha bilan.
+ *
+ * `type="password"` ISHLATILMAYDI: brauzer parol maydonini ko'rsa formani
+ * login deb hisoblab, saqlangan email/parolni qo'yadi (`demo@sotuvai.local`
+ * muammosi) va "parolni saqlaysizmi?" deb so'raydi. Shuning uchun oddiy
+ * matn maydoni + CSS bilan yashirish. CSS ni qo'llamaydigan eski
+ * brauzerda — zaxira sifatida `password`.
+ */
+function SirMaydon({
+  id,
+  qiymat,
+  placeholder,
+  majburiy,
+  onChange,
+}: {
+  id: string;
+  qiymat: string;
+  placeholder: string;
+  majburiy: boolean;
+  onChange: (v: string) => void;
+}) {
+  const t = useT();
+  const [korinadi, setKorinadi] = useState(false);
+  const cssYashiradi = typeof CSS !== 'undefined' && CSS.supports?.('-webkit-text-security', 'disc');
+
+  return (
+    <div className="crm-sir">
+      <input
+        id={id}
+        name={`sotuvai-crm-kalit-${id}`}
+        type={korinadi || cssYashiradi ? 'text' : 'password'}
+        className={korinadi ? undefined : 'crm-sir-yashirin'}
+        value={qiymat}
+        placeholder={placeholder}
+        autoComplete="off"
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        maxLength={4000}
+        required={majburiy}
+        data-lpignore="true"
+        data-1p-ignore="true"
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <button
+        type="button"
+        className="crm-kozcha"
+        aria-label={korinadi ? t('Kalitni yashirish') : t("Kalitni ko'rsatish")}
+        aria-pressed={korinadi}
+        aria-controls={id}
+        title={korinadi ? t('Kalitni yashirish') : t("Kalitni ko'rsatish")}
+        onClick={() => setKorinadi((v) => !v)}
+      >
+        {korinadi ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+      </button>
+    </div>
+  );
+}
+
+// ─── SotuvAI CRM ga nima yozsin ──────────────────────────────────────────────
+
+function Sozlama({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi: () => Promise<void> }) {
+  const t = useT();
+  const [s, setS] = useState(c.settings);
+  const [xato, setXato] = useState<string | null>(null);
+
+  const ozgartir = async (kalit: 'izoh' | 'vazifa', v: boolean) => {
+    const eski = s;
+    setS({ ...s, [kalit]: v });
+    setXato(null);
+    try {
+      await api.patch(`${base}/settings`, { [kalit]: v });
+      await onOzgardi();
+    } catch (e) {
+      setS(eski);
+      setXato(e instanceof ApiError ? t(e.message) : t("Saqlab bo'lmadi"));
+    }
+  };
+
+  return (
+    <div className="crm-bolim">
+      <h3>{t('Tahlildan keyin CRM ga')}</h3>
+      <div className="ogoh-sozlama">
+        <label className="sozlama-satr">
+          <span className="matn">
+            <b>{t('Sdelkaga izoh yozish')}</b>
+            <span className="izoh">{t('Baho, qisqa xulosa, asosiy kamchilik, keyingi qadam va SotuvAI dagi havola.')}</span>
+          </span>
+          <input type="checkbox" className="kalit" role="switch" checked={s.izoh} onChange={(e) => void ozgartir('izoh', e.target.checked)} />
+        </label>
+        <label className="sozlama-satr">
+          <span className="matn">
+            <b>{t('Menejerga vazifa yaratish')}</b>
+            <span className="izoh">{t("Tahlil vazifa topsa (qayta qo'ng'iroq, va'da), u sdelkaning mas'uliga CRM da vazifa bo'lib tushadi.")}</span>
+          </span>
+          <input type="checkbox" className="kalit" role="switch" checked={s.vazifa} onChange={(e) => void ozgartir('vazifa', e.target.checked)} />
+        </label>
+      </div>
+      {xato && <div className="xato-qator">{xato}</div>}
+      <p className="yordam">
+        {s.boshlanish
+          ? t("Mijoz telefoni bo'yicha CRM dagi ochiq sdelka topiladi (bo'lmasa — kontakt). Faqat {sana} dan keyin tahlil qilingan qo'ng'iroqlar yoziladi.", {
+              sana: fmtSana(s.boshlanish),
+            })
+          : t("Mijoz telefoni bo'yicha CRM dagi ochiq sdelka topiladi (bo'lmasa — kontakt).")}
+      </p>
+    </div>
+  );
+}
+
+// ─── Oxirgi yozuvlar ─────────────────────────────────────────────────────────
+
+function Faoliyat({ base }: { base: string }) {
+  const t = useT();
+  const [j, setJ] = useState<Jurnal | null>(null);
+
+  useEffect(() => {
+    let tirik = true;
+    const ol = () =>
+      api
+        .get<Jurnal>(`${base}/log`)
+        .then((r) => {
+          if (tirik) setJ(r);
+        })
+        .catch(() => undefined);
+    void ol();
+    // Worker har 20 soniyada yozadi — sahifa ochiq tursa yangilanib boradi
+    const taymer = setInterval(() => void ol(), 30_000);
+    return () => {
+      tirik = false;
+      clearInterval(taymer);
+    };
+  }, [base]);
+
+  if (!j) return null;
+  const HOLAT: Record<string, string> = { ok: t('yozildi'), skipped: t("o'tkazildi"), error: t('xato') };
+
+  return (
+    <div className="crm-bolim">
+      <h3>{t('Faoliyat')}</h3>
+      <div className="crm-raqamlar uch">
         <div className="crm-raqam">
-          <b>{d.pipelines.length}</b>
-          <span>{t('Voronka##soni')}</span>
+          <b>{j.counts.ok}</b>
+          <span>{t("CRM ga yozilgan qo'ng'iroq")}</span>
         </div>
         <div className="crm-raqam">
-          <b>{bosqichlar}</b>
-          <span>{t('Bosqich##soni')}</span>
+          <b>{j.counts.skipped}</b>
+          <span>{t('CRM da topilmadi')}</span>
         </div>
-        <div className="crm-raqam">
-          <b>{faol.length}</b>
-          <span>{t('Foydalanuvchi##soni')}</span>
-        </div>
-        <div className="crm-raqam">
-          <b>{d.leadFieldCount}</b>
-          <span>{t('Sdelka maydoni')}</span>
+        <div className={`crm-raqam${j.counts.error > 0 ? ' ogoh' : ''}`}>
+          <b>{j.counts.error}</b>
+          <span>{t('Xato (qayta uriniladi)')}</span>
         </div>
       </div>
+      {j.items.length === 0 ? (
+        <p className="yordam">{t("Hali hech narsa yozilmadi. Yangi qo'ng'iroq tahlil qilingach, bu yerda ko'rinadi.")}</p>
+      ) : (
+        <ul className="crm-jurnal">
+          {j.items.map((i) => (
+            <li key={i.id}>
+              <span className={`crm-holat ${i.status}`}>{HOLAT[i.status] ?? i.status}</span>
+              <span className="crm-jurnal-nima">
+                {i.entity === 'task' ? t('Vazifa') : t('Izoh')}
+                {i.crmUrl ? (
+                  <>
+                    {' → '}
+                    <a href={i.crmUrl} target="_blank" rel="noopener noreferrer" className="crm-havola">
+                      {i.crmEntityName || (i.crmEntity === 'contact' ? t('kontakt') : t('sdelka'))} <ExternalLink aria-hidden="true" />
+                    </a>
+                  </>
+                ) : null}
+                {i.entity === 'conversation' && (
+                  <>
+                    {' · '}
+                    <Link to={`/suhbatlar/${i.localId}`}>{t('suhbat')}</Link>
+                  </>
+                )}
+                {i.error && i.status !== 'ok' && <span className="crm-izoh"> — {t(i.error)}</span>}
+              </span>
+              <time className="crm-izoh">{fmtSana(i.updatedAt)}</time>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
-      <ul className="crm-voronkalar">
-        {d.pipelines.map((p) => (
-          <li key={p.id} className="crm-voronka">
-            <div className="crm-voronka-nom">
-              {p.name}
-              {p.isMain && <span className="badge navy">{t('asosiy')}</span>}
+// ─── Hisob tuzilishi ─────────────────────────────────────────────────────────
+
+function TuzilishBolimi({ base }: { base: string }) {
+  const t = useT();
+  const [ochiq, setOchiq] = useState(false);
+  const [d, setD] = useState<Tuzilish | null>(null);
+  const [xato, setXato] = useState<string | null>(null);
+
+  // Faqat ochilganda yuklanadi — CRM API limitini behuda sarflamaslik uchun
+  useEffect(() => {
+    if (!ochiq || d) return;
+    let tirik = true;
+    api
+      .get<Tuzilish>(`${base}/structure`)
+      .then((r) => {
+        if (tirik) setD(r);
+      })
+      .catch((e: unknown) => {
+        if (tirik) setXato(e instanceof ApiError ? t(e.message) : t("CRM ma'lumotini olib bo'lmadi"));
+      });
+    return () => {
+      tirik = false;
+    };
+  }, [ochiq, d, base, t]);
+
+  const faol = d?.users.filter((u) => u.isActive) ?? [];
+  const bosqichlar = d?.pipelines.reduce((n, p) => n + p.statuses.length, 0) ?? 0;
+
+  return (
+    <details className="crm-bolim crm-tuzilish" onToggle={(e) => setOchiq((e.currentTarget as HTMLDetailsElement).open)}>
+      <summary>{t('Hisob tuzilishi: voronkalar va foydalanuvchilar')}</summary>
+      {xato && <div className="xato-qator">{xato}</div>}
+      {ochiq && !d && !xato && <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}
+      {d && (
+        <>
+          <div className="crm-raqamlar">
+            <div className="crm-raqam">
+              <b>{d.pipelines.length}</b>
+              <span>{t('Voronka##soni')}</span>
             </div>
-            <ol className="crm-bosqichlar" aria-label={t('{nom} bosqichlari', { nom: p.name })}>
-              {p.statuses.map((s) => (
-                <li key={s.id} className={`crm-bosqich ${s.tur}`}>
-                  {s.name}
-                </li>
-              ))}
-            </ol>
-          </li>
-        ))}
-      </ul>
-
-      {d.users.length > 0 && (
-        <div className="crm-foydalanuvchilar">
-          <h4>{t('Foydalanuvchilar')}</h4>
-          <ul>
-            {d.users.map((u) => (
-              <li key={u.id} className={u.isActive ? undefined : 'nofaol'}>
-                {u.name}
-                {u.isAdmin && <span className="crm-teg">{t('admin')}</span>}
-                {!u.isActive && <span className="crm-teg">{t('nofaol')}</span>}
+            <div className="crm-raqam">
+              <b>{bosqichlar}</b>
+              <span>{t('Bosqich##soni')}</span>
+            </div>
+            <div className="crm-raqam">
+              <b>{faol.length}</b>
+              <span>{t('Foydalanuvchi##soni')}</span>
+            </div>
+            <div className="crm-raqam">
+              <b>{d.leadFieldCount}</b>
+              <span>{t('Sdelka maydoni')}</span>
+            </div>
+          </div>
+          <ul className="crm-voronkalar">
+            {d.pipelines.map((p) => (
+              <li key={p.id} className="crm-voronka">
+                <div className="crm-voronka-nom">
+                  {p.name}
+                  {p.isMain && <span className="badge navy">{t('asosiy')}</span>}
+                </div>
+                <ol className="crm-bosqichlar" aria-label={t('{nom} bosqichlari', { nom: p.name })}>
+                  {p.statuses.map((s) => (
+                    <li key={s.id} className={`crm-bosqich ${s.tur}`}>
+                      {s.name}
+                    </li>
+                  ))}
+                </ol>
               </li>
             ))}
           </ul>
-        </div>
+          {d.users.length > 0 && (
+            <div className="crm-foydalanuvchilar">
+              <h4>{t('Foydalanuvchilar')}</h4>
+              <ul>
+                {d.users.map((u) => (
+                  <li key={u.id} className={u.isActive ? undefined : 'nofaol'}>
+                    {u.name}
+                    {u.isAdmin && <span className="crm-teg">{t('admin')}</span>}
+                    {!u.isActive && <span className="crm-teg">{t('nofaol')}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
-    </>
+    </details>
   );
 }

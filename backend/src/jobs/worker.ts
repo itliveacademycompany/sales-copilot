@@ -4,6 +4,7 @@ import { analyzeConversation } from '../ai/analyze.js';
 import { getActiveLlm, LlmRefusalError, type LlmClient } from '../ai/llm.js';
 import { runBillingTick } from '../billing/engine.js';
 import { dispatchTaskExports } from '../integrations/crm-export.js';
+import { dispatchCrmWriteback } from '../integrations/crm/yozish.js';
 import { oldindanTranskriptQil, qongiroqlarniQaytaIshla, sinxronla } from '../integrations/moizvonki.js';
 import { runDailyReportTick } from '../reports/daily.js';
 import { markOverdueCommitments } from './maintenance.js';
@@ -136,6 +137,19 @@ export function startWorkerLoop(log: {
           const e = await dispatchTaskExports();
           if (e.sent > 0 || e.failed > 0) {
             log.info(e, 'CRM: vazifalar yuborildi');
+          }
+
+          /**
+           * Ulangan CRM ga (amoCRM, Bitrix24…) tahlil natijasi: sdelkaga
+           * izoh va menejerga vazifa. Xato bitta CRM ni to'xtatadi, butun
+           * worker'ni emas.
+           */
+          const c = await dispatchCrmWriteback().catch((err: unknown) => {
+            log.error({ err }, 'CRM: yozish yiqildi');
+            return null;
+          });
+          if (c && (c.yozildi > 0 || c.xato > 0)) {
+            log.info(c, 'CRM: tahlil natijalari yozildi');
           }
         }
 
