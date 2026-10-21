@@ -1,0 +1,187 @@
+/* Mijozlar.tsx — SaaS kabinetlari (super admin). sz-/bzl-/ai-prov- uslubiga mos */
+
+.mjz-yangi { flex-shrink: 0; white-space: nowrap; }
+
+/* Subdomen maydoni: botiq maydon ichida input + ".domen" qo'shimchasi */
+.mjz-slug {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  box-shadow: var(--neu-in-sm);
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.mjz-slug:focus-within { border-color: var(--focus); box-shadow: var(--neu-in-sm), 0 0 0 3px var(--focus-ring); }
+.mjz-slug:has(input[aria-invalid='true']) { box-shadow: var(--neu-in-sm), 0 0 0 1px var(--past); }
+.mjz-slug input {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 4px 11px 14px;
+  border: 0;
+  outline: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: transparent;
+}
+.mjz-slug-domen {
+  flex-shrink: 0;
+  max-width: 55%;
+  padding-right: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.mjz-bosh { display: flex; align-items: center; gap: 6px; color: var(--yuqori-text); }
+.mjz-bosh .lucide { flex-shrink: 0; }
+
+.mjz-yorliq { display: block; margin-bottom: 4px; font-size: 12px; font-weight: 500; color: var(--kul-dark); }
+.mjz-til { display: flex; width: 100%; }
+.mjz-til button { flex: 1; letter-spacing: 0; font-weight: 600; }
+
+/* Yaratildi kartasi */
+.mjz-natija {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  background: var(--bg-base);
+  box-shadow: var(--neu-out-xs), inset 0 0 0 1px color-mix(in srgb, var(--yuqori) 45%, transparent);
+  animation: och-ochil 0.16s var(--ease) both;
+}
+.mjz-natija-bosh { display: flex; align-items: center; gap: 12px; }
+.mjz-natija-bosh > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mjz-natija-bosh b { font-size: 15px; }
+.mjz-natija-bosh small { font-size: 12.5px; color: var(--text-secondary); }
+.mjz-natija-ikon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 19px;
+  color: #fff;
+  background: var(--yuqori);
+}
+.mjz-natija .yordam { margin: 0; line-height: 1.5; }
+
+/* Nusxalanadigan qiymat (manzil, taklif havolasi) */
+.mjz-nusxa { display: flex; flex-direction: column; gap: 6px; }
+.mjz-nusxa-yorliq { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.mjz-nusxa-qator { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mjz-nusxa-qator code {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--ia-text);
+  background: var(--bg-base);
+  box-shadow: var(--neu-in-xs);
+}
+.mjz-nusxa-qator .btn { flex-shrink: 0; text-decoration: none; }
+.mjz-nusxa-qator svg { width: 15px; height: 15px; }
+
+/* Ro'yxat qatori */
+.mjz-qator .ai-prov-amallar a { text-decoration: none; }
+.mjz-amallar { justify-content: flex-end; }
+/* O'chirish — xavfli amal: matn qizil, lekin to'liq qizil tugma faqat tasdiqda */
+.mjz-xavfli { color: var(--past-text); }
+.mjz-xavfli:hover:not(:disabled) { color: var(--past); }
+.mjz-faollashtir { color: var(--yuqori-text); }
+/* Faolsiz kabinet — qator xiralashadi, lekin amallar to'liq ko'rinadi */
+.mjz-qator.faolsiz .ai-prov-asosiy { opacity: 0.62; }
+.mjz-qator.faolsiz { box-shadow: var(--neu-out-xs), inset 3px 0 0 var(--past); }
+
+/* Tahrirlash bo'limlari */
+.mjz-guruh-sarlavha {
+  margin: 4px 0 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Faolsizlantirish / o'chirish tasdig'i */
+.mjz-tasdiq {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--bg-base);
+  box-shadow: var(--neu-in-xs);
+  animation: och-ochil 0.16s var(--ease) both;
+}
+.mjz-tasdiq.xavfli { box-shadow: var(--neu-in-xs), inset 0 0 0 1px color-mix(in srgb, var(--past) 45%, transparent); }
+.mjz-tasdiq-matn { display: flex; flex-direction: column; gap: 4px; line-height: 1.5; }
+.mjz-tasdiq-matn b { font-size: 14px; }
+.mjz-tasdiq-matn span { font-size: 12.5px; color: var(--text-secondary); }
+.mjz-tasdiq .maydon-blok { max-width: 420px; margin: 0; }
+.mjz-tasdiq svg { width: 15px; height: 15px; }
+.mjz-manzil { color: var(--ia-text); font-weight: 600; text-decoration: none; }
+.mjz-manzil:hover { text-decoration: underline; }
+.mjz-kutilmoqda { color: var(--orta-text); font-weight: 600; }
+.mjz-slug-tahrir { flex-wrap: wrap; align-items: flex-start; }
+.mjz-slug-tahrir .mjz-slug { flex: 1 1 260px; }
+.mjz-slug-izoh { flex-basis: 100%; display: flex; flex-direction: column; gap: 2px; }
+.mjz-slug-izoh .yordam { margin: 0; }
+.mjz-qator-xato { flex-basis: 100%; }
+
+/* Parol: maydon + «Yaratish» */
+.mjz-parol { display: flex; align-items: center; gap: 8px; }
+.mjz-parol .input-qobiq { flex: 1; min-width: 0; }
+.mjz-parol > .btn { flex-shrink: 0; }
+.mjz-parol + .yordam { margin-top: 4px; }
+
+/* Login va parol (yaratilgach / almashtirilgach) */
+.mjz-kirish-pastki { display: flex; align-items: center; gap: 12px; }
+.mjz-kirish-pastki .yordam { flex: 1; min-width: 0; margin: 0; }
+.mjz-kirish-pastki .btn { flex-shrink: 0; }
+.mjz-kirish-pastki svg { width: 15px; height: 15px; }
+
+/* Email xato yozilgan bo'lsa — to'g'ri variant taklifi */
+.mjz-taklif { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; color: var(--orta-text); }
+.mjz-taklif svg { width: 14px; height: 14px; flex-shrink: 0; }
+.mjz-taklif-tugma {
+  padding: 2px 10px;
+  border: 0;
+  border-radius: 99px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ia-text);
+  background: var(--bg-base);
+  box-shadow: var(--neu-out-xs);
+  cursor: pointer;
+}
+.mjz-taklif-tugma:hover { box-shadow: var(--neu-out-sm, var(--neu-out-xs)); }
+.mjz-taklif-tugma:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+
+/* Ro'yxat qatori: «Login va parol» */
+.mjz-qator-parol { flex-basis: 100%; display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
+.mjz-qator-parol .yordam { margin: 0; }
+.mjz-parol-forma { display: flex; flex-direction: column; }
+.mjz-parol-forma .bzl-forma-panjara { margin-bottom: 4px; }
+.mjz-kirish-tugmalar { display: flex; gap: 8px; }
+
+@media (max-width: 640px) {
+  .mjz-nusxa-qator { flex-wrap: wrap; }
+  .mjz-nusxa-qator code { flex-basis: 100%; }
+  .mjz-natija-bosh { flex-wrap: wrap; }
+  .mjz-kirish-pastki { flex-direction: column; align-items: stretch; }
+  .mjz-kirish-tugmalar .btn { flex: 1; justify-content: center; }
+}

@@ -3,15 +3,26 @@ import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth';
 import { useT } from './i18n';
+import { useKabinet } from './kabinet';
 import { Layout } from './components/Layout';
 import { SAHIFA } from './sahifalar';
+import { KabinetHolati } from './pages/KabinetHolati';
 import { Login } from './pages/Login';
 
 export function App() {
-  const { loading, user, business, logout } = useAuth();
+  const { loading, user, business, businesses, logout } = useAuth();
+  const kabinet = useKabinet();
   const t = useT();
 
-  if (loading) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
+  if (loading || !kabinet) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
+
+  // SaaS: mavjud bo'lmagan subdomen — hech qanday kirish yoki landing ko'rsatilmaydi
+  if (kabinet.tur === 'topilmadi') return <KabinetHolati tur="topilmadi" kabinet={kabinet} />;
+  if (kabinet.tur === 'faolsiz') return <KabinetHolati tur="faolsiz" kabinet={kabinet} />;
+  const tenantda = kabinet.tur === 'tenant';
+
+  // Subdomenda kirgan, lekin bu kabinet xodimi emas (server ro'yxatni bo'sh qaytargan)
+  if (tenantda && user && businesses.length === 0) return <KabinetHolati tur="ruxsat" kabinet={kabinet} />;
 
   /**
    * FR-06: parol tiklash havolasi auth tekshiruvidan OLDIN keladi.
@@ -25,10 +36,11 @@ export function App() {
         <Route path="/parol-tiklash/:token" element={<SAHIFA.passwordReset />} />
         {/* FR-04: menejer aktivatsiyasi — hisob hali yo'q, shuning uchun bu yerda */}
         <Route path="/aktivatsiya/:token" element={<SAHIFA.aktivatsiya />} />
-        {/* Birinchi navbatda — "Loyiha haqida" landing'i, undan "Kirish" → login.
-            Boshqa har qanday manzil login'ni ochadi: kirgandan keyin odam
-            o'sha sahifada qoladi. */}
-        <Route path="/" element={<SAHIFA.loyiha />} />
+        {/* Asosiy saytda birinchi navbatda — "Loyiha haqida" landing'i, undan
+            "Kirish" → login. Mijoz kabinetida (acme.) landing yo'q — to'g'ridan
+            to'g'ri kirish. Boshqa har qanday manzil login'ni ochadi: kirgandan
+            keyin odam o'sha sahifada qoladi. */}
+        <Route path="/" element={tenantda ? <Login /> : <SAHIFA.loyiha />} />
         <Route path="*" element={<Login />} />
       </Routes>
       </Suspense>

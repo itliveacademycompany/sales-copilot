@@ -126,7 +126,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
     if (status < 500) {
       reply.status(status).type('application/problem+json').send({
         type: 'about:blank#request-error',
-        title: known.message ?? 'So\'rov qabul qilinmadi',
+        title: known.message ?? known.title ?? 'So\'rov qabul qilinmadi',
         status,
         traceId,
       } satisfies Problem);

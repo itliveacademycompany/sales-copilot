@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { getActiveLlm, LlmSozlanmaganError } from '../../ai/llm.js';
 import { profileCompleteness, profileSchema } from '../../business/profile.js';
 import { alertPrefsSchema, workHoursSchema } from '../../business/settings.js';
 import { withTenant } from '../../db/index.js';
@@ -218,6 +219,16 @@ export function registerBusinessRoutes(app: FastifyInstance): void {
     { preHandler: [requireBusiness, requirePermission('business:write')] },
     async (req, reply) => {
       const businessId = req.business!.businessId;
+      // AI sozlanmagan bo'lsa namunalar baholanmay qolib, bazada "osilgan"
+      // suhbatlar bo'lardi — oldindan tekshirib, aniq sabab aytamiz.
+      try {
+        await getActiveLlm();
+      } catch (err) {
+        if (err instanceof LlmSozlanmaganError) {
+          throw new AppError(503, 'ai-unavailable', 'AI provayder sozlanmagan — namunalarni hozircha baholab bo\'lmaydi');
+        }
+        throw err;
+      }
       const natija = await namunalarniYuklash(businessId);
       reply.status(202);
       return natija;

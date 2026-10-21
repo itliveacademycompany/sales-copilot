@@ -7,6 +7,8 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** 429 da: necha soniyadan keyin qayta urinish mumkin (`Retry-After`). */
+    public retryAfter?: number,
   ) {
     super(message);
   }
@@ -28,7 +30,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
     } catch {
       /* JSON bo'lmasa statusText qoladi */
     }
-    throw new ApiError(res.status, detail);
+    const kutish = Number(res.headers.get('retry-after'));
+    throw new ApiError(res.status, detail, Number.isFinite(kutish) && kutish > 0 ? kutish : undefined);
   }
   return (await res.json()) as T;
 }

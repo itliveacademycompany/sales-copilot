@@ -21,7 +21,7 @@ import { requireAuth } from '../auth-plugin.js';
  */
 
 /** Super-admin tekshiruvi. Boshqalarga 404 — panel mavjudligi ham oshkor bo'lmasin. */
-async function requireSuperAdmin(req: FastifyRequest): Promise<void> {
+export async function requireSuperAdmin(req: FastifyRequest): Promise<void> {
   if (!req.auth) throw AppError.unauthorized();
   if (req.auth.user.systemRole !== 'super_admin') {
     throw AppError.notFound();

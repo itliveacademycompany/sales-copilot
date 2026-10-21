@@ -133,6 +133,121 @@ export function draftToPlaybookBody(
   return playbookBodySchema.parse(body);
 }
 
+/** Ro'yxatdan qisqa sanoq: "A, B va C" — matn chegarasidan oshmasin. */
+function sanoq(items: string[], max: number, chegara: number): string {
+  const tanlangan = items.map((s) => s.trim()).filter(Boolean).slice(0, max);
+  if (tanlangan.length === 0) return '';
+  const matn = tanlangan.length === 1 ? tanlangan[0]! : `${tanlangan.slice(0, -1).join(', ')} va ${tanlangan[tanlangan.length - 1]}`;
+  return matn.length > chegara ? `${matn.slice(0, chegara - 1)}…` : matn;
+}
+
+/**
+ * STANDART SHABLON — AI ishlamaganda (provayder sozlanmagan yoki javob
+ * bermadi) onboarding to'xtab qolmasin.
+ *
+ * Universal sotuv bosqichlari, lekin biznes profiliga moslangan: mahsulotlar,
+ * eng ko'p uchraydigan e'tirozlar va albatta aniqlanadigan ma'lumotlar
+ * mezon tavsiflariga qo'yiladi. AI qoralamasi bilan BIR XIL yo'ldan
+ * (`draftToPlaybookBody`) o'tadi — kodlar, vaznlar va sxema kafolatlangan.
+ * Foydalanuvchi uni tahrirlaydi; AI ulangach Sozlamalarda qayta yaratadi.
+ */
+export function standartQoralama(profile: BusinessProfile): PlaybookBody {
+  const mahsulot = sanoq(profile.primaryOffers, 3, 160) || 'taklif';
+  const etirozlar = sanoq(profile.commonObjections, 3, 260);
+  const malumotlar = sanoq(profile.mustCaptureFields, 5, 260);
+
+  const draft: import('./prompts.js').PlaybookDraftResult = {
+    categories: [
+      { name: 'Aloqa o\'rnatish', weightPct: 15 },
+      { name: 'Ehtiyojni aniqlash', weightPct: 30 },
+      { name: 'Taqdimot va qiymat', weightPct: 25 },
+      { name: 'E\'tirozlar bilan ishlash', weightPct: 15 },
+      { name: 'Yakunlash va keyingi qadam', weightPct: 15 },
+    ],
+    criteria: [
+      {
+        categoryIndex: 0,
+        name: 'Salomlashish va tanishtirish',
+        description: 'Sotuvchi xushmuomala salomlashdi, o\'zini va kompaniyani tanishtirdi, mijozga murojaat qildi.',
+        rubric0: 'Salomlashmadi yoki o\'zini tanishtirmadi',
+        rubric1: 'Salomlashdi, lekin quruq va rasmiyatchilik bilan',
+        rubric2: 'Xushmuomala salomlashdi va o\'zini tanishtirdi',
+        rubric3: 'Iliq salomlashdi, tanishtirdi va mijoz bilan darhol aloqa o\'rnatdi',
+      },
+      {
+        categoryIndex: 1,
+        name: 'Ochuvchi savollar',
+        description: 'Mijozning maqsadi, vaziyati va nima uchun murojaat qilgani ochiq savollar bilan aniqlandi.',
+        rubric0: 'Savol berilmadi — darhol narx yoki taklif aytildi',
+        rubric1: 'Bitta-ikkita yopiq savol berildi',
+        rubric2: 'Ochiq savollar berildi, lekin ehtiyoj to\'liq ochilmadi',
+        rubric3: 'Ochiq savollar bilan maqsad, vaziyat va sabab to\'liq aniqlandi',
+      },
+      {
+        categoryIndex: 1,
+        name: 'Muhim ma\'lumotlarni aniqlash',
+        description: malumotlar
+          ? `Suhbatda albatta aniqlanishi kerak bo'lgan ma'lumotlar so'raldi: ${malumotlar}.`
+          : 'Qaror uchun zarur ma\'lumotlar (byudjet, muddat, qaror qiluvchi) aniqlandi.',
+        rubric0: 'Kerakli ma\'lumotlarning birortasi ham so\'ralmadi',
+        rubric1: 'Ma\'lumotlarning ozgina qismi so\'raldi',
+        rubric2: 'Ko\'p qismi aniqlandi, ba\'zilari qolib ketdi',
+        rubric3: 'Barcha kerakli ma\'lumotlar aniq va to\'liq olindi',
+      },
+      {
+        categoryIndex: 2,
+        name: 'Ehtiyojga bog\'langan taqdimot',
+        description: `${mahsulot} mijozning aytgan ehtiyojiga bog'lab taqdim etildi — umumiy ro'yxat emas, aynan unga foydasi tushuntirildi.`,
+        rubric0: 'Taqdimot qilinmadi yoki faqat narx aytildi',
+        rubric1: 'Umumiy, hammaga bir xil taqdimot qilindi',
+        rubric2: 'Taqdimot ehtiyojga qisman bog\'landi',
+        rubric3: 'Taqdimot mijoz ehtiyojiga aniq bog\'landi va foydasi ko\'rsatildi',
+      },
+      {
+        categoryIndex: 2,
+        name: 'Qiymat va dalillar',
+        description: 'Narxdan oldin qiymat ko\'rsatildi: natijalar, misollar, kafolat yoki farqli jihatlar aytildi.',
+        rubric0: 'Qiymat umuman ko\'rsatilmadi',
+        rubric1: 'Qiymat yuzaki, dalilsiz aytildi',
+        rubric2: 'Qiymat ko\'rsatildi, lekin dalillar kam',
+        rubric3: 'Qiymat aniq dalillar va misollar bilan ishonarli ko\'rsatildi',
+      },
+      {
+        categoryIndex: 3,
+        name: 'E\'tirozga javob',
+        description: etirozlar
+          ? `E'tiroz tinglanib, qadrlanib, qiymat orqali javob berildi. Ko'p uchraydiganlari: ${etirozlar}.`
+          : 'E\'tiroz tinglanib, qadrlanib, qiymat orqali javob berildi — bahslashilmadi.',
+        rubric0: 'E\'tiroz e\'tiborsiz qoldirildi yoki mijoz bilan bahslashildi',
+        rubric1: 'Javob berildi, lekin ishonarsiz yoki shablon',
+        rubric2: 'E\'tirozga mos javob berildi, lekin to\'liq yopilmadi',
+        rubric3: 'E\'tiroz aniqlashtirildi va ishonarli javob bilan yopildi',
+      },
+      {
+        categoryIndex: 4,
+        name: 'Aniq keyingi qadam',
+        description: 'Suhbat aniq, sanali keyingi qadam bilan yakunlandi: uchrashuv, to\'lov, sinov dars yoki qayta qo\'ng\'iroq vaqti.',
+        rubric0: 'Keyingi qadam taklif qilinmadi',
+        rubric1: '"O\'ylab ko\'ring" kabi noaniq yakun',
+        rubric2: 'Keyingi qadam taklif qilindi, lekin vaqti aniq emas',
+        rubric3: 'Aniq sana va vaqt bilan keyingi qadamga kelishildi',
+      },
+    ],
+    callFamilies: [
+      { key: 'yangi_lid', name: 'Yangi lid', description: 'Birinchi marta murojaat qilgan potensial mijoz', scored: true },
+      { key: 'mavjud_mijoz', name: 'Mavjud mijoz', description: 'Xizmatdan foydalanayotgan mijozning savoli yoki muammosi', scored: false },
+    ],
+    redFlags: [
+      { key: 'qopollik', description: 'Sotuvchi mijozga qo\'pol yoki mensimay muomala qildi', severity: 'critical' },
+      { key: 'yolgon_vada', description: 'Sotuvchi mavjud bo\'lmagan shart, chegirma yoki natija va\'da qildi', severity: 'critical' },
+      { key: 'javobsiz_qoldirish', description: 'Mijozning savoli javobsiz qoldirildi yoki suhbat keskin to\'xtatildi', severity: 'warning' },
+    ],
+    vocabulary: profile.primaryOffers.map((s) => s.trim()).filter((s) => s.length > 0 && s.length <= 80),
+  };
+
+  return { ...draftToPlaybookBody(draft, profile), changeNote: 'Standart shablon asosida tuzilgan qoralama' };
+}
+
 export async function generatePlaybookDraft(
   llm: LlmClient,
   profile: BusinessProfile,

@@ -8,6 +8,7 @@ import { profileSchema } from '../business/profile.js';
 import { cleanupTestDataQuietly } from '../db/clean-test-data.js';
 import { closeDb, withTenant, withoutTenantIsolation } from '../db/index.js';
 import { aiProvider, playbook } from '../db/schema/index.js';
+import { playbookBodySchema } from '../playbook/schema.js';
 import { buildApp } from './app.js';
 
 /**
@@ -197,10 +198,33 @@ async function main(): Promise<void> {
         payload: profile,
       });
       check(
-        'faol LLM provayder yo\'qligi aniq xato beradi (o\'chib qolmaydi)',
-        withoutProvider.statusCode >= 400,
+        'faol LLM provayder yo\'qligi aniq xato beradi — 503, "server buzildi" (500) emas',
+        withoutProvider.statusCode === 503,
         `kod: ${withoutProvider.statusCode}`,
       );
+
+      // Onboarding: AI yo'q bo'lsa ham mijoz to'xtab qolmasin — standart shablon
+      const shablonli = await app.inject({
+        method: 'POST',
+        url: `${base}/playbook/generate?shablon=1`,
+        cookies: auth,
+        payload: { ...profile, mustCaptureFields: ['Byudjet', 'Daraja'] },
+      });
+      const sJson = shablonli.json() as { draft: unknown; manba: string; sabab?: string };
+      check('?shablon=1 — AI yo\'q bo\'lsa standart shablon qaytadi (200)', shablonli.statusCode === 200 && sJson.manba === 'shablon' && sJson.sabab === 'sozlanmagan', shablonli.body.slice(0, 200));
+      const sBody = playbookBodySchema.safeParse(sJson.draft);
+      check('shablon playbook sxemasidan o\'tadi (saqlasa bo\'ladi)', sBody.success, sBody.success ? '' : JSON.stringify(sBody.error.issues.slice(0, 3)));
+      if (sBody.success) {
+        const tavsiflar = sBody.data.criteria.criteria.map((c) => c.description).join(' | ');
+        const vazn = sBody.data.criteria.categories.reduce((s, c) => s + c.weightPct, 0);
+        check('shablon profilga moslangan: e\'tirozlar, mahsulot va aniqlanadigan ma\'lumotlar', tavsiflar.includes('Narxi qimmat') && tavsiflar.includes('Frontend kursi') && tavsiflar.includes('Byudjet va Daraja'), tavsiflar.slice(0, 300));
+        check('shablon vaznlari aynan 100%, anketa savollari profildan', Math.abs(vazn - 100) < 0.01 && sBody.data.questionnaire.questions.length === 2);
+      }
+
+      // 5-qadam: namunalar AI'siz baholanmaydi — oldindan aniq rad, suhbat yaratilmaydi
+      const namuna = await app.inject({ method: 'POST', url: `${base}/onboarding/samples`, cookies: auth, payload: {} });
+      const suhbatlar = (await app.inject({ method: 'GET', url: `${base}/conversations`, cookies: auth })).json() as { conversations: unknown[] };
+      check('namunalar AI\'siz — 503 va bazada osilgan suhbat qolmaydi', namuna.statusCode === 503 && suhbatlar.conversations.length === 0, `${namuna.statusCode} / ${suhbatlar.conversations?.length}`);
     } finally {
       if (activeProviders.length > 0) {
         await withoutTenantIsolation('test: faol provayderlarni tiklash', (tx) =>

@@ -997,6 +997,44 @@ label.maydon {
 @media (max-width: 480px) {
   .login-orqaga { top: 16px; right: 16px; width: 40px; height: 40px; }
 }
+
+/* SaaS: kirish kartasidagi mijoz kabineti belgisi (acme. subdomenida) */
+.login-kabinet {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin-bottom: 14px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ia-text);
+  background: var(--bg-base);
+  box-shadow: var(--neu-in-xs);
+}
+.login-kabinet .lucide { flex-shrink: 0; font-size: 15px; }
+.login-kabinet span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* SaaS: "kabinet topilmadi" / "kirish huquqi yo'q" */
+.kabinet-holat { text-align: center; display: flex; flex-direction: column; align-items: center; }
+.kabinet-holat .kirish-izoh { line-height: 1.6; overflow-wrap: anywhere; }
+.kabinet-holat-ikon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 20px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  color: var(--ia);
+  background: var(--bg-base);
+  box-shadow: var(--neu-out-sm);
+}
+.kabinet-holat-ikon.xavf { color: var(--past); }
+.kabinet-holat-ikon.orta { color: var(--orta-text); }
+.kabinet-holat-tugmalar { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.kabinet-holat-tugmalar .login-tugma { margin-top: 0; text-decoration: none; }
 .logo-matn em { font-style: normal; color: var(--brand); }
 .taqdimot-sarlavha {
   font-size: 50px;
@@ -2754,11 +2792,20 @@ button.nav-item {
 
 .tepa-panel {
   display: grid;
-  grid-template-columns: 1fr minmax(320px, 560px) 1fr;
+  /* O'ng ustun kontentidan torroq bo'lmaydi — profil siqilmasin */
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 560px) 1fr;
   align-items: center;
   gap: 18px;
 }
-.tepa-biznes { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; }
+.tepa-biznes {
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .tepa-qidiruv {
   position: relative;
   display: flex;
@@ -2853,6 +2900,7 @@ button.nav-item {
 }
 .tepa-natija-matn small { font-size: 11.5px; color: var(--text-secondary); }
 .tepa-ong { display: flex; align-items: center; justify-content: flex-end; gap: 14px; }
+.tepa-ong > * { flex-shrink: 0; }
 .tepa-qongiroq {
   position: relative;
   width: 42px;
@@ -2892,13 +2940,15 @@ button.nav-item {
   font: inherit;
   color: inherit;
   cursor: pointer;
-  padding: 4px 10px 4px 4px;
+  padding: 4px 12px 4px 4px;
   border-radius: 16px;
   text-align: left;
+  flex-shrink: 0;
 }
 .tepa-foydalanuvchi:hover { box-shadow: var(--neu-out-xs); }
 .tepa-avatar {
   position: relative;
+  flex-shrink: 0;
   width: 40px;
   height: 40px;
   border-radius: 50%;
@@ -2919,7 +2969,10 @@ button.nav-item {
   background: var(--yuqori);
   border: 2px solid var(--bg-base);
 }
-.tepa-ism { display: flex; flex-direction: column; line-height: 1.25; }
+/* Ism va biznes nomi bir qatorda turadi; juda uzun bo'lsa — "…" bilan qisqaradi */
+.tepa-ism { display: flex; flex-direction: column; gap: 1px; max-width: 180px; line-height: 1.3; }
+.tepa-ism b,
+.tepa-ism small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tepa-ism b { font-size: 13.5px; }
 .tepa-ism small { font-size: 11.5px; color: var(--text-secondary); }
 
@@ -3499,6 +3552,11 @@ button.nav-item {
   .puls-ong { box-shadow: inset 0 12px 18px -16px var(--neu-dark); }
   .sifat-plitkalar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .reyting-grid { grid-template-columns: 1fr; }
+}
+/* Qidiruv hali bir qatorda, joy tor — profil faqat avatar bilan qoladi */
+@media (min-width: 981px) and (max-width: 1180px) {
+  .tepa-ism { display: none; }
+  .tepa-foydalanuvchi { padding: 4px; }
 }
 @media (max-width: 980px) {
   .tepa-panel { grid-template-columns: 1fr auto; }

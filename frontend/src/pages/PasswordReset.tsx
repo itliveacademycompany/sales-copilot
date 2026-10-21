@@ -1,10 +1,11 @@
-import { Lock } from 'lucide-react';
+import { Building2, Lock } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { ParolInput } from '../components/ParolInput';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
+import { useKabinet } from '../kabinet';
 
 /**
  * FR-06: havoladan kelgan token bilan yangi parol o'rnatish.
@@ -22,6 +23,11 @@ export function PasswordReset() {
   const { refresh } = useAuth();
   const navigate = useNavigate();
   const t = useT();
+  // SaaS: super admin yaratgan kabinet egasiga taklif — xuddi shu mexanizm, boshqa matn
+  const [params] = useSearchParams();
+  const taklif = params.has('taklif');
+  const kabinet = useKabinet();
+  const tenant = kabinet?.tur === 'tenant' ? kabinet : null;
 
   const [parol, setParol] = useState('');
   const [takror, setTakror] = useState('');
@@ -52,7 +58,20 @@ export function PasswordReset() {
         <div className="logo">
           Sotuv<em>AI</em>
         </div>
-        <div className="kirish-izoh">{t("Yangi parol o'rnating")}</div>
+        {tenant && (
+          <div className="login-kabinet">
+            <Building2 aria-hidden="true" />
+            <span>{tenant.name}</span>
+          </div>
+        )}
+        {taklif ? (
+          <>
+            <h1 className="login-sarlavha">{t('Kabinetingizga xush kelibsiz!')}</h1>
+            <div className="kirish-izoh">{t("Kirish uchun parol o'rnating — keyingi safar shu email va parol bilan kirasiz.")}</div>
+          </>
+        ) : (
+          <div className="kirish-izoh">{t("Yangi parol o'rnating")}</div>
+        )}
 
         {xato && (
           <div className="xato-banner">

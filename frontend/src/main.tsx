@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { AuthProvider } from './auth';
 import { TilProvider } from './i18n';
+import { KabinetProvider } from './kabinet';
 import './styles.css';
 
 /**
@@ -29,11 +30,14 @@ createRoot(document.getElementById('root')!).render(
         O'lcham CSS'da: .lucide { 1em } — matn o'lchamiga moslashadi. */}
     <LucideProvider strokeWidth={1.75}>
       <BrowserRouter>
-        <AuthProvider>
-          <TilProvider>
-            <App />
-          </TilProvider>
-        </AuthProvider>
+        {/* SaaS: qaysi kabinet (asosiy sayt yoki mijoz subdomeni) — til va kirish shunga moslanadi */}
+        <KabinetProvider>
+          <AuthProvider>
+            <TilProvider>
+              <App />
+            </TilProvider>
+          </AuthProvider>
+        </KabinetProvider>
       </BrowserRouter>
     </LucideProvider>
   </StrictMode>,

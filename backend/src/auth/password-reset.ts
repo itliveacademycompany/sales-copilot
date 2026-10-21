@@ -18,9 +18,10 @@ import { generateToken, hashToken } from './tokens.js';
  *
  * Ikkita yo'l:
  *
- *   1. `requestReset` — foydalanuvchi o'zi so'raydi. Havola uning
- *      Telegram'iga yuboriladi. Telegram bog'lanmagan bo'lsa — hech narsa
- *      yuborilmaydi, lekin javob BIR XIL bo'ladi (pastga qarang).
+ *   1. `requestReset` — foydalanuvchi o'zi so'raydi (faqat super admin;
+ *      mijozlarga parolni admin beradi). Havola uning Telegram'iga
+ *      yuboriladi. Telegram bog'lanmagan bo'lsa — hech narsa yuborilmaydi,
+ *      lekin javob BIR XIL bo'ladi (pastga qarang).
  *
  *   2. `createResetForUser` — rahbar yaratadi va havolani o'zi yetkazadi.
  *      Bu yo'l har doim ishlaydi va sinov davrida asosiy yo'l bo'ladi.
@@ -50,9 +51,16 @@ export interface ResetIssue {
 export async function createResetForUser(
   userId: string,
   requestedVia: 'self' | 'admin',
+  /**
+   * Muddat (daqiqa). Parol tiklash — qisqa (30). SaaS'da yangi mijoz
+   * egasiga yuboriladigan taklif ham shu mexanizm: u parol qo'yib
+   * darhol kabinetga kiradi, lekin havolani ochishga bir necha kun kerak
+   * bo'lishi mumkin — shuning uchun uzunroq muddat beriladi.
+   */
+  ttlMinutes: number = TTL_MINUTES,
 ): Promise<ResetIssue> {
   const token = generateToken();
-  const expiresAt = new Date(Date.now() + TTL_MINUTES * 60_000);
+  const expiresAt = new Date(Date.now() + ttlMinutes * 60_000);
 
   await withoutTenantIsolation('parol tiklash: token yaratish', async (tx) => {
     await tx
@@ -120,7 +128,7 @@ export async function requestReset(
 
   const [user] = await withoutTenantIsolation('parol tiklash: foydalanuvchini topish', (tx) =>
     tx
-      .select({ id: appUser.id, displayName: appUser.displayName })
+      .select({ id: appUser.id, displayName: appUser.displayName, systemRole: appUser.systemRole })
       .from(appUser)
       .where(
         and(
@@ -131,6 +139,9 @@ export async function requestReset(
       .limit(1),
   );
   if (!user) return { delivered: false, reason: 'foydalanuvchi topilmadi' };
+  // Mijozlarga parolni platforma admini beradi; ularning xodimlariga — rahbar
+  // (`createResetForUser`). O'zi tiklash faqat super admin uchun qoladi.
+  if (user.systemRole !== 'super_admin') return { delivered: false, reason: 'parolni admin beradi' };
 
   const kanal = await telegramKanali(user.id);
   if (!kanal) return { delivered: false, reason: 'telegram bog\'lanmagan' };

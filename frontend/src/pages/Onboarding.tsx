@@ -1,4 +1,4 @@
-import { ArrowUpRight, Check, ChevronLeft, ChevronRight, PartyPopper, RotateCw, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronLeft, ChevronRight, LayoutTemplate, PartyPopper, RotateCw, Sparkles } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -11,8 +11,8 @@ import {
   type PlaybookBody,
 } from '../api';
 import { useAuth } from '../auth';
-import { PlaybookForm, TagList } from '../components/PlaybookForm';
-import { useT } from '../i18n';
+import { PlaybookForm, TagList, tegQosh } from '../components/PlaybookForm';
+import { tarjima, useT } from '../i18n';
 
 /**
  * TZ 3.2: 5 qadamli onboarding sehrgari. FR-17 — holat `business.onboardingStep`
@@ -94,9 +94,22 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
   const t = useT();
   const { business } = useAuth();
   const [profile, setProfile] = useState<BusinessProfile>(EMPTY_PROFILE);
+  /**
+   * Teg maydonlariga yozilgan, lekin «+ Qo'shish» bosilmagan matn. Ko'pchilik
+   * shunchaki yozib, keyingi maydonga o'tadi — matn yo'qolmasligi va tugma
+   * "o'lik" ko'rinmasligi uchun u ham hisobga olinadi va saqlashda teg bo'ladi.
+   */
+  const [qoralama, setQoralama] = useState({ offers: '', objections: '', mustCapture: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
+
+  const toliq: BusinessProfile = {
+    ...profile,
+    primaryOffers: tegQosh(profile.primaryOffers, qoralama.offers),
+    commonObjections: tegQosh(profile.commonObjections, qoralama.objections),
+    mustCaptureFields: tegQosh(profile.mustCaptureFields, qoralama.mustCapture),
+  };
 
   useEffect(() => {
     if (!base) return;
@@ -109,7 +122,10 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
   async function save() {
     setSaving(true);
     try {
-      await api.put(`${base}/profile`, profile);
+      await api.put(`${base}/profile`, toliq);
+      // Sozlamalarda forma joyida qoladi — yozilganlar endi teg bo'lib ko'rinsin
+      setProfile(toliq);
+      setQoralama({ offers: '', objections: '', mustCapture: '' });
       onNext();
     } finally {
       setSaving(false);
@@ -117,11 +133,11 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
   }
 
   const ready =
-    profile.businessDescription.trim().length > 0 &&
-    profile.primaryOffers.length > 0 &&
-    profile.typicalCustomers.trim().length > 0 &&
-    profile.customerProblem.trim().length > 0 &&
-    profile.commonObjections.length > 0;
+    toliq.businessDescription.trim().length > 0 &&
+    toliq.primaryOffers.length > 0 &&
+    toliq.typicalCustomers.trim().length > 0 &&
+    toliq.customerProblem.trim().length > 0 &&
+    toliq.commonObjections.length > 0;
 
   if (loading) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
 
@@ -159,6 +175,8 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
           items={profile.primaryOffers}
           placeholder={t('Masalan: Frontend kursi')}
           onChange={(primaryOffers) => setProfile({ ...profile, primaryOffers })}
+          draft={qoralama.offers}
+          onDraftChange={(offers) => setQoralama((q) => ({ ...q, offers }))}
         />
       </div>
 
@@ -201,6 +219,8 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
           items={profile.commonObjections}
           placeholder={t('Masalan: Narxi qimmat')}
           onChange={(commonObjections) => setProfile({ ...profile, commonObjections })}
+          draft={qoralama.objections}
+          onDraftChange={(objections) => setQoralama((q) => ({ ...q, objections }))}
         />
       </div>
 
@@ -210,6 +230,8 @@ export function ProfileStep({ onNext, tugmaMatni }: { onNext: () => void; tugmaM
           items={profile.mustCaptureFields}
           placeholder={t('Masalan: Byudjet')}
           onChange={(mustCaptureFields) => setProfile({ ...profile, mustCaptureFields })}
+          draft={qoralama.mustCapture}
+          onDraftChange={(mustCapture) => setQoralama((q) => ({ ...q, mustCapture }))}
         />
       </div>
 
@@ -239,21 +261,31 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
   const t = useT();
   const { business } = useAuth();
   const [draft, setDraft] = useState<PlaybookBody | null>(null);
+  /**
+   * Qoralama manbasi. AI ishlamasa server profilga moslangan standart
+   * shablon qaytaradi (`?shablon=1`) — onboarding to'xtab qolmaydi, lekin
+   * bu foydalanuvchiga ochiq aytiladi.
+   */
+  const [manba, setManba] = useState<{ tur: 'ai' | 'shablon'; sabab?: 'sozlanmagan' | 'xato' } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [saqlashXato, setSaqlashXato] = useState('');
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
 
   async function generate() {
     setGenerating(true);
     setError('');
     try {
-      const res = await api.post<{ draft: PlaybookBody }>(`${base}/playbook/generate`);
+      const res = await api.post<{ draft: PlaybookBody; manba: 'ai' | 'shablon'; sabab?: 'sozlanmagan' | 'xato' }>(
+        `${base}/playbook/generate?shablon=1`,
+      );
       setDraft(res.draft);
+      setManba({ tur: res.manba, sabab: res.sabab });
     } catch (e) {
       setError(
         e instanceof ApiError
-          ? e.message
+          ? tarjima(e.message)
           : t("Generatsiya qilib bo'lmadi. Admin panelida faol AI provayder borligini tekshiring."),
       );
     } finally {
@@ -269,9 +301,16 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
   async function accept() {
     if (!draft) return;
     setSaving(true);
+    setSaqlashXato('');
     try {
-      await api.post(`${base}/playbook`, { ...draft, changeNote: 'AI Playbook Builder — onboarding' });
+      await api.post(`${base}/playbook`, {
+        ...draft,
+        changeNote: manba?.tur === 'shablon' ? 'Standart shablon — onboarding' : 'AI Playbook Builder — onboarding',
+      });
       onNext();
+    } catch (e) {
+      // Ilgari xato yutilib ketardi — tugma "ishlamayapti" ko'rinardi
+      setSaqlashXato(e instanceof ApiError ? tarjima(e.message) : t("Saqlab bo'lmadi. Qayta urinib ko'ring."));
     } finally {
       setSaving(false);
     }
@@ -306,19 +345,34 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
 
   return (
     <>
-      <div className="card" style={{ marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center' }}>
-        <div style={{ fontSize: 24, color: 'var(--ia)', display: 'flex' }}>
-          <Sparkles />
+      <div className="card" style={{ marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 24, color: manba?.tur === 'shablon' ? 'var(--orta-text)' : 'var(--ia)', display: 'flex' }}>
+          {manba?.tur === 'shablon' ? <LayoutTemplate /> : <Sparkles />}
         </div>
-        <div>
-          <b>{t('AI qoralamasi tayyor.')}</b> {t("Ko'rib chiqing, kerak bo'lsa tahrirlang — keyin qabul qiling.")}
-        </div>
+        {manba?.tur === 'shablon' ? (
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+            <b>{t('Standart shablon asosida qoralama tayyor.')}</b>{' '}
+            {manba.sabab === 'sozlanmagan' ? t('AI provayder hali ulanmagan') : t('AI hozir javob bermadi')}
+            {' — '}
+            {t("mezonlar biznesingiz ma'lumotlariga moslandi. Tahrirlab qabul qiling; AI ulangach Sozlamalar → Baholash mezonlarida qayta yaratishingiz mumkin.")}
+          </div>
+        ) : (
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+            <b>{t('AI qoralamasi tayyor.')}</b> {t("Ko'rib chiqing, kerak bo'lsa tahrirlang — keyin qabul qiling.")}
+          </div>
+        )}
         <button className="btn ikkinchi kichik" style={{ marginLeft: 'auto' }} onClick={() => void generate()}>
-          <RotateCw /> {t('Qayta generatsiya')}
+          <RotateCw /> {manba?.tur === 'shablon' ? t('AI bilan qayta urinish') : t('Qayta generatsiya')}
         </button>
       </div>
 
       <PlaybookForm value={draft} onChange={setDraft} />
+
+      {saqlashXato && (
+        <div className="xato-banner" role="alert" style={{ marginTop: 16 }}>
+          {saqlashXato}
+        </div>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16 }}>
         <button className="btn ikkinchi" onClick={onBack}>
@@ -477,7 +531,7 @@ function TeamStep({ onNext, onBack }: { onNext: () => void; onBack: () => void }
           placeholder={t('Sotuvchi ismi')}
           onKeyDown={(e) => e.key === 'Enter' && void addSeat()}
         />
-        <button className="btn ikkinchi" onClick={() => void addSeat()}>
+        <button className="btn ikkinchi" style={{ whiteSpace: 'nowrap', flexShrink: 0 }} onClick={() => void addSeat()}>
           {t("+ Qo'shish")}
         </button>
       </div>
@@ -539,7 +593,7 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
     } catch (e) {
       setXatoMatn(
         e instanceof ApiError
-          ? t("Namunalarni yuklab bo'lmadi: {xato}", { xato: e.message })
+          ? t("Namunalarni yuklab bo'lmadi: {xato}", { xato: tarjima(e.message) })
           : t("Namunalarni yuklab bo'lmadi. AI provayderi sozlanganini tekshiring."),
       );
       setHolat('xato');
@@ -620,7 +674,8 @@ function DoneStep({ onFinish }: { onFinish: () => void }) {
 
       <div style={{ textAlign: 'center', marginTop: 8 }}>
         <button
-          className={holat === 'tayyor' || holat === 'boshlanmagan' ? 'btn' : 'btn ikkinchi'}
+          // Faqat tahlil ketayotganda ikkinchi darajali — xatodan keyin ham asosiy yo'l shu
+          className={holat === 'yuklanmoqda' ? 'btn ikkinchi' : 'btn'}
           onClick={onFinish}
         >
           {t("Boshqaruv paneliga o'tish")}

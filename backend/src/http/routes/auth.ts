@@ -24,7 +24,9 @@ import {
   clearSessionCookie,
   requireAuth,
   setSessionCookie,
+  tenantgaChekla,
 } from '../auth-plugin.js';
+import { frontendUrl, slugBoyichaBiznes } from '../tenant.js';
 import { AppError } from '../errors.js';
 import { rasmMaydon } from '../../media/image.js';
 
@@ -207,6 +209,12 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     async (req, reply) => {
       const body = loginBody.parse(req.body);
 
+      // To'xtatilgan kabinet — sabab ochiq aytiladi ("parol noto'g'ri" chalg'itardi).
+      // Holat baribir ochiq (`/public/tenant`), shuning uchun hech narsa oshkor bo'lmaydi.
+      if (req.tenantSlug && (await slugBoyichaBiznes(req.tenantSlug))?.faolsiz) {
+        throw AppError.forbidden('Kabinet vaqtincha to\'xtatilgan — administratorga murojaat qiling');
+      }
+
       const [user] = await withoutTenantIsolation(
         'kirish: foydalanuvchini email yoki login bo\'yicha topish tenantlardan tashqarida',
         (tx) =>
@@ -227,6 +235,19 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         throw AppError.unauthorized('Login yoki parol noto\'g\'ri');
       }
 
+      /**
+       * SaaS: mijoz subdomenida faqat shu biznes xodimi kira oladi.
+       * Xato matni parol xatosi bilan BIR XIL — aks holda begona odam
+       * "bu email boshqa biznesda bor" degan ma'lumotni bilib olardi.
+       * Sessiya ochilmaydi: tekshiruv undan oldin.
+       */
+      if (req.tenantSlug) {
+        const ctx = await loadAuthContext(user.id);
+        if (!ctx?.businesses.some((b) => b.slug === req.tenantSlug)) {
+          throw AppError.unauthorized('Login yoki parol noto\'g\'ri');
+        }
+      }
+
       const { token } = await createSession(user.id, {
         userAgent: req.headers['user-agent'],
         ip: req.ip,
@@ -238,7 +259,8 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         .set({ lastLoginAt: new Date() })
         .where(eq(appUser.id, user.id));
 
-      return loadAuthContext(user.id);
+      const ctx = await loadAuthContext(user.id);
+      return ctx ? tenantgaChekla(ctx, req.tenantSlug) : ctx;
     },
   );
 
@@ -296,7 +318,11 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     },
     async (req) => {
       const body = z.object({ emailOrLogin: z.string().trim().min(3).max(200) }).parse(req.body);
-      const natija = await requestReset(body.emailOrLogin, config.WEB_ORIGIN);
+      // Mijoz kabinetlarida parolni faqat platforma admini beradi. Rad etish
+      // hisobga bog'liq emas — shuning uchun hech narsani oshkor qilmaydi.
+      if (req.tenantSlug) throw AppError.forbidden('Parolni tiklash uchun administratorga murojaat qiling');
+      // Havola so'rov kelgan kabinetga yasaladi: acme. dan so'ralsa — acme. ga
+      const natija = await requestReset(body.emailOrLogin, frontendUrl(req.tenantSlug));
 
       // Faqat jurnalga — javobga emas.
       req.log.info(
@@ -398,7 +424,8 @@ export function registerAuthRoutes(app: FastifyInstance): void {
         ip: req.ip,
       });
       setSessionCookie(reply, token);
-      return loadAuthContext(natija.userId);
+      const ctx = await loadAuthContext(natija.userId);
+      return ctx ? tenantgaChekla(ctx, req.tenantSlug) : ctx;
     },
   );
 

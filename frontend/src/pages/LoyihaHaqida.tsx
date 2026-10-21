@@ -358,11 +358,6 @@ export function LoyihaHaqida() {
                     <b>{q.nom}</b>
                     <small>{q.izoh}</small>
                   </span>
-                  <span className="ly-qatlam-qismlar">
-                    {q.qismlar.map((x, j) => (
-                      <span key={j}>{x}</span>
-                    ))}
-                  </span>
                 </div>
               ))}
             </div>

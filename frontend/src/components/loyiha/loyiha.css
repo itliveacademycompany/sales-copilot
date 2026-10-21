@@ -1246,7 +1246,7 @@
 .ly-qatlam {
   position: relative;
   display: grid;
-  grid-template-columns: 44px minmax(120px, 170px) 1fr;
+  grid-template-columns: 44px 1fr;
   align-items: center;
   gap: 16px;
   padding: 14px 16px;
@@ -1297,16 +1297,6 @@
 .ly-qatlam-nom { min-width: 0; line-height: 1.35; }
 .ly-qatlam-nom b { display: block; font-size: 14.5px; }
 .ly-qatlam-nom small { display: block; font-size: 12px; color: var(--text-secondary); }
-.ly-qatlam-qismlar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
-.ly-qatlam-qismlar span {
-  padding: 5px 10px;
-  border-radius: 99px;
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  background: var(--bg-base);
-  box-shadow: var(--neu-out-xs);
-}
 
 .ly-rollar ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
 .ly-rollar li { display: flex; gap: 12px; align-items: flex-start; line-height: 1.4; }
@@ -1546,8 +1536,6 @@
   .ly-qadam { padding: 20px; }
   .ly-qatlamlar,
   .ly-rollar { padding: 20px; }
-  .ly-qatlam { grid-template-columns: 44px 1fr; }
-  .ly-qatlam-qismlar { grid-column: 1 / -1; justify-content: flex-start; }
   .ly-tamoyillar { grid-template-columns: 1fr; }
   .ly-yakun { margin-top: 48px; padding: 44px 20px; border-radius: 26px; }
   .ly-pastki { padding: 20px 16px 32px; }

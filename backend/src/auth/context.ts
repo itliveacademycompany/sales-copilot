@@ -98,6 +98,8 @@ async function bazadanYukla(userId: string): Promise<AuthContext | null> {
             eq(businessMember.userId, userId),
             eq(businessMember.isActive, true),
             isNull(business.deletedAt),
+            // Platforma admini to'xtatgan kabinet xodimlar uchun "yo'q"
+            isNull(business.suspendedAt),
           ),
         );
 
@@ -114,7 +116,12 @@ async function bazadanYukla(userId: string): Promise<AuthContext | null> {
         .from(seat)
         .innerJoin(business, eq(business.id, seat.businessId))
         .where(
-          and(eq(seat.userId, userId), eq(seat.isActive, true), isNull(business.deletedAt)),
+          and(
+            eq(seat.userId, userId),
+            eq(seat.isActive, true),
+            isNull(business.deletedAt),
+            isNull(business.suspendedAt),
+          ),
         );
 
       const byBusiness = new Map<string, BusinessAccess>();

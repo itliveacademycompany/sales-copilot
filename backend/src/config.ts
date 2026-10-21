@@ -40,7 +40,24 @@ const schema = z.object({
       'CREDENTIALS_KEY base64 formatida aynan 32 bayt bo\'lishi kerak (AES-256)',
     ),
 
+  /**
+   * Frontend'ning asosiy (root) manzili. SaaS rejimida mijoz kabinetlari
+   * shundan quriladi: `https://example.uz` → `https://<slug>.example.uz`.
+   * Lokal: `http://localhost:5173` → `http://<slug>.localhost:5173`.
+   */
   WEB_ORIGIN: z.string().url().default('http://localhost:5173'),
+
+  /**
+   * Ixtiyoriy: subdomenlar ostidagi asosiy domen, agar u WEB_ORIGIN
+   * xostidan farq qilsa (masalan WEB_ORIGIN = https://app.example.uz,
+   * kabinetlar esa <slug>.example.uz). Odatda bo'sh qoldiriladi.
+   */
+  ROOT_DOMAIN: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9.-]+$/, "ROOT_DOMAIN faqat domen nomi bo'lishi kerak (masalan example.uz)")
+    .optional(),
 
   /**
    * Backend'ning TASHQI manzili — OAuth issuer va MCP manzili shundan
