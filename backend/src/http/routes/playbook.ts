@@ -1,8 +1,8 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { generatePlaybookDraft } from '../../ai/playbook-builder.js';
-import { getActiveLlm } from '../../ai/llm.js';
+import { generatePlaybookDraft, standartQoralama } from '../../ai/playbook-builder.js';
+import { getActiveLlm, LlmSozlanmaganError } from '../../ai/llm.js';
 import { profileSchema } from '../../business/profile.js';
 import { withTenant } from '../../db/index.js';
 import { business, playbook } from '../../db/schema/index.js';
@@ -196,9 +196,28 @@ export function registerPlaybookRoutes(app: FastifyInstance): void {
         );
       }
 
-      const llm = await getActiveLlm();
-      const draft = await generatePlaybookDraft(llm, profile);
-      return { draft };
+      /**
+       * AI ishlamasa: odatda aniq xato (503 — sozlanmagan, 502 — javob
+       * bermadi), "server buzildi" (500) emas. Onboarding `?shablon=1`
+       * yuboradi — u yerda mijoz to'xtab qolmasligi uchun profilga moslangan
+       * standart shablon qaytadi va bu javobda ochiq aytiladi (`manba`).
+       */
+      const { shablon } = z.object({ shablon: z.enum(['0', '1']).optional() }).parse(req.query);
+      try {
+        const llm = await getActiveLlm();
+        const draft = await generatePlaybookDraft(llm, profile);
+        return { draft, manba: 'ai' as const };
+      } catch (err) {
+        const sozlanmagan = err instanceof LlmSozlanmaganError;
+        req.log.warn({ err: err instanceof Error ? err.message : String(err), sozlanmagan }, 'playbook: AI generatsiyasi bajarilmadi');
+        if (shablon === '1') {
+          return { draft: standartQoralama(profile), manba: 'shablon' as const, sabab: sozlanmagan ? 'sozlanmagan' : 'xato' };
+        }
+        if (sozlanmagan) {
+          throw new AppError(503, 'ai-unavailable', 'AI provayder sozlanmagan — administrator admin paneldan provayder ulashi kerak');
+        }
+        throw new AppError(502, 'ai-failed', 'AI javob bermadi — birozdan keyin qayta urinib ko\'ring');
+      }
     },
   );
 

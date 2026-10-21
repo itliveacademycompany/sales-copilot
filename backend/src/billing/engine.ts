@@ -192,13 +192,25 @@ export async function runBillingTick(): Promise<BillingTickResult> {
   return result;
 }
 
-/** Tahlil navbatiga qo'yishdan oldingi tezkor tekshiruv (FR-156). */
+/**
+ * Tahlil navbatiga qo'yishdan oldingi tezkor tekshiruv (FR-156).
+ *
+ * Obuna to'xtagan bo'lsa ham, kabinetni platforma admini faolsizlantirgan
+ * yoki o'chirgan bo'lsa ham — yangi tahlil (va AI xarajati) bo'lmaydi.
+ * Kelgan xabarlar saqlanadi, faqat baholanmaydi.
+ */
 export async function isAnalysisBlocked(businessId: string): Promise<boolean> {
   const rows = await withoutTenantIsolation(
-    'billing: obuna holatini tekshirish — navbatga qo\'yishdan oldin',
+    'billing: obuna va kabinet holatini tekshirish — navbatga qo\'yishdan oldin',
     (tx) =>
-      tx.execute(sql`select status from subscription where business_id = ${businessId}`),
+      tx.execute(sql`
+        select
+          (select status from subscription where business_id = ${businessId} limit 1) as status,
+          (b.suspended_at is not null or b.deleted_at is not null) as "toxtatilgan"
+        from business b where b.id = ${businessId}
+      `),
   );
-  const status = (rows[0] as { status: SubscriptionStatus } | undefined)?.status;
-  return status === 'degraded' || status === 'cancelled';
+  const row = rows[0] as { status: SubscriptionStatus | null; toxtatilgan: boolean } | undefined;
+  if (!row || row.toxtatilgan) return true;
+  return row.status === 'degraded' || row.status === 'cancelled';
 }

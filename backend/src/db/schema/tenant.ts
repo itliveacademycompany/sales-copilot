@@ -61,6 +61,12 @@ export const business = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     /** Yumshoq o'chirish — FR-159: obuna tugagach ham 90 kun eksport huquqi. */
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /**
+     * SaaS: platforma admini kabinetni vaqtincha to'xtatgan payt. Null — faol.
+     * To'xtatilganda xodimlar kira olmaydi va yangi tahlil navbatga qo'yilmaydi,
+     * lekin ma'lumotlar o'chmaydi — qayta faollashtirish bir bosish.
+     */
+    suspendedAt: timestamp('suspended_at', { withTimezone: true }),
   },
   (t) => [uniqueIndex('business_slug_uq').on(t.slug)],
 );

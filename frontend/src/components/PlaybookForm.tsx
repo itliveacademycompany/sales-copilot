@@ -25,21 +25,39 @@ export type PlaybookBolim = 'mezonlar' | 'anketa' | 'xizmat' | 'oilalar' | 'ai';
 let idCounter = 0;
 const nextId = () => `tmp${++idCounter}`;
 
+/** Teg ro'yxatiga hali qo'shilmagan matnni qo'shadi (bo'sh yoki takror bo'lsa — o'zgarishsiz). */
+export function tegQosh(items: string[], draft: string): string[] {
+  const v = draft.trim();
+  if (!v || items.some((it) => it.toLowerCase() === v.toLowerCase())) return items;
+  return [...items, v];
+}
+
 export function TagList({
   items,
   onChange,
   placeholder,
+  draft: tashqiDraft,
+  onDraftChange,
 }: {
   items: string[];
   onChange: (v: string[]) => void;
   placeholder: string;
+  /**
+   * Yozilgan, lekin hali «+ Qo'shish» bosilmagan matn — ota komponent uni
+   * ko'rib tursin desa (masalan forma saqlanganda yo'qolmasin).
+   */
+  draft?: string;
+  onDraftChange?: (v: string) => void;
 }) {
   const t = useT();
-  const [draft, setDraft] = useState('');
+  const [ichkiDraft, setIchkiDraft] = useState('');
+  const draft = tashqiDraft ?? ichkiDraft;
+  const setDraft = onDraftChange ?? setIchkiDraft;
   const add = () => {
-    const v = draft.trim();
-    if (!v) return;
-    onChange([...items, v]);
+    if (!draft.trim()) return;
+    // Takror qo'shilmaydi (katta-kichik harf farqsiz) — yozilgani baribir tozalanadi
+    const yangi = tegQosh(items, draft);
+    if (yangi !== items) onChange(yangi);
     setDraft('');
   };
   return (

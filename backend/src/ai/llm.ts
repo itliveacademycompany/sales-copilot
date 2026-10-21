@@ -440,6 +440,19 @@ export class ZaxiraLlm implements LlmClient {
 }
 
 /**
+ * Platformada AI ishlata olmaydigan holat (faol provayder yoki kaliti yo'q).
+ * Alohida tur: HTTP qatlami uni "server buzildi" (500) emas, "AI sozlanmagan"
+ * (503) deb ko'rsata olsin va zaxira yo'lni tanlay olsin. Worker uchun bu
+ * oddiy `Error` — xulqi o'zgarmaydi.
+ */
+export class LlmSozlanmaganError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'LlmSozlanmaganError';
+  }
+}
+
+/**
  * Faol LLM provayderidan (va zaxiralaridan) klient yasash.
  *
  * Kalit bazada shifrlangan (admin panel orqali kiritiladi). Faol provayder
@@ -464,10 +477,10 @@ export async function getActiveLlm(): Promise<LlmClient> {
 
   const faol = qatorlar.find((q) => q.isActive);
   if (!faol) {
-    throw new Error('Faol LLM provayderi yo\'q — admin paneldan provayder qo\'shib faollashtiring');
+    throw new LlmSozlanmaganError('Faol LLM provayderi yo\'q — admin paneldan provayder qo\'shib faollashtiring');
   }
   if (!faol.apiKeyEncrypted) {
-    throw new Error('Faol provayderda API kaliti yo\'q');
+    throw new LlmSozlanmaganError('Faol provayderda API kaliti yo\'q');
   }
 
   const zaxiralar = qatorlar

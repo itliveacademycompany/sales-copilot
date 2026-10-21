@@ -1,11 +1,12 @@
-import { ArrowLeft, ArrowRight, ChevronLeft, LoaderCircle, Lock, Mail, Sparkles } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { ArrowLeft, ArrowRight, Building2, ChevronLeft, LoaderCircle, Lock, Mail, Sparkles } from 'lucide-react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { api, ApiError } from '../api';
 import { useAuth } from '../auth';
 import { LoginSahna } from '../components/login/LoginSahna';
 import { IkonliInput, ParolInput } from '../components/ParolInput';
-import { useT } from '../i18n';
+import { tarjima, useT } from '../i18n';
+import { useKabinet } from '../kabinet';
 
 /**
  * Ro'yxatdan o'tish yo'q: mahsulotni sotib olgan mijozga hisobni biz
@@ -30,6 +31,36 @@ export function Login() {
   /** Logo va strelka yorlig'i (ekran o'quvchilar va sichqoncha uchun). */
   const ORQAGA = t('Bosh sahifaga qaytish');
 
+  // SaaS: mijoz kabinetida (acme.) — nomi kartada, "orqaga" esa asosiy saytga (boshqa xost)
+  const kabinet = useKabinet();
+  const tenant = kabinet?.tur === 'tenant' ? kabinet : null;
+  const boshSahifa = (className: string, children: ReactNode, title?: string) =>
+    tenant ? (
+      <a href={tenant.rootUrl} className={className} aria-label={ORQAGA} title={title}>
+        {children}
+      </a>
+    ) : (
+      <Link to="/" className={className} aria-label={ORQAGA} title={title}>
+        {children}
+      </Link>
+    );
+
+  /** Server javobi → foydalanuvchiga tushunarli, joriy tildagi matn. */
+  function xatoMatni(err: unknown): string {
+    if (!(err instanceof ApiError)) return t("Server bilan bog'lanib bo'lmadi");
+    if (err.status === 429) {
+      return err.retryAfter
+        ? t("Juda ko'p urinish. {n} daqiqadan keyin qayta urinib ko'ring.", { n: Math.max(1, Math.ceil(err.retryAfter / 60)) })
+        : t("Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring.");
+    }
+    if (err.status >= 500) return t("Serverda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring.");
+    // Kabinetda «parolni unutdim» yo'q — qayerga murojaat qilishni aytamiz
+    if (err.status === 401 && tenant && mode === 'login') {
+      return t("Login yoki parol noto'g'ri. Parolni unutgan bo'lsangiz, administratorga murojaat qiling.");
+    }
+    return tarjima(err.message);
+  }
+
   function rejimgaOt(yangi: Rejim) {
     setMode(yangi);
     setError('');
@@ -50,7 +81,7 @@ export function Login() {
       await api.post('/api/v1/auth/login', { email, password });
       await refresh();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("Server bilan bog'lanib bo'lmadi"));
+      setError(xatoMatni(err));
     } finally {
       setBusy(false);
     }
@@ -59,7 +90,9 @@ export function Login() {
   const sarlavha = t(mode === 'login' ? 'Xush kelibsiz' : 'Parolni tiklash');
   const izoh =
     mode === 'login'
-      ? t('Davom etish uchun hisobingizga kiring')
+      ? tenant
+        ? t('«{nom}» kabinetiga kirish', { nom: tenant.name })
+        : t('Davom etish uchun hisobingizga kiring')
       : t('Email yoki loginingizni kiriting — tiklash havolasini yuboramiz');
   const tugmaMatni = t(mode === 'login' ? 'Kirish' : 'Tiklash havolasini yuborish');
 
@@ -75,23 +108,24 @@ export function Login() {
       </div>
 
       {/* Sahifaning o'ng yuqori burchagi — landing'ga ("Loyiha haqida") qaytish */}
-      <Link to="/" className="login-orqaga" aria-label={ORQAGA} title={ORQAGA}>
-        <ArrowLeft />
-      </Link>
+      {boshSahifa('login-orqaga', <ArrowLeft />, ORQAGA)}
 
       <div className="login-sahna">
         {/* ─── Chap panel: mahsulot taqdimoti (keng ekranda) ─── */}
         <aside className="login-taqdimot">
           {/* Logo ham landing'ga qaytaradi */}
           <div className="login-brend">
-            <Link to="/" className="login-logo" aria-label={ORQAGA}>
-              <span className="logo-belgi katta" aria-hidden="true">
-                <Sparkles />
-              </span>
-              <span className="logo-matn">
-                Sotuv<em>AI</em>
-              </span>
-            </Link>
+            {boshSahifa(
+              'login-logo',
+              <>
+                <span className="logo-belgi katta" aria-hidden="true">
+                  <Sparkles />
+                </span>
+                <span className="logo-matn">
+                  Sotuv<em>AI</em>
+                </span>
+              </>,
+            )}
           </div>
 
           <h1 className="taqdimot-sarlavha">
@@ -112,16 +146,25 @@ export function Login() {
         <form className="login-card" onSubmit={(e) => void submit(e)}>
           {/* Tor ekranda chap panel yashirin — logo kartaning o'zida */}
           <div className="login-karta-bosh">
-            <Link to="/" className="login-logo" aria-label={ORQAGA}>
-              <span className="logo-belgi" aria-hidden="true">
-                <Sparkles />
-              </span>
-              <span className="logo">
-                Sotuv<em>AI</em>
-              </span>
-            </Link>
+            {boshSahifa(
+              'login-logo',
+              <>
+                <span className="logo-belgi" aria-hidden="true">
+                  <Sparkles />
+                </span>
+                <span className="logo">
+                  Sotuv<em>AI</em>
+                </span>
+              </>,
+            )}
           </div>
 
+          {tenant && (
+            <div className="login-kabinet" title={`${tenant.slug}.${tenant.rootDomain}`}>
+              <Building2 aria-hidden="true" />
+              <span>{tenant.name}</span>
+            </div>
+          )}
           <h2 className="login-sarlavha">{sarlavha}</h2>
           <div className="kirish-izoh">{izoh}</div>
 
@@ -165,7 +208,8 @@ export function Login() {
                 <label className="maydon" htmlFor="l-parol">
                   {t('Parol')}
                 </label>
-                {mode === 'login' && (
+                {/* Mijoz kabinetida parolni faqat platforma admini beradi — o'zi tiklash yo'q */}
+                {mode === 'login' && !tenant && (
                   <a
                     href="#"
                     className="unutdim"

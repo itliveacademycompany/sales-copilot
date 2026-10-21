@@ -1,6 +1,7 @@
 import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api } from './api';
 import { useAuth } from './auth';
+import { useKabinet } from './kabinet';
 import { LUGAT } from './lugat';
 
 /**
@@ -154,6 +155,14 @@ export function TilProvider({ children }: { children: ReactNode }) {
     setTilHolat(profil);
     yoz(TIL_KALIT, profil);
   }, [user?.id, user?.locale]);
+
+  // SaaS: mijoz kabinetida mehmon hali til tanlamagan bo'lsa — biznes tili.
+  // "Kutilmoqda" belgisi qo'yilmaydi: bu tanlov emas, standart qiymat.
+  const kabinet = useKabinet();
+  useEffect(() => {
+    if (user || kabinet?.tur !== 'tenant' || oqi(TIL_KALIT)) return;
+    setTilHolat(normal(kabinet.locale));
+  }, [kabinet, user]);
 
   const setTil = useCallback((yangi: Til) => {
     setTilHolat(yangi);

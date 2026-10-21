@@ -6,6 +6,7 @@ import { validateSession } from '../auth/session.js';
 import { keshniTozala } from '../auth/context-cache.js';
 import { accessTekshir, type AccessInfo } from '../mcp/oauth.js';
 import { AppError } from './errors.js';
+import { hostDanSlug } from './tenant.js';
 
 export const SESSION_COOKIE = 'sid';
 
@@ -23,6 +24,12 @@ declare module 'fastify' {
     oauth: AccessInfo | null;
     /** Shu so'rovning Bearer tokeni — MCP vositalari ichki API chaqiruvida qayta ishlatadi. */
     bearerToken: string | null;
+    /**
+     * SaaS: so'rov kelgan subdomen (`acme.example.uz` → `acme`). Asosiy
+     * domenda null. O'rnatilgan bo'lsa, `auth.businesses` faqat shu
+     * biznes bilan cheklangan bo'ladi (`tenant.ts`).
+     */
+    tenantSlug: string | null;
   }
 }
 
@@ -69,8 +76,12 @@ export function registerAuth(app: FastifyInstance): void {
   app.decorateRequest('business', null);
   app.decorateRequest('oauth', null);
   app.decorateRequest('bearerToken', null);
+  app.decorateRequest('tenantSlug', null);
 
   app.addHook('onRequest', async (req: FastifyRequest, reply: FastifyReply) => {
+    // `hostname` — portsiz; ishlab chiqarishda (trustProxy) X-Forwarded-Host'dan
+    req.tenantSlug = hostDanSlug(req.hostname);
+
     const token = req.cookies[SESSION_COOKIE];
     if (!token) {
       await bearerniAniqla(req);
@@ -97,7 +108,7 @@ export function registerAuth(app: FastifyInstance): void {
       return;
     }
 
-    req.auth = ctx;
+    req.auth = tenantgaChekla(ctx, req.tenantSlug);
     req.sessionId = info.sessionId;
   });
 
@@ -168,9 +179,22 @@ async function bearerniAniqla(req: FastifyRequest): Promise<void> {
   }
   const ctx = await loadAuthContext(info.userId);
   if (!ctx) return;
-  req.auth = ctx;
+  req.auth = tenantgaChekla(ctx, req.tenantSlug);
   req.oauth = info;
   req.bearerToken = token;
+}
+
+/**
+ * SaaS izolyatsiyasi: subdomenda faqat o'sha biznes ko'rinadi.
+ *
+ * Kontekst keshlangan bo'lishi mumkin — shuning uchun nusxa olinadi,
+ * asl obyekt o'zgartirilmaydi. Foydalanuvchi bu biznesga a'zo bo'lmasa,
+ * ro'yxat bo'sh qoladi: `requireBusiness` har qanday biznesga 404
+ * qaytaradi, frontend esa "kirish huquqi yo'q" ekranini ko'rsatadi.
+ */
+export function tenantgaChekla(ctx: AuthContext, slug: string | null): AuthContext {
+  if (!slug) return ctx;
+  return { ...ctx, businesses: ctx.businesses.filter((b) => b.slug === slug) };
 }
 
 /** Marshrutga kirish uchun autentifikatsiya talab qiladi. */

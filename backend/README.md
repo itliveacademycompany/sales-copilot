@@ -624,6 +624,59 @@ tursa, uning worker sikli test skriptlari bilan BIR XIL navbat
 uchun raqobatlashadi (`FOR UPDATE SKIP LOCKED` — kim tezroq
 ulgursa). Testdan oldin dev serverni to'xtating.
 
+## SaaS: mijoz kabinetlari va subdomenlar
+
+Super admin **Sozlamalar → Mijozlar** da bitta tugma bilan yangi mijoz
+yaratadi; kabinet darhol `<slug>.<domen>` da ishlaydi. Alohida server,
+baza yoki deploy kerak emas — bitta baza, izolyatsiya RLS va so'rov
+xostida.
+
+```
+example.uz          asosiy sayt: landing, umumiy kirish, super admin
+acme.example.uz     faqat Acme kabineti — faqat Acme xodimlari kiradi
+xyz.example.uz      mavjud bo'lmasa — "Kabinet topilmadi"
+```
+
+- **Tenant xostdan aniqlanadi** (`http/tenant.ts`, `hostDanSlug`) va
+  kirgan foydalanuvchining bizneslar ro'yxati shu tenant bilan
+  **cheklanadi** (`auth-plugin.ts`, `tenantgaChekla`). Shu sababli
+  mavjud biznes marshrutlarining birortasi o'zgarmadi: `requireBusiness`
+  boshqa kabinet biznesiga avtomatik 404 qaytaradi, `/auth/context`
+  faqat shu biznesni beradi. Chegara serverda — frontend nimani
+  so'rashidan qat'i nazar.
+- **Subdomenda faqat o'z xodimi kira oladi** — login tekshiruvi sessiya
+  ochilishidan OLDIN. Xato matni parol xatosi bilan bir xil: begona odam
+  "bu email boshqa kabinetda bor" ekanini bilib ololmaydi.
+- **Zaxira va noto'g'ri subdomen asosiy saytga aylanmaydi** —
+  `admin.example.uz` "kabinet topilmadi" bo'ladi, umumiy kirish emas
+  (fishing uchun ishonchli manzil bo'lib qolmasin).
+- **Cookie host-only** (Domain atributisiz) — har kabinetning sessiyasi
+  alohida; bir kabinetdagi sessiya boshqasiga o'tmaydi.
+- **Yaratish bitta tranzaksiyada**: biznes + ega (bor emailga — yangi
+  a'zolik, FR-08) + sinov obunasi (`seatPrice` qulflanadi) + audit.
+  Egaga **7 kunlik, bir martalik taklif** — parol tiklash mexanizmi
+  (`createResetForUser`, uzun muddat bilan): ega parol qo'yib darhol
+  kabinetga kiradi.
+- **Subdomen qoidalari**: 3–40 belgi, `a-z0-9-`, chiziqcha chetda va
+  ketma-ket emas, zaxira so'zlar (`www`, `api`, `admin`, `login`…).
+  O'chirilgan bizneslarning subdomeni ham band hisoblanadi.
+- **Domen bitta sozlamada**: `WEB_ORIGIN` (ixtiyoriy `ROOT_DOMAIN`).
+  `https://example.uz` → kabinetlar `https://<slug>.example.uz`.
+  Frontend domenni o'zi bilmaydi — `GET /api/v1/public/tenant` dan oladi.
+- **TLS**: Caddy on-demand TLS uchun `GET /api/v1/public/tls-check?domain=`
+  — sertifikat faqat mavjud kabinetga beriladi (aks holda tasodifiy
+  subdomenlar Let's Encrypt limitini tugatardi).
+
+Lokal sinov: `http://<slug>.localhost:5173` (Chrome `*.localhost` ni
+o'zi 127.0.0.1 ga yo'naltiradi, Vite proxy `Host` ni saqlaydi).
+Test: `npm run verify:tenants` (34 tekshiruv — izolyatsiya, kirish
+cheklovi, taklif, subdomen almashtirish, TLS).
+
+⚠️ `POST /api/v1/auth/register` (ochiq ro'yxatdan o'tish) hali faol —
+interfeysda yo'q, lekin API orqali ishlaydi va testlar undan
+foydalanadi. Mijozlarni faqat super admin yaratishi kerak bo'lsa,
+ishlab chiqarishda uni o'chirish (yoki bayroq bilan yopish) kerak.
+
 ## Test ma'lumotlari o'zidan keyin tozalanadi
 
 `verify:*` skriptlari haqiqiy ro'yxatdan o'tish oqimidan foydalanadi —

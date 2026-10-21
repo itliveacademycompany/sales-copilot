@@ -141,6 +141,25 @@ const KIRISH: Lugat = {
     en: "You'll sign in with this login and password next time.",
     ru: 'В следующий раз входите с этим логином и паролем.',
   },
+
+  // ─── Kirish xatolari (server javobi → tushunarli matn) ───
+  "Login yoki parol noto'g'ri": { en: 'Incorrect login or password', ru: 'Неверный логин или пароль' },
+  "Login yoki parol noto'g'ri. Parolni unutgan bo'lsangiz, administratorga murojaat qiling.": {
+    en: 'Incorrect login or password. If you forgot your password, contact the administrator.',
+    ru: 'Неверный логин или пароль. Если вы забыли пароль, обратитесь к администратору.',
+  },
+  "Juda ko'p urinish. {n} daqiqadan keyin qayta urinib ko'ring.": {
+    en: 'Too many attempts. Try again in {n} min.',
+    ru: 'Слишком много попыток. Повторите через {n} мин.',
+  },
+  "Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring.": {
+    en: 'Too many attempts. Please try again a bit later.',
+    ru: 'Слишком много попыток. Повторите чуть позже.',
+  },
+  "Serverda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring.": {
+    en: 'A server error occurred. Please try again a bit later.',
+    ru: 'Произошла ошибка сервера. Повторите чуть позже.',
+  },
 };
 
 export default KIRISH;

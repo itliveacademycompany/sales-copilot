@@ -1819,6 +1819,32 @@ const SOZLAMALAR: Lugat = {
   },
   'Qayta generatsiya': { en: 'Regenerate', ru: 'Сгенерировать заново' },
   'Qabul qilish va davom etish': { en: 'Accept and continue', ru: 'Принять и продолжить' },
+  // ─── AI ishlamaganda: standart shablon (onboarding) ───
+  'Standart shablon asosida qoralama tayyor.': {
+    en: 'A draft based on the standard template is ready.',
+    ru: 'Черновик на основе стандартного шаблона готов.',
+  },
+  'AI provayder hali ulanmagan': { en: 'The AI provider is not connected yet', ru: 'AI-провайдер ещё не подключён' },
+  'AI hozir javob bermadi': { en: "The AI didn't respond right now", ru: 'AI сейчас не ответил' },
+  "mezonlar biznesingiz ma'lumotlariga moslandi. Tahrirlab qabul qiling; AI ulangach Sozlamalar → Baholash mezonlarida qayta yaratishingiz mumkin.": {
+    en: 'the criteria are tailored to your business details. Edit and accept; once AI is connected, you can regenerate them in Settings → Scoring criteria.',
+    ru: 'критерии адаптированы под данные вашего бизнеса. Отредактируйте и примите; после подключения AI их можно пересоздать в Настройки → Критерии оценки.',
+  },
+  'AI bilan qayta urinish': { en: 'Try again with AI', ru: 'Повторить с AI' },
+  "Saqlab bo'lmadi. Qayta urinib ko'ring.": { en: "Couldn't save. Please try again.", ru: 'Не удалось сохранить. Попробуйте ещё раз.' },
+  // Server xatolari (playbook / namunalar)
+  'AI provayder sozlanmagan — administrator admin paneldan provayder ulashi kerak': {
+    en: 'The AI provider is not configured — an administrator needs to connect one in the admin panel',
+    ru: 'AI-провайдер не настроен — администратору нужно подключить его в админ-панели',
+  },
+  "AI javob bermadi — birozdan keyin qayta urinib ko'ring": {
+    en: "The AI didn't respond — please try again a bit later",
+    ru: 'AI не ответил — повторите чуть позже',
+  },
+  "AI provayder sozlanmagan — namunalarni hozircha baholab bo'lmaydi": {
+    en: "The AI provider is not configured — samples can't be scored yet",
+    ru: 'AI-провайдер не настроен — оценить примеры пока нельзя',
+  },
   "Ulab bo'lmadi": { en: "Couldn't connect", ru: 'Не удалось подключить' },
   'Telegram botini ulang': { en: 'Connect your Telegram bot', ru: 'Подключите Telegram-бота' },
   "@BotFather orqali bot yarating va tokenini shu yerga kiriting. Sizning yozishmalaringiz avtomatik yig'ilib, baholanadi.": {

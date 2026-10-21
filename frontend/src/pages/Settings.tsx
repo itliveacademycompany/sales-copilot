@@ -2,6 +2,7 @@ import {
   Bell,
   Box,
   Building2,
+  Globe,
   CalendarDays,
   Check,
   CircleCheck,
@@ -49,6 +50,7 @@ import { IshJadvali } from '../components/sozlama/IshJadvali';
 import { Obuna } from '../components/sozlama/Obuna';
 import { CrmEksport, MoiZvonki, SttTanlash } from '../components/sozlama/Integratsiyalar';
 import { AiProvayderlar } from '../components/sozlama/AiProvayderlar';
+import { Mijozlar } from '../components/sozlama/Mijozlar';
 import { ClaudeUlanishi } from '../components/sozlama/ClaudeUlanishi';
 import { TanlovMenyu } from '../components/analitika/Ochiluvchi';
 import { ParolInput } from '../components/ParolInput';
@@ -84,6 +86,7 @@ type Bolim =
   | 'korinish'
   | 'biznes'
   | 'bizneslar'
+  | 'mijozlar'
   | 'bildirishnoma'
   | 'rahbarlar'
   | 'sotuvchilar'
@@ -143,6 +146,8 @@ export function Settings() {
     { key: 'korinish', nom: "Ko'rinish", guruh: 'umumiy', ikon: <Palette />, korinadi: true },
     { key: 'biznes', nom: 'Umumiy', guruh: 'umumiy', ikon: <Settings2 />, korinadi: bizneskoradi },
     { key: 'bizneslar', nom: 'Bizneslar', guruh: 'umumiy', ikon: <Building2 />, korinadi: true },
+    // SaaS: mijoz kabinetlarini yaratish — faqat platforma egasi (server boshqalarga 404)
+    { key: 'mijozlar', nom: 'Mijozlar', guruh: 'umumiy', ikon: <Globe />, korinadi: user?.systemRole === 'super_admin' },
     { key: 'bildirishnoma', nom: 'Bildirishnomalar', guruh: 'umumiy', ikon: <Bell />, korinadi: bizneskoradi },
     { key: 'rahbarlar', nom: 'Rahbarlar', guruh: 'umumiy', ikon: <UserRoundPlus />, korinadi: memberBoshqaradi },
     { key: 'sotuvchilar', nom: 'Menejerlar', guruh: 'umumiy', ikon: <UsersRound />, korinadi: seatBoshqaradi },
@@ -246,6 +251,7 @@ export function Settings() {
         {bolim.key === 'crmEksport' && business && <CrmEksport businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
         {bolim.key === 'stt' && <SttTanlash />}
         {bolim.key === 'aiProvayder' && <AiProvayderlar />}
+        {bolim.key === 'mijozlar' && <Mijozlar />}
         {bolim.key === 'claude' && <ClaudeUlanishi />}
         {bolim.key === 'kunlik' && <KunlikHisobotSozlama />}
       </div>

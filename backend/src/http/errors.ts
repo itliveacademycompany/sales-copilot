@@ -108,12 +108,13 @@ export function registerErrorHandler(app: FastifyInstance): void {
     }
 
     // ── Fastify o'zining xatolari (rate limit, payload hajmi...) ──
-    const known = err as { statusCode?: number; message?: string };
-    const status = known.statusCode ?? 500;
+    const known = err as { statusCode?: number; status?: unknown; message?: string; title?: string };
+    // Ba'zi plaginlar `statusCode` o'rniga `status` bilan obyekt otadi — u ham 4xx bo'lib qolsin
+    const status = known.statusCode ?? (typeof known.status === 'number' ? known.status : 500);
     if (status < 500) {
       reply.status(status).type('application/problem+json').send({
         type: 'about:blank#request-error',
-        title: known.message ?? 'So\'rov qabul qilinmadi',
+        title: known.message ?? known.title ?? 'So\'rov qabul qilinmadi',
         status,
         traceId,
       } satisfies Problem);

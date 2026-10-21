@@ -8,7 +8,7 @@ import { sql } from 'drizzle-orm';
 import { config, isProd } from '../config.js';
 import { db } from '../db/index.js';
 import { registerAuth } from './auth-plugin.js';
-import { registerErrorHandler } from './errors.js';
+import { AppError, registerErrorHandler } from './errors.js';
 import { registerAdminRoutes } from './routes/admin.js';
 import { registerAuthRoutes } from './routes/auth.js';
 import { registerAlertRoutes } from './routes/alerts.js';
@@ -30,6 +30,7 @@ import { registerPlaybookRoutes } from './routes/playbook.js';
 import { registerReportRoutes } from './routes/reports.js';
 import { registerSeatRoutes } from './routes/seats.js';
 import { registerTelegramRoutes } from './routes/telegram.js';
+import { registerTenantRoutes } from './routes/tenants.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -119,13 +120,20 @@ export async function buildApp(): Promise<FastifyInstance> {
       const userId = (req as { user?: { id?: string } }).user?.id;
       return userId ?? req.ip;
     },
-    // Javob boshqa xatolar bilan bir xil formatda (RFC 7807) bo'lishi uchun.
-    errorResponseBuilder: (_req, ctx) => ({
-      type: 'about:blank#too-many-requests',
-      title: 'Juda ko\'p so\'rov. Biroz kuting.',
-      status: 429,
-      detail: `Limit: ${ctx.max} / ${ctx.after}`,
-    }),
+    /**
+     * Plagin qaytarilgan qiymatni xato sifatida OTADI — shuning uchun oddiy
+     * obyekt emas, `AppError` bo'lishi shart. Ilgari `{ status: 429 }` obyekti
+     * qaytarilardi: xato ishlovchisi uni tanimay 500 "Serverda xatolik" berardi
+     * (masalan loginni ko'p marta xato terganda). Javob formati (RFC 7807)
+     * boshqa xatolar bilan bir xil; kutish vaqti `Retry-After` sarlavhasida.
+     */
+    errorResponseBuilder: (_req, ctx) =>
+      new AppError(
+        ctx.statusCode,
+        ctx.statusCode === 429 ? 'too-many-requests' : 'forbidden',
+        ctx.statusCode === 429 ? 'Juda ko\'p so\'rov. Biroz kuting.' : 'Bu amal uchun ruxsatingiz yo\'q',
+        `Limit: ${ctx.max}. ${Math.max(1, Math.ceil(ctx.ttl / 60_000))} daqiqadan keyin qayta urinib ko'ring.`,
+      ),
   });
 
   registerErrorHandler(app);
@@ -134,6 +142,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerOauthRoutes(app);
   registerMcpRoutes(app);
   registerAdminRoutes(app);
+  registerTenantRoutes(app);
   registerBusinessRoutes(app);
   registerMemberRoutes(app);
   registerSeatRoutes(app);

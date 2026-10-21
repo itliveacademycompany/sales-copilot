@@ -149,7 +149,7 @@ export interface LandingMatn {
     sarlavha: Sarlavha;
     matn: string;
     oqim: NomIzoh;
-    qatlamlar: Besh<NomIzoh & { qismlar: Uch<string> }>;
+    qatlamlar: Besh<NomIzoh>;
     rollar: NomIzoh;
     rolRoyxat: Besh<NomMatn>;
     rolEslatma: string;
@@ -441,15 +441,11 @@ const UZ: LandingMatn = {
     matn: "Ma'lumot manbadan interfeysgacha qanday oqadi va qaysi qoidalar hech qachon buzilmaydi.",
     oqim: { nom: "Ma'lumot oqimi", izoh: 'manbadan interfeysgacha' },
     qatlamlar: [
-      { nom: 'Manbalar', izoh: 'Suhbatlar qayerdan keladi', qismlar: ['Telegram Bot API', 'Moi Zvonki', "Qo'lda yuklash"] },
-      { nom: 'Backend', izoh: 'Qabul, navbat, worker', qismlar: ['Fastify 5 · Node 22', "Navbat Postgres'da", 'Retry + DLQ'] },
-      {
-        nom: 'AI qatlam',
-        izoh: 'Provayderdan mustaqil',
-        qismlar: ["Anthropic · OpenAI-uyg'un", 'Zaxira zanjiri', 'STT: Whisper / GigaAM'],
-      },
-      { nom: "Ma'lumotlar", izoh: "Bitta baza, qat'iy chegaralar", qismlar: ['PostgreSQL 16', 'Drizzle ORM', 'Row Level Security'] },
-      { nom: 'Interfeys', izoh: 'Siz hozir turgan joy', qismlar: ['React 18 · Vite', 'TypeScript', "O'zbek · Rus · Ingliz"] },
+      { nom: 'Manbalar', izoh: 'Suhbatlar qayerdan keladi' },
+      { nom: 'Backend', izoh: 'Qabul, navbat, worker' },
+      { nom: 'AI qatlam', izoh: 'Provayderdan mustaqil' },
+      { nom: "Ma'lumotlar", izoh: "Bitta baza, qat'iy chegaralar" },
+      { nom: 'Interfeys', izoh: 'Siz hozir turgan joy' },
     ],
     rollar: { nom: 'Rollar va ruxsatlar', izoh: "har kim faqat o'z doirasini ko'radi" },
     rolRoyxat: [
@@ -769,15 +765,11 @@ const RU: LandingMatn = {
     matn: 'Как данные проходят путь от источника до интерфейса и какие правила никогда не нарушаются.',
     oqim: { nom: 'Поток данных', izoh: 'от источника до интерфейса' },
     qatlamlar: [
-      { nom: 'Источники', izoh: 'Откуда приходят разговоры', qismlar: ['Telegram Bot API', 'Moi Zvonki', 'Ручная загрузка'] },
-      { nom: 'Бэкенд', izoh: 'Приём, очередь, воркер', qismlar: ['Fastify 5 · Node 22', 'Очередь в Postgres', 'Retry + DLQ'] },
-      {
-        nom: 'AI-слой',
-        izoh: 'Не зависит от провайдера',
-        qismlar: ['Anthropic · OpenAI-совместимые', 'Цепочка резервирования', 'STT: Whisper / GigaAM'],
-      },
-      { nom: 'Данные', izoh: 'Одна база, строгие границы', qismlar: ['PostgreSQL 16', 'Drizzle ORM', 'Row Level Security'] },
-      { nom: 'Интерфейс', izoh: 'Вы находитесь здесь', qismlar: ['React 18 · Vite', 'TypeScript', 'Узбекский · Русский · Английский'] },
+      { nom: 'Источники', izoh: 'Откуда приходят разговоры' },
+      { nom: 'Бэкенд', izoh: 'Приём, очередь, воркер' },
+      { nom: 'AI-слой', izoh: 'Не зависит от провайдера' },
+      { nom: 'Данные', izoh: 'Одна база, строгие границы' },
+      { nom: 'Интерфейс', izoh: 'Вы находитесь здесь' },
     ],
     rollar: { nom: 'Роли и права', izoh: 'каждый видит только свою зону' },
     rolRoyxat: [
@@ -1097,15 +1089,11 @@ const EN: LandingMatn = {
     matn: 'How data flows from source to interface, and which rules are never broken.',
     oqim: { nom: 'Data flow', izoh: 'from source to interface' },
     qatlamlar: [
-      { nom: 'Sources', izoh: 'Where conversations come from', qismlar: ['Telegram Bot API', 'Moi Zvonki', 'Manual upload'] },
-      { nom: 'Backend', izoh: 'Intake, queue, worker', qismlar: ['Fastify 5 · Node 22', 'Queue in Postgres', 'Retry + DLQ'] },
-      {
-        nom: 'AI layer',
-        izoh: 'Provider-agnostic',
-        qismlar: ['Anthropic · OpenAI-compatible', 'Fallback chain', 'STT: Whisper / GigaAM'],
-      },
-      { nom: 'Data', izoh: 'One database, strict boundaries', qismlar: ['PostgreSQL 16', 'Drizzle ORM', 'Row Level Security'] },
-      { nom: 'Interface', izoh: 'Where you are now', qismlar: ['React 18 · Vite', 'TypeScript', 'Uzbek · Russian · English'] },
+      { nom: 'Sources', izoh: 'Where conversations come from' },
+      { nom: 'Backend', izoh: 'Intake, queue, worker' },
+      { nom: 'AI layer', izoh: 'Provider-agnostic' },
+      { nom: 'Data', izoh: 'One database, strict boundaries' },
+      { nom: 'Interface', izoh: 'Where you are now' },
     ],
     rollar: { nom: 'Roles and permissions', izoh: 'everyone sees only their own scope' },
     rolRoyxat: [
