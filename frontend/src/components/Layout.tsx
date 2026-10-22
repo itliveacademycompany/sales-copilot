@@ -5,8 +5,11 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Columns3,
+  ContactRound,
   FileText,
-  Handshake,
+  ListChecks,
+  PlugZap,
   LayoutGrid,
   LogOut,
   Menu,
@@ -17,7 +20,8 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode, Suspense } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { crmdami, IlovaAlmashtirgich } from './IlovaAlmashtirgich';
 import { MANZIL_SAHIFA } from '../sahifalar';
 import { api, type BillingStatus } from '../api';
 import { useAuth } from '../auth';
@@ -80,7 +84,17 @@ export function Layout() {
    */
   const rahbar = business?.permissions.includes('analytics:read:all') ?? false;
   const ogohKoradi = business?.permissions.includes('alert:read') ?? false;
-  const crmKoradi = business?.permissions.includes('integration:manage') ?? false;
+  const crmUlaydi = business?.permissions.includes('integration:manage') ?? false;
+  const crmSozlaydi = business?.permissions.includes('business:write') ?? false;
+  /** Ichki CRM: rahbar — hammasi, sotuvchi — o'z bitimlari (server ham shunday tekshiradi). */
+  const crmIlova = Boolean(
+    business &&
+      (business.permissions.includes('analytics:read:all') ||
+        business.permissions.includes('task:read:all') ||
+        business.seatId),
+  );
+  const loc = useLocation();
+  const crmda = crmIlova && crmdami(loc.pathname);
 
   /**
    * Menyu ikki ko'rinishda: tor (ikon tepada, nom pastda) va keng.
@@ -156,6 +170,7 @@ export function Layout() {
             Sotuv<em>AI</em>
           </span>
         </div>
+        {crmIlova && <IlovaAlmashtirgich />}
       </div>
       {menyu && (
         <button className="fon-parda" aria-label={t('Menyuni yopish')} onClick={() => setMenyu(false)} />
@@ -173,20 +188,35 @@ export function Layout() {
 
         <div className="menyu-sarlavha">{t('Menyu')}</div>
         <nav className="nav-royxat" aria-label={t('Asosiy menyu')}>
-          {item('/', <LayoutGrid />, 'Bosh sahifa')}
-          {item('/qongiroqlar', <Phone />, 'Qo\'ng\'iroqlar')}
-          {item('/ai-chat', <MessagesSquare />, 'AI Chat')}
-          {rahbar && item('/analitika', <ChartNoAxesColumnIncreasing />, 'Analitika')}
-          {rahbar && item('/kunlik-hisobot', <CalendarDays />, 'Kunlik hisobot')}
-          {item('/lidlar', <FileText />, 'Lid xulosalari')}
-          {crmKoradi && item('/crm', <Handshake />, 'CRM')}
-          {ogohKoradi && item('/ogohlantirishlar', <Bell />, 'Ogohlantirishlar', unseen)}
+          {crmda ? (
+            <>
+              {/* CRM ilovasi menyusi — tepadagi almashtirgich bilan almashadi */}
+              {item('/crm/bitimlar', <Columns3 />, 'Bitimlar')}
+              {item('/crm/kontaktlar', <ContactRound />, 'Kontaktlar')}
+              {item('/crm/vazifalar', <ListChecks />, 'Vazifalar')}
+              {crmUlaydi && item('/crm/integratsiya', <PlugZap />, 'Integratsiya')}
+            </>
+          ) : (
+            <>
+              {item('/', <LayoutGrid />, 'Bosh sahifa')}
+              {item('/qongiroqlar', <Phone />, 'Qo\'ng\'iroqlar')}
+              {item('/ai-chat', <MessagesSquare />, 'AI Chat')}
+              {rahbar && item('/analitika', <ChartNoAxesColumnIncreasing />, 'Analitika')}
+              {rahbar && item('/kunlik-hisobot', <CalendarDays />, 'Kunlik hisobot')}
+              {item('/lidlar', <FileText />, 'Lid xulosalari')}
+              {/* Tashqi CRM (amoCRM, Bitrix24) ulash endi CRM ilovasida — /crm/integratsiya */}
+              {!crmIlova && crmUlaydi && item('/crm/integratsiya', <PlugZap />, 'CRM')}
+              {ogohKoradi && item('/ogohlantirishlar', <Bell />, 'Ogohlantirishlar', unseen)}
+            </>
+          )}
           {/* Suhbatlar, Vazifalar, Mezonlar, To'lov menyudan olib tashlandi —
               sahifalar manzili saqlanadi (boshqa bo'limlardagi havolalar ishlaydi) */}
         </nav>
 
         <div className="nav-pastki">
-          {item('/sozlamalar', <SozlamaIkon />, 'Sozlamalar')}
+          {crmda
+            ? crmSozlaydi && item('/crm/sozlamalar', <SozlamaIkon />, 'CRM sozlamalari')
+            : item('/sozlamalar', <SozlamaIkon />, 'Sozlamalar')}
           <div className="foot">
             <div className="ism">{user?.displayName}</div>
             <div>{user?.email}</div>
@@ -219,6 +249,11 @@ export function Layout() {
         </div>
       </aside>
       <main className="main">
+        {crmIlova && (
+          <div className="ilova-bar">
+            <IlovaAlmashtirgich />
+          </div>
+        )}
         {banner && (
           <NavLink
             to="/billing"

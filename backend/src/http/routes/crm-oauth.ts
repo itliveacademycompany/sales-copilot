@@ -101,14 +101,14 @@ export function registerCrmOauthRoutes(app: FastifyInstance): void {
     async (req, reply) => {
       const q = callbackQuery.parse(req.query);
       const h = q.state ? holatniTekshir(q.state) : null;
-      if (!h) return reply.redirect(`${rootUrl()}/crm?crm_xato=holat`);
+      if (!h) return reply.redirect(`${rootUrl()}/crm/integratsiya?crm_xato=holat`);
 
       const [biz] = await withoutTenantIsolation('CRM OAuth: qaytish manzili uchun biznes', (tx) =>
         tx.select({ slug: business.slug }).from(business).where(eq(business.id, h.businessId)).limit(1),
       );
       // Foydalanuvchi qayerdan boshlagan bo'lsa (imzolangan, start'da tekshirilgan) — o'sha yerga
-      const qayt = (natija: string) => `${h.qaytish ?? frontendUrl(biz?.slug ?? null)}/crm?${natija}`;
-      if (!biz) return reply.redirect(`${rootUrl()}/crm?crm_xato=holat`);
+      const qayt = (natija: string) => `${h.qaytish ?? frontendUrl(biz?.slug ?? null)}/crm/integratsiya?${natija}`;
+      if (!biz) return reply.redirect(`${rootUrl()}/crm/integratsiya?crm_xato=holat`);
       if (q.error || !q.code) return reply.redirect(qayt('crm_xato=rad'));
 
       const manzil = manzilniAjrat(q.referer ?? '');

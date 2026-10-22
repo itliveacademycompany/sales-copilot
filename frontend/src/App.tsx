@@ -93,6 +93,11 @@ export function App() {
    */
   const rahbar = business.permissions.includes('analytics:read:all');
   const crmKoradi = business.permissions.includes('integration:manage');
+  // Ichki CRM ilovasi (Layout dagi almashtirgich bilan bir xil shart)
+  const crmIlova =
+    business.permissions.includes('analytics:read:all') ||
+    business.permissions.includes('task:read:all') ||
+    Boolean(business.seatId);
 
   return (
     <Routes>
@@ -120,7 +125,8 @@ export function App() {
         <Route path="/playbook" element={<SAHIFA.playbook />} />
         <Route path="/billing" element={<SAHIFA.billing />} />
         <Route path="/sozlamalar" element={<SAHIFA.settings />} />
-        {crmKoradi && <Route path="/crm" element={<SAHIFA.crm />} />}
+        {crmIlova && <Route path="/crm/*" element={<SAHIFA.crmIlova />} />}
+        {!crmIlova && crmKoradi && <Route path="/crm/integratsiya" element={<SAHIFA.crm />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

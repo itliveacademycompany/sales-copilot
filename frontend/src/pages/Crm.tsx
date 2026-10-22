@@ -134,7 +134,7 @@ export function Crm() {
         ? { ok: true, matn: t('amoCRM bir tugmada ulandi. Lidlar bir necha daqiqada keladi.') }
         : { ok: false, matn: t(QAYTISH_XATO[kod ?? ''] ?? "Ulab bo'lmadi") },
     );
-    navigate('/crm', { replace: true });
+    navigate('/crm/integratsiya', { replace: true });
   }, [params, navigate, t]);
 
   const yukla = useCallback(async () => {

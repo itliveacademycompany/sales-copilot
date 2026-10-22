@@ -165,7 +165,7 @@ export function CrmLidlari({ almash }: { almash: ReactNode }) {
           <b>{t('CRM ulanmagan')}</b>
           <span>{t('CRM ni ulang — sdelkalar shu yerga avtomatik tushadi va har qo‘ng‘iroq o‘z lidiga bog‘lanadi.')}</span>
           {crmBoshqaradi ? (
-            <Link to="/crm" className="btn">
+            <Link to="/crm/integratsiya" className="btn">
               {t('CRM ni ulash')}
             </Link>
           ) : (
@@ -187,7 +187,7 @@ export function CrmLidlari({ almash }: { almash: ReactNode }) {
             <div className="crml-ogoh xato" role="alert">
               <span>
                 {t('Oxirgi importda xato: {xato}', { xato: t(d.sync.xato) })}{' '}
-                {crmBoshqaradi && <Link to="/crm">{t('CRM sozlamalari')}</Link>}
+                {crmBoshqaradi && <Link to="/crm/integratsiya">{t('CRM sozlamalari')}</Link>}
               </span>
             </div>
           )}

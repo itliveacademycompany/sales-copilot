@@ -1,0 +1,307 @@
+import { createContext, useContext } from 'react';
+import { useT } from '../i18n';
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ICHKI CRM — umumiy tiplar, kontekst va maydon kiritish
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Backend: `backend/src/crm/xizmat.ts`, marshrutlar `http/routes/crm-app.ts`.
+ */
+
+export type BosqichTuri = 'open' | 'won' | 'lost';
+
+export interface Bosqich {
+  id: string;
+  pipelineId: string;
+  name: string;
+  color: string;
+  kind: BosqichTuri;
+  sort: number;
+}
+
+export interface Voronka {
+  id: string;
+  name: string;
+  sort: number;
+  isMain: boolean;
+  stages: Bosqich[];
+}
+
+export interface Variant {
+  id: string;
+  label: string;
+}
+
+export type MaydonTuri =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'money'
+  | 'select'
+  | 'multiselect'
+  | 'date'
+  | 'datetime'
+  | 'checkbox'
+  | 'phone'
+  | 'url';
+
+export interface Maydon {
+  id: string;
+  code: string;
+  label: string;
+  type: MaydonTuri;
+  options: Variant[];
+  groupName: string | null;
+  sort: number;
+  required: boolean;
+}
+
+export interface CrmHolat {
+  enabled: boolean;
+  canConfigure: boolean;
+  scope: 'all' | 'own';
+  canManageAll: boolean;
+  seatId: string | null;
+  templates: { kod: 'bosh' | 'talim'; nom: string; tavsif: string; pipelines: number; fields: number }[];
+  pipelines: Voronka[];
+  fields: Maydon[];
+}
+
+export interface BitimKartasi {
+  id: string;
+  name: string;
+  amount: number | null;
+  pipelineId: string;
+  stageId: string;
+  responsibleSeatId: string | null;
+  responsibleName: string | null;
+  contactId: string | null;
+  contactName: string | null;
+  contactPhone: string | null;
+  stageEnteredAt: string;
+  createdAt: string;
+  updatedAt: string;
+  version: number;
+  nextTaskAt: string | null;
+  openTasks: number;
+}
+
+export interface KanbanUstun {
+  id: string;
+  name: string;
+  color: string;
+  kind: BosqichTuri;
+  sort: number;
+  count: number;
+  sum: number;
+  deals: BitimKartasi[];
+}
+
+export interface Seat {
+  id: string;
+  displayName: string;
+  isActive: boolean;
+}
+
+export interface CrmKontekstQiymat {
+  holat: CrmHolat;
+  /** `/api/v1/businesses/:id` */
+  base: string;
+  seatlar: Seat[];
+  yangila: () => Promise<void>;
+  /** Tashqi CRM (amoCRM/Bitrix24) ulash sahifasi ko'rinadimi. */
+  integratsiya: boolean;
+}
+
+export const CrmKontekst = createContext<CrmKontekstQiymat | null>(null);
+
+export function useCrm(): CrmKontekstQiymat {
+  const k = useContext(CrmKontekst);
+  if (!k) throw new Error('useCrm CrmIlova ichida ishlatiladi');
+  return k;
+}
+
+/** Bosqichni ID bo'yicha topish (hamma voronkalardan). */
+export function bosqichTop(holat: CrmHolat, id: string): (Bosqich & { voronka: string }) | null {
+  for (const v of holat.pipelines) {
+    const b = v.stages.find((s) => s.id === id);
+    if (b) return { ...b, voronka: v.name };
+  }
+  return null;
+}
+
+export const MAYDON_TURI_NOMI: Record<MaydonTuri, string> = {
+  text: 'Matn',
+  textarea: 'Uzun matn',
+  number: 'Raqam',
+  money: 'Pul',
+  select: "Ro'yxat (bitta)",
+  multiselect: "Ro'yxat (bir nechta)",
+  date: 'Sana',
+  datetime: 'Sana va vaqt',
+  checkbox: 'Belgi (ha/yo‘q)',
+  phone: 'Telefon',
+  url: 'Havola',
+};
+
+/** Maydon qiymatini matn ko'rinishida (jadval va tarix uchun). */
+export function qiymatMatni(m: Maydon | undefined, v: unknown, t: (s: string) => string): string {
+  if (v === null || v === undefined || v === '') return '—';
+  if (!m) return String(v);
+  switch (m.type) {
+    case 'select':
+      return m.options.find((o) => o.id === v)?.label ?? '—';
+    case 'multiselect':
+      return Array.isArray(v) ? v.map((x) => m.options.find((o) => o.id === x)?.label ?? '').filter(Boolean).join(', ') : '—';
+    case 'checkbox':
+      return v ? t('Ha') : t("Yo'q");
+    case 'datetime': {
+      const d = new Date(String(v));
+      return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' });
+    }
+    case 'date': {
+      const [y, mo, k] = String(v).split('-');
+      return y && mo && k ? `${k}.${mo}.${y}` : String(v);
+    }
+    case 'money':
+      return pul(Number(v));
+    default:
+      return String(v);
+  }
+}
+
+/** "1 500 000" — minglik ajratgich bilan, valyutasiz. */
+export function pul(n: number | null | undefined): string {
+  if (n === null || n === undefined || !Number.isFinite(n)) return '—';
+  return Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+/** ISO → `datetime-local` qiymati (mahalliy vaqtda). */
+export function mahalliyVaqt(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** Muddat holati: o'tgan / bugun / keyin. */
+export function muddatHolati(iso: string | null): 'otgan' | 'bugun' | 'keyin' | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  const hozir = new Date();
+  if (d.getTime() < hozir.getTime()) return 'otgan';
+  if (d.toDateString() === hozir.toDateString()) return 'bugun';
+  return 'keyin';
+}
+
+/** Maydon turiga mos kiritish elementi. Qiymat — backend saqlaydigan shaklda. */
+export function MaydonKiritish({
+  m,
+  qiymat,
+  onChange,
+  id,
+}: {
+  m: Maydon;
+  qiymat: unknown;
+  onChange: (v: unknown) => void;
+  id: string;
+}) {
+  const t = useT();
+  switch (m.type) {
+    case 'textarea':
+      return <textarea id={id} rows={3} value={(qiymat as string) ?? ''} maxLength={5000} onChange={(e) => onChange(e.target.value)} />;
+    case 'number':
+    case 'money':
+      return (
+        <input
+          id={id}
+          className="input"
+          inputMode="decimal"
+          value={qiymat === null || qiymat === undefined ? '' : String(qiymat)}
+          onChange={(e) => {
+            const s = e.target.value.replace(/[^\d.,\s-]/g, '');
+            onChange(s === '' ? null : s);
+          }}
+        />
+      );
+    case 'select':
+      return (
+        <select id={id} className="input" value={(qiymat as string) ?? ''} onChange={(e) => onChange(e.target.value || null)}>
+          <option value="">{t('— tanlanmagan —')}</option>
+          {m.options.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      );
+    case 'multiselect': {
+      const tanlangan = Array.isArray(qiymat) ? (qiymat as string[]) : [];
+      return (
+        <div className="ci-kopli" id={id} role="group">
+          {m.options.map((o) => {
+            const bor = tanlangan.includes(o.id);
+            return (
+              <button
+                type="button"
+                key={o.id}
+                className={`ci-chip${bor ? ' faol' : ''}`}
+                aria-pressed={bor}
+                onClick={() => onChange(bor ? tanlangan.filter((x) => x !== o.id) : [...tanlangan, o.id])}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+    case 'date':
+      return <input id={id} className="input" type="date" value={(qiymat as string) ?? ''} onChange={(e) => onChange(e.target.value || null)} />;
+    case 'datetime':
+      return (
+        <input
+          id={id}
+          className="input"
+          type="datetime-local"
+          value={mahalliyVaqt(qiymat as string)}
+          onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : null)}
+        />
+      );
+    case 'checkbox':
+      return (
+        <label className="ci-belgi">
+          <input id={id} type="checkbox" checked={qiymat === true} onChange={(e) => onChange(e.target.checked)} />
+          <span>{qiymat === true ? t('Ha') : t("Yo'q")}</span>
+        </label>
+      );
+    case 'phone':
+      return <input id={id} className="input" type="tel" value={(qiymat as string) ?? ''} maxLength={40} onChange={(e) => onChange(e.target.value)} />;
+    case 'url':
+      return <input id={id} className="input" type="url" placeholder="https://" value={(qiymat as string) ?? ''} maxLength={500} onChange={(e) => onChange(e.target.value)} />;
+    default:
+      return <input id={id} className="input" value={(qiymat as string) ?? ''} maxLength={500} onChange={(e) => onChange(e.target.value)} />;
+  }
+}
+
+/** Kiritilgan qiymatni yuborishdan oldin tozalash (raqamlar — son). */
+export function qiymatniTayyorla(m: Maydon, v: unknown): unknown {
+  if (v === '' || v === undefined) return null;
+  if ((m.type === 'number' || m.type === 'money') && typeof v === 'string') {
+    const n = Number(v.replace(/\s/g, '').replace(',', '.'));
+    return Number.isFinite(n) ? n : v;
+  }
+  return v;
+}
+
+/** Maydonlarni guruhlarga ajratish (guruhsizlari "Umumiy"). */
+export function guruhla(maydonlar: Maydon[]): { nom: string; maydonlar: Maydon[] }[] {
+  const g = new Map<string, Maydon[]>();
+  for (const m of maydonlar) {
+    const k = m.groupName || 'Umumiy';
+    g.set(k, [...(g.get(k) ?? []), m]);
+  }
+  return [...g.entries()].map(([nom, maydonlar]) => ({ nom, maydonlar }));
+}

@@ -36,6 +36,8 @@ export const contact = pgTable(
 
     name: text('name'),
     phone: text('phone'),
+    /** Ichki CRM uchun (kontakt kartochkasi). */
+    email: text('email'),
     telegramId: text('telegram_id'),
     company: text('company'),
     role: text('role'),
