@@ -5,6 +5,7 @@ import { getActiveLlm, LlmRefusalError, type LlmClient } from '../ai/llm.js';
 import { runBillingTick } from '../billing/engine.js';
 import { dispatchTaskExports } from '../integrations/crm-export.js';
 import { dispatchCrmWriteback } from '../integrations/crm/yozish.js';
+import { crmLidlarniSinxronla } from '../integrations/crm/lidlar.js';
 import { oldindanTranskriptQil, qongiroqlarniQaytaIshla, sinxronla } from '../integrations/moizvonki.js';
 import { runDailyReportTick } from '../reports/daily.js';
 import { markOverdueCommitments } from './maintenance.js';
@@ -81,6 +82,8 @@ let loopPromise: Promise<void> | null = null;
  * bir vaqtda ikki nusxa ishlab, bir qo'ng'iroqni ikki marta olmasin.
  */
 let mzSinxronBand = false;
+/** CRM lidlari importi davom etyaptimi — birinchi to'liq import bir necha daqiqa olishi mumkin. */
+let crmLidBand = false;
 let mzQaytaIshlashBand = false;
 let mzSttBand = false;
 
@@ -95,6 +98,7 @@ export function startWorkerLoop(log: {
     let lastSweep = 0;
     let lastNotify = 0;
     let lastMzSync = 0;
+    let lastCrmLid = 0;
     let lastMzProcess = 0;
     let lastMzStt = 0;
     let lastReclaim = 0;
@@ -158,6 +162,27 @@ export function startWorkerLoop(log: {
          * kutayotganlarni baholash — har 15 soniyada (bir tikda MOIZVONKI_PARALLEL tadan, standart 2).
          * Ikkalasi ham fonda — sabab yuqoridagi bayroqlar izohida.
          */
+        /**
+         * CRM lidlari (sdelkalar) — har daqiqada, fonda. O'zgarish bo'lmasa
+         * bitta arzon so'rov; birinchi import tikma-tik davom etadi.
+         */
+        if (now - lastCrmLid > 60_000 && !crmLidBand) {
+          lastCrmLid = now;
+          crmLidBand = true;
+          void crmLidlarniSinxronla()
+            .then((r) => {
+              const saqlandi = r.reduce((n, x) => n + x.saqlandi, 0);
+              if (saqlandi > 0) log.info({ saqlandi }, 'CRM: lidlar yangilandi');
+              for (const x of r) {
+                if (x.xato) log.error({ businessId: x.businessId, xato: x.xato }, 'CRM: lidlar importi xatosi');
+              }
+            })
+            .catch((err: unknown) => log.error({ err }, 'CRM: lidlar importi yiqildi'))
+            .finally(() => {
+              crmLidBand = false;
+            });
+        }
+
         if (now - lastMzSync > 120_000 && !mzSinxronBand) {
           lastMzSync = now;
           mzSinxronBand = true;

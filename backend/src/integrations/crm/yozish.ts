@@ -1,5 +1,4 @@
 import { and, asc, eq, gte, inArray, isNull, or, sql } from 'drizzle-orm';
-import { decryptSecret } from '../../crypto/secrets.js';
 import { withoutTenantIsolation, withTenant, type Tx } from '../../db/index.js';
 import {
   analysis,
@@ -13,7 +12,8 @@ import {
 } from '../../db/schema/index.js';
 import { frontendUrl } from '../../http/tenant.js';
 import { CrmXato, type CrmKontekst, type CrmYozuv } from './adapter.js';
-import { ADAPTERLAR, CRM_TURLARI, crmConfigniOl, sozlamaniOl } from './index.js';
+import { ADAPTERLAR, CRM_TURLARI, sozlamaniOl } from './index.js';
+import { kontekstQur } from './kontekst.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -258,13 +258,8 @@ export async function dispatchCrmWriteback(): Promise<YozishNatija> {
     const sozlama = sozlamaniOl(u.config);
     if (!adapter || !u.creds || (!sozlama.izoh && !sozlama.vazifa)) continue;
 
-    let sir: string;
-    try {
-      sir = decryptSecret(u.creds);
-    } catch {
-      continue;
-    }
-    const ctx: CrmKontekst = { config: crmConfigniOl(u.config), sir };
+    const ctx = kontekstQur({ id: u.id, businessId: u.businessId, config: u.config, creds: u.creds });
+    if (!ctx) continue;
     const boshlanish = sozlama.boshlanish ? new Date(sozlama.boshlanish) : new Date(0);
     const asosiy = { businessId: u.businessId, integrationId: u.id, kind };
 

@@ -188,6 +188,33 @@
 .crm-foydalanuvchilar li.nofaol { color: var(--text-muted); }
 .crm-teg { font-size: 11px; font-weight: 600; color: var(--text-muted); }
 
+/* ─── amoCRM dan qaytish natijasi, OAuth izohi ─── */
+.crm-qaytish { display: flex; align-items: center; gap: 8px; margin: 0; }
+.crm-qaytish svg { width: 18px; height: 18px; flex: none; }
+.crm-oauth-izoh { margin: -4px 0 0; }
+.crm-oauth-izoh a { color: var(--ia-text); font-weight: 600; }
+
+/* ─── Lidlar bo'limi ─── */
+.crm-lid-holat { display: flex; align-items: stretch; gap: 14px; flex-wrap: wrap; }
+.crm-lid-holat .crm-raqam { min-width: 150px; }
+.crm-lid-matn { flex: 1 1 260px; display: flex; flex-direction: column; justify-content: center; gap: 4px; font-size: 13.5px; }
+.crm-lid-jarayon { display: inline-flex; align-items: center; gap: 6px; color: var(--info-text); font-weight: 600; }
+.crm-lid-jarayon svg { width: 15px; height: 15px; }
+.crm-lid-xato { color: var(--past-text); font-size: 13px; }
+.crm-bolim .btn { text-decoration: none; }
+.crm-voronka-tanlov {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.crm-voronka-tanlov legend { padding: 0 6px; font-weight: 600; font-size: 13.5px; }
+.crm-voronka-tanlov label { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.crm-voronka-tanlov .crm-tugmalar { margin-top: 4px; }
+
 /* ─── Qanday ishlaydi (hech qaysi CRM ulanmaganda) ─── */
 .crm-qanday h2 { margin: 6px 0 12px; font-size: 16px; }
 .crm-qanday ol {
@@ -238,3 +265,4 @@
   .crm-jurnal li { grid-template-columns: auto minmax(0, 1fr); }
   .crm-jurnal time { grid-column: 2; }
 }
+.crm-ogoh-matn { color: var(--orta-text); }

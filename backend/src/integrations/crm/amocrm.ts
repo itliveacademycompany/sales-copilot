@@ -5,6 +5,7 @@ import {
   vaqtliFetch,
   type CrmAdapter,
   type CrmKontekst,
+  type CrmLid,
   type CrmTuzilish,
   type CrmYozuv,
 } from './adapter.js';
@@ -318,6 +319,215 @@ function entityYoli(y: CrmYozuv): string {
   return y.tur === 'deal' ? 'leads' : 'contacts';
 }
 
+// ─── OAuth (bir tugmada ulash) ───────────────────────────────────────────────
+
+/**
+ * OAuth juftligi `sir` ichida JSON bo'lib saqlanadi. Uzoq muddatli token esa
+ * oddiy satr — ikkalasini shu belgi ajratadi.
+ */
+export interface AmoOauthSir {
+  t: 'oauth';
+  access: string;
+  refresh: string;
+  /** access token tugash vaqti (unix soniya). */
+  exp: number;
+}
+
+export function oauthSirmi(sir: string): AmoOauthSir | null {
+  if (!sir.startsWith('{')) return null;
+  try {
+    const j = JSON.parse(sir) as Partial<AmoOauthSir>;
+    return j.t === 'oauth' && typeof j.access === 'string' && typeof j.refresh === 'string' && typeof j.exp === 'number'
+      ? (j as AmoOauthSir)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/** So'rov uchun token: OAuth bo'lsa yangilanadigan access, bo'lmasa uzoq muddatli token. */
+async function amoToken(k: CrmKontekst): Promise<string> {
+  if (k.token) return k.token();
+  return oauthSirmi(k.sir)?.access ?? k.sir;
+}
+
+/**
+ * Foydalanuvchi ruxsat beradigan sahifa. `state` — imzolangan, qaytishda
+ * tekshiriladi. `mode=popup` — ruxsatdan keyin asosiy oyna redirect
+ * manziliga o'tadi (popup bloklanmaydi, chunki sahifaning o'zi ochiladi).
+ */
+export function oauthHavola(clientId: string, state: string): string {
+  const q = new URLSearchParams({ client_id: clientId, state, mode: 'popup' });
+  return `https://www.amocrm.ru/oauth?${q.toString()}`;
+}
+
+const tokenJavob = z.object({
+  access_token: z.string().min(10),
+  refresh_token: z.string().min(10),
+  expires_in: z.coerce.number().positive(),
+});
+
+/**
+ * Kodni (20 daqiqa amal qiladi) yoki refresh tokenni (BIR MARTALIK!) yangi
+ * juftlikka almashtiradi. So'rov foydalanuvchi hisobiga ketadi — manzil
+ * avval `manzilniAjrat` dan o'tgan bo'lishi shart (SSRF).
+ */
+export async function oauthAlmashtir(
+  m: AmoManzil,
+  p: { clientId: string; clientSecret: string; redirectUri: string } & (
+    | { tur: 'kod'; kod: string }
+    | { tur: 'yangilash'; refresh: string }
+  ),
+): Promise<AmoOauthSir> {
+  const tana = {
+    client_id: p.clientId,
+    client_secret: p.clientSecret,
+    redirect_uri: p.redirectUri,
+    ...(p.tur === 'kod'
+      ? { grant_type: 'authorization_code', code: p.kod }
+      : { grant_type: 'refresh_token', refresh_token: p.refresh }),
+  };
+  let res: Response;
+  try {
+    res = await vaqtliFetch(`${apiManzil(m)}/oauth2/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(tana),
+    });
+  } catch {
+    throw new CrmXato('tarmoq', "amoCRM ga ulanib bo'lmadi — manzil va internetni tekshiring");
+  }
+  if (res.status === 400 || res.status === 401) {
+    throw new CrmXato(
+      'token',
+      p.tur === 'kod'
+        ? 'amoCRM ruxsat kodini qabul qilmadi — «amoCRM bilan ulash» ni qaytadan bosing'
+        : "amoCRM ruxsati bekor qilingan yoki muddati o'tgan — amoCRM ni qayta ulang",
+    );
+  }
+  if (!res.ok) throw holatXatosi(res.status);
+  const j = tokenJavob.safeParse(await res.json().catch(() => null));
+  if (!j.success) throw new CrmXato('server', "amoCRM token javobini o'qib bo'lmadi");
+  return {
+    t: 'oauth',
+    access: j.data.access_token,
+    refresh: j.data.refresh_token,
+    exp: Math.floor(Date.now() / 1000) + j.data.expires_in,
+  };
+}
+
+// ─── Lidlar (sdelkalar) ──────────────────────────────────────────────────────
+
+const lidlarJavob = z.object({
+  _embedded: z.object({
+    leads: z.array(
+      z.object({
+        id: z.number(),
+        name: z.string().nullish(),
+        price: z.number().nullish(),
+        responsible_user_id: z.number().nullish(),
+        status_id: z.number().nullish(),
+        pipeline_id: z.number().nullish(),
+        created_at: z.number().nullish(),
+        updated_at: z.number(),
+        closed_at: z.number().nullish(),
+        is_deleted: z.boolean().nullish(),
+        _embedded: z
+          .object({ contacts: z.array(z.object({ id: z.number(), is_main: z.boolean().nullish() })).nullish() })
+          .nullish(),
+      }),
+    ),
+  }),
+});
+
+const LID_SAHIFA = 250;
+
+interface AmoKursor {
+  /** `updated_at` shu qiymatdan (shu jumladan) boshlab. */
+  dan: number;
+  sahifa: number;
+}
+
+function kursorniOqi(k: string | null): AmoKursor {
+  try {
+    const j = k ? (JSON.parse(k) as Partial<AmoKursor>) : {};
+    return { dan: Number(j.dan) || 0, sahifa: Math.max(1, Number(j.sahifa) || 1) };
+  } catch {
+    return { dan: 0, sahifa: 1 };
+  }
+}
+
+/**
+ * O'zgargan sdelkalar — `updated_at` o'sish tartibida, 250 tadan.
+ *
+ * Keyingi joy: sahifadagi eng katta `updated_at` (shu jumladan — chegaradagi
+ * lid ikki marta kelsa ham upsert zararsiz). Agar butun sahifa BIR XIL
+ * vaqtga ega bo'lsa (ommaviy tahrir), vaqt siljimaydi — shunda sahifa raqami
+ * oshiriladi, aks holda sinxronlash bir joyda aylanib qolardi.
+ */
+async function lidlarniOl(m: AmoManzil, token: string, kursor: string | null) {
+  const k = kursorniOqi(kursor);
+  const filtr = k.dan > 0 ? `&filter[updated_at][from]=${k.dan}` : '';
+  const r = await chaqir<unknown>(
+    m,
+    token,
+    `/api/v4/leads?with=contacts&limit=${LID_SAHIFA}&page=${k.sahifa}&order[updated_at]=asc${filtr}`,
+  );
+  const j = r ? lidlarJavob.safeParse(r) : null;
+  if (j && !j.success) throw new CrmXato('server', "amoCRM sdelkalar ro'yxatini o'qib bo'lmadi");
+  const hammasi = j?.data._embedded.leads ?? [];
+  const xom = hammasi.filter((l) => !l.is_deleted);
+
+  // Asosiy kontaktlar: ism va telefon (250 tadan bitta so'rov)
+  const kontaktId = new Map<number, number>();
+  for (const l of xom) {
+    const c = l._embedded?.contacts ?? [];
+    const asosiy = c.find((x) => x.is_main) ?? c[0];
+    if (asosiy) kontaktId.set(l.id, asosiy.id);
+  }
+  const kontaktlar = new Map<number, { nom: string | null; telefonlar: string[] }>();
+  const idlar = [...new Set(kontaktId.values())];
+  for (let i = 0; i < idlar.length; i += 250) {
+    const bolak = idlar.slice(i, i + 250);
+    const kr = await chaqir<unknown>(m, token, `/api/v4/contacts?limit=250&${bolak.map((id) => `filter[id][]=${id}`).join('&')}`);
+    const kj = kr ? kontaktlarJavob.safeParse(kr) : null;
+    for (const c of kj?.success ? kj.data._embedded.contacts : []) {
+      const telefonlar = (c.custom_fields_values ?? [])
+        .filter((f) => f.field_code === 'PHONE')
+        .flatMap((f) => (f.values ?? []).map((v) => String(v.value ?? '').trim()))
+        .filter(Boolean);
+      kontaktlar.set(c.id, { nom: c.name ?? null, telefonlar });
+    }
+  }
+
+  const sekund = (v: number | null | undefined) => (v ? new Date(v * 1000) : null);
+  const lidlar: CrmLid[] = xom.map((l) => {
+    const cid = kontaktId.get(l.id);
+    const c = cid ? kontaktlar.get(cid) : undefined;
+    return {
+      id: String(l.id),
+      nom: l.name ?? null,
+      voronkaId: l.pipeline_id ? String(l.pipeline_id) : null,
+      bosqichId: l.status_id ? String(l.status_id) : null,
+      summa: l.price ?? null,
+      masulId: l.responsible_user_id ? String(l.responsible_user_id) : null,
+      kontaktId: cid ? String(cid) : null,
+      kontaktNom: c?.nom ?? null,
+      telefonlar: c?.telefonlar ?? [],
+      yaratilgan: sekund(l.created_at),
+      yangilangan: new Date(l.updated_at * 1000),
+      yopilgan: sekund(l.closed_at),
+      url: `${hisobManzili(m)}/leads/detail/${l.id}`,
+    };
+  });
+
+  const toliq = hammasi.length >= LID_SAHIFA;
+  const engKatta = Math.max(k.dan, ...hammasi.map((l) => l.updated_at));
+  const keyingi: AmoKursor =
+    toliq && engKatta === k.dan ? { dan: k.dan, sahifa: k.sahifa + 1 } : { dan: engKatta, sahifa: 1 };
+  return { lidlar, kursor: JSON.stringify(keyingi), tugadi: !toliq };
+}
+
 // ─── Adapter ─────────────────────────────────────────────────────────────────
 
 function kontekstdan(k: CrmKontekst): AmoManzil {
@@ -352,7 +562,9 @@ export const amocrmAdapter: CrmAdapter = {
     const manzil = manzilniAjrat(kirish.address ?? '');
     if (!manzil) throw new CrmXato('kirish', "Manzil noto'g'ri. Masalan: kompaniya.amocrm.ru");
     const ozgarmagan = eski?.config.subdomain === manzil.subdomain && eski.config.baseDomain === manzil.baseDomain;
-    const token = (kirish.token ?? '').trim() || (ozgarmagan ? eski?.sir : '') || '';
+    // OAuth bilan ulangan bo'lsa, eski "sir" token emas — yangisini kiritish shart
+    const eskiToken = eski && !oauthSirmi(eski.sir) ? eski.sir : '';
+    const token = (kirish.token ?? '').trim() || (ozgarmagan ? eskiToken : '') || '';
     if (!token) throw new CrmXato('kirish', 'Uzoq muddatli tokenni kiriting');
 
     const hisob = await hisobniTekshir(manzil, token);
@@ -367,6 +579,7 @@ export const amocrmAdapter: CrmAdapter = {
         address: `${manzil.subdomain}.${manzil.baseDomain}`,
         accountId: hisob.id,
         accountName: hisob.name,
+        authType: 'token',
       },
       sir: token,
       tokenExpiresAt: muddat,
@@ -376,16 +589,18 @@ export const amocrmAdapter: CrmAdapter = {
   },
 
   async tekshir(k) {
-    const h = await hisobniTekshir(kontekstdan(k), k.sir);
+    const h = await hisobniTekshir(kontekstdan(k), await amoToken(k));
     return { nom: h.name };
   },
 
-  tuzilish: (k) => tuzilishniOl(kontekstdan(k), k.sir),
+  tuzilish: async (k) => tuzilishniOl(kontekstdan(k), await amoToken(k)),
 
-  topish: (k, telefon) => telefondanTop(kontekstdan(k), k.sir, telefon),
+  topish: async (k, telefon) => telefondanTop(kontekstdan(k), await amoToken(k), telefon),
+
+  lidlar: async (k, kursor) => lidlarniOl(kontekstdan(k), await amoToken(k), kursor),
 
   async izoh(k, y, matn) {
-    const r = await chaqir<unknown>(kontekstdan(k), k.sir, `/api/v4/${entityYoli(y)}/${y.id}/notes`, 'POST', [
+    const r = await chaqir<unknown>(kontekstdan(k), await amoToken(k), `/api/v4/${entityYoli(y)}/${y.id}/notes`, 'POST', [
       { note_type: 'common', params: { text: matn } },
     ]);
     const j = yaratildiJavob('notes').safeParse(r);
@@ -393,7 +608,7 @@ export const amocrmAdapter: CrmAdapter = {
   },
 
   async vazifa(k, y, v) {
-    const r = await chaqir<unknown>(kontekstdan(k), k.sir, '/api/v4/tasks', 'POST', [
+    const r = await chaqir<unknown>(kontekstdan(k), await amoToken(k), '/api/v4/tasks', 'POST', [
       {
         task_type_id: 1, // «Связаться»
         text: `${v.sarlavha}${v.matn ? `\n${v.matn}` : ''}`.slice(0, 2000),

@@ -6,6 +6,7 @@ import {
   vaqtliFetch,
   type CrmAdapter,
   type CrmKontekst,
+  type CrmLid,
   type CrmTuzilish,
   type CrmYozuv,
 } from './adapter.js';
@@ -63,6 +64,9 @@ function bazaManzil(w: BitrixWebhook): string {
 
 interface BitrixJavob<T> {
   result?: T;
+  /** Ro'yxat usullarida keyingi sahifaning `start` qiymati (bo'lmasa — oxirgi sahifa). */
+  next?: number;
+  total?: number;
   error?: string;
   error_description?: string;
 }
@@ -89,6 +93,11 @@ function xatoTuri(status: number, kod: string | undefined): CrmXato {
 
 /** Bitrix24 REST usuli. Hamma so'rov POST + JSON (Bitrix24 ikkalasini ham qabul qiladi). */
 export async function bitrixChaqir<T>(w: BitrixWebhook, usul: string, param: Record<string, unknown> = {}): Promise<T> {
+  return (await bitrixSorov<T>(w, usul, param)).result as T;
+}
+
+/** To'liq javob — ro'yxat usullarida `next` kerak bo'lganda. */
+async function bitrixSorov<T>(w: BitrixWebhook, usul: string, param: Record<string, unknown> = {}): Promise<BitrixJavob<T>> {
   for (let urinish = 0; urinish < 2; urinish++) {
     let res: Response;
     try {
@@ -112,7 +121,7 @@ export async function bitrixChaqir<T>(w: BitrixWebhook, usul: string, param: Rec
       continue;
     }
     if (!res.ok || !j || j.error) throw xato;
-    return j.result as T;
+    return j;
   }
   throw new CrmXato('limit', "Bitrix24 so'rovlar limitiga yetildi — birozdan keyin qayta urinib ko'ring");
 }
@@ -238,6 +247,117 @@ async function telefondanTop(w: BitrixWebhook, telefon: string): Promise<CrmYozu
   };
 }
 
+// ─── Lidlar (sdelkalar) ──────────────────────────────────────────────────────
+
+const bxSdelkalar = z.array(
+  z.object({
+    ID: z.coerce.string(),
+    TITLE: z.string().nullish(),
+    CATEGORY_ID: z.coerce.string().nullish(),
+    STAGE_ID: z.string().nullish(),
+    OPPORTUNITY: z.union([z.string(), z.number()]).nullish(),
+    ASSIGNED_BY_ID: z.coerce.string().nullish(),
+    CONTACT_ID: z.coerce.string().nullish(),
+    DATE_CREATE: z.string().nullish(),
+    DATE_MODIFY: z.string(),
+    CLOSEDATE: z.string().nullish(),
+    CLOSED: z.string().nullish(),
+  }),
+);
+
+const bxKontaktlar = z.array(
+  z.object({
+    ID: z.coerce.string(),
+    NAME: z.string().nullish(),
+    LAST_NAME: z.string().nullish(),
+    PHONE: z.array(z.object({ VALUE: z.string().nullish() })).nullish(),
+  }),
+);
+
+/** Bitrix24 ro'yxat usullari sahifasi har doim 50 ta. */
+const BX_SAHIFA = 50;
+
+interface BxKursor {
+  /** `DATE_MODIFY` shu vaqtdan (shu jumladan) boshlab, ISO. */
+  dan: string | null;
+  start: number;
+}
+
+function bxKursorniOqi(k: string | null): BxKursor {
+  try {
+    const j = k ? (JSON.parse(k) as Partial<BxKursor>) : {};
+    return { dan: typeof j.dan === 'string' ? j.dan : null, start: Math.max(0, Number(j.start) || 0) };
+  } catch {
+    return { dan: null, start: 0 };
+  }
+}
+
+function sana(s: string | null | undefined): Date | null {
+  if (!s) return null;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * O'zgargan sdelkalar — `DATE_MODIFY` o'sish tartibida, 50 tadan. Keyingi
+ * joy amoCRM dagi kabi: sahifadagi eng katta vaqt; butun sahifa bir xil
+ * vaqtda bo'lsa — `start` oshiriladi.
+ */
+async function lidlarniOl(w: BitrixWebhook, kursor: string | null) {
+  const k = bxKursorniOqi(kursor);
+  const javob = await bitrixSorov<unknown>(w, 'crm.deal.list', {
+    filter: k.dan ? { '>=DATE_MODIFY': k.dan } : {},
+    order: { DATE_MODIFY: 'ASC', ID: 'ASC' },
+    select: ['ID', 'TITLE', 'CATEGORY_ID', 'STAGE_ID', 'OPPORTUNITY', 'ASSIGNED_BY_ID', 'CONTACT_ID', 'DATE_CREATE', 'DATE_MODIFY', 'CLOSEDATE', 'CLOSED'],
+    start: k.start,
+  });
+  const sd = bxSdelkalar.safeParse(javob.result ?? []);
+  if (!sd.success) throw new CrmXato('server', "Bitrix24 sdelkalar ro'yxatini o'qib bo'lmadi");
+
+  const kontaktIdlar = [...new Set(sd.data.map((d) => d.CONTACT_ID).filter((x): x is string => Boolean(x && x !== '0')))];
+  const kontaktlar = new Map<string, { nom: string | null; telefonlar: string[] }>();
+  if (kontaktIdlar.length > 0) {
+    const kj = bxKontaktlar.safeParse(
+      await bitrixChaqir<unknown>(w, 'crm.contact.list', {
+        filter: { '@ID': kontaktIdlar },
+        select: ['ID', 'NAME', 'LAST_NAME', 'PHONE'],
+      }),
+    );
+    for (const c of kj.success ? kj.data : []) {
+      kontaktlar.set(c.ID, {
+        nom: [c.NAME, c.LAST_NAME].filter(Boolean).join(' ') || null,
+        telefonlar: (c.PHONE ?? []).map((p) => (p.VALUE ?? '').trim()).filter(Boolean),
+      });
+    }
+  }
+
+  const lidlar: CrmLid[] = sd.data.map((d) => {
+    const c = d.CONTACT_ID ? kontaktlar.get(d.CONTACT_ID) : undefined;
+    const summa = d.OPPORTUNITY === null || d.OPPORTUNITY === undefined ? null : Number(d.OPPORTUNITY);
+    return {
+      id: d.ID,
+      nom: d.TITLE ?? null,
+      voronkaId: d.CATEGORY_ID ?? '0',
+      bosqichId: d.STAGE_ID ?? null,
+      summa: summa !== null && Number.isFinite(summa) ? summa : null,
+      masulId: d.ASSIGNED_BY_ID ?? null,
+      kontaktId: d.CONTACT_ID && d.CONTACT_ID !== '0' ? d.CONTACT_ID : null,
+      kontaktNom: c?.nom ?? null,
+      telefonlar: c?.telefonlar ?? [],
+      yaratilgan: sana(d.DATE_CREATE),
+      yangilangan: sana(d.DATE_MODIFY) ?? new Date(),
+      yopilgan: d.CLOSED === 'Y' ? sana(d.CLOSEDATE) : null,
+      url: `https://${w.portal}/crm/deal/details/${d.ID}/`,
+    };
+  });
+
+  const toliq = sd.data.length >= BX_SAHIFA && javob.next !== undefined;
+  const engKatta = sd.data.reduce<string | null>((m, d) => (m === null || sana(d.DATE_MODIFY)! > sana(m)! ? d.DATE_MODIFY : m), k.dan);
+  const keyingi: BxKursor =
+    toliq && engKatta === k.dan ? { dan: k.dan, start: k.start + BX_SAHIFA } : { dan: engKatta, start: 0 };
+  return { lidlar, kursor: JSON.stringify(keyingi), tugadi: !toliq };
+}
+
 // ─── Adapter ─────────────────────────────────────────────────────────────────
 
 function kontekstdan(k: CrmKontekst): BitrixWebhook {
@@ -306,6 +426,8 @@ export const bitrix24Adapter: CrmAdapter = {
     });
     return r === null || r === undefined ? null : String(r);
   },
+
+  lidlar: (k, kursor) => lidlarniOl(kontekstdan(k), kursor),
 
   async vazifa(k, y, v) {
     const r = await bitrixChaqir<{ id?: number } | number>(kontekstdan(k), 'crm.activity.todo.add', {

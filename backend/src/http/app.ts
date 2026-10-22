@@ -22,6 +22,8 @@ import { registerAnalyticsRoutes } from './routes/analytics.js';
 import { registerLeadRoutes } from './routes/leads.js';
 import { registerDashboardRoutes } from './routes/dashboard.js';
 import { registerTaskRoutes } from './routes/tasks.js';
+import { registerCrmLidRoutes } from './routes/crm-lidlar.js';
+import { registerCrmOauthRoutes } from './routes/crm-oauth.js';
 import { registerCrmUlanishRoutes } from './routes/crm-ulanish.js';
 import { registerMoizvonkiRoutes } from './routes/moizvonki.js';
 import { registerMcpRoutes } from './routes/mcp.js';
@@ -157,6 +159,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerCrmRoutes(app);
   registerMoizvonkiRoutes(app);
   registerCrmUlanishRoutes(app);
+  registerCrmOauthRoutes(app);
+  registerCrmLidRoutes(app);
   registerReportRoutes(app);
   registerAppealRoutes(app);
   registerConversationRoutes(app);

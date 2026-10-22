@@ -4,6 +4,8 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  ListChecks,
+  MousePointerClick,
   NotebookPen,
   PhoneCall,
   PlugZap,
@@ -13,7 +15,7 @@ import {
   Webhook,
 } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, fmtSana } from '../api';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
@@ -61,6 +63,26 @@ interface Crm {
   lastCheckAt: string | null;
   lastError: string | null;
   settings: { izoh: boolean; vazifa: boolean; boshlanish: string | null };
+  /** Bir tugmada ulash (OAuth) — platformada sozlangan bo'lsa. */
+  oauthAvailable: boolean;
+  authType: 'oauth' | 'token' | null;
+  leads: { count: number; voronkalar: string[] | null; birinchiTugadi: boolean; oxirgi: string | null; xato: string | null };
+}
+
+/** amoCRM dan qaytgandagi xato kodlari (callback `?crm_xato=`) — matn URL dan olinmaydi. */
+const QAYTISH_XATO: Record<string, string> = {
+  holat: "Ulanish havolasi eskirgan yoki noto'g'ri — «amoCRM bilan ulash» ni qaytadan bosing.",
+  rad: 'amoCRM da ruxsat berilmadi — ulanish bekor qilindi.',
+  manzil: 'amoCRM hisob manzili aniqlanmadi — qaytadan urinib ko‘ring.',
+  sozlanmagan: 'Bir tugmada ulash hali sozlanmagan — platforma administratoriga murojaat qiling.',
+  boshqa: 'Avval ulangan boshqa CRM ni uzing — bir vaqtda bitta CRM ulanadi.',
+  almashtirish: "amoCRM ulanishni tasdiqlamadi — birozdan keyin qaytadan urinib ko'ring.",
+};
+
+/** amoCRM ruxsat sahifasiga o'tadi; ruxsatdan keyin shu sahifaga qaytiladi. */
+async function oauthBoshla(crmBase: string): Promise<void> {
+  const r = await api.post<{ url: string }>(`${crmBase}/amocrm/oauth`, { qaytish: window.location.origin });
+  window.location.assign(r.url);
 }
 
 interface Tuzilish {
@@ -98,6 +120,22 @@ export function Crm() {
   const base = `/api/v1/businesses/${business?.businessId}/crm`;
   const [crmlar, setCrmlar] = useState<Crm[] | null>(null);
   const [xato, setXato] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const [qaytish, setQaytish] = useState<{ ok: boolean; matn: string } | null>(null);
+
+  // amoCRM dan qaytish: natijani ko'rsatib, manzildan parametrni olib tashlaymiz
+  useEffect(() => {
+    const ulandi = params.get('ulandi');
+    const kod = params.get('crm_xato');
+    if (!ulandi && !kod) return;
+    setQaytish(
+      ulandi
+        ? { ok: true, matn: t('amoCRM bir tugmada ulandi. Lidlar bir necha daqiqada keladi.') }
+        : { ok: false, matn: t(QAYTISH_XATO[kod ?? ''] ?? "Ulab bo'lmadi") },
+    );
+    navigate('/crm', { replace: true });
+  }, [params, navigate, t]);
 
   const yukla = useCallback(async () => {
     try {
@@ -124,6 +162,11 @@ export function Crm() {
         <p>{t("CRM tizimingizni ulang — SotuvAI har qo'ng'iroq tahlilini mijozning sdelkasiga yozadi va menejerga vazifa qo'yadi.")}</p>
       </div>
 
+      {qaytish && (
+        <div className={`card ${qaytish.ok ? 'ok-qator' : 'xato-qator'} crm-qaytish`} role={qaytish.ok ? 'status' : 'alert'}>
+          {qaytish.ok && <CircleCheck aria-hidden="true" />} {qaytish.matn}
+        </div>
+      )}
       {xato && <div className="card xato-qator">{xato}</div>}
       {!crmlar && !xato && <div className="card yuklanmoqda">{t('Yuklanmoqda…')}</div>}
 
@@ -132,7 +175,14 @@ export function Crm() {
       {crmlar && (
         <div className="crm-panjara">
           {tartib.map((c) => (
-            <CrmKarta key={c.kind} c={c} base={`${base}/${c.kind}`} band={faol !== null && faol.kind !== c.kind ? faol.name : null} onOzgardi={yukla} />
+            <CrmKarta
+          key={c.kind}
+          c={c}
+          base={`${base}/${c.kind}`}
+          crmBase={base}
+          band={faol !== null && faol.kind !== c.kind ? faol.name : null}
+          onOzgardi={yukla}
+        />
           ))}
 
           <section className="card crm-karta" aria-labelledby="crm-boshqa-nom">
@@ -206,8 +256,33 @@ const IMKONIYAT = "Har qo'ng'iroq tahlili sdelkaga izoh bo'lib yoziladi, vazifal
 
 // ─── Bitta CRM kartasi ───────────────────────────────────────────────────────
 
-function CrmKarta({ c, base, band, onOzgardi }: { c: Crm; base: string; band: string | null; onOzgardi: () => Promise<void> }) {
+function CrmKarta({
+  c,
+  base,
+  crmBase,
+  band,
+  onOzgardi,
+}: {
+  c: Crm;
+  base: string;
+  crmBase: string;
+  band: string | null;
+  onOzgardi: () => Promise<void>;
+}) {
   const t = useT();
+  const { user } = useAuth();
+  const [oauthKetmoqda, setOauthKetmoqda] = useState(false);
+  const oauthQollanadi = c.kind === 'amocrm';
+  const oauth = async () => {
+    setOauthKetmoqda(true);
+    setXato(null);
+    try {
+      await oauthBoshla(crmBase);
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t("Ulab bo'lmadi"));
+      setOauthKetmoqda(false);
+    }
+  };
   const [formaOchiq, setFormaOchiq] = useState(false);
   const [jarayon, setJarayon] = useState<'tekshir' | 'uzish' | null>(null);
   const [xato, setXato] = useState<string | null>(null);
@@ -277,7 +352,7 @@ function CrmKarta({ c, base, band, onOzgardi }: { c: Crm; base: string; band: st
               </span>
             </div>
           )}
-          {!buzilgan && muddatKun !== null && muddatKun <= 30 && (
+          {!buzilgan && c.authType !== 'oauth' && muddatKun !== null && muddatKun <= 30 && (
             <div className="crm-ogoh orta" role="status">
               <TriangleAlert aria-hidden="true" />
               <span>
@@ -304,8 +379,17 @@ function CrmKarta({ c, base, band, onOzgardi }: { c: Crm; base: string; band: st
             <div>
               <dt>{t('Kalit')}</dt>
               <dd>
-                <code>{c.secretHint}</code>
-                {c.tokenExpiresAt && <span className="crm-izoh"> · {t('{sana} gacha', { sana: fmtSana(c.tokenExpiresAt) })}</span>}
+                {c.authType === 'oauth' ? (
+                  <>
+                    {t('Bir tugmada (OAuth)')}
+                    <span className="crm-izoh"> · {t("token o'zi yangilanadi")}</span>
+                  </>
+                ) : (
+                  <>
+                    <code>{c.secretHint}</code>
+                    {c.tokenExpiresAt && <span className="crm-izoh"> · {t('{sana} gacha', { sana: fmtSana(c.tokenExpiresAt) })}</span>}
+                  </>
+                )}
               </dd>
             </div>
             <div>
@@ -323,10 +407,17 @@ function CrmKarta({ c, base, band, onOzgardi }: { c: Crm; base: string; band: st
               <RefreshCw aria-hidden="true" className={jarayon === 'tekshir' ? 'aylan' : undefined} />
               {jarayon === 'tekshir' ? t('Tekshirilmoqda…') : t('Ulanishni tekshirish')}
             </button>
-            <button type="button" className="btn ikkinchi" disabled={jarayon !== null} aria-expanded={formaOchiq} onClick={() => setFormaOchiq((v) => !v)}>
-              <KeyRound aria-hidden="true" />
-              {t('Kalitni almashtirish')}
-            </button>
+            {c.authType === 'oauth' && c.oauthAvailable ? (
+              <button type="button" className="btn ikkinchi" disabled={jarayon !== null || oauthKetmoqda} onClick={() => void oauth()}>
+                <MousePointerClick aria-hidden="true" />
+                {oauthKetmoqda ? t('amoCRM ga o‘tilmoqda…') : t('Qayta ulash')}
+              </button>
+            ) : (
+              <button type="button" className="btn ikkinchi" disabled={jarayon !== null} aria-expanded={formaOchiq} onClick={() => setFormaOchiq((v) => !v)}>
+                <KeyRound aria-hidden="true" />
+                {t('Kalitni almashtirish')}
+              </button>
+            )}
             <button type="button" className="btn ikkinchi crm-uzish" disabled={jarayon !== null} onClick={uzish}>
               <Unplug aria-hidden="true" />
               {jarayon === 'uzish' ? t('Uzilmoqda…') : t('Uzish')}
@@ -350,11 +441,43 @@ function CrmKarta({ c, base, band, onOzgardi }: { c: Crm; base: string; band: st
       {!ulangan && !formaOchiq && <p className="crm-karta-matn">{t(IMKONIYAT)}</p>}
       {!ulangan && !formaOchiq && (
         <div className="crm-tugmalar">
-          <button type="button" className="btn" disabled={band !== null} onClick={() => setFormaOchiq(true)}>
-            {t('Ulash')}
-          </button>
+          {oauthQollanadi ? (
+            <>
+              <button
+                type="button"
+                className="btn"
+                disabled={band !== null || !c.oauthAvailable || oauthKetmoqda}
+                title={c.oauthAvailable ? undefined : t('Bir tugmada ulash hali sozlanmagan')}
+                onClick={() => void oauth()}
+              >
+                <MousePointerClick aria-hidden="true" />
+                {oauthKetmoqda ? t('amoCRM ga o‘tilmoqda…') : t('amoCRM bilan ulash')}
+              </button>
+              <button type="button" className="btn ikkinchi" disabled={band !== null} onClick={() => setFormaOchiq(true)}>
+                <KeyRound aria-hidden="true" />
+                {t('Token bilan ulash')}
+              </button>
+            </>
+          ) : (
+            <button type="button" className="btn" disabled={band !== null} onClick={() => setFormaOchiq(true)}>
+              {t('Ulash')}
+            </button>
+          )}
           {band && <span className="yordam">{t('Avval {nom} ni uzing — bir vaqtda bitta CRM ulanadi.', { nom: band })}</span>}
         </div>
+      )}
+      {oauthQollanadi && !ulangan && !formaOchiq && !band && (
+        <p className="yordam crm-oauth-izoh">
+          {c.oauthAvailable
+            ? t('«amoCRM bilan ulash» — amoCRM o‘zi hisobingizni so‘raydi, siz faqat ruxsat berasiz. Token nusxalash shart emas.')
+            : t('Bir tugmada ulash hali sozlanmagan — hozircha «Token bilan ulash» dan foydalaning.')}
+          {!c.oauthAvailable && user?.systemRole === 'super_admin' && (
+            <>
+              {' '}
+              <Link to="/sozlamalar?b=crmOauth">{t('Sozlash')}</Link>
+            </>
+          )}
+        </p>
       )}
 
       {formaOchiq && (
@@ -373,6 +496,7 @@ function CrmKarta({ c, base, band, onOzgardi }: { c: Crm; base: string; band: st
 
       {ulangan && !buzilgan && (
         <>
+          <LidlarBolimi c={c} base={base} onOzgardi={onOzgardi} />
           <Sozlama c={c} base={base} onOzgardi={onOzgardi} />
           <Faoliyat base={base} />
           <TuzilishBolimi base={base} />
@@ -540,6 +664,143 @@ function SirMaydon({
       >
         {korinadi ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
       </button>
+    </div>
+  );
+}
+
+// ─── Lidlar: import holati va voronka tanlovi ────────────────────────────────
+
+function LidlarBolimi({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi: () => Promise<void> }) {
+  const t = useT();
+  const l = c.leads;
+  const [yangilanmoqda, setYangilanmoqda] = useState(false);
+  const [xabar, setXabar] = useState<string | null>(null);
+  const [xato, setXato] = useState<string | null>(null);
+  const [tanlov, setTanlov] = useState<{ voronkalar: Tuzilish['pipelines']; tanlangan: Set<string> } | null>(null);
+  const [saqlanmoqda, setSaqlanmoqda] = useState(false);
+
+  // Birinchi import davom etayotgan bo'lsa — holat har 15 soniyada yangilanadi
+  useEffect(() => {
+    if (l.birinchiTugadi) return;
+    const tm = setInterval(() => void onOzgardi(), 15_000);
+    return () => clearInterval(tm);
+  }, [l.birinchiTugadi, onOzgardi]);
+
+  const hozir = async () => {
+    setYangilanmoqda(true);
+    setXabar(null);
+    setXato(null);
+    try {
+      const r = await api.post<{ olindi: number; saqlandi: number }>(`${base}/leads/sync`);
+      setXabar(r.olindi > 0 ? t('{n} ta lid yangilandi.', { n: r.saqlandi }) : t('Yangi o‘zgarish yo‘q.'));
+      await onOzgardi();
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t("Lidlarni yuklab bo'lmadi"));
+    } finally {
+      setYangilanmoqda(false);
+    }
+  };
+
+  const tanlashniOch = async () => {
+    setXato(null);
+    try {
+      const d = await api.get<Tuzilish>(`${base}/structure`);
+      setTanlov({ voronkalar: d.pipelines, tanlangan: new Set(l.voronkalar ?? d.pipelines.map((p) => p.id)) });
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t("CRM ma'lumotini olib bo'lmadi"));
+    }
+  };
+
+  const saqla = async () => {
+    if (!tanlov) return;
+    setSaqlanmoqda(true);
+    setXato(null);
+    try {
+      const hammasi = tanlov.tanlangan.size === tanlov.voronkalar.length;
+      await api.patch(`${base}/settings`, { voronkalar: hammasi ? null : [...tanlov.tanlangan] });
+      setTanlov(null);
+      setXabar(t('Voronkalar saqlandi — lidlar qaytadan import qilinadi.'));
+      await onOzgardi();
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t("Saqlab bo'lmadi"));
+    } finally {
+      setSaqlanmoqda(false);
+    }
+  };
+
+  return (
+    <div className="crm-bolim">
+      <h3>{t('Lidlar')}</h3>
+      <div className="crm-lid-holat">
+        <div className="crm-raqam">
+          <b>{l.count}</b>
+          <span>{t('SotuvAI dagi lidlar')}</span>
+        </div>
+        <div className="crm-lid-matn">
+          {!l.birinchiTugadi ? (
+            <span className="crm-lid-jarayon">
+              <RefreshCw aria-hidden="true" className="aylan" /> {t('Birinchi import davom etmoqda — sdelkalar sahifama-sahifa olinmoqda.')}
+            </span>
+          ) : (
+            <span>{t("Har daqiqada yangi va o'zgargan sdelkalar olinadi.")}</span>
+          )}
+          <span className="crm-izoh">
+            {l.oxirgi ? t('Oxirgi yangilanish: {vaqt}', { vaqt: fmtSana(l.oxirgi) }) : t("Hali yangilanmagan")}
+            {' · '}
+            {l.voronkalar ? t('{n} ta voronka tanlangan', { n: l.voronkalar.length }) : t('barcha voronkalar')}
+          </span>
+          {l.xato && <span className="crm-lid-xato">{t(l.xato)}</span>}
+        </div>
+      </div>
+
+      {tanlov && (
+        <fieldset className="crm-voronka-tanlov">
+          <legend>{t('Qaysi voronkalardagi lidlar olinsin?')}</legend>
+          {tanlov.voronkalar.map((p) => (
+            <label key={p.id}>
+              <input
+                type="checkbox"
+                checked={tanlov.tanlangan.has(p.id)}
+                onChange={(e) => {
+                  const yangi = new Set(tanlov.tanlangan);
+                  if (e.target.checked) yangi.add(p.id);
+                  else yangi.delete(p.id);
+                  setTanlov({ ...tanlov, tanlangan: yangi });
+                }}
+              />
+              {p.name}
+              {p.isMain && <span className="badge navy">{t('asosiy')}</span>}
+            </label>
+          ))}
+          <div className="crm-tugmalar">
+            <button type="button" className="btn" disabled={saqlanmoqda || tanlov.tanlangan.size === 0} onClick={() => void saqla()}>
+              {saqlanmoqda ? t('Saqlanmoqda…') : t('Saqlash')}
+            </button>
+            <button type="button" className="btn ikkinchi" onClick={() => setTanlov(null)}>
+              {t('Bekor qilish')}
+            </button>
+          </div>
+        </fieldset>
+      )}
+
+      {xabar && <div className="ok-qator">{xabar}</div>}
+      {xato && <div className="xato-qator">{xato}</div>}
+
+      <div className="crm-tugmalar">
+        <Link to="/lidlar?tab=crm" className="btn">
+          {t("Lidlarni ko'rish")}
+        </Link>
+        <button type="button" className="btn ikkinchi" disabled={yangilanmoqda} onClick={() => void hozir()}>
+          <RefreshCw aria-hidden="true" className={yangilanmoqda ? 'aylan' : undefined} />
+          {yangilanmoqda ? t('Yangilanmoqda…') : t('Hozir yangilash')}
+        </button>
+        {!tanlov && (
+          <button type="button" className="btn ikkinchi" onClick={() => void tanlashniOch()}>
+            <ListChecks aria-hidden="true" />
+            {t('Voronkalarni tanlash')}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

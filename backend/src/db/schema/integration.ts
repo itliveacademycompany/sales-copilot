@@ -6,6 +6,7 @@ import {
   index,
   integer,
   jsonb,
+  numeric,
   pgTable,
   text,
   timestamp,
@@ -13,7 +14,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { integrationKind, integrationStatus, syncDirection } from './enums.js';
-import { business } from './tenant.js';
+import { contact } from './conversation.js';
+import { business, seat } from './tenant.js';
 
 /** Postgres `bytea` — shifrlangan kalitlar uchun. */
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
@@ -144,5 +146,65 @@ export const crmSyncItem = pgTable(
   (t) => [
     uniqueIndex('crm_sync_item_uq').on(t.integrationId, t.entity, t.localId),
     index('crm_sync_item_business_idx').on(t.businessId, t.updatedAt),
+  ],
+);
+
+/**
+ * CRM dagi sdelka (lid) — ulangan CRM dan import qilingan nusxa.
+ *
+ * Manba — CRM: bu yerda faqat o'qiladi, SotuvAI uni o'zgartirmaydi.
+ * Har sinxronlashda `(integration_id, crm_id)` bo'yicha yangilanadi.
+ * Voronka/bosqich NOMI ham saqlanadi — CRM da nom o'zgarsa keyingi
+ * sinxronlashda yangilanadi, ro'yxat esa CRM ga so'rovsiz chiqadi.
+ *
+ * `contact_id` — SotuvAI kontakti (telefon bo'yicha topilgan yoki
+ * yaratilgan): shu orqali lidning qo'ng'iroqlari va tahlillari ko'rinadi.
+ * `seat_id` — CRM dagi mas'ul, menejer kartochkasidagi "CRM ID" orqali.
+ */
+export const crmLead = pgTable(
+  'crm_lead',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => business.id, { onDelete: 'cascade' }),
+    integrationId: uuid('integration_id')
+      .notNull()
+      .references(() => integration.id, { onDelete: 'cascade' }),
+    kind: integrationKind('kind').notNull(),
+    crmId: text('crm_id').notNull(),
+
+    name: text('name'),
+    pipelineId: text('pipeline_id'),
+    pipelineName: text('pipeline_name'),
+    stageId: text('stage_id'),
+    stageName: text('stage_name'),
+    /** `ochiq` | `muvaffaqiyat` | `yopilgan` — CRM ning o'z semantikasidan. */
+    stageType: text('stage_type').notNull().default('ochiq'),
+    amount: numeric('amount', { precision: 14, scale: 2 }),
+
+    responsibleCrmId: text('responsible_crm_id'),
+    responsibleName: text('responsible_name'),
+    seatId: uuid('seat_id').references(() => seat.id, { onDelete: 'set null' }),
+
+    crmContactId: text('crm_contact_id'),
+    contactName: text('contact_name'),
+    phone: text('phone'),
+    contactId: uuid('contact_id').references(() => contact.id, { onDelete: 'set null' }),
+
+    url: text('url'),
+    crmCreatedAt: timestamp('crm_created_at', { withTimezone: true }),
+    crmUpdatedAt: timestamp('crm_updated_at', { withTimezone: true }).notNull(),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('crm_lead_uq').on(t.integrationId, t.crmId),
+    index('crm_lead_business_updated_idx').on(t.businessId, t.crmUpdatedAt),
+    index('crm_lead_business_stage_idx').on(t.businessId, t.stageType, t.pipelineId),
+    index('crm_lead_contact_idx').on(t.businessId, t.contactId),
+    index('crm_lead_seat_idx').on(t.businessId, t.seatId),
   ],
 );

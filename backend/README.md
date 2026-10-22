@@ -695,6 +695,28 @@ adapterni ro'yxatdan (`crm/index.ts`) oladi.
 `ADAPTERLAR` ga qo'shing va `integration_kind` enumiga turini qo'shing
 (migratsiya). Sahifa, API va worker o'zgarmaydi.
 
+**Bir tugmada ulash (amoCRM OAuth).** Super admin Sozlamalar → «CRM
+integratsiyasi» da platformadagi BITTA amoCRM integratsiyasi kalitlarini
+(ID интеграции, Секретный ключ) kiritadi; redirect manzili shu yerda
+ko'rsatiladi. Keyin har mijoz CRM sahifasida «amoCRM bilan ulash» ni bosadi
+→ amoCRM ruxsat so'raydi → `GET /api/v1/crm/oauth/amocrm/callback` kodni
+tokenga almashtiradi. `state` HMAC bilan imzolangan (15 daqiqa) va qaytish
+manzilini ham saqlaydi. access token ~1 kun, refresh token BIR MARTALIK —
+yangilash `SELECT … FOR UPDATE` qulfi ostida (`crm/kontekst.ts`), worker
+va API bir vaqtda yangilasa ham ulanish buzilmaydi. ⚠️ amoCRM bir nechta
+hisob uchun redirect manzili HTTPS (SSL) bo'lishini talab qiladi — domen
+ulanmaguncha faqat bitta (o'z) hisob ulanadi; "Token bilan ulash" doim bor.
+
+**Lidlar (sdelkalar) importi** (worker, har daqiqada, `crm/lidlar.ts`):
+adapter `lidlar(kursor)` o'zgargan sdelkalarni `updated_at` bo'yicha
+qaytaradi — birinchi marta hammasi (tikma-tik, kursor har sahifadan keyin
+saqlanadi), keyin faqat o'zgarganlari. `crm_lead` jadvaliga upsert
+(`integration_id + crm_id`); voronka/bosqich nomi va turi, mas'ul
+(menejer kartochkasidagi "CRM ID" → `seat_id`), mijoz telefoni bo'yicha
+SotuvAI kontakti (oxirgi 9 raqam; yo'q bo'lsa yaratiladi). CRM sahifasida
+voronkalar tanlanadi; ro'yxat — Lid xulosalari → «CRM lidlari»
+(`GET /businesses/:id/crm-leads`, sotuvchi faqat o'zinikini ko'radi).
+
 **Tahlildan keyin** (worker, har 20 s): mijoz telefoni bo'yicha CRM dagi
 eng so'nggi OCHIQ sdelka (bo'lmasa kontakt) topiladi va unga izoh yoziladi
 (baho, xulosa, kamchilik, keyingi qadam, SotuvAI havolasi); shu qo'ng'iroq
@@ -717,6 +739,11 @@ GET    /api/v1/businesses/:id/crm/:kind/structure  voronkalar, foydalanuvchilar
 PATCH  /api/v1/businesses/:id/crm/:kind/settings   izoh / vazifa yoqish
 GET    /api/v1/businesses/:id/crm/:kind/log        oxirgi yozuvlar
 DELETE /api/v1/businesses/:id/crm/:kind            uzish
+POST   /api/v1/businesses/:id/crm/amocrm/oauth     bir tugmada ulash — ruxsat manzili
+POST   /api/v1/businesses/:id/crm/:kind/leads/sync lidlarni hozir olish
+GET    /api/v1/businesses/:id/crm-leads            CRM lidlari (filtr, sahifalash)
+GET    /api/v1/crm/oauth/amocrm/callback           amoCRM qaytadigan manzil (ommaviy)
+GET|PUT|DELETE /api/v1/admin/crm/amocrm-oauth      super admin: integratsiya kalitlari
 ```
 
 ## Test ma'lumotlari o'zidan keyin tozalanadi

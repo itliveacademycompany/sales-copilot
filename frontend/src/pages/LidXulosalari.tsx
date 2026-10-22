@@ -1,6 +1,7 @@
 import { ArrowUpRight, ChevronRight, FileText, Flag, Flame, Snowflake, Thermometer } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { CrmLidlari, LidKorinishi } from '../components/crm/CrmLidlari';
 import { api, ballKlass, fmtSana, lidTuri, type ConversationRow, type SeatRow } from '../api';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
@@ -34,6 +35,14 @@ const FILTRLAR = [
  * sotuvchi faqat o'z lidlarini ko'radi — cheklov serverda.
  */
 export function LidXulosalari() {
+  const [params, setParams] = useSearchParams();
+  const crm = params.get('tab') === 'crm';
+  const almash = <LidKorinishi crm={crm} onChange={(v) => setParams(v ? { tab: 'crm' } : {}, { replace: true })} />;
+  return crm ? <CrmLidlari almash={almash} /> : <AiXulosalar almash={almash} />;
+}
+
+/** AI xulosalari — har tahlil qilingan suhbat bo'yicha (avvalgi ko'rinish). */
+function AiXulosalar({ almash }: { almash: ReactNode }) {
   const { business } = useAuth();
   const tr = useT();
   const [rows, setRows] = useState<ConversationRow[]>([]);
@@ -74,6 +83,7 @@ export function LidXulosalari() {
         <div>
           <h1>{tr('Lid xulosalari')}</h1>
           <div className="izoh">{tr("Har bir mijoz bo'yicha AI xulosasi — kim issiq, kim kutmoqda")}</div>
+          {almash}
         </div>
         <div className="tab-qator">
           {FILTRLAR.map((f) => (

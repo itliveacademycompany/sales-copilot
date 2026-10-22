@@ -17,6 +17,7 @@ import {
   Palette,
   PhoneCall,
   Cpu,
+  Workflow,
   Bot,
   AudioLines,
   Share2,
@@ -49,6 +50,7 @@ import { IshJadvali } from '../components/sozlama/IshJadvali';
 import { Obuna } from '../components/sozlama/Obuna';
 import { CrmEksport, MoiZvonki, SttTanlash } from '../components/sozlama/Integratsiyalar';
 import { AiProvayderlar } from '../components/sozlama/AiProvayderlar';
+import { CrmOauth } from '../components/sozlama/CrmOauth';
 import { Mijozlar } from '../components/sozlama/Mijozlar';
 import { ClaudeUlanishi } from '../components/sozlama/ClaudeUlanishi';
 import { TanlovMenyu } from '../components/analitika/Ochiluvchi';
@@ -104,6 +106,7 @@ type Bolim =
   | 'crmEksport'
   | 'stt'
   | 'aiProvayder'
+  | 'crmOauth'
   | 'claude'
   | 'kunlik';
 
@@ -161,6 +164,7 @@ export function Settings() {
     { key: 'stt', nom: 'Nutqni matnga (STT)', guruh: 'tahlil', ikon: <AudioLines />, korinadi: true },
     // Platforma darajasi — kalitlar butun tizimga ishlatiladi, shuning uchun faqat super-admin
     { key: 'aiProvayder', nom: 'AI provayderlar', guruh: 'tahlil', ikon: <Cpu />, korinadi: user?.systemRole === 'super_admin' },
+    { key: 'crmOauth', nom: 'CRM integratsiyasi', guruh: 'umumiy', ikon: <Workflow />, korinadi: user?.systemRole === 'super_admin' },
     { key: 'lidSifati', nom: 'Lid sifati bosqichlari', guruh: 'lid', ikon: <Flame />, korinadi: bizneskoradi },
     { key: 'crmNatija', nom: 'CRM natija bosqichlari', guruh: 'lid', ikon: <Flag />, korinadi: bizneskoradi },
     { key: 'crmVoronka', nom: 'Faol CRM voronkalari', guruh: 'lid', ikon: <Filter />, korinadi: bizneskoradi },
@@ -247,6 +251,7 @@ export function Settings() {
         {bolim.key === 'crmEksport' && business && <CrmEksport businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
         {bolim.key === 'stt' && <SttTanlash />}
         {bolim.key === 'aiProvayder' && <AiProvayderlar />}
+        {bolim.key === 'crmOauth' && <CrmOauth />}
         {bolim.key === 'mijozlar' && <Mijozlar />}
         {bolim.key === 'claude' && <ClaudeUlanishi />}
         {bolim.key === 'kunlik' && <KunlikHisobotSozlama />}

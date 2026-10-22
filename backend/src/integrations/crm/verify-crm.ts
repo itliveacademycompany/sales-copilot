@@ -41,6 +41,15 @@ const BEGONA = YAXSHI + 'x';
 // ─── Soxta amoCRM ────────────────────────────────────────────────────────────
 
 const amoYozuvlar: { yol: string; tana: unknown }[] = [];
+const oauthSorovlar: Record<string, string>[] = [];
+
+/** 3 ta oddiy lid (bittasi o'chirilgan) + 300 ta bir xil vaqtli (ommaviy tahrir) lid. */
+const AMO_LIDLAR = [
+  { id: 1, name: 'Frontend — Aziza', price: 3500000, responsible_user_id: 6, status_id: 11, pipeline_id: 1, created_at: 50, updated_at: 100, closed_at: null, _embedded: { contacts: [{ id: 302, is_main: false }, { id: 301, is_main: true }] } },
+  { id: 2, name: 'Backend — Bobur', price: null, responsible_user_id: 7, status_id: 142, pipeline_id: 1, created_at: 60, updated_at: 200, closed_at: 210, _embedded: { contacts: [{ id: 302 }] } },
+  { id: 3, name: "O'chirilgan", price: 0, responsible_user_id: 7, status_id: 11, pipeline_id: 1, created_at: 70, updated_at: 200, is_deleted: true },
+  ...Array.from({ length: 300 }, (_, i) => ({ id: 1000 + i, name: `Ommaviy ${i}`, price: 0, responsible_user_id: 6, status_id: 11, pipeline_id: 1, created_at: 80, updated_at: 900, closed_at: null })),
+];
 let amoLimit = 0;
 
 function soxtaAmo(): Server {
@@ -51,6 +60,22 @@ function soxtaAmo(): Server {
       res.writeHead(code, { 'content-type': 'application/hal+json' });
       res.end(body === undefined ? '' : JSON.stringify(body));
     };
+    // OAuth: kod / refresh → token juftligi (auth sarlavhasiz)
+    if (url === '/oauth2/access_token' && req.method === 'POST') {
+      const t = (await tana(req)) as Record<string, string>;
+      oauthSorovlar.push(t);
+      const togri =
+        t.client_id === 'mijoz-id-12345' &&
+        t.client_secret === 'sir-kalit-12345' &&
+        t.redirect_uri === 'https://sotuv.test/api/v1/crm/oauth/amocrm/callback';
+      if (togri && t.grant_type === 'authorization_code' && t.code === 'kod-ok') {
+        return json(200, { token_type: 'Bearer', expires_in: 86400, access_token: YAXSHI, refresh_token: 'refresh-1-abcdef' });
+      }
+      if (togri && t.grant_type === 'refresh_token' && t.refresh_token === 'refresh-1-abcdef') {
+        return json(200, { token_type: 'Bearer', expires_in: 86400, access_token: YAXSHI, refresh_token: 'refresh-2-abcdef' });
+      }
+      return json(400, { hint: 'invalid_grant' });
+    }
     if (auth === 'Bearer limit') {
       amoLimit++;
       if (amoLimit === 1) return json(429, {});
@@ -125,6 +150,27 @@ function soxtaAmo(): Server {
       });
     }
     if (url.startsWith('/api/v4/contacts?query=')) return res.writeHead(204).end();
+    // Lidlar ro'yxati: updated_at bo'yicha, 250 tadan
+    if (url.startsWith('/api/v4/leads?with=contacts')) {
+      const u = new URL(url, 'http://x');
+      const dan = Number(u.searchParams.get('filter[updated_at][from]') ?? 0);
+      const sahifa = Number(u.searchParams.get('page') ?? 1);
+      const mos = AMO_LIDLAR.filter((l) => l.updated_at >= dan).sort((a, b) => a.updated_at - b.updated_at || a.id - b.id);
+      const bolak = mos.slice((sahifa - 1) * 250, sahifa * 250);
+      return bolak.length === 0 ? res.writeHead(204).end() : json(200, { _embedded: { leads: bolak } });
+    }
+    if (url.startsWith('/api/v4/contacts?limit=250&filter[id][]=')) {
+      const u = new URL(url, 'http://x');
+      const ids = u.searchParams.getAll('filter[id][]').map(Number);
+      return json(200, {
+        _embedded: {
+          contacts: [
+            { id: 301, name: 'Aziza', custom_fields_values: [{ field_code: 'PHONE', values: [{ value: '+998 90 123 45 67' }] }] },
+            { id: 302, name: 'Bobur', custom_fields_values: [{ field_code: 'EMAIL', values: [{ value: 'b@x.uz' }] }] },
+          ].filter((c) => ids.includes(c.id)),
+        },
+      });
+    }
     if (url.startsWith('/api/v4/leads?')) {
       return json(200, {
         _embedded: {
@@ -178,6 +224,13 @@ function soxtaBitrix(): Server {
       if (v.includes('+998977777777')) return r({ CONTACT: [78] });
       return r([]);
     }
+    if (usul === 'crm.deal.list' && (t?.select as string[] | undefined)?.includes('DATE_MODIFY')) {
+      return r([
+        { ID: '11', TITLE: 'Kurs — Dilnoza', CATEGORY_ID: '4', STAGE_ID: 'C4:NEW', OPPORTUNITY: '1200000.00', ASSIGNED_BY_ID: '9', CONTACT_ID: '77', DATE_CREATE: '2026-10-01T10:00:00+05:00', DATE_MODIFY: '2026-10-20T10:00:00+05:00', CLOSEDATE: '2026-11-01T00:00:00+05:00', CLOSED: 'N' },
+        { ID: '12', TITLE: 'Yutildi', CATEGORY_ID: '0', STAGE_ID: 'WON', OPPORTUNITY: '500000', ASSIGNED_BY_ID: '1', CONTACT_ID: '0', DATE_CREATE: '2026-10-02T10:00:00+05:00', DATE_MODIFY: '2026-10-21T09:00:00+05:00', CLOSEDATE: '2026-10-21T09:00:00+05:00', CLOSED: 'Y' },
+      ]);
+    }
+    if (usul === 'crm.contact.list') return r([{ ID: '77', NAME: 'Dilnoza', LAST_NAME: 'K', PHONE: [{ VALUE: '+998 97 111 22 33' }] }]);
     if (usul === 'crm.deal.list') {
       const ids = ((t?.filter as Record<string, unknown>)?.['@CONTACT_ID'] as number[]) ?? [];
       return r(ids.includes(77) ? [{ ID: '1201', TITLE: 'Backend kursi', ASSIGNED_BY_ID: '9' }] : []);
@@ -221,6 +274,9 @@ async function main(): Promise<void> {
   const { webhookniAjrat, bitrix24Adapter } = await import('./bitrix24.js');
   const { ADAPTERLAR, CRM_TURLARI, crmConfigniOl, sozlamaniOl } = await import('./index.js');
   const { izohMatni } = await import('./yozish.js');
+  const { oauthAlmashtir, oauthHavola, oauthSirmi } = await import('./amocrm.js');
+  const { holatYarat, holatniTekshir } = await import('./kontekst.js');
+  const { kontaktTelefoni } = await import('./lidlar.js');
 
   console.log("\nA. Ro'yxat va umumiy yordamchilar");
   check('ikkala CRM ro\'yxatda', CRM_TURLARI.join(',') === 'amocrm,bitrix24');
@@ -341,6 +397,81 @@ async function main(): Promise<void> {
   check('xulosa, kamchilik, keyingi qadam, havola', ['Xulosa: Mijoz', 'Asosiy kamchilik: Ehtiyoj', 'Keyingi qadam: Ertaga', 'Batafsil: https://acme.sotuv.uz/suhbatlar/abc'].every((s) => matn.includes(s)));
   const ru = izohMatni({ til: 'ru', timezone: 'Asia/Tashkent', boshlandi: new Date(), davomiylikSoniya: null, menejer: null, baho: null, xulosa: null, kamchilik: null, keyingi: [], havola: 'x' });
   check('rus tilida, baholanmagan', ru.includes('анализ звонка') && ru.includes('Оценка: не оценивался') && !ru.includes('Итог'));
+
+  console.log("\nH. amoCRM — lidlarni import qilish (kursor)");
+  const p1 = await amocrmAdapter.lidlar(ctx, null);
+  check("1-sahifa: o'chirilgan lid tashlandi", p1.lidlar.length === 249 && !p1.lidlar.some((l) => l.id === '3'), String(p1.lidlar.length));
+  check('1-sahifa to\'liq → davom etadi, vaqt siljidi', !p1.tugadi && p1.kursor === '{"dan":900,"sahifa":1}', p1.kursor);
+  const l1 = p1.lidlar.find((l) => l.id === '1');
+  check(
+    'lid: voronka, bosqich, summa, mas\'ul',
+    l1?.voronkaId === '1' && l1.bosqichId === '11' && l1.summa === 3500000 && l1.masulId === '6' && l1.url.endsWith('/leads/detail/1'),
+    JSON.stringify(l1),
+  );
+  check('lid: ASOSIY kontakt (is_main) ismi va telefoni', l1?.kontaktId === '301' && l1.kontaktNom === 'Aziza' && l1.telefonlar[0] === '+998 90 123 45 67');
+  const l2 = p1.lidlar.find((l) => l.id === '2');
+  check('telefonsiz kontakt — bo\'sh ro\'yxat, yopilgan sana', l2?.telefonlar.length === 0 && l2.yopilgan?.getTime() === 210_000);
+  const p2 = await amocrmAdapter.lidlar(ctx, p1.kursor);
+  check('bir xil vaqtli to\'liq sahifa → sahifa raqami oshadi', p2.lidlar.length === 250 && !p2.tugadi && p2.kursor === '{"dan":900,"sahifa":2}', p2.kursor);
+  const p3 = await amocrmAdapter.lidlar(ctx, p2.kursor);
+  check('oxirgi sahifa → tugadi, keyingi tik shu vaqtdan', p3.lidlar.length === 50 && p3.tugadi && p3.kursor === '{"dan":900,"sahifa":1}', p3.kursor);
+  const p4 = await amocrmAdapter.lidlar(ctx, '{"dan":5000,"sahifa":1}');
+  check("yangi o'zgarish yo'q (204) → bo'sh, tugadi", p4.lidlar.length === 0 && p4.tugadi && p4.kursor === '{"dan":5000,"sahifa":1}');
+  check('buzuq kursor → boshidan', (await amocrmAdapter.lidlar(ctx, 'buzuq')).lidlar.length === 249);
+
+  console.log('\nI. amoCRM — OAuth (bir tugmada ulash)');
+  const havola = oauthHavola('mijoz-id-12345', 'holat-1');
+  check('ruxsat havolasi', havola.startsWith('https://www.amocrm.ru/oauth?') && havola.includes('client_id=mijoz-id-12345') && havola.includes('state=holat-1') && havola.includes('mode=popup'));
+  const oa = { clientId: 'mijoz-id-12345', clientSecret: 'sir-kalit-12345', redirectUri: 'https://sotuv.test/api/v1/crm/oauth/amocrm/callback' };
+  const juft = await oauthAlmashtir({ subdomain: 'kompaniya', baseDomain: 'amocrm.ru' }, { ...oa, tur: 'kod', kod: 'kod-ok' });
+  check('kod → access + refresh', juft.access === YAXSHI && juft.refresh === 'refresh-1-abcdef' && Math.abs(juft.exp - (Date.now() / 1000 + 86400)) < 5);
+  check('so\'rov: authorization_code', oauthSorovlar.at(-1)?.grant_type === 'authorization_code');
+  check("noto'g'ri kod → token xatosi", (await xatoTuri(() => oauthAlmashtir({ subdomain: 'kompaniya', baseDomain: 'amocrm.ru' }, { ...oa, tur: 'kod', kod: 'yomon' }))) === 'token');
+  const yangi = await oauthAlmashtir({ subdomain: 'kompaniya', baseDomain: 'amocrm.ru' }, { ...oa, tur: 'yangilash', refresh: 'refresh-1-abcdef' });
+  check('refresh → yangi juftlik', yangi.refresh === 'refresh-2-abcdef' && oauthSorovlar.at(-1)?.grant_type === 'refresh_token');
+  check('ishlatilgan refresh qayta → token xatosi', (await xatoTuri(() => oauthAlmashtir({ subdomain: 'kompaniya', baseDomain: 'amocrm.ru' }, { ...oa, tur: 'yangilash', refresh: 'eski' }))) === 'token');
+  const oauthCtx = { config: n.config, sir: JSON.stringify(juft) };
+  check('OAuth sir taniladi', oauthSirmi(oauthCtx.sir)?.access === YAXSHI && oauthSirmi(YAXSHI) === null);
+  check('OAuth kontekst bilan so\'rov (access ishlatiladi)', (await amocrmAdapter.tekshir(oauthCtx)).nom === 'IT Live academy');
+  let tokenChaqirildi = 0;
+  const tokenCtx = { config: n.config, sir: 'ishlatilmaydi', token: async () => (tokenChaqirildi++, YAXSHI) };
+  check('token() bor bo\'lsa — har so\'rovda u', (await amocrmAdapter.tekshir(tokenCtx)).nom === 'IT Live academy' && tokenChaqirildi === 1);
+  check(
+    'OAuth ulangan + token formasi bo\'sh → rad (eski sir token emas)',
+    (await xatoTuri(() => amocrmAdapter.ulash({ address: 'kompaniya', token: '' }, oauthCtx))) === 'kirish',
+  );
+
+  console.log('\nJ. OAuth holati (state) — imzo va qaytish manzili');
+  const st = holatYarat('11111111-1111-1111-1111-111111111111', 'u-1', 'http://acme.1.2.3.4.sslip.io');
+  const h = holatniTekshir(st);
+  check("to'g'ri holat", h?.businessId === '11111111-1111-1111-1111-111111111111' && h.userId === 'u-1' && h.qaytish === 'http://acme.1.2.3.4.sslip.io');
+  const [qism, imzo] = st.split('.');
+  const soxta = Buffer.from(JSON.stringify({ ...JSON.parse(Buffer.from(qism!, 'base64url').toString()), b: '22222222-2222-2222-2222-222222222222' })).toString('base64url');
+  check('soxtalashtirilgan biznes → rad', holatniTekshir(`${soxta}.${imzo}`) === null);
+  check('imzosiz / buzuq → rad', holatniTekshir(qism!) === null && holatniTekshir('a.b') === null && holatniTekshir('') === null);
+  const asl = Date.now;
+  Date.now = () => asl() + 16 * 60_000;
+  check('15 daqiqadan keyin → rad', holatniTekshir(st) === null);
+  Date.now = asl;
+
+  console.log('\nK. Bitrix24 — lidlarni import qilish');
+  const bl = await bitrix24Adapter.lidlar(bctx, null);
+  check('ikki lid, tugadi', bl.lidlar.length === 2 && bl.tugadi);
+  const b1 = bl.lidlar.find((l) => l.id === '11');
+  check(
+    'lid: yo\'nalish, bosqich, summa, mas\'ul, telefon',
+    b1?.voronkaId === '4' && b1.bosqichId === 'C4:NEW' && b1.summa === 1200000 && b1.masulId === '9' && b1.telefonlar[0] === '+998 97 111 22 33' && b1.kontaktNom === 'Dilnoza K',
+    JSON.stringify(b1),
+  );
+  check('ochiq lidda yopilgan sana yo\'q', b1?.yopilgan === null);
+  const b2 = bl.lidlar.find((l) => l.id === '12');
+  check('yopilgan lid: sana, kontaktsiz', b2?.yopilgan !== null && b2?.kontaktId === null && b2.telefonlar.length === 0);
+  check('kursor — eng so\'nggi o\'zgarish vaqti', JSON.parse(bl.kursor).dan === '2026-10-21T09:00:00+05:00');
+
+  console.log('\nL. Kontakt telefoni (Moi Zvonki bilan bir xil format)');
+  check('9 xonali → 998 qo\'shiladi', kontaktTelefoni('90 123 45 67') === '998901234567');
+  check('to\'liq raqam → faqat raqamlar', kontaktTelefoni('+998 (90) 123-45-67') === '998901234567');
+  check('qisqa → null', kontaktTelefoni('1234') === null);
 
   amo.close();
   bx.close();

@@ -1,9 +1,9 @@
-import { and, count, desc, eq, ne } from 'drizzle-orm';
+import { and, count, desc, eq, max, ne } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { decryptSecret, encryptSecret } from '../../crypto/secrets.js';
+import { encryptSecret } from '../../crypto/secrets.js';
 import { withTenant } from '../../db/index.js';
-import { crmSyncItem, integration } from '../../db/schema/index.js';
+import { crmLead, crmSyncItem, integration } from '../../db/schema/index.js';
 import {
   ADAPTERLAR,
   CRM_TURLARI,
@@ -15,6 +15,12 @@ import {
   type CrmKind,
   type CrmKontekst,
 } from '../../integrations/crm/index.js';
+import type { CrmUlanishNatija } from '../../integrations/crm/adapter.js';
+import { amoOauthSozlama, holatYarat } from '../../integrations/crm/kontekst.js';
+import { oauthHavola } from '../../integrations/crm/amocrm.js';
+import { crmLidlarniSinxronla, lidSozlamaniOl, tuzilishKeshniTozala } from '../../integrations/crm/lidlar.js';
+import { kontekstQur } from '../../integrations/crm/kontekst.js';
+import { hostDanSlug, rootHostmi } from '../tenant.js';
 import { requireBusiness, requirePermission } from '../auth-plugin.js';
 import { AppError } from '../errors.js';
 
@@ -40,6 +46,8 @@ const ulashBody = z.object({
 const sozlamaBody = z.object({
   izoh: z.boolean().optional(),
   vazifa: z.boolean().optional(),
+  /** Lidlar faqat shu voronkalardan (ID). `null` — hammasi. */
+  voronkalar: z.array(z.string().max(64)).max(200).nullable().optional(),
 });
 
 function turniOl(req: FastifyRequest): CrmKind {
@@ -59,6 +67,7 @@ async function qatorlarniOl(businessId: string) {
     tx
       .select({
         id: integration.id,
+        businessId: integration.businessId,
         kind: integration.kind,
         status: integration.status,
         config: integration.config,
@@ -78,12 +87,7 @@ function ulanganmi(q: Qator | undefined): boolean {
 }
 
 function kontekst(q: Qator): CrmKontekst | null {
-  if (!q.creds) return null;
-  try {
-    return { config: crmConfigniOl(q.config), sir: decryptSecret(q.creds) };
-  } catch {
-    return null;
-  }
+  return kontekstQur({ id: q.id, businessId: q.businessId, config: q.config, creds: q.creds });
 }
 
 /** Bitta CRM holati — sirsiz. */
@@ -108,8 +112,69 @@ function holat(kind: CrmKind, q: Qator | undefined) {
     connectedAt: typeof c.crmUlangan === 'string' ? c.crmUlangan : null,
     lastCheckAt: q?.lastSyncAt ?? null,
     lastError: q?.lastError ?? null,
+    /** `oauth` — bir tugmada ulangan (token o'zi yangilanadi), `token` — qo'lda kiritilgan. */
+    authType: cfg.authType === 'oauth' ? 'oauth' : ulangan ? 'token' : null,
     settings: sozlamaniOl(q?.config),
+    leads: (() => {
+      const l = lidSozlamaniOl(q?.config);
+      return { voronkalar: l.voronkalar, birinchiTugadi: l.birinchiTugadi, oxirgi: l.oxirgi, xato: l.xato };
+    })(),
   };
+}
+
+/**
+ * Ulanishni saqlaydi — token bilan ham, OAuth bilan ham bitta yo'l.
+ *
+ * • Bir vaqtda bitta CRM (boshqasi ulangan bo'lsa — rad).
+ * • Hisob O'ZGARSA (boshqa manzil) — eski hisobning lidlari o'chiriladi va
+ *   import boshidan boshlanadi: ikki hisob ma'lumoti aralashmasin.
+ * • Yangi ulanishda CRM ga faqat shu paytdan keyingi qo'ng'iroqlar yoziladi.
+ */
+export async function ulanishniSaqla(businessId: string, kind: CrmKind, n: CrmUlanishNatija): Promise<void> {
+  const qatorlar = await qatorlarniOl(businessId);
+  const boshqa = qatorlar.find((q) => q.kind !== kind && crmTurimi(q.kind) && ulanganmi(q));
+  if (boshqa) {
+    throw AppError.conflict(`Avval ${ADAPTERLAR[boshqa.kind as CrmKind].nom} ni uzing — bir vaqtda bitta CRM ulanadi`);
+  }
+  const mavjud = qatorlar.find((q) => q.kind === kind);
+  const avvalgi = (mavjud?.config ?? {}) as Record<string, unknown>;
+  const eskiManzil = crmConfigniOl(mavjud?.config).address;
+  const shuHisob = eskiManzil === n.config.address;
+  const qaytaUlanish = ulanganmi(mavjud) && shuHisob;
+  const eskiSozlama = sozlamaniOl(mavjud?.config);
+  const hozir = new Date();
+
+  const config = {
+    ...avvalgi,
+    crm: n.config,
+    crmHisobUrl: n.hisob.url,
+    crmSirKorinishi: n.sirKorinishi,
+    crmUlangan: qaytaUlanish && typeof avvalgi.crmUlangan === 'string' ? avvalgi.crmUlangan : hozir.toISOString(),
+    crmSozlama: { ...eskiSozlama, boshlanish: qaytaUlanish && eskiSozlama.boshlanish ? eskiSozlama.boshlanish : hozir.toISOString() },
+    // Boshqa hisob — lidlar importi boshidan, voronka tanlovi bekor
+    ...(shuHisob ? {} : { crmLid: { kursor: null, voronkalar: null, birinchiTugadi: false, oxirgi: null, xato: null } }),
+  };
+
+  await withTenant(businessId, async (tx) => {
+    const qiymat = {
+      status: 'connected' as const,
+      config,
+      credentialsEncrypted: encryptSecret(n.sir),
+      tokenExpiresAt: n.tokenExpiresAt,
+      syncEnabled: true,
+      lastSyncAt: hozir,
+      lastSyncStatus: 'ok',
+      lastError: null,
+      updatedAt: hozir,
+    };
+    if (mavjud) {
+      await tx.update(integration).set(qiymat).where(eq(integration.id, mavjud.id));
+      if (!shuHisob) await tx.delete(crmLead).where(eq(crmLead.integrationId, mavjud.id));
+      tuzilishKeshniTozala(mavjud.id);
+    } else {
+      await tx.insert(integration).values({ businessId, kind, pollIntervalMinutes: 1, ...qiymat });
+    }
+  });
 }
 
 export function registerCrmUlanishRoutes(app: FastifyInstance): void {
@@ -119,22 +184,63 @@ export function registerCrmUlanishRoutes(app: FastifyInstance): void {
 
   /** Hamma CRM lar: forma tavsifi + holat. Tarmoqqa chiqmaydi. */
   app.get(base, guard, async (req) => {
-    const qatorlar = await qatorlarniOl(req.business!.businessId);
+    const businessId = req.business!.businessId;
+    const [qatorlar, soni, oauth] = await Promise.all([
+      qatorlarniOl(businessId),
+      withTenant(businessId, (tx) =>
+        tx
+          .select({ integrationId: crmLead.integrationId, n: count(), oxirgi: max(crmLead.crmUpdatedAt) })
+          .from(crmLead)
+          .groupBy(crmLead.integrationId),
+      ),
+      amoOauthSozlama(),
+    ]);
     const crmlar = CRM_TURLARI.map((kind) => {
       const a = ADAPTERLAR[kind];
+      const q = qatorlar.find((r) => r.kind === kind);
+      const h = holat(kind, q);
+      const s = q ? soni.find((x) => x.integrationId === q.id) : undefined;
       return {
         kind,
         name: a.nom,
         description: a.tavsif,
         guide: a.qollanma,
         fields: a.maydonlar,
-        ...holat(
-          kind,
-          qatorlar.find((q) => q.kind === kind),
-        ),
+        /** Bir tugmada ulash (OAuth) mumkinmi — platformada sozlangan bo'lsa. */
+        oauthAvailable: kind === 'amocrm' && Boolean(oauth),
+        ...h,
+        leads: { ...h.leads, count: s ? Number(s.n) : 0 },
       };
     });
     return { crmlar, active: crmlar.find((c) => c.connected)?.kind ?? null };
+  });
+
+  /**
+   * Bir tugmada ulash (amoCRM OAuth) — ruxsat sahifasi manzili. Frontend
+   * foydalanuvchini shu manzilga yuboradi; amoCRM ruxsatdan keyin
+   * `/api/v1/crm/oauth/amocrm/callback` ga qaytaradi.
+   */
+  app.post(`${base}/amocrm/oauth`, { ...guard, config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (req) => {
+    const s = await amoOauthSozlama();
+    if (!s) throw AppError.badRequest('Bir tugmada ulash hali sozlanmagan — platforma administratori amoCRM integratsiyasini kiritishi kerak');
+    const qatorlar = await qatorlarniOl(req.business!.businessId);
+    const boshqa = qatorlar.find((q) => q.kind !== 'amocrm' && crmTurimi(q.kind) && ulanganmi(q));
+    if (boshqa) {
+      throw AppError.conflict(`Avval ${ADAPTERLAR[boshqa.kind as CrmKind].nom} ni uzing — bir vaqtda bitta CRM ulanadi`);
+    }
+    // Qaytish manzili — faqat shu biznesning o'z manzili (asosiy sayt yoki uning subdomeni).
+    // Aks holda callback foydalanuvchini begona saytga yo'naltirishi mumkin edi (open redirect).
+    const { qaytish } = z.object({ qaytish: z.string().max(300).optional() }).parse(req.body ?? {});
+    let origin: string | undefined;
+    try {
+      const u = qaytish ? new URL(qaytish) : null;
+      if (u && (u.protocol === 'http:' || u.protocol === 'https:') && (rootHostmi(u.host) || hostDanSlug(u.host) === req.business!.slug)) {
+        origin = u.origin;
+      }
+    } catch {
+      origin = undefined;
+    }
+    return { url: oauthHavola(s.clientId, holatYarat(req.business!.businessId, req.auth!.user.id, origin)) };
   });
 
   /**
@@ -145,7 +251,6 @@ export function registerCrmUlanishRoutes(app: FastifyInstance): void {
     const kind = turniOl(req);
     const body = ulashBody.parse(req.body);
     const businessId = req.business!.businessId;
-    const adapter = ADAPTERLAR[kind];
 
     const qatorlar = await qatorlarniOl(businessId);
     const boshqa = qatorlar.find((q) => q.kind !== kind && crmTurimi(q.kind) && ulanganmi(q));
@@ -155,38 +260,8 @@ export function registerCrmUlanishRoutes(app: FastifyInstance): void {
     const mavjud = qatorlar.find((q) => q.kind === kind);
     const eski = mavjud ? kontekst(mavjud) : null;
 
-    const n = await adapter.ulash(body.maydonlar, eski).catch(crmXatosi);
-    const hozir = new Date();
-    const qaytaUlanish = ulanganmi(mavjud) && eski?.config.address === n.config.address;
-    const avvalgi = (mavjud?.config ?? {}) as Record<string, unknown>;
-    const eskiSozlama = sozlamaniOl(mavjud?.config);
-
-    const config = {
-      ...avvalgi,
-      crm: n.config,
-      crmHisobUrl: n.hisob.url,
-      crmSirKorinishi: n.sirKorinishi,
-      crmUlangan: qaytaUlanish && typeof avvalgi.crmUlangan === 'string' ? avvalgi.crmUlangan : hozir.toISOString(),
-      // Yangi ulanishda faqat shu paytdan keyingi qo'ng'iroqlar yoziladi
-      crmSozlama: { ...eskiSozlama, boshlanish: qaytaUlanish && eskiSozlama.boshlanish ? eskiSozlama.boshlanish : hozir.toISOString() },
-    };
-
-    await withTenant(businessId, async (tx) => {
-      const qiymat = {
-        status: 'connected' as const,
-        config,
-        credentialsEncrypted: encryptSecret(n.sir),
-        tokenExpiresAt: n.tokenExpiresAt,
-        syncEnabled: true,
-        lastSyncAt: hozir,
-        lastSyncStatus: 'ok',
-        lastError: null,
-        updatedAt: hozir,
-      };
-      if (mavjud) await tx.update(integration).set(qiymat).where(eq(integration.id, mavjud.id));
-      else await tx.insert(integration).values({ businessId, kind, pollIntervalMinutes: 1, ...qiymat });
-    });
-
+    const n = await ADAPTERLAR[kind].ulash(body.maydonlar, eski).catch(crmXatosi);
+    await ulanishniSaqla(businessId, kind, n);
     return { ok: true, account: n.hisob, secretHint: n.sirKorinishi };
   });
 
@@ -244,14 +319,33 @@ export function registerCrmUlanishRoutes(app: FastifyInstance): void {
     if (!q || !ulanganmi(q)) throw AppError.badRequest('CRM ulanmagan');
 
     const config = (q.config ?? {}) as Record<string, unknown>;
-    const yangi = crmSozlamaSchema.parse({ ...sozlamaniOl(q.config), ...body });
+    const { voronkalar, ...qolgan } = body;
+    const yangi = crmSozlamaSchema.parse({ ...sozlamaniOl(q.config), ...qolgan });
+    const lid = lidSozlamaniOl(q.config);
+    // Voronka tanlovi o'zgarsa — import boshidan (yangi tanlangan voronkalar ham kelsin)
+    const lidYangi =
+      voronkalar === undefined
+        ? lid
+        : { ...lid, voronkalar: voronkalar && voronkalar.length > 0 ? voronkalar : null, kursor: null, birinchiTugadi: false };
     await withTenant(businessId, (tx) =>
       tx
         .update(integration)
-        .set({ config: { ...config, crmSozlama: yangi }, updatedAt: new Date() })
+        .set({ config: { ...config, crmSozlama: yangi, crmLid: lidYangi }, updatedAt: new Date() })
         .where(eq(integration.id, q.id)),
     );
-    return { ok: true, settings: yangi };
+    return { ok: true, settings: yangi, leads: { voronkalar: lidYangi.voronkalar } };
+  });
+
+  /** Lidlarni hozir olish — keyingi avtomatik tikni kutmasdan (2 sahifagacha). */
+  app.post(`${base}/:kind/leads/sync`, sekin, async (req) => {
+    const kind = turniOl(req);
+    const businessId = req.business!.businessId;
+    const q = (await qatorlarniOl(businessId)).find((r) => r.kind === kind);
+    if (!q || !ulanganmi(q)) throw AppError.badRequest('CRM ulanmagan');
+    const [n] = await crmLidlarniSinxronla({ businessId, maksSahifa: 2 });
+    if (!n) throw AppError.badRequest('CRM ulanmagan');
+    if (n.xato) throw AppError.badRequest(n.xato);
+    return n;
   });
 
   /** Oxirgi yozuvlar va hisob — "CRM ga nima ketdi" degan savolga javob. */

@@ -38,8 +38,14 @@ export interface CrmMaydon {
 export interface CrmKontekst {
   /** Ommaviy sozlama (manzil, hisob nomi…) — sirsiz. */
   config: Record<string, unknown>;
-  /** Shifrdan ochilgan sir: token yoki webhook manzili. */
+  /** Shifrdan ochilgan sir: token, webhook manzili yoki OAuth juftligi (JSON). */
   sir: string;
+  /**
+   * OAuth ulanishda — har chaqiruvdan oldin amal qiluvchi access token
+   * (muddati tugayotgan bo'lsa yangilab, bazaga yozib beradi). Bo'lmasa
+   * adapter `sir` ni token sifatida ishlatadi.
+   */
+  token?: () => Promise<string>;
 }
 
 /** `ulash` natijasi — saqlanadi. */
@@ -74,6 +80,39 @@ export interface CrmTuzilish {
   leadFieldCount: number;
 }
 
+/**
+ * CRM dagi sdelka (lid) — SotuvAI ga import qilinadigan ko'rinishda.
+ * Voronka/bosqich NOMLARI bu yerda yo'q: ular `tuzilish` dan olinadi
+ * (bitta sinxronlashda bir marta), har lidda takrorlanmaydi.
+ */
+export interface CrmLid {
+  id: string;
+  nom: string | null;
+  voronkaId: string | null;
+  bosqichId: string | null;
+  summa: number | null;
+  masulId: string | null;
+  kontaktId: string | null;
+  kontaktNom: string | null;
+  telefonlar: string[];
+  yaratilgan: Date | null;
+  yangilangan: Date;
+  yopilgan: Date | null;
+  url: string;
+}
+
+/**
+ * Lidlar sahifasi. `kursor` — keyingi chaqiruv shu joydan davom etadi
+ * (saqlanadi). `tugadi` — hozircha boshqa o'zgarish yo'q: keyingi tikkacha
+ * kutiladi. Sinxronlash `yangilangan` bo'yicha o'sib boradi: birinchi marta
+ * hammasi, keyin faqat o'zgarganlari.
+ */
+export interface CrmLidSahifa {
+  lidlar: CrmLid[];
+  kursor: string;
+  tugadi: boolean;
+}
+
 export interface CrmAdapter {
   kind: CrmKind;
   nom: string;
@@ -97,6 +136,11 @@ export interface CrmAdapter {
   izoh(k: CrmKontekst, y: CrmYozuv, matn: string): Promise<string | null>;
   /** Yozuvga vazifa qo'shadi (mas'ul — yozuvning mas'uli). */
   vazifa(k: CrmKontekst, y: CrmYozuv, v: { sarlavha: string; matn: string; muddat: Date }): Promise<string | null>;
+  /**
+   * O'zgargan sdelkalar — eng eskisidan boshlab. `kursor` null bo'lsa
+   * boshidan (birinchi import). Natijadagi `kursor` keyingi chaqiruvga.
+   */
+  lidlar(k: CrmKontekst, kursor: string | null): Promise<CrmLidSahifa>;
 }
 
 // ─── Xato ────────────────────────────────────────────────────────────────────

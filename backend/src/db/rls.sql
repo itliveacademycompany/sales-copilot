@@ -54,7 +54,7 @@ DECLARE
     'contact', 'conversation', 'transcript_segment', 'analysis',
     'criterion_score', 'score_appeal', 'conversation_comment',
     'commitment', 'task',
-    'integration', 'sync_log', 'crm_sync_item',
+    'integration', 'sync_log', 'crm_sync_item', 'crm_lead',
     'analysis_job',
     'subscription', 'billing_transaction', 'usage_record',
     'alert', 'dashboard_layout', 'audit_log', 'daily_summary'
