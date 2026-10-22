@@ -5,6 +5,8 @@ export * from './playbook.js';
 export * from './conversation.js';
 export * from './task.js';
 export * from './integration.js';
+export * from './crm.js';
+export * from './crm2.js';
 export * from './billing.js';
 export * from './ops.js';
 export * from './jobs.js';

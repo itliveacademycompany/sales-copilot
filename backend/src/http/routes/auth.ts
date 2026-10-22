@@ -11,7 +11,7 @@ import {
   revokeAllForUser,
   revokeSession,
 } from '../../auth/session.js';
-import { config } from '../../config.js';
+import { config, ochiqRoyxat } from '../../config.js';
 import { withoutTenantIsolation } from '../../db/index.js';
 import { db } from '../../db/index.js';
 import {
@@ -94,6 +94,10 @@ export function registerAuthRoutes(app: FastifyInstance): void {
    *
    * Hammasi bitta tranzaksiyada: yarim yaratilgan biznes (foydalanuvchi bor,
    * lekin a'zolik yo'q) hech kim kira olmaydigan yopiq holat bo'lardi.
+   *
+   * Serverda (production) YOPIQ — mijoz kabinetini faqat super admin
+   * yaratadi (`routes/tenants.ts`). Aks holda istalgan kishi API orqali
+   * o'ziga biznes va sinov obunasi ochib olardi. Qarang: `ochiqRoyxat`.
    */
   app.post(
     '/api/v1/auth/register',
@@ -101,6 +105,11 @@ export function registerAuthRoutes(app: FastifyInstance): void {
       config: { rateLimit: { max: 10, timeWindow: '1 hour' } },
     },
     async (req, reply) => {
+      if (!ochiqRoyxat) {
+        throw AppError.forbidden(
+          "Ro'yxatdan o'tish yopiq — kabinetni platforma administratori yaratadi",
+        );
+      }
       const body = registerBody.parse(req.body);
 
       const existing = await withoutTenantIsolation(

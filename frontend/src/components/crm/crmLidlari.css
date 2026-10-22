@@ -1,0 +1,94 @@
+/* CRM lidlari (Lid xulosalari → "CRM lidlari") — faqat tema tokenlari */
+
+.crml-korinish { margin-top: 12px; }
+.crml-korinish .tab { display: inline-flex; align-items: center; gap: 6px; }
+.crml-korinish .tab svg { width: 15px; height: 15px; }
+
+.crml-ogoh {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13.5px;
+}
+.crml-ogoh svg { width: 16px; height: 16px; flex: none; }
+.crml-ogoh.info { background: var(--info-soft); color: var(--info-text); }
+.crml-ogoh.xato { background: var(--past-soft); color: var(--past-text); }
+.crml-ogoh a { color: inherit; font-weight: 600; }
+
+.crml-filtrlar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 12px; }
+.crml-filtrlar select,
+.crml-qidiruv input {
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  font-size: 13.5px;
+  font-family: inherit;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  box-shadow: var(--neu-in-sm);
+}
+.crml-filtrlar select { max-width: 240px; }
+.crml-filtrlar select:disabled { opacity: 0.6; }
+.crml-filtrlar select:focus,
+.crml-qidiruv input:focus { outline: none; border-color: var(--focus); box-shadow: var(--neu-in-sm), 0 0 0 3px var(--focus-ring); }
+.crml-qidiruv { position: relative; flex: 1 1 240px; min-width: 200px; }
+.crml-qidiruv svg { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; color: var(--text-muted); pointer-events: none; }
+.crml-qidiruv input { width: 100%; padding-left: 34px; }
+
+.crml-soni { margin-bottom: 10px; font-size: 13px; color: var(--text-secondary); }
+
+.crml-jadval-oramasi { padding: 0; overflow-x: auto; }
+.crml-jadval { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.crml-jadval th {
+  text-align: left;
+  padding: 11px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.crml-jadval td { padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.crml-jadval tbody tr:last-child td { border-bottom: none; }
+.crml-jadval tbody tr:hover td { background: var(--bg-sunken); }
+
+.crml-nom { font-weight: 600; }
+.crml-nom a { display: inline-flex; align-items: center; gap: 4px; color: var(--text-primary); text-decoration: none; }
+.crml-nom a:hover { color: var(--ia-text); text-decoration: underline; }
+.crml-nom svg { width: 13px; height: 13px; color: var(--text-muted); }
+.crml-kichik { margin-top: 2px; font-size: 12.5px; color: var(--text-secondary); }
+.crml-kichik svg { width: 12px; height: 12px; vertical-align: -1px; }
+.crml-summa { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.crml-bosqich {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+}
+.crml-bosqich.muvaffaqiyat { background: var(--yuqori-soft); color: var(--yuqori-text); }
+.crml-bosqich.yopilgan { background: var(--past-soft); color: var(--past-text); }
+
+.crml-sotuvai { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.crml-sotuvai .ball { text-decoration: none; }
+
+.crml-koproq { display: flex; justify-content: center; margin-top: 14px; }
+
+.crml-bosh-holat { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 48px 20px; text-align: center; }
+.crml-bosh-holat span { max-width: 52ch; font-size: 13.5px; color: var(--text-secondary); }
+.crml-bosh-ikon { display: inline-grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: var(--ia-soft); color: var(--ia-text); }
+.crml-bosh-ikon svg { width: 24px; height: 24px; }
+.crml-bosh-holat .btn { margin-top: 6px; text-decoration: none; }
+
+@media (max-width: 720px) {
+  .crml-filtrlar select { max-width: none; flex: 1 1 45%; }
+  .crml-jadval th:nth-child(3), .crml-jadval td:nth-child(3),
+  .crml-jadval th:nth-child(6), .crml-jadval td:nth-child(6) { display: none; }
+}
+.crml-ogoh .aylan { animation: aylanish 0.9s linear infinite; }

@@ -71,6 +71,15 @@ const schema = z.object({
     .optional()
     .transform((v) => v?.replace(/\/+$/, '')),
 
+  /**
+   * Ochiq ro'yxatdan o'tish (`POST /api/v1/auth/register`). Bo'sh bo'lsa —
+   * production'da YOPIQ, ishlab chiqish/testda ochiq (`ochiqRoyxat` pastda).
+   */
+  OPEN_REGISTRATION: z
+    .string()
+    .optional()
+    .transform((v) => (v === 'true' ? true : v === 'false' ? false : undefined)),
+
   // ─── AI tahlil quvuri ───
 
   /** Ichki worker'ni server bilan birga ishga tushirish. */
@@ -152,3 +161,18 @@ if (!parsed.success) {
 
 export const config = parsed.data;
 export const isProd = config.NODE_ENV === 'production';
+
+/**
+ * Cookie `Secure` bayrog'i. Brauzer HTTP sahifada Secure cookie'ni saqlamaydi,
+ * ya'ni domensiz (`WEB_ORIGIN=http://<IP>`) serverda login ishlamay qolardi.
+ * Shuning uchun bayroq sayt haqiqatan HTTPS da bo'lgandagina yoqiladi.
+ */
+export const secureCookie = isProd && config.WEB_ORIGIN.startsWith('https://');
+
+/**
+ * Ochiq ro'yxatdan o'tish yoqilganmi. SaaS'da mijoz kabinetini faqat super
+ * admin yaratadi (Sozlamalar → Mijozlar), shuning uchun production'da
+ * standart yopiq. Ishlab chiqishda ochiq: `verify:*` testlari test
+ * foydalanuvchisini shu yo'l bilan yaratadi. `OPEN_REGISTRATION` ustun turadi.
+ */
+export const ochiqRoyxat = config.OPEN_REGISTRATION ?? !isProd;

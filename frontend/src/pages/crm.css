@@ -1,0 +1,268 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   CRM — istalgan CRM ni ulash sahifasi
+   Ranglar faqat tema tokenlaridan: qorong'i mavzu avtomatik ishlaydi.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.crm-sahifa { display: flex; flex-direction: column; gap: 18px; animation: paydo 0.3s var(--ease) both; }
+.crm-bosh h1 { margin: 0 0 4px; font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+.crm-bosh p { margin: 0; color: var(--text-secondary); font-size: 14.5px; max-width: 70ch; }
+
+/* ─── Logotip belgisi ─── */
+.crm-logo {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+}
+.crm-logo.amo { background: var(--ia-soft); color: var(--ia-text); }
+.crm-logo.bitrix { background: var(--info-soft); color: var(--info-text); }
+.crm-logo svg { width: 20px; height: 20px; }
+
+/* ─── Kartalar qatori ─── */
+.crm-panjara { display: flex; flex-wrap: wrap; gap: 16px; }
+/* Ixcham kartalar qatorni teng bo'lishadi; kengaygani (ulangan / forma) — birinchi, butun qator */
+.crm-panjara > .crm-karta { flex: 1 1 300px; min-width: 0; }
+.crm-panjara > .crm-karta.keng { flex-basis: 100%; order: -1; }
+
+/* ─── CRM kartasi ─── */
+.crm-karta { display: flex; flex-direction: column; gap: 14px; }
+.crm-karta-matn { margin: 0; flex: 1; font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); }
+.crm-karta.ulangan { box-shadow: var(--shadow), inset 0 0 0 1.5px var(--yuqori-soft); }
+.crm-karta-bosh { display: flex; align-items: center; gap: 12px; }
+.crm-karta-sarlavha { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.crm-karta-sarlavha h2 { margin: 0; font-size: 18px; }
+
+.crm-ogoh {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.crm-ogoh svg { flex: none; width: 17px; height: 17px; margin-top: 1px; }
+.crm-ogoh.past { background: var(--past-soft); color: var(--past-text); }
+.crm-ogoh.orta { background: var(--orta-soft); color: var(--orta-text); }
+
+.crm-malumot {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 20px;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--bg-sunken);
+}
+.crm-malumot div { min-width: 0; }
+.crm-malumot dt { font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
+.crm-malumot dd { margin: 0; font-size: 14px; font-weight: 600; overflow-wrap: anywhere; }
+.crm-malumot code { font-size: 13px; }
+.crm-izoh { font-weight: 400; color: var(--text-secondary); }
+.crm-havola { display: inline-flex; align-items: center; gap: 4px; color: var(--ia-text); text-decoration: none; }
+.crm-havola:hover { text-decoration: underline; }
+.crm-havola svg { width: 13px; height: 13px; }
+
+.crm-tugmalar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.crm-tugmalar .btn svg { width: 16px; height: 16px; }
+.crm-tugmalar .crm-uzish { color: var(--past-text); }
+.crm-karta .ok-qator, .crm-karta .xato-qator { margin-bottom: 0; display: flex; align-items: center; gap: 6px; }
+.crm-karta .ok-qator svg { width: 16px; height: 16px; flex: none; }
+.aylan { animation: aylanish 0.9s linear infinite; }
+
+/* ─── Ulash formasi ─── */
+.crm-forma { display: flex; flex-direction: column; gap: 12px; }
+.crm-forma .yordam { margin: 0; }
+.crm-forma .maydon-blok { margin: 0; }
+.crm-qollanma { padding: 10px 14px; border-radius: 10px; background: var(--bg-sunken); font-size: 13.5px; }
+.crm-qollanma summary { cursor: pointer; font-weight: 600; }
+.crm-qollanma ol { margin: 10px 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; line-height: 1.5; }
+
+/* Kalit maydoni + ko'zcha */
+.crm-sir { position: relative; }
+/* `.maydon-blok > input` bilan bir xil ko'rinish (o'rovchi div tufayli u bu yerga tegmaydi) */
+.crm-sir > input {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 11px 48px 11px 14px;
+  font-size: 14px;
+  font-family: inherit;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  box-shadow: var(--neu-in-sm);
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.crm-sir > input::placeholder { color: var(--text-muted); }
+.crm-sir > input:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: var(--neu-in-sm), 0 0 0 3px var(--focus-ring);
+}
+.crm-sir-yashirin { -webkit-text-security: disc; }
+.crm-sir-yashirin::placeholder { -webkit-text-security: none; }
+.crm-kozcha {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.crm-kozcha:hover { color: var(--text-primary); background: var(--bg-sunken); }
+.crm-kozcha:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.crm-kozcha[aria-pressed='true'] { color: var(--ia-text); }
+.crm-kozcha svg { width: 18px; height: 18px; }
+
+/* ─── Ulangandan keyingi bo'limlar ─── */
+.crm-bolim { display: flex; flex-direction: column; gap: 10px; padding-top: 14px; border-top: 1px solid var(--border); }
+.crm-bolim h3 { margin: 0; font-size: 15.5px; }
+.crm-bolim > .yordam { margin: 0; }
+.crm-bolim .ogoh-sozlama { margin: 0; }
+
+.crm-raqamlar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.crm-raqamlar.uch { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.crm-raqam { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 12px; background: var(--bg-sunken); }
+.crm-raqam b { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.crm-raqam span { font-size: 12.5px; color: var(--text-secondary); }
+.crm-raqam.ogoh { background: var(--orta-soft); }
+.crm-raqam.ogoh b, .crm-raqam.ogoh span { color: var(--orta-text); }
+
+/* Faoliyat jurnali */
+.crm-jurnal { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.crm-jurnal li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 10px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+}
+.crm-jurnal li:last-child { border-bottom: none; }
+.crm-jurnal-nima { min-width: 0; overflow-wrap: anywhere; }
+.crm-jurnal-nima a { color: var(--ia-text); }
+.crm-jurnal time { font-size: 12.5px; white-space: nowrap; }
+.crm-holat { padding: 1px 8px; border-radius: 99px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.crm-holat.ok { background: var(--yuqori-soft); color: var(--yuqori-text); }
+.crm-holat.skipped { background: var(--bg-sunken); color: var(--text-secondary); }
+.crm-holat.error { background: var(--past-soft); color: var(--past-text); }
+
+/* Hisob tuzilishi (ochiladigan) */
+.crm-tuzilish summary { cursor: pointer; font-weight: 700; font-size: 15.5px; }
+.crm-voronkalar { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.crm-voronka { padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
+.crm-voronka-nom { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14.5px; margin-bottom: 8px; }
+.crm-bosqichlar { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.crm-bosqich { padding: 3px 10px; border-radius: 99px; font-size: 12.5px; background: var(--bg-sunken); color: var(--text-secondary); }
+.crm-bosqich.muvaffaqiyat { background: var(--yuqori-soft); color: var(--yuqori-text); }
+.crm-bosqich.yopilgan { background: var(--past-soft); color: var(--past-text); }
+
+.crm-foydalanuvchilar h4 { margin: 0 0 8px; font-size: 14px; }
+.crm-foydalanuvchilar ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.crm-foydalanuvchilar li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+.crm-foydalanuvchilar li.nofaol { color: var(--text-muted); }
+.crm-teg { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+
+/* ─── amoCRM dan qaytish natijasi, OAuth izohi ─── */
+.crm-qaytish { display: flex; align-items: center; gap: 8px; margin: 0; }
+.crm-qaytish svg { width: 18px; height: 18px; flex: none; }
+.crm-oauth-izoh { margin: -4px 0 0; }
+.crm-oauth-izoh a { color: var(--ia-text); font-weight: 600; }
+
+/* ─── Lidlar bo'limi ─── */
+.crm-lid-holat { display: flex; align-items: stretch; gap: 14px; flex-wrap: wrap; }
+.crm-lid-holat .crm-raqam { min-width: 150px; }
+.crm-lid-matn { flex: 1 1 260px; display: flex; flex-direction: column; justify-content: center; gap: 4px; font-size: 13.5px; }
+.crm-lid-jarayon { display: inline-flex; align-items: center; gap: 6px; color: var(--info-text); font-weight: 600; }
+.crm-lid-jarayon svg { width: 15px; height: 15px; }
+.crm-lid-xato { color: var(--past-text); font-size: 13px; }
+.crm-bolim .btn { text-decoration: none; }
+.crm-voronka-tanlov {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.crm-voronka-tanlov legend { padding: 0 6px; font-weight: 600; font-size: 13.5px; }
+.crm-voronka-tanlov label { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+.crm-voronka-tanlov .crm-tugmalar { margin-top: 4px; }
+
+/* ─── Qanday ishlaydi (hech qaysi CRM ulanmaganda) ─── */
+.crm-qanday h2 { margin: 6px 0 12px; font-size: 16px; }
+.crm-qanday ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 16px;
+}
+.crm-qanday li {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 18px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border-strong);
+}
+.crm-qanday li b { font-size: 14.5px; }
+.crm-qanday li > span:last-child { font-size: 13.5px; line-height: 1.5; color: var(--text-secondary); }
+.crm-qanday-ikon {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  background: var(--ia-soft);
+  color: var(--ia-text);
+  margin-bottom: 4px;
+}
+.crm-qanday-ikon svg { width: 19px; height: 19px; }
+.crm-qanday-raqam {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-muted);
+  opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .crm-malumot { grid-template-columns: 1fr; }
+  .crm-raqamlar, .crm-raqamlar.uch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .crm-tugmalar .btn { flex: 1 1 auto; justify-content: center; }
+  .crm-jurnal li { grid-template-columns: auto minmax(0, 1fr); }
+  .crm-jurnal time { grid-column: 2; }
+}
+.crm-ogoh-matn { color: var(--orta-text); }

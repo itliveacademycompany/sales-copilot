@@ -4,6 +4,10 @@ import { analyzeConversation } from '../ai/analyze.js';
 import { getActiveLlm, LlmRefusalError, type LlmClient } from '../ai/llm.js';
 import { runBillingTick } from '../billing/engine.js';
 import { dispatchTaskExports } from '../integrations/crm-export.js';
+import { dispatchCrmWriteback } from '../integrations/crm/yozish.js';
+import { crmLidlarniSinxronla } from '../integrations/crm/lidlar.js';
+import { avtomatikaTiki } from '../crm/avtomatika.js';
+import { qongiroqlardanQabul } from '../crm/qabul.js';
 import { oldindanTranskriptQil, qongiroqlarniQaytaIshla, sinxronla } from '../integrations/moizvonki.js';
 import { runDailyReportTick } from '../reports/daily.js';
 import { markOverdueCommitments } from './maintenance.js';
@@ -80,6 +84,9 @@ let loopPromise: Promise<void> | null = null;
  * bir vaqtda ikki nusxa ishlab, bir qo'ng'iroqni ikki marta olmasin.
  */
 let mzSinxronBand = false;
+/** CRM lidlari importi davom etyaptimi — birinchi to'liq import bir necha daqiqa olishi mumkin. */
+let crmLidBand = false;
+let crmIchkiBand = false;
 let mzQaytaIshlashBand = false;
 let mzSttBand = false;
 
@@ -94,6 +101,8 @@ export function startWorkerLoop(log: {
     let lastSweep = 0;
     let lastNotify = 0;
     let lastMzSync = 0;
+    let lastCrmLid = 0;
+    let lastCrmIchki = 0;
     let lastMzProcess = 0;
     let lastMzStt = 0;
     let lastReclaim = 0;
@@ -137,6 +146,19 @@ export function startWorkerLoop(log: {
           if (e.sent > 0 || e.failed > 0) {
             log.info(e, 'CRM: vazifalar yuborildi');
           }
+
+          /**
+           * Ulangan CRM ga (amoCRM, Bitrix24…) tahlil natijasi: sdelkaga
+           * izoh va menejerga vazifa. Xato bitta CRM ni to'xtatadi, butun
+           * worker'ni emas.
+           */
+          const c = await dispatchCrmWriteback().catch((err: unknown) => {
+            log.error({ err }, 'CRM: yozish yiqildi');
+            return null;
+          });
+          if (c && (c.yozildi > 0 || c.xato > 0)) {
+            log.info(c, 'CRM: tahlil natijalari yozildi');
+          }
         }
 
         /**
@@ -144,6 +166,52 @@ export function startWorkerLoop(log: {
          * kutayotganlarni baholash — har 15 soniyada (bir tikda MOIZVONKI_PARALLEL tadan, standart 2).
          * Ikkalasi ham fonda — sabab yuqoridagi bayroqlar izohida.
          */
+        /**
+         * CRM lidlari (sdelkalar) — har daqiqada, fonda. O'zgarish bo'lmasa
+         * bitta arzon so'rov; birinchi import tikma-tik davom etadi.
+         */
+        /**
+         * Ichki CRM — har 30 soniyada, fonda: avtomatika qoidalari (bosqichda
+         * N daqiqa qolganda vazifa, navbat bilan mas'ul…) va yangi SotuvAI
+         * qo'ng'iroqlaridan "Saralanmagan" murojaatlar. Bitta biznes xatosi
+         * qolganlarini to'xtatmaydi.
+         */
+        if (now - lastCrmIchki > 30_000 && !crmIchkiBand) {
+          lastCrmIchki = now;
+          crmIchkiBand = true;
+          void (async () => {
+            const q = await qongiroqlardanQabul();
+            const qoshildi = q.reduce((n, x) => n + x.qoshildi, 0);
+            if (qoshildi > 0) log.info({ qoshildi }, "CRM: qo'ng'iroqlardan saralanmagan murojaatlar");
+            for (const x of q) if (x.xato) log.error({ businessId: x.businessId, xato: x.xato }, 'CRM: qabul xatosi');
+            const a = await avtomatikaTiki();
+            const bajarildi = a.reduce((n, x) => n + x.bajarildi, 0);
+            if (bajarildi > 0) log.info({ bajarildi }, 'CRM: avtomatika qoidalari bajarildi');
+            for (const x of a) if (x.xato) log.error({ businessId: x.businessId, xato: x.xato }, 'CRM: avtomatika xatosi');
+          })()
+            .catch((err: unknown) => log.error({ err }, 'CRM: ichki fon ishlari yiqildi'))
+            .finally(() => {
+              crmIchkiBand = false;
+            });
+        }
+
+        if (now - lastCrmLid > 60_000 && !crmLidBand) {
+          lastCrmLid = now;
+          crmLidBand = true;
+          void crmLidlarniSinxronla()
+            .then((r) => {
+              const saqlandi = r.reduce((n, x) => n + x.saqlandi, 0);
+              if (saqlandi > 0) log.info({ saqlandi }, 'CRM: lidlar yangilandi');
+              for (const x of r) {
+                if (x.xato) log.error({ businessId: x.businessId, xato: x.xato }, 'CRM: lidlar importi xatosi');
+              }
+            })
+            .catch((err: unknown) => log.error({ err }, 'CRM: lidlar importi yiqildi'))
+            .finally(() => {
+              crmLidBand = false;
+            });
+        }
+
         if (now - lastMzSync > 120_000 && !mzSinxronBand) {
           lastMzSync = now;
           mzSinxronBand = true;

@@ -54,7 +54,10 @@ DECLARE
     'contact', 'conversation', 'transcript_segment', 'analysis',
     'criterion_score', 'score_appeal', 'conversation_comment',
     'commitment', 'task',
-    'integration', 'sync_log',
+    'integration', 'sync_log', 'crm_sync_item', 'crm_lead',
+    'crm_pipeline', 'crm_stage', 'crm_field', 'deal', 'deal_event',
+    'company', 'crm_loss_reason', 'crm_setting', 'crm_saved_filter', 'crm_form', 'crm_inbox',
+    'crm_automation', 'crm_automation_run', 'crm_goal', 'crm_product', 'deal_item',
     'analysis_job',
     'subscription', 'billing_transaction', 'usage_record',
     'alert', 'dashboard_layout', 'audit_log', 'daily_summary'

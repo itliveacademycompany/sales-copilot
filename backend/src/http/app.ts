@@ -5,7 +5,7 @@ import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { sql } from 'drizzle-orm';
-import { config, isProd } from '../config.js';
+import { config, isProd, secureCookie } from '../config.js';
 import { db } from '../db/index.js';
 import { registerAuth } from './auth-plugin.js';
 import { AppError, registerErrorHandler } from './errors.js';
@@ -23,6 +23,11 @@ import { registerAnalyticsRoutes } from './routes/analytics.js';
 import { registerLeadRoutes } from './routes/leads.js';
 import { registerDashboardRoutes } from './routes/dashboard.js';
 import { registerTaskRoutes } from './routes/tasks.js';
+import { registerCrmAppRoutes } from './routes/crm-app.js';
+import { registerCrmBoshqaruvRoutes } from './routes/crm-boshqaruv.js';
+import { registerCrmLidRoutes } from './routes/crm-lidlar.js';
+import { registerCrmOauthRoutes } from './routes/crm-oauth.js';
+import { registerCrmUlanishRoutes } from './routes/crm-ulanish.js';
 import { registerMoizvonkiRoutes } from './routes/moizvonki.js';
 import { registerMcpRoutes } from './routes/mcp.js';
 import { registerOauthRoutes } from './routes/oauth.js';
@@ -93,7 +98,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     secret: config.COOKIE_SECRET,
     parseOptions: {
       httpOnly: true,
-      secure: isProd,
+      secure: secureCookie,
       sameSite: 'lax',
       path: '/',
     },
@@ -156,6 +161,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerTelegramRoutes(app);
   registerCrmRoutes(app);
   registerMoizvonkiRoutes(app);
+  registerCrmUlanishRoutes(app);
+  registerCrmOauthRoutes(app);
+  registerCrmLidRoutes(app);
+  registerCrmAppRoutes(app);
+  registerCrmBoshqaruvRoutes(app);
   registerReportRoutes(app);
   registerAppealRoutes(app);
   registerConversationRoutes(app);

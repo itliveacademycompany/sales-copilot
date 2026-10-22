@@ -1,6 +1,6 @@
 import { LogOut } from 'lucide-react';
 import { Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth';
 import { useT } from './i18n';
 import { useKabinet } from './kabinet';
@@ -13,6 +13,18 @@ export function App() {
   const { loading, user, business, businesses, logout } = useAuth();
   const kabinet = useKabinet();
   const t = useT();
+  const loc = useLocation();
+
+  // Ochiq veb-forma (CRM) — kirishsiz va kabinet tekshiruvisiz; saytga iframe bilan joylanadi
+  if (loc.pathname.startsWith('/f/')) {
+    return (
+      <Suspense fallback={<div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}>
+        <Routes>
+          <Route path="/f/:slug" element={<SAHIFA.forma />} />
+        </Routes>
+      </Suspense>
+    );
+  }
 
   if (loading || !kabinet) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
 
@@ -92,6 +104,12 @@ export function App() {
    * "bo'sh ekran" o'rniga foydali ekran ko'rsatiladi.
    */
   const rahbar = business.permissions.includes('analytics:read:all');
+  const crmKoradi = business.permissions.includes('integration:manage');
+  // Ichki CRM ilovasi (Layout dagi almashtirgich bilan bir xil shart)
+  const crmIlova =
+    business.permissions.includes('analytics:read:all') ||
+    business.permissions.includes('task:read:all') ||
+    Boolean(business.seatId);
 
   return (
     <Routes>
@@ -119,6 +137,8 @@ export function App() {
         <Route path="/playbook" element={<SAHIFA.playbook />} />
         <Route path="/billing" element={<SAHIFA.billing />} />
         <Route path="/sozlamalar" element={<SAHIFA.settings />} />
+        {crmIlova && <Route path="/crm/*" element={<SAHIFA.crmIlova />} />}
+        {!crmIlova && crmKoradi && <Route path="/crm/integratsiya" element={<SAHIFA.crm />} />}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

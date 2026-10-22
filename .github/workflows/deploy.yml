@@ -50,6 +50,13 @@ jobs:
         run: |
           npm ci
           npm run build
+      # Caddyfile xato bo'lsa web konteyner serverda ishga tushmay, sayt
+      # to'xtab qolardi — xato shu yerda ushlanadi, deploy boshlanmaydi.
+      - name: Caddyfile — tekshiruv
+        run: |
+          for addr in ":80" "sotuv.example.uz"; do
+            docker run --rm -e SITE_ADDRESS="$addr" -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro"               caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          done
 
   images:
     name: Docker obrazlar

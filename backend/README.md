@@ -72,6 +72,7 @@ Oxirgi qadam **405/405 o'tishi shart**. O'tmasa — davom etmang.
 | `npm run verify:password-reset` | Parol tiklash: token, muddat, oshkor qilmaslik |
 | `npm run verify:import` | Transkript parseri + qo'lda yuklash |
 | `npm run verify:stt` | STT javobini qayta ishlash (API'siz) |
+| `npm run verify:crm-ulanish` | CRM adapterlari (amoCRM, Bitrix24): ulash, xavfsizlik, sdelkani topish, izoh/vazifa (soxta server, bazasiz) |
 | `npm run provider:stt` | Google STT kalitini qo'shish va tekshirish |
 | `npm run db:studio` | Bazani brauzerda ko'rish |
 
@@ -672,10 +673,78 @@ o'zi 127.0.0.1 ga yo'naltiradi, Vite proxy `Host` ni saqlaydi).
 Test: `npm run verify:tenants` (34 tekshiruv — izolyatsiya, kirish
 cheklovi, taklif, subdomen almashtirish, TLS).
 
-⚠️ `POST /api/v1/auth/register` (ochiq ro'yxatdan o'tish) hali faol —
-interfeysda yo'q, lekin API orqali ishlaydi va testlar undan
-foydalanadi. Mijozlarni faqat super admin yaratishi kerak bo'lsa,
-ishlab chiqarishda uni o'chirish (yoki bayroq bilan yopish) kerak.
+`POST /api/v1/auth/register` (ochiq ro'yxatdan o'tish) **production'da
+yopiq** (403) — mijozni faqat super admin yaratadi. Ishlab chiqishda
+ochiq: `verify:*` testlari test foydalanuvchisini shu yo'l bilan yaratadi.
+`OPEN_REGISTRATION=true|false` bilan majburan yoqish/o'chirish mumkin.
+
+## CRM: istalgan CRM ni ulash
+
+Menyudagi **CRM** bo'limi (ega va rahbar — `integration:manage`). Har CRM —
+bitta **adapter** (`src/integrations/crm/<crm>.ts`, `CrmAdapter`): forma
+maydonlari, ulanishni tekshirish, telefon bo'yicha sdelkani topish, izoh va
+vazifa yozish. Sahifa formani adapterdan o'zi chizadi, worker va API
+adapterni ro'yxatdan (`crm/index.ts`) oladi.
+
+| CRM | Ulanish |
+|---|---|
+| amoCRM | hisob manzili + uzoq muddatli token (amoМаркет → «Создать интеграцию» → «Ключи и доступы») |
+| Bitrix24 | bitta maydon: kiruvchi webhook manzili (`crm` va `user` ruxsatlari) |
+
+**Yangi CRM qo'shish:** `CrmAdapter` ni yozing, `crm/index.ts` dagi
+`ADAPTERLAR` ga qo'shing va `integration_kind` enumiga turini qo'shing
+(migratsiya). Sahifa, API va worker o'zgarmaydi.
+
+**Bir tugmada ulash (amoCRM OAuth).** Super admin Sozlamalar → «CRM
+integratsiyasi» da platformadagi BITTA amoCRM integratsiyasi kalitlarini
+(ID интеграции, Секретный ключ) kiritadi; redirect manzili shu yerda
+ko'rsatiladi. Keyin har mijoz CRM sahifasida «amoCRM bilan ulash» ni bosadi
+→ amoCRM ruxsat so'raydi → `GET /api/v1/crm/oauth/amocrm/callback` kodni
+tokenga almashtiradi. `state` HMAC bilan imzolangan (15 daqiqa) va qaytish
+manzilini ham saqlaydi. access token ~1 kun, refresh token BIR MARTALIK —
+yangilash `SELECT … FOR UPDATE` qulfi ostida (`crm/kontekst.ts`), worker
+va API bir vaqtda yangilasa ham ulanish buzilmaydi. ⚠️ amoCRM bir nechta
+hisob uchun redirect manzili HTTPS (SSL) bo'lishini talab qiladi — domen
+ulanmaguncha faqat bitta (o'z) hisob ulanadi; "Token bilan ulash" doim bor.
+
+**Lidlar (sdelkalar) importi** (worker, har daqiqada, `crm/lidlar.ts`):
+adapter `lidlar(kursor)` o'zgargan sdelkalarni `updated_at` bo'yicha
+qaytaradi — birinchi marta hammasi (tikma-tik, kursor har sahifadan keyin
+saqlanadi), keyin faqat o'zgarganlari. `crm_lead` jadvaliga upsert
+(`integration_id + crm_id`); voronka/bosqich nomi va turi, mas'ul
+(menejer kartochkasidagi "CRM ID" → `seat_id`), mijoz telefoni bo'yicha
+SotuvAI kontakti (oxirgi 9 raqam; yo'q bo'lsa yaratiladi). CRM sahifasida
+voronkalar tanlanadi; ro'yxat — Lid xulosalari → «CRM lidlari»
+(`GET /businesses/:id/crm-leads`, sotuvchi faqat o'zinikini ko'radi).
+
+**Tahlildan keyin** (worker, har 20 s): mijoz telefoni bo'yicha CRM dagi
+eng so'nggi OCHIQ sdelka (bo'lmasa kontakt) topiladi va unga izoh yoziladi
+(baho, xulosa, kamchilik, keyingi qadam, SotuvAI havolasi); shu qo'ng'iroq
+vazifalari sdelka mas'uliga CRM vazifasi bo'lib tushadi. Ikkalasi CRM
+sahifasida o'chiriladi.
+
+- Har yozuv `crm_sync_item` da (unikal kalit) — bitta qo'ng'iroqqa ikki izoh
+  tushmaydi. Vaqtinchalik xato — 5 marta, oraliq oshib qayta urinish;
+  doimiy xato (token bekor qilingan) — ulanish `error`, to'xtaydi.
+- Faqat ulangandan KEYIN tahlil qilinganlar yoziladi (`crmSozlama.boshlanish`).
+- Bir vaqtda bitta CRM. Sir shifrlangan, hech qachon qaytarilmaydi; manzil
+  faqat CRM domenlari (`*.amocrm.ru|com`, `*.kommo.com`, `*.bitrix24.*`) — SSRF.
+- CRM da faqat izoh va vazifa yaratiladi: bosqich, summa, mas'ul o'zgarmaydi.
+
+```
+GET    /api/v1/businesses/:id/crm                  CRM lar: forma + holat
+PUT    /api/v1/businesses/:id/crm/:kind            ulash / kalitni almashtirish
+POST   /api/v1/businesses/:id/crm/:kind/check      qayta tekshirish
+GET    /api/v1/businesses/:id/crm/:kind/structure  voronkalar, foydalanuvchilar
+PATCH  /api/v1/businesses/:id/crm/:kind/settings   izoh / vazifa yoqish
+GET    /api/v1/businesses/:id/crm/:kind/log        oxirgi yozuvlar
+DELETE /api/v1/businesses/:id/crm/:kind            uzish
+POST   /api/v1/businesses/:id/crm/amocrm/oauth     bir tugmada ulash — ruxsat manzili
+POST   /api/v1/businesses/:id/crm/:kind/leads/sync lidlarni hozir olish
+GET    /api/v1/businesses/:id/crm-leads            CRM lidlari (filtr, sahifalash)
+GET    /api/v1/crm/oauth/amocrm/callback           amoCRM qaytadigan manzil (ommaviy)
+GET|PUT|DELETE /api/v1/admin/crm/amocrm-oauth      super admin: integratsiya kalitlari
+```
 
 ## Test ma'lumotlari o'zidan keyin tozalanadi
 

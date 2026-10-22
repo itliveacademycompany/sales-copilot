@@ -1,0 +1,7 @@
+/* Logo — ikkinchi ilovaga o'tish tugmasi (Layout) */
+a.logo-almash { border-radius: 14px; cursor: pointer; transition: box-shadow 0.2s var(--ease); }
+a.logo-almash:hover { box-shadow: var(--neu-out-xs); }
+a.logo-almash:active { box-shadow: var(--neu-in-xs); }
+a.logo-almash:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+a.logo-almash:hover .logo-belgi { transform: rotate(-8deg); }
+a.logo-almash .logo-belgi { transition: transform 0.2s var(--ease); }

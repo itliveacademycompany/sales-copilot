@@ -1,7 +1,6 @@
 import {
   Bell,
   Box,
-  Building2,
   Globe,
   CalendarDays,
   Check,
@@ -18,6 +17,7 @@ import {
   Palette,
   PhoneCall,
   Cpu,
+  Workflow,
   Bot,
   AudioLines,
   Share2,
@@ -32,7 +32,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Bizneslar, Korinish, MuammoXabari } from '../components/sozlama/Bolimlar';
+import { Korinish, MuammoXabari } from '../components/sozlama/Bolimlar';
 import { Bildirishnomalar } from '../components/sozlama/Bildirishnomalar';
 import { ProfileStep } from './Onboarding';
 import { BaholashMezonlari } from '../components/mezonlar/BaholashMezonlari';
@@ -50,6 +50,7 @@ import { IshJadvali } from '../components/sozlama/IshJadvali';
 import { Obuna } from '../components/sozlama/Obuna';
 import { CrmEksport, MoiZvonki, SttTanlash } from '../components/sozlama/Integratsiyalar';
 import { AiProvayderlar } from '../components/sozlama/AiProvayderlar';
+import { CrmOauth } from '../components/sozlama/CrmOauth';
 import { Mijozlar } from '../components/sozlama/Mijozlar';
 import { ClaudeUlanishi } from '../components/sozlama/ClaudeUlanishi';
 import { TanlovMenyu } from '../components/analitika/Ochiluvchi';
@@ -85,7 +86,6 @@ type Bolim =
   | 'profil'
   | 'korinish'
   | 'biznes'
-  | 'bizneslar'
   | 'mijozlar'
   | 'bildirishnoma'
   | 'rahbarlar'
@@ -106,6 +106,7 @@ type Bolim =
   | 'crmEksport'
   | 'stt'
   | 'aiProvayder'
+  | 'crmOauth'
   | 'claude'
   | 'kunlik';
 
@@ -145,7 +146,6 @@ export function Settings() {
     { key: 'profil', nom: 'Profil', guruh: 'umumiy', ikon: <UserRound />, korinadi: true },
     { key: 'korinish', nom: "Ko'rinish", guruh: 'umumiy', ikon: <Palette />, korinadi: true },
     { key: 'biznes', nom: 'Umumiy', guruh: 'umumiy', ikon: <Settings2 />, korinadi: bizneskoradi },
-    { key: 'bizneslar', nom: 'Bizneslar', guruh: 'umumiy', ikon: <Building2 />, korinadi: true },
     // SaaS: mijoz kabinetlarini yaratish — faqat platforma egasi (server boshqalarga 404)
     { key: 'mijozlar', nom: 'Mijozlar', guruh: 'umumiy', ikon: <Globe />, korinadi: user?.systemRole === 'super_admin' },
     { key: 'bildirishnoma', nom: 'Bildirishnomalar', guruh: 'umumiy', ikon: <Bell />, korinadi: bizneskoradi },
@@ -164,6 +164,7 @@ export function Settings() {
     { key: 'stt', nom: 'Nutqni matnga (STT)', guruh: 'tahlil', ikon: <AudioLines />, korinadi: true },
     // Platforma darajasi — kalitlar butun tizimga ishlatiladi, shuning uchun faqat super-admin
     { key: 'aiProvayder', nom: 'AI provayderlar', guruh: 'tahlil', ikon: <Cpu />, korinadi: user?.systemRole === 'super_admin' },
+    { key: 'crmOauth', nom: 'CRM integratsiyasi', guruh: 'umumiy', ikon: <Workflow />, korinadi: user?.systemRole === 'super_admin' },
     { key: 'lidSifati', nom: 'Lid sifati bosqichlari', guruh: 'lid', ikon: <Flame />, korinadi: bizneskoradi },
     { key: 'crmNatija', nom: 'CRM natija bosqichlari', guruh: 'lid', ikon: <Flag />, korinadi: bizneskoradi },
     { key: 'crmVoronka', nom: 'Faol CRM voronkalari', guruh: 'lid', ikon: <Filter />, korinadi: bizneskoradi },
@@ -226,7 +227,6 @@ export function Settings() {
         {bolim.key === 'profil' && <Profil user={user} business={business} onSaqlandi={refresh} />}
         {bolim.key === 'korinish' && <Korinish />}
         {bolim.key === 'biznes' && business && <Biznes businessId={business.businessId} yozaOladi={bizneYozadi} onSaqlandi={refresh} />}
-        {bolim.key === 'bizneslar' && business && <Bizneslar joriyId={business.businessId} />}
         {bolim.key === 'bildirishnoma' && business && <Bildirishnomalar businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
         {bolim.key === 'rahbarlar' && business && <Rahbarlar businessId={business.businessId} />}
         {bolim.key === 'sotuvchilar' && business && <Menejerlar businessId={business.businessId} />}
@@ -251,6 +251,7 @@ export function Settings() {
         {bolim.key === 'crmEksport' && business && <CrmEksport businessId={business.businessId} boshqaraOladi={integratsiyaBoshqaradi} />}
         {bolim.key === 'stt' && <SttTanlash />}
         {bolim.key === 'aiProvayder' && <AiProvayderlar />}
+        {bolim.key === 'crmOauth' && <CrmOauth />}
         {bolim.key === 'mijozlar' && <Mijozlar />}
         {bolim.key === 'claude' && <ClaudeUlanishi />}
         {bolim.key === 'kunlik' && <KunlikHisobotSozlama />}

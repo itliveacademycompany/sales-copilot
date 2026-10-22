@@ -26,8 +26,19 @@ import { business } from '../db/schema/index.js';
 
 const ORIGIN = new URL(config.WEB_ORIGIN);
 
-/** Subdomenlar ostidagi asosiy domen (portsiz, kichik harfda). */
-export const ROOT_DOMAIN = (config.ROOT_DOMAIN ?? ORIGIN.hostname).toLowerCase();
+const IPV4 = /^\d{1,3}(?:\.\d{1,3}){3}$/;
+
+/**
+ * Subdomenlar ostidagi asosiy domen (portsiz, kichik harfda).
+ *
+ * Server hali domensiz, faqat IP bilan ishlasa (`WEB_ORIGIN=http://1.2.3.4`),
+ * IP ga subdomen qo'yib bo'lmaydi. Shunda kabinetlar `sslip.io` orqali
+ * ochiladi: `acme.1.2.3.4.sslip.io` → 1.2.3.4 (ommaviy wildcard DNS, hech
+ * narsa sozlash shart emas). Domen olingach `WEB_ORIGIN` ni almashtirish kifoya.
+ */
+export const ROOT_DOMAIN = (
+  config.ROOT_DOMAIN ?? (IPV4.test(ORIGIN.hostname) ? `${ORIGIN.hostname}.sslip.io` : ORIGIN.hostname)
+).toLowerCase();
 
 /**
  * Mijozga berib bo'lmaydigan subdomenlar: texnik xizmatlar, kelajakdagi
@@ -84,11 +95,11 @@ export function hostDanSlug(host: string | undefined | null): string | null {
   return sub || null;
 }
 
-/** Xost asosiy domenmi (landing / super admin). */
+/** Xost asosiy domenmi (landing / super admin). `WEB_ORIGIN` ning o'z xosti (masalan IP) ham. */
 export function rootHostmi(host: string | undefined | null): boolean {
   if (!host) return false;
   const h = host.toLowerCase().replace(/:\d+$/, '');
-  return h === ROOT_DOMAIN || h === `www.${ROOT_DOMAIN}`;
+  return h === ROOT_DOMAIN || h === `www.${ROOT_DOMAIN}` || h === ORIGIN.hostname.toLowerCase();
 }
 
 /** Mijoz kabinetining to'liq manzili: `https://acme.example.uz`. */

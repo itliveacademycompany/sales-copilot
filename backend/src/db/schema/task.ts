@@ -6,7 +6,8 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { commitmentParty, commitmentStatus, taskSource, taskStatus } from './enums.js';
-import { conversation } from './conversation.js';
+import { contact, conversation } from './conversation.js';
+import { deal } from './crm.js';
 import { appUser, business, seat } from './tenant.js';
 
 /**
@@ -62,6 +63,14 @@ export const task = pgTable(
     commitmentId: uuid('commitment_id').references(() => commitment.id, {
       onDelete: 'set null',
     }),
+    /** Ichki CRM bitimi — vazifa bitim kartochkasida va CRM vazifalarida ko'rinadi. */
+    dealId: uuid('deal_id').references(() => deal.id, { onDelete: 'set null' }),
+    /** Ichki CRM: bitimsiz, to'g'ridan-to'g'ri kontaktga qo'yilgan vazifa. */
+    contactId: uuid('contact_id').references(() => contact.id, { onDelete: 'set null' }),
+    /** Ichki CRM vazifa turi: `call` | `meeting` | sozlamadagi maxsus tur ID si. */
+    taskType: text('task_type'),
+    /** Bajarilganda yozilgan natija (TASK-04). */
+    result: text('result'),
 
     source: taskSource('source').notNull().default('manual'),
     /** callback | send_offer | schedule_visit | send_location | ... */
@@ -98,6 +107,8 @@ export const task = pgTable(
   (t) => [
     index('task_seat_due_idx').on(t.businessId, t.seatId, t.status, t.dueAt),
     index('task_business_status_idx').on(t.businessId, t.status),
+    index('task_deal_idx').on(t.businessId, t.dealId),
+    index('task_contact_idx').on(t.businessId, t.contactId),
     index('task_conversation_idx').on(t.conversationId),
     /** Eksport dispetcheri faqat yuborilmaganlarni oladi. */
     index('task_export_idx').on(t.exportedAt, t.createdAt),

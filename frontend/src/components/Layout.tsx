@@ -5,7 +5,13 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Columns3,
+  ContactRound,
   FileText,
+  Gauge,
+  Inbox,
+  ListChecks,
+  PlugZap,
   LayoutGrid,
   LogOut,
   Menu,
@@ -16,7 +22,8 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode, Suspense } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { crmdami, useIlovaYoliniEsla, useIlovaYollari } from './IlovaAlmashtirgich';
 import { MANZIL_SAHIFA } from '../sahifalar';
 import { api, type BillingStatus } from '../api';
 import { useAuth } from '../auth';
@@ -79,6 +86,37 @@ export function Layout() {
    */
   const rahbar = business?.permissions.includes('analytics:read:all') ?? false;
   const ogohKoradi = business?.permissions.includes('alert:read') ?? false;
+  const crmUlaydi = business?.permissions.includes('integration:manage') ?? false;
+  const crmSozlaydi = business?.permissions.includes('business:write') ?? false;
+  /** Ichki CRM: rahbar — hammasi, sotuvchi — o'z bitimlari (server ham shunday tekshiradi). */
+  const crmIlova = Boolean(
+    business &&
+      (business.permissions.includes('analytics:read:all') ||
+        business.permissions.includes('task:read:all') ||
+        business.seatId),
+  );
+  const loc = useLocation();
+  const crmda = crmIlova && crmdami(loc.pathname);
+
+  /** CRM menyusida "Saralanmagan" soni — CRM ichida bo'lganda har daqiqada. */
+  const [saralanmagan, setSaralanmagan] = useState(0);
+  useEffect(() => {
+    if (!crmda || !business) return;
+    let dead = false;
+    const load = () =>
+      api
+        .get<{ total: number }>(`/api/v1/businesses/${business.businessId}/crm-app/inbox?status=pending&limit=1`)
+        .then((r) => !dead && setSaralanmagan(r.total))
+        .catch(() => undefined);
+    void load();
+    const id = setInterval(load, 60_000);
+    return () => {
+      dead = true;
+      clearInterval(id);
+    };
+  }, [crmda, business, loc.pathname]);
+  const ilovaYollari = useIlovaYollari();
+  useIlovaYoliniEsla();
 
   /**
    * Menyu ikki ko'rinishda: tor (ikon tepada, nom pastda) va keng.
@@ -134,6 +172,35 @@ export function Layout() {
 
   const banner = billing ? BANNER[billing.status] : undefined;
 
+  /**
+   * Logo ham almashtirgich: SotuvAI da bosilsa CRM ga o'tadi, CRM da bosilsa
+   * SotuvAI ga qaytadi (har ilovaning oxirgi ochilgan sahifasiga).
+   */
+  const logoIchi = (
+    <>
+      <span className="logo-belgi" aria-hidden="true">
+        <Sparkles />
+      </span>
+      <span className="logo-matn">
+        Sotuv<em>AI</em>
+      </span>
+    </>
+  );
+  const logoNomi = crmda ? t('SotuvAI ga qaytish') : t("CRM ga o'tish");
+  const logo = crmIlova ? (
+    <Link
+      to={crmda ? ilovaYollari.sotuvYol : ilovaYollari.crmYol}
+      className="logo logo-almash"
+      aria-label={logoNomi}
+      title={logoNomi}
+      onClick={() => setMenyu(false)}
+    >
+      {logoIchi}
+    </Link>
+  ) : (
+    <div className="logo">{logoIchi}</div>
+  );
+
   return (
     <div className={`shell${keng ? '' : ' tor'}`}>
       {/* Mobil tepa bar — 860px dan pastda ko'rinadi (TZ 8.1 #4) */}
@@ -146,44 +213,49 @@ export function Layout() {
         >
           {menyu ? <X /> : <Menu />}
         </button>
-        <div className="logo">
-          <span className="logo-belgi" aria-hidden="true">
-            <Sparkles />
-          </span>
-          <span className="logo-matn">
-            Sotuv<em>AI</em>
-          </span>
-        </div>
+        {logo}
       </div>
       {menyu && (
         <button className="fon-parda" aria-label={t('Menyuni yopish')} onClick={() => setMenyu(false)} />
       )}
       <aside className={`sidebar${menyu ? ' ochiq' : ''}${keng ? ' keng' : ''}`}>
-        <div className="logo">
-          <span className="logo-belgi" aria-hidden="true">
-            <Sparkles />
-          </span>
-          <span className="logo-matn">
-            Sotuv<em>AI</em>
-          </span>
-        </div>
+        {logo}
         <div className="biz">{business?.name}</div>
 
         <div className="menyu-sarlavha">{t('Menyu')}</div>
         <nav className="nav-royxat" aria-label={t('Asosiy menyu')}>
-          {item('/', <LayoutGrid />, 'Bosh sahifa')}
-          {item('/qongiroqlar', <Phone />, 'Qo\'ng\'iroqlar')}
-          {item('/ai-chat', <MessagesSquare />, 'AI Chat')}
-          {rahbar && item('/analitika', <ChartNoAxesColumnIncreasing />, 'Analitika')}
-          {rahbar && item('/kunlik-hisobot', <CalendarDays />, 'Kunlik hisobot')}
-          {item('/lidlar', <FileText />, 'Lid xulosalari')}
-          {ogohKoradi && item('/ogohlantirishlar', <Bell />, 'Ogohlantirishlar', unseen)}
+          {crmda ? (
+            <>
+              {/* CRM ilovasi menyusi — tepadagi almashtirgich bilan almashadi */}
+              {item('/crm/ish-stoli', <Gauge />, 'Ish stoli')}
+              {item('/crm/bitimlar', <Columns3 />, 'Bitimlar')}
+              {item('/crm/saralanmagan', <Inbox />, 'Saralanmagan', saralanmagan)}
+              {item('/crm/kontaktlar', <ContactRound />, 'Kontaktlar')}
+              {item('/crm/vazifalar', <ListChecks />, 'Vazifalar')}
+              {item('/crm/analitika', <ChartNoAxesColumnIncreasing />, 'Analitika')}
+              {crmUlaydi && item('/crm/integratsiya', <PlugZap />, 'Integratsiya')}
+            </>
+          ) : (
+            <>
+              {item('/', <LayoutGrid />, 'Bosh sahifa')}
+              {item('/qongiroqlar', <Phone />, 'Qo\'ng\'iroqlar')}
+              {item('/ai-chat', <MessagesSquare />, 'AI Chat')}
+              {rahbar && item('/analitika', <ChartNoAxesColumnIncreasing />, 'Analitika')}
+              {rahbar && item('/kunlik-hisobot', <CalendarDays />, 'Kunlik hisobot')}
+              {item('/lidlar', <FileText />, 'Lid xulosalari')}
+              {/* Tashqi CRM (amoCRM, Bitrix24) ulash endi CRM ilovasida — /crm/integratsiya */}
+              {!crmIlova && crmUlaydi && item('/crm/integratsiya', <PlugZap />, 'CRM')}
+              {ogohKoradi && item('/ogohlantirishlar', <Bell />, 'Ogohlantirishlar', unseen)}
+            </>
+          )}
           {/* Suhbatlar, Vazifalar, Mezonlar, To'lov menyudan olib tashlandi —
               sahifalar manzili saqlanadi (boshqa bo'limlardagi havolalar ishlaydi) */}
         </nav>
 
         <div className="nav-pastki">
-          {item('/sozlamalar', <SozlamaIkon />, 'Sozlamalar')}
+          {crmda
+            ? crmSozlaydi && item('/crm/sozlamalar', <SozlamaIkon />, 'CRM sozlamalari')
+            : item('/sozlamalar', <SozlamaIkon />, 'Sozlamalar')}
           <div className="foot">
             <div className="ism">{user?.displayName}</div>
             <div>{user?.email}</div>
