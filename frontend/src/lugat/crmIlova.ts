@@ -6,7 +6,6 @@ import type { Lugat } from './index';
  */
 const CRM_ILOVA: Lugat = {
   // ─── Almashtirgich va menyu ───
-  Ilova: { en: 'App', ru: 'Приложение' },
   "CRM ga o'tish": { en: 'Go to CRM', ru: 'Перейти в CRM' },
   'SotuvAI ga qaytish': { en: 'Back to SotuvAI', ru: 'Вернуться в SotuvAI' },
   Bitimlar: { en: 'Deals', ru: 'Сделки' },

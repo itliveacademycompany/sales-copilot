@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode, Suspense } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { crmdami, IlovaAlmashtirgich, useIlovaYoliniEsla, useIlovaYollari } from './IlovaAlmashtirgich';
+import { crmdami, useIlovaYoliniEsla, useIlovaYollari } from './IlovaAlmashtirgich';
 import { MANZIL_SAHIFA } from '../sahifalar';
 import { api, type BillingStatus } from '../api';
 import { useAuth } from '../auth';
@@ -194,7 +194,6 @@ export function Layout() {
           {menyu ? <X /> : <Menu />}
         </button>
         {logo}
-        {crmIlova && <IlovaAlmashtirgich />}
       </div>
       {menyu && (
         <button className="fon-parda" aria-label={t('Menyuni yopish')} onClick={() => setMenyu(false)} />
@@ -266,11 +265,6 @@ export function Layout() {
         </div>
       </aside>
       <main className="main">
-        {crmIlova && (
-          <div className="ilova-bar">
-            <IlovaAlmashtirgich />
-          </div>
-        )}
         {banner && (
           <NavLink
             to="/billing"

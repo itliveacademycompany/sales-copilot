@@ -1,30 +1,3 @@
-/* SotuvAI | CRM almashtirgichi — Layout (components/IlovaAlmashtirgich.tsx) */
-.ilova-bar { display: flex; align-items: center; margin-bottom: 18px; }
-.ilova-almash { display: inline-flex; padding: 4px; gap: 4px; border-radius: 14px; background: var(--bg-base); box-shadow: var(--neu-in-sm); }
-.ilova-almash a {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 16px;
-  border-radius: 10px;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  transition: color 0.15s var(--ease), box-shadow 0.2s var(--ease);
-}
-.ilova-almash a svg { width: 16px; height: 16px; }
-.ilova-almash a:hover { color: var(--text-primary); }
-.ilova-almash a.faol { color: var(--ia-text); box-shadow: var(--neu-out-xs); }
-.ilova-almash a.faol svg { color: var(--ia); }
-.ilova-almash a:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.topbar .ilova-almash { margin-left: auto; }
-.topbar .ilova-almash a { padding: 6px 11px; font-size: 12.5px; }
-@media (max-width: 860px) { .ilova-bar { display: none; } }
-/* Tor ekranda faqat ikon — nom ekran o'qigich uchun saqlanadi */
-@media (max-width: 480px) {
-  .topbar .ilova-almash a span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-}
-
 /* Logo — ikkinchi ilovaga o'tish tugmasi (Layout) */
 a.logo-almash { border-radius: 14px; cursor: pointer; transition: box-shadow 0.2s var(--ease); }
 a.logo-almash:hover { box-shadow: var(--neu-out-xs); }
