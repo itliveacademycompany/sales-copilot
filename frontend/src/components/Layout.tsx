@@ -20,8 +20,8 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState, type ReactNode, Suspense } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { crmdami, IlovaAlmashtirgich } from './IlovaAlmashtirgich';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { crmdami, IlovaAlmashtirgich, useIlovaYoliniEsla, useIlovaYollari } from './IlovaAlmashtirgich';
 import { MANZIL_SAHIFA } from '../sahifalar';
 import { api, type BillingStatus } from '../api';
 import { useAuth } from '../auth';
@@ -95,6 +95,8 @@ export function Layout() {
   );
   const loc = useLocation();
   const crmda = crmIlova && crmdami(loc.pathname);
+  const ilovaYollari = useIlovaYollari();
+  useIlovaYoliniEsla();
 
   /**
    * Menyu ikki ko'rinishda: tor (ikon tepada, nom pastda) va keng.
@@ -150,6 +152,35 @@ export function Layout() {
 
   const banner = billing ? BANNER[billing.status] : undefined;
 
+  /**
+   * Logo ham almashtirgich: SotuvAI da bosilsa CRM ga o'tadi, CRM da bosilsa
+   * SotuvAI ga qaytadi (har ilovaning oxirgi ochilgan sahifasiga).
+   */
+  const logoIchi = (
+    <>
+      <span className="logo-belgi" aria-hidden="true">
+        <Sparkles />
+      </span>
+      <span className="logo-matn">
+        Sotuv<em>AI</em>
+      </span>
+    </>
+  );
+  const logoNomi = crmda ? t('SotuvAI ga qaytish') : t("CRM ga o'tish");
+  const logo = crmIlova ? (
+    <Link
+      to={crmda ? ilovaYollari.sotuvYol : ilovaYollari.crmYol}
+      className="logo logo-almash"
+      aria-label={logoNomi}
+      title={logoNomi}
+      onClick={() => setMenyu(false)}
+    >
+      {logoIchi}
+    </Link>
+  ) : (
+    <div className="logo">{logoIchi}</div>
+  );
+
   return (
     <div className={`shell${keng ? '' : ' tor'}`}>
       {/* Mobil tepa bar — 860px dan pastda ko'rinadi (TZ 8.1 #4) */}
@@ -162,28 +193,14 @@ export function Layout() {
         >
           {menyu ? <X /> : <Menu />}
         </button>
-        <div className="logo">
-          <span className="logo-belgi" aria-hidden="true">
-            <Sparkles />
-          </span>
-          <span className="logo-matn">
-            Sotuv<em>AI</em>
-          </span>
-        </div>
+        {logo}
         {crmIlova && <IlovaAlmashtirgich />}
       </div>
       {menyu && (
         <button className="fon-parda" aria-label={t('Menyuni yopish')} onClick={() => setMenyu(false)} />
       )}
       <aside className={`sidebar${menyu ? ' ochiq' : ''}${keng ? ' keng' : ''}`}>
-        <div className="logo">
-          <span className="logo-belgi" aria-hidden="true">
-            <Sparkles />
-          </span>
-          <span className="logo-matn">
-            Sotuv<em>AI</em>
-          </span>
-        </div>
+        {logo}
         <div className="biz">{business?.name}</div>
 
         <div className="menyu-sarlavha">{t('Menyu')}</div>
