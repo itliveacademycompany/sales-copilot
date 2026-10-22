@@ -147,21 +147,21 @@ const CRM: Lugat = {
 
   // ─── Adapter matnlari: amoCRM ───
   "Sdelkalar, kontaktlar va qo'ng'iroqlar": { en: 'Deals, contacts and calls', ru: 'Сделки, контакты и звонки' },
-  'amoCRM da amoМаркет → «⋯» → «Создать интеграцию» ni oching.': {
-    en: 'In amoCRM, open amoМаркет → «⋯» → «Создать интеграцию».',
-    ru: 'В amoCRM откройте amoМаркет → «⋯» → «Создать интеграцию».',
+  'amoCRM da amoМаркет → yuqori o‘ng burchakdagi «⋯» → «Создать интеграцию» → «Внешняя интеграция» ni tanlang.': {
+    en: 'In amoCRM, open amoМаркет → «⋯» in the top-right corner → «Создать интеграцию» → choose «Внешняя интеграция» (external integration).',
+    ru: 'В amoCRM откройте amoМаркет → «⋯» в правом верхнем углу → «Создать интеграцию» → выберите «Внешняя интеграция».',
   },
-  'Integratsiyaga nom bering (masalan «SotuvAI») va hisob maʼlumotlariga kirish ruxsatini belgilang.': {
-    en: 'Name the integration (e.g. “SotuvAI”) and grant access to account data.',
-    ru: 'Назовите интеграцию (например, «SotuvAI») и отметьте доступ к данным аккаунта.',
+  '«Ссылка для перенаправления» ga istalgan https manzil yozing (masalan amoCRM hisobingiz manzili), «Предоставить доступ: Все» ni belgilang, «Название интеграции» ga «SotuvAI» deb yozing va «Сохранить» ni bosing.': {
+    en: 'In «Ссылка для перенаправления» enter any https address (e.g. your amoCRM account address), tick «Предоставить доступ: Все», name it «SotuvAI» in «Название интеграции» and click «Сохранить».',
+    ru: 'В «Ссылка для перенаправления» укажите любой https-адрес (например, адрес вашего аккаунта amoCRM), отметьте «Предоставить доступ: Все», в «Название интеграции» напишите «SotuvAI» и нажмите «Сохранить».',
   },
-  'Saqlang, so‘ng «Ключи и доступы» bo‘limida «Долгосрочный токен» yarating.': {
-    en: 'Save it, then create a «Долгосрочный токен» (long-lived token) in the «Ключи и доступы» tab.',
-    ru: 'Сохраните, затем во вкладке «Ключи и доступы» создайте «Долгосрочный токен».',
+  'Ochilgan integratsiya oynasida «Ключи и доступы» bo‘limiga o‘ting va «Долгосрочный токен» yarating.': {
+    en: 'In the integration window that opens, go to the «Ключи и доступы» tab and create a «Долгосрочный токен» (long-lived token).',
+    ru: 'В открывшемся окне интеграции перейдите во вкладку «Ключи и доступы» и создайте «Долгосрочный токен».',
   },
-  'Muddatini tanlang (uzoqroq — qulayroq), tokenni nusxalab shu yerga qo‘ying.': {
-    en: 'Choose the expiry (longer is more convenient), copy the token and paste it here.',
-    ru: 'Выберите срок действия (чем дольше — тем удобнее), скопируйте токен и вставьте сюда.',
+  'Muddatini tanlang (uzoqroq — qulayroq), «eyJ…» bilan boshlanadigan tokenni to‘liq nusxalab shu yerga qo‘ying.': {
+    en: 'Choose the expiry (longer is more convenient), copy the whole token starting with «eyJ…» and paste it here.',
+    ru: 'Выберите срок действия (чем дольше — тем удобнее), скопируйте весь токен, начинающийся с «eyJ…», и вставьте сюда.',
   },
   'Hisob manzili': { en: 'Account address', ru: 'Адрес аккаунта' },
   'Brauzerdagi amoCRM manzilini nusxalab qo‘yishingiz mumkin.': {
