@@ -716,6 +716,10 @@ const ISH: Lugat = {
     ru: 'Минимум 10 символов. Руководитель это увидит.',
   },
   "Bu baho noto'g'ri deb hisoblayman": { en: 'I think this score is wrong', ru: 'Я считаю эту оценку неверной' },
+  "Savollar juda tez yuborilyapti. Bir daqiqadan keyin qayta so'rang.": {
+    en: 'Questions are being sent too fast. Please ask again in a minute.',
+    ru: 'Вопросы отправляются слишком часто. Повторите через минуту.',
+  },
   'Transkript hali tayyor emas.': { en: 'The transcript is not ready yet.', ru: 'Расшифровка ещё не готова.' },
   "Dastlabki transkript. Kim gapirgani (menejer/mijoz) va imlo AI tahlilidan keyin aniqlanadi.": {
     en: 'Preliminary transcript. Speakers (manager/client) and spelling are finalized after the AI analysis.',

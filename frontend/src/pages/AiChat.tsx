@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { api, fmtSana, type AlertRow } from '../api';
+import { api, ApiError, fmtSana, type AlertRow } from '../api';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
 import { TepaPanel } from '../components/bosh/TepaPanel';
@@ -191,25 +191,40 @@ export function AiChat() {
       setFaolId(id);
     }
     const sid = id;
+    // Oldingi xabarlar — AI yordamchi suhbat kontekstini bilishi uchun.
+    const tarix = (sessiyalar.find((s) => s.id === sid)?.xabarlar ?? [])
+      .slice(-8)
+      .map((x) => ({ rol: x.rol, matn: x.matn.slice(0, 4000) }));
     xabarQosh(sid, { rol: 'men', matn: t });
     setMatn('');
 
-    if (!niyat) {
-      xabarQosh(sid, {
-        rol: 'yordamchi',
-        matn: tr(
-          "Bu savolga hozircha javob bera olmayman — erkin savollarga javob beruvchi AI yordamchi server tomonda hali ulanmagan.\nQuyidagi mavzular bo'yicha so'rang — ularga sizning ma'lumotlaringizdan aniq javob beraman: ko'rsatkichlar, eng yaxshi menejer, zaif bosqich, lidlar holati, javobsiz mijozlar, kechikkan vazifalar.",
-        ),
-      });
-      return;
-    }
-
     setBand(true);
     try {
-      const j = await javobBer(niyat, business, davrniTop(t));
-      xabarQosh(sid, { rol: 'yordamchi', matn: j.matn, havola: j.havola });
-    } catch {
-      xabarQosh(sid, { rol: 'yordamchi', matn: tr("Ma'lumotni olib bo'lmadi. Birozdan keyin qayta urinib ko'ring.") });
+      if (niyat) {
+        // Tayyor mavzu — darhol, AI'siz (token sarflanmaydi).
+        const j = await javobBer(niyat, business, davrniTop(t));
+        xabarQosh(sid, { rol: 'yordamchi', matn: j.matn, havola: j.havola });
+      } else {
+        // Erkin savol — server AI yordamchisi (foydalanuvchi ruxsatlari doirasidagi ma'lumot bilan).
+        const r = await api.post<{ javob: string }>(`/api/v1/businesses/${business.businessId}/assistant/chat`, {
+          savol: t,
+          tarix,
+        });
+        xabarQosh(sid, { rol: 'yordamchi', matn: r.javob });
+      }
+    } catch (e) {
+      const status = e instanceof ApiError ? e.status : 0;
+      xabarQosh(sid, {
+        rol: 'yordamchi',
+        matn:
+          status === 503
+            ? tr(
+                "Bu savolga hozircha javob bera olmayman — erkin savollarga javob beruvchi AI yordamchi server tomonda hali ulanmagan.\nQuyidagi mavzular bo'yicha so'rang — ularga sizning ma'lumotlaringizdan aniq javob beraman: ko'rsatkichlar, eng yaxshi menejer, zaif bosqich, lidlar holati, javobsiz mijozlar, kechikkan vazifalar.",
+              )
+            : status === 429
+              ? tr("Savollar juda tez yuborilyapti. Bir daqiqadan keyin qayta so'rang.")
+              : tr("Ma'lumotni olib bo'lmadi. Birozdan keyin qayta urinib ko'ring."),
+      });
     } finally {
       setBand(false);
       maydon.current?.focus();
