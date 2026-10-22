@@ -13,6 +13,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import {
   appealStatus,
@@ -22,6 +23,7 @@ import {
   speaker,
   speakerAttributionMethod,
 } from './enums.js';
+import { company } from './crm2.js';
 import { playbook } from './playbook.js';
 import { appUser, business, seat } from './tenant.js';
 
@@ -38,6 +40,11 @@ export const contact = pgTable(
     phone: text('phone'),
     /** Ichki CRM uchun (kontakt kartochkasi). */
     email: text('email'),
+    /** Ichki CRM: qo'shimcha telefon va emaillar (CONT-01). Asosiysi — `phone` / `email`. */
+    phones: text('phones').array().notNull().default(sql`'{}'::text[]`),
+    emails: text('emails').array().notNull().default(sql`'{}'::text[]`),
+    /** Ichki CRM kompaniyasi (`company` matni — eski, erkin yozuv). */
+    companyId: uuid('company_id').references((): AnyPgColumn => company.id, { onDelete: 'set null' }),
     telegramId: text('telegram_id'),
     company: text('company'),
     role: text('role'),

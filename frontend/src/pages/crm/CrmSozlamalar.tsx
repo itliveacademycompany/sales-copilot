@@ -1,28 +1,59 @@
 import { Archive, ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../../api';
 import { guruhla, MAYDON_TURI_NOMI, useCrm, type BosqichTuri, type Maydon, type MaydonTuri } from '../../crm/malumot';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
+import {
+  AvtomatikaSozlama,
+  FormalarSozlama,
+  RadSabablariSozlama,
+  TaqsimotSozlama,
+  TeglarSozlama,
+  TovarlarSozlama,
+  VazifaTurlariSozlama,
+} from './SozlamaQismlari';
 
-/** CRM sozlamalari (rahbar): voronka va bosqichlar, qo'shimcha maydonlar. */
+const SOZLAMA_TABLARI = [
+  { k: 'voronka', nom: 'Voronkalar' },
+  { k: 'maydon', nom: 'Maydonlar' },
+  { k: 'avtomatika', nom: 'Avtomatika' },
+  { k: 'taqsimot', nom: 'Taqsimot va qabul' },
+  { k: 'forma', nom: 'Veb-formalar' },
+  { k: 'sabab', nom: 'Rad sabablari' },
+  { k: 'vazifa', nom: 'Vazifa turlari' },
+  { k: 'tovar', nom: 'Tovarlar' },
+  { k: 'teg', nom: 'Teglar' },
+] as const;
+type SozlamaTab = (typeof SOZLAMA_TABLARI)[number]['k'];
+
+/** CRM sozlamalari (rahbar). Tanlangan bo'lim manzilda (`?tab=…`). */
 export function CrmSozlamalar() {
   const t = useT();
-  const [tab, setTab] = useState<'voronka' | 'maydon'>('voronka');
+  const [params, setParams] = useSearchParams();
+  const tab = (SOZLAMA_TABLARI.find((x) => x.k === params.get('tab'))?.k ?? 'voronka') as SozlamaTab;
   return (
     <div className="ci-sahifa">
       <div className="ci-bosh">
         <h1>{t('CRM sozlamalari')}</h1>
-        <div className="tab-qator" role="tablist">
-          <button role="tab" aria-selected={tab === 'voronka'} className={`tab${tab === 'voronka' ? ' active' : ''}`} onClick={() => setTab('voronka')}>
-            {t('Voronkalar')}
-          </button>
-          <button role="tab" aria-selected={tab === 'maydon'} className={`tab${tab === 'maydon' ? ' active' : ''}`} onClick={() => setTab('maydon')}>
-            {t('Maydonlar')}
-          </button>
-        </div>
       </div>
-      {tab === 'voronka' ? <Voronkalar /> : <Maydonlar />}
+      <div className="tab-qator ci-voronkalar" role="tablist" aria-label={t("Sozlama bo'limlari")}>
+        {SOZLAMA_TABLARI.map((x) => (
+          <button key={x.k} role="tab" aria-selected={tab === x.k} className={`tab${tab === x.k ? ' active' : ''}`} onClick={() => setParams({ tab: x.k }, { replace: true })}>
+            {t(x.nom)}
+          </button>
+        ))}
+      </div>
+      {tab === 'voronka' && <Voronkalar />}
+      {tab === 'maydon' && <Maydonlar />}
+      {tab === 'avtomatika' && <AvtomatikaSozlama />}
+      {tab === 'taqsimot' && <TaqsimotSozlama />}
+      {tab === 'forma' && <FormalarSozlama />}
+      {tab === 'sabab' && <RadSabablariSozlama />}
+      {tab === 'vazifa' && <VazifaTurlariSozlama />}
+      {tab === 'tovar' && <TovarlarSozlama />}
+      {tab === 'teg' && <TeglarSozlama />}
     </div>
   );
 }

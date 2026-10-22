@@ -169,6 +169,13 @@
       "when": 1792646990447,
       "tag": "0023_absent_micromax",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1792663414438,
+      "tag": "0024_lean_starfox",
+      "breakpoints": true
     }
   ]
 }

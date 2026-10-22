@@ -1,6 +1,21 @@
 import { sql } from 'drizzle-orm';
-import { boolean, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  date,
+  index,
+  integer,
+  jsonb,
+  numeric,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+  type AnyPgColumn,
+} from 'drizzle-orm/pg-core';
 import { contact } from './conversation.js';
+import { company, crmLossReason } from './crm2.js';
 import { appUser, business, seat } from './tenant.js';
 
 /**
@@ -106,10 +121,14 @@ export const deal = pgTable(
     amount: numeric('amount', { precision: 14, scale: 2 }),
     responsibleSeatId: uuid('responsible_seat_id').references(() => seat.id, { onDelete: 'set null' }),
     contactId: uuid('contact_id').references(() => contact.id, { onDelete: 'set null' }),
+    companyId: uuid('company_id').references((): AnyPgColumn => company.id, { onDelete: 'set null' }),
+    /** Teglar (LEAD-11) — kutubxona shu ustundagi qiymatlardan yig'iladi. */
+    tags: text('tags').array().notNull().default(sql`'{}'::text[]`),
     /** Qo'shimcha maydonlar: `{ [fieldId]: qiymat }`. */
     fields: jsonb('fields').notNull().default(sql`'{}'::jsonb`),
     source: text('source'),
     lostReason: text('lost_reason'),
+    lostReasonId: uuid('lost_reason_id').references((): AnyPgColumn => crmLossReason.id, { onDelete: 'set null' }),
     stageEnteredAt: timestamp('stage_entered_at', { withTimezone: true }).notNull().defaultNow(),
     closedAt: timestamp('closed_at', { withTimezone: true }),
     /** Optimistik qulf: bir vaqtda ikki kishi tahrirlasa — 409, "oxirgi yutadi" emas. */
@@ -124,6 +143,8 @@ export const deal = pgTable(
     index('deal_contact_idx').on(t.businessId, t.contactId),
     index('deal_responsible_idx').on(t.businessId, t.responsibleSeatId),
     index('deal_updated_idx').on(t.businessId, t.updatedAt),
+    index('deal_tags_idx').using('gin', t.tags),
+    index('deal_deleted_idx').on(t.businessId, t.deletedAt),
   ],
 );
 

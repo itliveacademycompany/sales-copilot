@@ -1,32 +1,38 @@
 import {
   ArrowLeft,
+  Building2,
   CalendarClock,
   CheckCircle2,
   Circle,
   History,
   ListChecks,
   MessageSquareText,
+  Package,
   Phone,
   PhoneCall,
   Plus,
+  RotateCcw,
   Send,
   Sparkles,
   Trash2,
   User,
+  Zap,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError, ballKlass, fmtSana, fmtSoniya } from '../../api';
+import { BajarishOyna, TeglarKiritish, VazifaOyna } from '../../crm/komponentlar';
 import {
   bosqichTop,
   guruhla,
   MaydonKiritish,
-  mahalliyVaqt,
   muddatHolati,
   pul,
   qiymatMatni,
   qiymatniTayyorla,
   useCrm,
+  vazifaTuri,
+  type Maydon,
 } from '../../crm/malumot';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
@@ -34,7 +40,7 @@ import { YoqotishSababi } from './Bitimlar';
 
 interface Hodisa {
   id: string;
-  type: 'created' | 'stage' | 'field' | 'note' | 'responsible' | 'contact';
+  type: string;
   data: Record<string, unknown>;
   authorName: string | null;
   createdAt: string;
@@ -47,8 +53,11 @@ interface Vazifa {
   status: 'pending' | 'in_progress' | 'done' | 'cancelled' | 'blocked';
   dueAt: string | null;
   source: string;
+  taskType: string | null;
+  result: string | null;
   conversationId: string | null;
   seatId: string | null;
+  seatName: string | null;
   completedAt: string | null;
   createdAt: string;
 }
@@ -66,6 +75,15 @@ interface Qongiroq {
   seatName: string | null;
 }
 
+interface TovarQatori {
+  id: string;
+  productId: string | null;
+  name: string;
+  price: number;
+  quantity: number;
+  discount: number;
+}
+
 interface Kartochka {
   deal: {
     id: string;
@@ -75,14 +93,29 @@ interface Kartochka {
     stageId: string;
     responsibleSeatId: string | null;
     contactId: string | null;
+    companyId: string | null;
+    tags: string[];
     fields: Record<string, unknown>;
     lostReason: string | null;
     closedAt: string | null;
+    source: string | null;
     version: number;
     createdAt: string;
     stageEnteredAt: string;
   };
-  contact: { id: string; name: string | null; phone: string | null; email: string | null; company: string | null } | null;
+  company: { id: string; name: string; phone: string | null; website: string | null } | null;
+  lossReason: { id: string; name: string } | null;
+  items: TovarQatori[];
+  contact: {
+    id: string;
+    name: string | null;
+    phone: string | null;
+    phones: string[];
+    email: string | null;
+    emails: string[];
+    company: string | null;
+    role: string | null;
+  } | null;
   responsible: { id: string; name: string } | null;
   events: Hodisa[];
   tasks: Vazifa[];
@@ -92,10 +125,10 @@ interface Kartochka {
 const OCHIQ = new Set(['pending', 'in_progress', 'blocked']);
 
 /**
- * Bitim kartochkasi. Chapda — asosiy ma'lumot va qo'shimcha maydonlar
- * (bitta "Saqlash" bilan, optimistik qulf bilan); o'ngda — tarix (izoh,
- * bosqich, maydon o'zgarishi va SotuvAI qo'ng'iroqlari bitta lentada),
- * vazifalar.
+ * Bitim kartochkasi. Chapda — asosiy ma'lumot, teglar, kompaniya, tovarlar
+ * va qo'shimcha maydonlar (bitta "Saqlash", optimistik qulf bilan); o'ngda —
+ * vazifalar va tarix lentasi (izoh, bosqich, maydon, vazifa, avtomatika va
+ * SotuvAI qo'ng'iroqlari).
  */
 export function BitimKarta() {
   const { id } = useParams<{ id: string }>();
@@ -105,7 +138,14 @@ export function BitimKarta() {
   const [k, setK] = useState<Kartochka | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [xabar, setXabar] = useState<{ ok: boolean; matn: string } | null>(null);
-  const [qoralama, setQoralama] = useState<{ name: string; amount: string; responsibleSeatId: string; fields: Record<string, unknown> } | null>(null);
+  const [qoralama, setQoralama] = useState<{
+    name: string;
+    amount: string;
+    responsibleSeatId: string;
+    companyId: string;
+    tags: string[];
+    fields: Record<string, unknown>;
+  } | null>(null);
   const [band, setBand] = useState(false);
   const [yoqotish, setYoqotish] = useState<string | null>(null);
   const [vazifaOyna, setVazifaOyna] = useState(false);
@@ -119,6 +159,8 @@ export function BitimKarta() {
         name: r.deal.name,
         amount: r.deal.amount === null ? '' : String(r.deal.amount),
         responsibleSeatId: r.deal.responsibleSeatId ?? '',
+        companyId: r.deal.companyId ?? '',
+        tags: r.deal.tags ?? [],
         fields: { ...r.deal.fields },
       });
       setXato(null);
@@ -137,6 +179,8 @@ export function BitimKarta() {
     const a = qoralama.amount.trim() === '' ? null : Number(qoralama.amount.replace(/\s/g, '').replace(',', '.'));
     if (a !== k.deal.amount) return true;
     if ((qoralama.responsibleSeatId || null) !== k.deal.responsibleSeatId) return true;
+    if ((qoralama.companyId || null) !== k.deal.companyId) return true;
+    if (JSON.stringify(qoralama.tags) !== JSON.stringify(k.deal.tags ?? [])) return true;
     return holat.fields.some((m) => JSON.stringify(qiymatniTayyorla(m, qoralama.fields[m.id]) ?? null) !== JSON.stringify(k.deal.fields[m.id] ?? null));
   }, [k, qoralama, holat.fields]);
 
@@ -157,6 +201,7 @@ export function BitimKarta() {
   const voronka = holat.pipelines.find((p) => p.id === d.pipelineId);
   const yozaOladi = holat.canManageAll || d.responsibleSeatId === holat.seatId;
   const maydonNomi = new Map(holat.fields.map((f) => [f.id, f]));
+  const tovarli = k.items.length > 0;
 
   const saqla = async () => {
     setBand(true);
@@ -171,8 +216,10 @@ export function BitimKarta() {
       await api.patch(`${base}/deals/${d.id}`, {
         version: d.version,
         name: qoralama.name.trim() || d.name,
-        amount: Number.isFinite(amount as number) || amount === null ? amount : undefined,
+        amount: tovarli ? undefined : Number.isFinite(amount as number) || amount === null ? amount : undefined,
         responsibleSeatId: holat.canManageAll ? qoralama.responsibleSeatId || null : undefined,
+        companyId: qoralama.companyId || null,
+        tags: qoralama.tags,
         fields: Object.keys(fields).length ? fields : undefined,
       });
       setXabar({ ok: true, matn: t('Saqlandi') });
@@ -185,11 +232,13 @@ export function BitimKarta() {
     }
   };
 
-  const kochir = async (stageId: string, lostReason?: string | null) => {
+  const kochir = async (stageId: string, sabab?: { lostReasonId: string | null; lostReason: string | null }) => {
     setXabar(null);
     try {
-      await api.post(`${base}/deals/${d.id}/move`, { stageId, lostReason: lostReason ?? null });
+      await api.post(`${base}/deals/${d.id}/move`, { stageId, ...(sabab ?? {}) });
       await yukla();
+      // "Darhol" avtomatika qoidalari natijasi (vazifa, mas'ul) bir lahzadan keyin ko'rinadi
+      setTimeout(() => void yukla(), 1500);
     } catch (e) {
       setXabar({ ok: false, matn: e instanceof ApiError ? t(e.message) : t("Ko'chirib bo'lmadi") });
     }
@@ -221,6 +270,7 @@ export function BitimKarta() {
               </span>
             )}
             <span>{t('Yaratilgan: {v}', { v: fmtSana(d.createdAt) })}</span>
+            {d.source && <span>{t('Manba: {m}', { m: t(d.source) })}</span>}
             {d.amount !== null && <b className="ci-raqam">{pul(d.amount)}</b>}
           </div>
         </div>
@@ -254,9 +304,10 @@ export function BitimKarta() {
           })}
         </div>
       )}
-      {d.lostReason && bosqich?.kind === 'lost' && (
+      {bosqich?.kind === 'lost' && (k.lossReason || d.lostReason) && (
         <div className="card ci-sabab-qator">
-          <b>{t("Yo'qotish sababi:")}</b> {d.lostReason}
+          <b>{t("Yo'qotish sababi:")}</b> {k.lossReason ? t(k.lossReason.name) : ''}
+          {d.lostReason && d.lostReason !== k.lossReason?.name && <span> — {d.lostReason}</span>}
         </div>
       )}
       {xabar && (
@@ -282,6 +333,8 @@ export function BitimKarta() {
                     className="input"
                     inputMode="decimal"
                     value={qoralama.amount}
+                    readOnly={tovarli}
+                    title={tovarli ? t('Summa tovarlardan hisoblanadi') : undefined}
                     onChange={(e) => setQoralama({ ...qoralama, amount: e.target.value.replace(/[^\d.,\s]/g, '') })}
                   />
                 </div>
@@ -302,6 +355,11 @@ export function BitimKarta() {
                   )}
                 </div>
               </div>
+              <div className="maydon-blok">
+                <label htmlFor="bk-teg">{t('Teglar')}</label>
+                <TeglarKiritish id="bk-teg" qiymat={qoralama.tags} onChange={(tags) => setQoralama({ ...qoralama, tags })} />
+              </div>
+              <KompaniyaTanlash qiymat={qoralama.companyId} joriy={k.company} onChange={(companyId) => setQoralama({ ...qoralama, companyId })} />
             </fieldset>
           </section>
 
@@ -314,18 +372,21 @@ export function BitimKarta() {
                 </span>
                 <span>
                   <b>{k.contact.name ?? t('Ismsiz')}</b>
-                  {k.contact.phone && (
-                    <span className="yordam">
-                      <Phone aria-hidden="true" /> {k.contact.phone}
+                  {k.contact.role && <span className="yordam">{k.contact.role}</span>}
+                  {[k.contact.phone, ...(k.contact.phones ?? [])].filter(Boolean).map((p) => (
+                    <span key={p} className="yordam">
+                      <Phone aria-hidden="true" /> {p}
                     </span>
-                  )}
+                  ))}
                   {k.contact.email && <span className="yordam">{k.contact.email}</span>}
                 </span>
               </Link>
             ) : (
-              <p className="yordam">{t("Kontakt biriktirilmagan.")}</p>
+              <p className="yordam">{t('Kontakt biriktirilmagan.')}</p>
             )}
           </section>
+
+          <Tovarlar dealId={d.id} items={k.items} yozaOladi={yozaOladi} onOzgardi={yukla} />
 
           {guruhla(holat.fields).map((g) => (
             <section className="card ci-blok" key={g.nom} aria-label={t(g.nom)}>
@@ -377,7 +438,7 @@ export function BitimKarta() {
           }}
         />
       )}
-      {vazifaOyna && <YangiVazifa dealId={d.id} onYop={() => setVazifaOyna(false)} onSaqlandi={yukla} />}
+      {vazifaOyna && <VazifaOyna dealId={d.id} onYop={() => setVazifaOyna(false)} onSaqlandi={yukla} />}
       {ochirish && (
         <Oyna
           sarlavha={t("Bitimni o'chirish")}
@@ -389,31 +450,282 @@ export function BitimKarta() {
                 {t('Bekor')}
               </button>
               <button type="submit" className="btn xavfli">
-                {t("O'chirish")}
+                {t("Savatga o'tkazish")}
               </button>
             </>
           }
         >
-          <p>{t('«{n}» bitimi o‘chiriladi. Kontakt va qo‘ng‘iroqlar saqlanib qoladi.', { n: d.name })}</p>
+          <p>{t('«{n}» bitimi savatga o‘tkaziladi va 30 kun ichida tiklash mumkin. Kontakt va qo‘ng‘iroqlar saqlanib qoladi.', { n: d.name })}</p>
         </Oyna>
       )}
     </div>
   );
 }
 
+// ─── Kompaniya tanlash ───────────────────────────────────────────────────────
+
+function KompaniyaTanlash({
+  qiymat,
+  joriy,
+  onChange,
+}: {
+  qiymat: string;
+  joriy: { id: string; name: string } | null;
+  onChange: (id: string) => void;
+}) {
+  const { base } = useCrm();
+  const t = useT();
+  const [royxat, setRoyxat] = useState<{ id: string; name: string }[]>(joriy ? [joriy] : []);
+  const [yangi, setYangi] = useState(false);
+  const [nom, setNom] = useState('');
+
+  const yukla = useCallback(() => {
+    void api
+      .get<{ items: { id: string; name: string }[] }>(`${base}/companies?limit=200`)
+      .then((r) => setRoyxat(r.items))
+      .catch(() => undefined);
+  }, [base]);
+  useEffect(yukla, [yukla]);
+
+  const yarat = async () => {
+    if (!nom.trim()) return;
+    try {
+      const r = await api.post<{ id: string }>(`${base}/companies`, { name: nom.trim() });
+      setRoyxat((x) => [...x, { id: r.id, name: nom.trim() }]);
+      onChange(r.id);
+      setYangi(false);
+      setNom('');
+    } catch (e) {
+      alert(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
+    }
+  };
+
+  return (
+    <div className="maydon-blok">
+      <label htmlFor="bk-komp">
+        <Building2 className="ci-label-ikon" aria-hidden="true" /> {t('Kompaniya')}
+      </label>
+      {yangi ? (
+        <div className="ci-qator-kiritish">
+          <input className="input" value={nom} maxLength={200} onChange={(e) => setNom(e.target.value)} placeholder={t('Kompaniya nomi')} aria-label={t('Kompaniya nomi')} autoFocus />
+          <button type="button" className="btn kichik" onClick={() => void yarat()}>
+            {t('Yaratish')}
+          </button>
+          <button type="button" className="btn ikkinchi kichik" onClick={() => setYangi(false)}>
+            {t('Bekor')}
+          </button>
+        </div>
+      ) : (
+        <div className="ci-qator-kiritish">
+          <select id="bk-komp" className="input" value={qiymat} onChange={(e) => onChange(e.target.value)}>
+            <option value="">{t('— tanlanmagan —')}</option>
+            {royxat.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <button type="button" className="vr-amal" onClick={() => setYangi(true)} aria-label={t('Yangi kompaniya')} title={t('Yangi kompaniya')}>
+            <Plus />
+          </button>
+          {qiymat && (
+            <Link to={`/crm/kompaniyalar/${qiymat}`} className="ci-havola">
+              {t('Ochish')}
+            </Link>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Tovarlar (CUST-02) ──────────────────────────────────────────────────────
+
+function Tovarlar({ dealId, items, yozaOladi, onOzgardi }: { dealId: string; items: TovarQatori[]; yozaOladi: boolean; onOzgardi: () => Promise<void> }) {
+  const { base } = useCrm();
+  const t = useT();
+  const [katalog, setKatalog] = useState<{ id: string; name: string; price: number }[] | null>(null);
+  const [ochiq, setOchiq] = useState(false);
+  const [tanlov, setTanlov] = useState('');
+  const [nom, setNom] = useState('');
+  const [narx, setNarx] = useState('');
+  const [miqdor, setMiqdor] = useState('1');
+  const [xato, setXato] = useState<string | null>(null);
+  const jami = items.reduce((a, i) => a + i.price * i.quantity * (1 - i.discount / 100), 0);
+
+  useEffect(() => {
+    if (!ochiq || katalog) return;
+    void api
+      .get<{ items: { id: string; name: string; price: number }[] }>(`${base}/crm-app/products?limit=200`)
+      .then((r) => setKatalog(r.items))
+      .catch(() => setKatalog([]));
+  }, [ochiq, katalog, base]);
+
+  const qosh = async () => {
+    setXato(null);
+    try {
+      await api.post(`${base}/deals/${dealId}/items`, {
+        productId: tanlov || null,
+        name: tanlov ? undefined : nom.trim(),
+        price: narx.trim() ? Number(narx.replace(/\s/g, '')) : undefined,
+        quantity: Number(miqdor.replace(',', '.')) || 1,
+      });
+      setTanlov('');
+      setNom('');
+      setNarx('');
+      setMiqdor('1');
+      setOchiq(false);
+      await onOzgardi();
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
+    }
+  };
+
+  const ozgartir = async (i: TovarQatori, k: { quantity?: number; discount?: number }) => {
+    try {
+      await api.patch(`${base}/deals/${dealId}/items/${i.id}`, k);
+      await onOzgardi();
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
+    }
+  };
+
+  const ochir = async (i: TovarQatori) => {
+    try {
+      await api.del(`${base}/deals/${dealId}/items/${i.id}`);
+      await onOzgardi();
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t("O'chirib bo'lmadi"));
+    }
+  };
+
+  if (!yozaOladi && items.length === 0) return null;
+  return (
+    <section className="card ci-blok" aria-labelledby="bk-tovar">
+      <div className="ci-blok-bosh">
+        <h2 id="bk-tovar">
+          <Package aria-hidden="true" /> {t('Tovarlar va xizmatlar')}
+        </h2>
+        {yozaOladi && !ochiq && (
+          <button className="btn ikkinchi kichik" onClick={() => setOchiq(true)}>
+            <Plus /> {t('Tovar')}
+          </button>
+        )}
+      </div>
+      {items.length > 0 && (
+        <table className="jadval ci-tovar-jadval">
+          <thead>
+            <tr>
+              <th>{t('Nomi')}</th>
+              <th className="ci-ong">{t('Narx')}</th>
+              <th className="ci-ong">{t('Miqdor')}</th>
+              <th className="ci-ong">{t('Chegirma %')}</th>
+              <th className="ci-ong">{t('Jami')}</th>
+              {yozaOladi && <th aria-label={t('Amallar')} />}
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((i) => (
+              <tr key={i.id}>
+                <td>{i.name}</td>
+                <td className="ci-ong ci-raqam">{pul(i.price)}</td>
+                <td className="ci-ong">
+                  {yozaOladi ? (
+                    <input
+                      className="input ci-son-kiritish"
+                      inputMode="decimal"
+                      defaultValue={String(i.quantity)}
+                      aria-label={t('Miqdor')}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value.replace(',', '.'));
+                        if (v > 0 && v !== i.quantity) void ozgartir(i, { quantity: v });
+                      }}
+                    />
+                  ) : (
+                    i.quantity
+                  )}
+                </td>
+                <td className="ci-ong">
+                  {yozaOladi ? (
+                    <input
+                      className="input ci-son-kiritish"
+                      inputMode="decimal"
+                      defaultValue={String(i.discount)}
+                      aria-label={t('Chegirma %')}
+                      onBlur={(e) => {
+                        const v = Number(e.target.value.replace(',', '.'));
+                        if (v >= 0 && v <= 100 && v !== i.discount) void ozgartir(i, { discount: v });
+                      }}
+                    />
+                  ) : (
+                    i.discount
+                  )}
+                </td>
+                <td className="ci-ong ci-raqam">{pul(i.price * i.quantity * (1 - i.discount / 100))}</td>
+                {yozaOladi && (
+                  <td className="ci-ong">
+                    <button className="vr-amal" onClick={() => void ochir(i)} aria-label={t("O'chirish")}>
+                      <Trash2 />
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colSpan={4}>
+                <b>{t('Bitim summasi')}</b>
+              </td>
+              <td className="ci-ong ci-raqam">
+                <b>{pul(jami)}</b>
+              </td>
+              {yozaOladi && <td />}
+            </tr>
+          </tfoot>
+        </table>
+      )}
+      {items.length === 0 && !ochiq && <p className="yordam">{t("Tovar qo'shilsa, bitim summasi avtomatik hisoblanadi.")}</p>}
+      {ochiq && (
+        <div className="ci-tovar-qosh">
+          <select className="input" value={tanlov} onChange={(e) => setTanlov(e.target.value)} aria-label={t('Katalogdan')}>
+            <option value="">{t('— katalogdan tanlang yoki pastda yozing —')}</option>
+            {(katalog ?? []).map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} — {pul(p.price)}
+              </option>
+            ))}
+          </select>
+          {!tanlov && <input className="input" value={nom} maxLength={200} onChange={(e) => setNom(e.target.value)} placeholder={t('Nomi')} aria-label={t('Nomi')} />}
+          <input className="input" inputMode="numeric" value={narx} onChange={(e) => setNarx(e.target.value.replace(/[^\d\s]/g, ''))} placeholder={tanlov ? t('Narx (katalogdagi)') : t('Narx')} aria-label={t('Narx')} />
+          <input className="input" inputMode="decimal" value={miqdor} onChange={(e) => setMiqdor(e.target.value.replace(/[^\d.,]/g, ''))} aria-label={t('Miqdor')} />
+          <button className="btn kichik" onClick={() => void qosh()} disabled={!tanlov && !nom.trim()}>
+            {t("Qo'shish")}
+          </button>
+          <button className="btn ikkinchi kichik" onClick={() => setOchiq(false)}>
+            {t('Bekor')}
+          </button>
+        </div>
+      )}
+      {xato && <div className="xato-qator">{xato}</div>}
+    </section>
+  );
+}
+
 // ─── Vazifalar ───────────────────────────────────────────────────────────────
 
 function Vazifalar({ k, yozaOladi, onYangi, onOzgardi }: { k: Kartochka; yozaOladi: boolean; onYangi: () => void; onOzgardi: () => Promise<void> }) {
-  const { base } = useCrm();
+  const { holat, base } = useCrm();
   const t = useT();
   const [xato, setXato] = useState<string | null>(null);
+  const [bajarish, setBajarish] = useState<Vazifa | null>(null);
   const ochiq = k.tasks.filter((v) => OCHIQ.has(v.status)).sort((a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'));
   const yopiq = k.tasks.filter((v) => !OCHIQ.has(v.status)).slice(0, 5);
 
-  const bajarildi = async (v: Vazifa) => {
+  const qaytaOch = async (v: Vazifa) => {
     setXato(null);
     try {
-      await api.patch(`${base}/tasks/${v.id}`, { status: OCHIQ.has(v.status) ? 'done' : 'pending' });
+      await api.post(`${base}/crm-app/tasks/${v.id}/reopen`, {});
       await onOzgardi();
     } catch (e) {
       setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
@@ -432,19 +744,18 @@ function Vazifalar({ k, yozaOladi, onYangi, onOzgardi }: { k: Kartochka; yozaOla
           </button>
         )}
       </div>
-      {ochiq.length === 0 && (
-        <div className="ci-ogoh-qator">
-          {t("Ochiq vazifa yo'q — keyingi qadamni belgilang, bitim unutilib qolmasin.")}
-        </div>
+      {ochiq.length === 0 && bosqichOchiqmi(holat, k.deal.stageId) && (
+        <div className="ci-ogoh-qator">{t("Ochiq vazifa yo'q — keyingi qadamni belgilang, bitim unutilib qolmasin.")}</div>
       )}
       <ul className="ci-vazifalar">
         {[...ochiq, ...yopiq].map((v) => {
           const m = OCHIQ.has(v.status) ? muddatHolati(v.dueAt) : null;
+          const tur = vazifaTuri(holat, v.taskType);
           return (
             <li key={v.id} className={OCHIQ.has(v.status) ? '' : 'yopiq'}>
               <button
                 className="ci-vazifa-belgi"
-                onClick={() => void bajarildi(v)}
+                onClick={() => (OCHIQ.has(v.status) ? setBajarish(v) : void qaytaOch(v))}
                 aria-label={OCHIQ.has(v.status) ? t('Bajarildi deb belgilash') : t('Qayta ochish')}
                 aria-pressed={!OCHIQ.has(v.status)}
               >
@@ -453,12 +764,23 @@ function Vazifalar({ k, yozaOladi, onYangi, onOzgardi }: { k: Kartochka; yozaOla
               <div className="ci-vazifa-matn">
                 <b>{v.title}</b>
                 {v.description && <span>{v.description}</span>}
+                {v.result && (
+                  <span className="ci-natija">
+                    {t('Natija')}: {v.result}
+                  </span>
+                )}
                 <small>
+                  {v.taskType && (
+                    <span>
+                      <span className="ci-nuqta" style={{ background: tur.color }} aria-hidden="true" /> {t(tur.name)}
+                    </span>
+                  )}
                   {v.dueAt && (
                     <span className={m === 'otgan' ? 'xavf' : m === 'bugun' ? 'ogoh' : ''}>
                       <CalendarClock aria-hidden="true" /> {fmtSana(v.dueAt)}
                     </span>
                   )}
+                  {v.seatName && <span>{v.seatName}</span>}
                   {v.source !== 'manual' && (
                     <span className="ci-ai-belgi">
                       <Sparkles aria-hidden="true" /> {t('SotuvAI')}
@@ -471,104 +793,35 @@ function Vazifalar({ k, yozaOladi, onYangi, onOzgardi }: { k: Kartochka; yozaOla
         })}
       </ul>
       {xato && <div className="xato-qator">{xato}</div>}
+      {bajarish && (
+        <BajarishOyna
+          sarlavha={bajarish.title}
+          onYop={() => setBajarish(null)}
+          onTasdiq={async (natija) => {
+            try {
+              await api.post(`${base}/crm-app/tasks/${bajarish.id}/complete`, { result: natija });
+              setBajarish(null);
+              await onOzgardi();
+            } catch (e) {
+              setBajarish(null);
+              setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
+            }
+          }}
+        />
+      )}
     </section>
   );
 }
 
-function YangiVazifa({ dealId, onYop, onSaqlandi }: { dealId: string; onYop: () => void; onSaqlandi: () => Promise<void> }) {
-  const { base } = useCrm();
-  const t = useT();
-  const ertaga = new Date();
-  ertaga.setDate(ertaga.getDate() + 1);
-  ertaga.setHours(10, 0, 0, 0);
-  const [nom, setNom] = useState('');
-  const [muddat, setMuddat] = useState(mahalliyVaqt(ertaga.toISOString()));
-  const [izoh, setIzoh] = useState('');
-  const [band, setBand] = useState(false);
-  const [xato, setXato] = useState<string | null>(null);
-
-  const saqla = async () => {
-    if (!nom.trim()) {
-      setXato(t('Vazifa matnini kiriting'));
-      return;
-    }
-    setBand(true);
-    try {
-      await api.post(`${base}/deals/${dealId}/tasks`, {
-        title: nom.trim(),
-        description: izoh.trim() || null,
-        dueAt: muddat ? new Date(muddat).toISOString() : null,
-      });
-      await onSaqlandi();
-      onYop();
-    } catch (e) {
-      setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
-      setBand(false);
-    }
-  };
-
-  const tez = (kun: number) => {
-    const d = new Date();
-    d.setDate(d.getDate() + kun);
-    d.setHours(kun === 0 ? Math.min(d.getHours() + 2, 20) : 10, 0, 0, 0);
-    setMuddat(mahalliyVaqt(d.toISOString()));
-  };
-
-  return (
-    <Oyna
-      sarlavha={t('Yangi vazifa')}
-      onYop={onYop}
-      onSubmit={() => void saqla()}
-      past={
-        <>
-          <button type="button" className="btn ikkinchi" onClick={onYop}>
-            {t('Bekor')}
-          </button>
-          <button type="submit" className="btn" disabled={band}>
-            {band ? t('Saqlanmoqda…') : t('Qo‘shish')}
-          </button>
-        </>
-      }
-    >
-      <div className="maydon-blok">
-        <label htmlFor="yv-nom">{t('Nima qilish kerak')}</label>
-        <input id="yv-nom" className="input" value={nom} maxLength={300} onChange={(e) => setNom(e.target.value)} placeholder={t("Masalan: qayta qo'ng'iroq qilish")} />
-      </div>
-      <div className="maydon-blok">
-        <label htmlFor="yv-muddat">{t('Muddat')}</label>
-        <input id="yv-muddat" className="input" type="datetime-local" value={muddat} onChange={(e) => setMuddat(e.target.value)} />
-        <div className="ci-tez">
-          <button type="button" className="ci-chip" onClick={() => tez(0)}>
-            {t('Bugun')}
-          </button>
-          <button type="button" className="ci-chip" onClick={() => tez(1)}>
-            {t('Ertaga')}
-          </button>
-          <button type="button" className="ci-chip" onClick={() => tez(7)}>
-            {t('Bir haftadan keyin')}
-          </button>
-        </div>
-      </div>
-      <div className="maydon-blok">
-        <label htmlFor="yv-izoh">{t('Izoh (ixtiyoriy)')}</label>
-        <textarea id="yv-izoh" rows={2} maxLength={2000} value={izoh} onChange={(e) => setIzoh(e.target.value)} />
-      </div>
-      {xato && (
-        <div className="xato-qator" role="alert">
-          {xato}
-        </div>
-      )}
-    </Oyna>
-  );
+function bosqichOchiqmi(holat: ReturnType<typeof useCrm>['holat'], stageId: string): boolean {
+  return bosqichTop(holat, stageId)?.kind === 'open';
 }
 
 // ─── Tarix lentasi ───────────────────────────────────────────────────────────
 
-type LentaBandi =
-  | { tur: 'hodisa'; vaqt: string; h: Hodisa }
-  | { tur: 'qongiroq'; vaqt: string; q: Qongiroq };
+type LentaBandi = { tur: 'hodisa'; vaqt: string; h: Hodisa } | { tur: 'qongiroq'; vaqt: string; q: Qongiroq };
 
-function Lenta({ k, maydonNomi, onIzoh }: { k: Kartochka; maydonNomi: Map<string, ReturnType<typeof useCrm>['holat']['fields'][number]>; onIzoh: () => Promise<void> }) {
+function Lenta({ k, maydonNomi, onIzoh }: { k: Kartochka; maydonNomi: Map<string, Maydon>; onIzoh: () => Promise<void> }) {
   const { base, seatlar } = useCrm();
   const t = useT();
   const [matn, setMatn] = useState('');
@@ -599,6 +852,7 @@ function Lenta({ k, maydonNomi, onIzoh }: { k: Kartochka; maydonNomi: Map<string
   };
 
   const seatNomi = (id: unknown) => (typeof id === 'string' ? seatlar.find((s) => s.id === id)?.displayName ?? t('xodim') : t('hech kim'));
+  const teglar = (v: unknown) => (Array.isArray(v) && v.length ? v.join(', ') : '—');
 
   const hodisaMatni = (h: Hodisa): string => {
     const d = h.data;
@@ -613,14 +867,38 @@ function Lenta({ k, maydonNomi, onIzoh }: { k: Kartochka; maydonNomi: Map<string
         return t("Mas'ul: {a} → {b}", { a: seatNomi(d.before), b: seatNomi(d.after) });
       case 'contact':
         return t('Kontakt o‘zgardi');
+      case 'company':
+        return t('Kompaniya o‘zgardi');
+      case 'tags':
+        return t('Teglar: {a} → {b}', { a: teglar(d.before), b: teglar(d.after) });
+      case 'task':
+        return t('Vazifa qo‘yildi: «{v}»', { v: String(d.title ?? '') }) + (d.dueAt ? ` — ${fmtSana(String(d.dueAt))}` : '');
+      case 'task_done':
+        return t('Vazifa bajarildi: «{v}»', { v: String(d.title ?? '') }) + (d.result ? ` — ${String(d.result)}` : '');
+      case 'task_reopen':
+        return t('Vazifa qayta ochildi: «{v}»', { v: String(d.title ?? '') });
+      case 'task_reschedule':
+        return t('Vazifa muddati ko‘chirildi: «{v}» → {s}', { v: String(d.title ?? ''), s: d.after ? fmtSana(String(d.after)) : t('muddatsiz') });
+      case 'deleted':
+        return t('Bitim savatga o‘tkazildi');
+      case 'restored':
+        return t('Bitim savatdan tiklandi');
+      case 'inbox':
+        return t('Murojaat biriktirildi: {n}', { n: [d.name, d.phone].filter(Boolean).join(', ') || '—' }) + (d.message ? ` — ${String(d.message)}` : '');
+      case 'merge':
+        return t('Kontaktlar birlashtirildi');
       case 'field': {
         if (d.field === 'name') return t('Nomi: «{a}» → «{b}»', { a: String(d.before ?? ''), b: String(d.after ?? '') });
-        if (d.field === 'amount') return t('Summa: {a} → {b}', { a: pul(d.before === null ? null : Number(d.before)), b: pul(d.after === null ? null : Number(d.after)) });
+        if (d.field === 'amount')
+          return (
+            t('Summa: {a} → {b}', { a: pul(d.before === null ? null : Number(d.before)), b: pul(d.after === null ? null : Number(d.after)) }) +
+            (d.auto === 'items' ? ` (${t('tovarlardan')})` : '')
+          );
         const m = maydonNomi.get(String(d.fieldId));
         return t('«{m}»: {a} → {b}', { m: m?.label ?? t('Maydon'), a: qiymatMatni(m, d.before, t), b: qiymatMatni(m, d.after, t) });
       }
       default:
-        return '';
+        return h.type;
     }
   };
 
@@ -691,12 +969,22 @@ function Lenta({ k, maydonNomi, onIzoh }: { k: Kartochka; maydonNomi: Map<string
           ) : (
             <li key={b.h.id} className={`ci-lenta-band ${b.h.type}`}>
               <span className="ci-lenta-ikon" aria-hidden="true">
-                {b.h.type === 'note' ? <MessageSquareText /> : <History />}
+                {b.h.type === 'note' ? (
+                  <MessageSquareText />
+                ) : b.h.type.startsWith('task') ? (
+                  <ListChecks />
+                ) : b.h.type === 'restored' ? (
+                  <RotateCcw />
+                ) : b.h.data.automation ? (
+                  <Zap />
+                ) : (
+                  <History />
+                )}
               </span>
               <div className="ci-lenta-matn">
                 {b.h.type === 'note' ? <p className="ci-izoh">{String(b.h.data.text ?? '')}</p> : <p>{hodisaMatni(b.h)}</p>}
                 <small>
-                  {b.h.authorName ?? t('Tizim')} · {fmtSana(b.h.createdAt)}
+                  {b.h.data.automation ? t('Avtomatika: {n}', { n: String(b.h.data.automation) }) : (b.h.authorName ?? t('Tizim'))} · {fmtSana(b.h.createdAt)}
                 </small>
               </div>
             </li>

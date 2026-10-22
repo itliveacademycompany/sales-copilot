@@ -8,6 +8,8 @@ import {
   Columns3,
   ContactRound,
   FileText,
+  Gauge,
+  Inbox,
   ListChecks,
   PlugZap,
   LayoutGrid,
@@ -95,6 +97,24 @@ export function Layout() {
   );
   const loc = useLocation();
   const crmda = crmIlova && crmdami(loc.pathname);
+
+  /** CRM menyusida "Saralanmagan" soni — CRM ichida bo'lganda har daqiqada. */
+  const [saralanmagan, setSaralanmagan] = useState(0);
+  useEffect(() => {
+    if (!crmda || !business) return;
+    let dead = false;
+    const load = () =>
+      api
+        .get<{ total: number }>(`/api/v1/businesses/${business.businessId}/crm-app/inbox?status=pending&limit=1`)
+        .then((r) => !dead && setSaralanmagan(r.total))
+        .catch(() => undefined);
+    void load();
+    const id = setInterval(load, 60_000);
+    return () => {
+      dead = true;
+      clearInterval(id);
+    };
+  }, [crmda, business, loc.pathname]);
   const ilovaYollari = useIlovaYollari();
   useIlovaYoliniEsla();
 
@@ -207,9 +227,12 @@ export function Layout() {
           {crmda ? (
             <>
               {/* CRM ilovasi menyusi — tepadagi almashtirgich bilan almashadi */}
+              {item('/crm/ish-stoli', <Gauge />, 'Ish stoli')}
               {item('/crm/bitimlar', <Columns3 />, 'Bitimlar')}
+              {item('/crm/saralanmagan', <Inbox />, 'Saralanmagan', saralanmagan)}
               {item('/crm/kontaktlar', <ContactRound />, 'Kontaktlar')}
               {item('/crm/vazifalar', <ListChecks />, 'Vazifalar')}
+              {item('/crm/analitika', <ChartNoAxesColumnIncreasing />, 'Analitika')}
               {crmUlaydi && item('/crm/integratsiya', <PlugZap />, 'Integratsiya')}
             </>
           ) : (

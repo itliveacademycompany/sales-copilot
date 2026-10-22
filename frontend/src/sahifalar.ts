@@ -54,6 +54,7 @@ function sahifa<T extends ComponentType<Record<string, never>>>(
 export const SAHIFA = {
   crm: sahifa(() => import('./pages/Crm').then((m) => ({ default: m.Crm }))),
   crmIlova: sahifa(() => import('./pages/crm/CrmIlova').then((m) => ({ default: m.CrmIlova }))),
+  forma: sahifa(() => import('./pages/FormaSahifa').then((m) => ({ default: m.FormaSahifa }))),
   dashboard: sahifa(() => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard }))),
   seatCabinet: sahifa(() => import('./pages/SeatCabinet').then((m) => ({ default: m.SeatCabinet }))),
   analitika: sahifa(() => import('./pages/Analitika').then((m) => ({ default: m.Analitika }))),
@@ -94,7 +95,10 @@ export const MANZIL_SAHIFA: Record<string, { oldindanYukla: () => void }> = {
   '/billing': SAHIFA.billing,
   '/sozlamalar': SAHIFA.settings,
   '/crm/integratsiya': SAHIFA.crm,
+  '/crm/ish-stoli': SAHIFA.crmIlova,
   '/crm/bitimlar': SAHIFA.crmIlova,
+  '/crm/saralanmagan': SAHIFA.crmIlova,
+  '/crm/analitika': SAHIFA.crmIlova,
   '/crm/kontaktlar': SAHIFA.crmIlova,
   '/crm/vazifalar': SAHIFA.crmIlova,
   '/crm/sozlamalar': SAHIFA.crmIlova,

@@ -10,8 +10,12 @@ import { BitimKarta } from './BitimKarta';
 import { Bitimlar } from './Bitimlar';
 import { CrmSozlamalar } from './CrmSozlamalar';
 import { CrmVazifalar } from './CrmVazifalar';
-import { KontaktKarta, Kontaktlar } from './Kontaktlar';
+import { CrmAnalitika } from './CrmAnalitika';
+import { IshStoli } from './IshStoli';
+import { KompaniyaKarta, KontaktKarta, Kontaktlar } from './Kontaktlar';
+import { Saralanmagan } from './Saralanmagan';
 import './crm-ilova.css';
+import './crm-ilova-2.css';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -68,8 +72,12 @@ export function CrmIlova() {
         <Route path="integratsiya" element={integratsiya ? <SAHIFA.crm /> : <Navigate to="/crm" replace />} />
         {holat.enabled ? (
           <>
-            <Route index element={<Navigate to="bitimlar" replace />} />
+            <Route index element={<Navigate to="ish-stoli" replace />} />
+            <Route path="ish-stoli" element={<IshStoli />} />
             <Route path="bitimlar" element={<Bitimlar />} />
+            <Route path="saralanmagan" element={<Saralanmagan />} />
+            <Route path="analitika" element={<CrmAnalitika />} />
+            <Route path="kompaniyalar/:id" element={<KompaniyaKarta />} />
             <Route path="bitimlar/:id" element={<BitimKarta />} />
             <Route path="kontaktlar" element={<Kontaktlar />} />
             <Route path="kontaktlar/:id" element={<KontaktKarta />} />

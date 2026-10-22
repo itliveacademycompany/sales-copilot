@@ -1,6 +1,6 @@
 import { LogOut } from 'lucide-react';
 import { Suspense } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useAuth } from './auth';
 import { useT } from './i18n';
 import { useKabinet } from './kabinet';
@@ -13,6 +13,18 @@ export function App() {
   const { loading, user, business, businesses, logout } = useAuth();
   const kabinet = useKabinet();
   const t = useT();
+  const loc = useLocation();
+
+  // Ochiq veb-forma (CRM) — kirishsiz va kabinet tekshiruvisiz; saytga iframe bilan joylanadi
+  if (loc.pathname.startsWith('/f/')) {
+    return (
+      <Suspense fallback={<div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}>
+        <Routes>
+          <Route path="/f/:slug" element={<SAHIFA.forma />} />
+        </Routes>
+      </Suspense>
+    );
+  }
 
   if (loading || !kabinet) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
 

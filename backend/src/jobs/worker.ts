@@ -6,6 +6,8 @@ import { runBillingTick } from '../billing/engine.js';
 import { dispatchTaskExports } from '../integrations/crm-export.js';
 import { dispatchCrmWriteback } from '../integrations/crm/yozish.js';
 import { crmLidlarniSinxronla } from '../integrations/crm/lidlar.js';
+import { avtomatikaTiki } from '../crm/avtomatika.js';
+import { qongiroqlardanQabul } from '../crm/qabul.js';
 import { oldindanTranskriptQil, qongiroqlarniQaytaIshla, sinxronla } from '../integrations/moizvonki.js';
 import { runDailyReportTick } from '../reports/daily.js';
 import { markOverdueCommitments } from './maintenance.js';
@@ -84,6 +86,7 @@ let loopPromise: Promise<void> | null = null;
 let mzSinxronBand = false;
 /** CRM lidlari importi davom etyaptimi — birinchi to'liq import bir necha daqiqa olishi mumkin. */
 let crmLidBand = false;
+let crmIchkiBand = false;
 let mzQaytaIshlashBand = false;
 let mzSttBand = false;
 
@@ -99,6 +102,7 @@ export function startWorkerLoop(log: {
     let lastNotify = 0;
     let lastMzSync = 0;
     let lastCrmLid = 0;
+    let lastCrmIchki = 0;
     let lastMzProcess = 0;
     let lastMzStt = 0;
     let lastReclaim = 0;
@@ -166,6 +170,31 @@ export function startWorkerLoop(log: {
          * CRM lidlari (sdelkalar) — har daqiqada, fonda. O'zgarish bo'lmasa
          * bitta arzon so'rov; birinchi import tikma-tik davom etadi.
          */
+        /**
+         * Ichki CRM — har 30 soniyada, fonda: avtomatika qoidalari (bosqichda
+         * N daqiqa qolganda vazifa, navbat bilan mas'ul…) va yangi SotuvAI
+         * qo'ng'iroqlaridan "Saralanmagan" murojaatlar. Bitta biznes xatosi
+         * qolganlarini to'xtatmaydi.
+         */
+        if (now - lastCrmIchki > 30_000 && !crmIchkiBand) {
+          lastCrmIchki = now;
+          crmIchkiBand = true;
+          void (async () => {
+            const q = await qongiroqlardanQabul();
+            const qoshildi = q.reduce((n, x) => n + x.qoshildi, 0);
+            if (qoshildi > 0) log.info({ qoshildi }, "CRM: qo'ng'iroqlardan saralanmagan murojaatlar");
+            for (const x of q) if (x.xato) log.error({ businessId: x.businessId, xato: x.xato }, 'CRM: qabul xatosi');
+            const a = await avtomatikaTiki();
+            const bajarildi = a.reduce((n, x) => n + x.bajarildi, 0);
+            if (bajarildi > 0) log.info({ bajarildi }, 'CRM: avtomatika qoidalari bajarildi');
+            for (const x of a) if (x.xato) log.error({ businessId: x.businessId, xato: x.xato }, 'CRM: avtomatika xatosi');
+          })()
+            .catch((err: unknown) => log.error({ err }, 'CRM: ichki fon ishlari yiqildi'))
+            .finally(() => {
+              crmIchkiBand = false;
+            });
+        }
+
         if (now - lastCrmLid > 60_000 && !crmLidBand) {
           lastCrmLid = now;
           crmLidBand = true;

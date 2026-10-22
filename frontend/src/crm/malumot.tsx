@@ -57,9 +57,28 @@ export interface Maydon {
   required: boolean;
 }
 
+export interface VazifaTuri {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface RadSababi {
+  id: string;
+  name: string;
+  sort: number;
+  archived: boolean;
+  used: number;
+}
+
 export interface CrmHolat {
   enabled: boolean;
   canConfigure: boolean;
+  canIntegrate: boolean;
+  taskTypes: VazifaTuri[];
+  lossReasons: RadSababi[];
+  lossReasonRequired: boolean;
+  inboxPending: number;
   scope: 'all' | 'own';
   canManageAll: boolean;
   seatId: string | null;
@@ -85,6 +104,12 @@ export interface BitimKartasi {
   version: number;
   nextTaskAt: string | null;
   openTasks: number;
+  closedAt: string | null;
+  deletedAt: string | null;
+  tags: string[];
+  source: string | null;
+  companyId: string | null;
+  lostReason: string | null;
 }
 
 export interface KanbanUstun {
@@ -304,4 +329,54 @@ export function guruhla(maydonlar: Maydon[]): { nom: string; maydonlar: Maydon[]
     g.set(k, [...(g.get(k) ?? []), m]);
   }
   return [...g.entries()].map(([nom, maydonlar]) => ({ nom, maydonlar }));
+}
+
+/** Vazifa turi nomi va rangi (o'chirilgan tur — "Vazifa"). */
+export function vazifaTuri(holat: CrmHolat, id: string | null | undefined): VazifaTuri {
+  return holat.taskTypes.find((t) => t.id === id) ?? { id: id ?? 'call', name: id ? 'Vazifa' : "Bog'lanish", color: '#5b6575' };
+}
+
+/** Davr: bugun / kecha / hafta / oy — mahalliy vaqtda [from, to). */
+export type DavrTuri = 'bugun' | 'kecha' | 'hafta' | 'oy' | 'otgan-oy' | 'maxsus';
+
+export function davrHisobla(tur: DavrTuri, maxsus?: { from: string; to: string }): { from: string; to: string } {
+  const bosh = new Date();
+  bosh.setHours(0, 0, 0, 0);
+  const kun = 86400000;
+  if (tur === 'maxsus' && maxsus) {
+    const f = new Date(maxsus.from + 'T00:00:00');
+    const t = new Date(maxsus.to + 'T00:00:00');
+    return { from: f.toISOString(), to: new Date(t.getTime() + kun).toISOString() };
+  }
+  if (tur === 'kecha') return { from: new Date(bosh.getTime() - kun).toISOString(), to: bosh.toISOString() };
+  if (tur === 'hafta') return { from: new Date(bosh.getTime() - 6 * kun).toISOString(), to: new Date(bosh.getTime() + kun).toISOString() };
+  if (tur === 'oy') {
+    const o = new Date(bosh.getFullYear(), bosh.getMonth(), 1);
+    return { from: o.toISOString(), to: new Date(bosh.getTime() + kun).toISOString() };
+  }
+  if (tur === 'otgan-oy') {
+    const o = new Date(bosh.getFullYear(), bosh.getMonth() - 1, 1);
+    const k = new Date(bosh.getFullYear(), bosh.getMonth(), 1);
+    return { from: o.toISOString(), to: k.toISOString() };
+  }
+  return { from: bosh.toISOString(), to: new Date(bosh.getTime() + kun).toISOString() };
+}
+
+/** Foiz: 0.4235 → "42%"; yo'q — "—". */
+export function foiz(v: number | null | undefined): string {
+  return v === null || v === undefined || !Number.isFinite(v) ? '—' : `${Math.round(v * 100)}%`;
+}
+
+/** Fayl yuklab olish (CSV va h.k.) — sessiya cookie bilan. */
+export async function yuklabOl(url: string, nom: string): Promise<void> {
+  const r = await fetch(url, { credentials: 'include' });
+  if (!r.ok) throw new Error(r.statusText);
+  const blob = await r.blob();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = nom;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }

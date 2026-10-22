@@ -11,7 +11,6 @@ const CRM_ILOVA: Lugat = {
   Bitimlar: { en: 'Deals', ru: 'Сделки' },
   Kontaktlar: { en: 'Contacts', ru: 'Контакты' },
   Integratsiya: { en: 'Integration', ru: 'Интеграция' },
-  'CRM sozlamalari': { en: 'CRM settings', ru: 'Настройки CRM' },
 
   // ─── Yoqish ───
   'SotuvAI CRM': { en: 'SotuvAI CRM', ru: 'SotuvAI CRM' },
@@ -143,7 +142,6 @@ const CRM_ILOVA: Lugat = {
   "Bu mijoz bilan qo'ng'iroq hali yo'q.": { en: 'No calls with this client yet.', ru: 'Звонков с этим клиентом пока нет.' },
 
   // ─── Vazifalar ───
-  Bajarilgan: { en: 'Done', ru: 'Выполненные' },
   "Bajarilgan vazifa yo'q": { en: 'No completed tasks', ru: 'Нет выполненных задач' },
 
   // ─── Sozlamalar ───
