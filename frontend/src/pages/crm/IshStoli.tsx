@@ -1,6 +1,7 @@
+import { AlarmClock, BriefcaseBusiness, CalendarCheck, CircleX, Inbox, ListX, Plus, Trophy, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, ApiError } from '../../api';
+import { api, ApiError, fmtPul } from '../../api';
 import { DavrTanlash, GorizontalUstunlar, Progress, TrendGrafik } from '../../crm/komponentlar';
 import { davrHisobla, foiz, pul, useCrm, type DavrTuri } from '../../crm/malumot';
 import { useT } from '../../i18n';
@@ -137,14 +138,45 @@ export function IshStoli() {
       {data && (
         <>
           <div className="ci-kpi-panjara">
-            <Kpi nom={t('Yangi bitimlar')} qiymat={data.kpi.newCount} izoh={pul(data.kpi.newSum)} onClick={() => och(davrF)} />
-            <Kpi nom={t('Muvaffaqiyatli')} qiymat={data.kpi.wonCount} izoh={pul(data.kpi.wonSum)} onClick={() => och({ status: 'won', ...yopilishF })} ohang="yaxshi" />
-            <Kpi nom={t("Yo'qotilgan")} qiymat={data.kpi.lostCount} izoh={t('Konversiya: {f}', { f: foiz(data.kpi.winRate) })} onClick={() => och({ status: 'lost', ...yopilishF })} />
-            <Kpi nom={t('Ochiq bitimlar')} qiymat={data.kpi.openCount} izoh={pul(data.kpi.openSum)} onClick={() => och({ status: 'open' })} />
-            <Kpi nom={t('Vazifasiz bitimlar')} qiymat={data.kpi.noTask} onClick={() => och({ status: 'open', task: 'none' })} ohang={data.kpi.noTask > 0 ? 'ogoh' : undefined} />
-            <Kpi nom={t("Muddati o'tgan vazifalar")} qiymat={data.kpi.overdueTasks} onClick={() => navigate('/crm/vazifalar?p=overdue')} ohang={data.kpi.overdueTasks > 0 ? 'xavf' : undefined} />
-            <Kpi nom={t('Bugungi vazifalar')} qiymat={data.kpi.todayTasks} izoh={t('Bajarildi: {n}', { n: data.kpi.doneTasks })} onClick={() => navigate('/crm/vazifalar?p=today')} />
-            <Kpi nom={t('Saralanmagan')} qiymat={data.kpi.inboxPending} onClick={() => navigate('/crm/saralanmagan')} ohang={data.kpi.inboxPending > 0 ? 'ogoh' : undefined} />
+            <Kpi ikon={Plus} nom={t('Yangi bitimlar')} qiymat={data.kpi.newCount} izoh={fmtPul(data.kpi.newSum)} onClick={() => och(davrF)} />
+            <Kpi ikon={Trophy} nom={t('Muvaffaqiyatli')} qiymat={data.kpi.wonCount} izoh={fmtPul(data.kpi.wonSum)} onClick={() => och({ status: 'won', ...yopilishF })} ohang="yaxshi" />
+            <Kpi
+              ikon={CircleX}
+              nom={t("Yo'qotilgan")}
+              qiymat={data.kpi.lostCount}
+              izoh={t('Konversiya: {f}', { f: foiz(data.kpi.winRate) })}
+              onClick={() => och({ status: 'lost', ...yopilishF })}
+              ohang="xavf-yumshoq"
+            />
+            <Kpi ikon={BriefcaseBusiness} nom={t('Ochiq bitimlar')} qiymat={data.kpi.openCount} izoh={fmtPul(data.kpi.openSum)} onClick={() => och({ status: 'open' })} />
+            <Kpi
+              ikon={ListX}
+              nom={t('Vazifasiz bitimlar')}
+              qiymat={data.kpi.noTask}
+              onClick={() => och({ status: 'open', task: 'none' })}
+              ohang={data.kpi.noTask > 0 ? 'ogoh' : undefined}
+            />
+            <Kpi
+              ikon={AlarmClock}
+              nom={t("Muddati o'tgan vazifalar")}
+              qiymat={data.kpi.overdueTasks}
+              onClick={() => navigate('/crm/vazifalar?p=overdue')}
+              ohang={data.kpi.overdueTasks > 0 ? 'xavf' : undefined}
+            />
+            <Kpi
+              ikon={CalendarCheck}
+              nom={t('Bugungi vazifalar')}
+              qiymat={data.kpi.todayTasks}
+              izoh={t('Bajarildi: {n}', { n: data.kpi.doneTasks })}
+              onClick={() => navigate('/crm/vazifalar?p=today')}
+            />
+            <Kpi
+              ikon={Inbox}
+              nom={t('Saralanmagan')}
+              qiymat={data.kpi.inboxPending}
+              onClick={() => navigate('/crm/saralanmagan')}
+              ohang={data.kpi.inboxPending > 0 ? 'ogoh' : undefined}
+            />
           </div>
 
           <div className="ci-ikki-ustun">
@@ -245,12 +277,35 @@ export function IshStoli() {
   );
 }
 
-function Kpi({ nom, qiymat, izoh, onClick, ohang }: { nom: string; qiymat: number; izoh?: string; onClick?: () => void; ohang?: 'yaxshi' | 'ogoh' | 'xavf' }) {
+/**
+ * Ixcham ko'rsatkich kartasi: nom + belgi, raqam, izoh. Rang faqat ma'noli
+ * holatda (yutuq — yashil; e'tibor talab qiladigan — sariq/qizil).
+ */
+function Kpi({
+  ikon: Ikon,
+  nom,
+  qiymat,
+  izoh,
+  onClick,
+  ohang,
+}: {
+  ikon: LucideIcon;
+  nom: string;
+  qiymat: number;
+  izoh?: string;
+  onClick?: () => void;
+  ohang?: 'yaxshi' | 'ogoh' | 'xavf' | 'xavf-yumshoq';
+}) {
   return (
-    <button type="button" className={`card ci-kpi${ohang ? ` ${ohang}` : ''}`} onClick={onClick}>
-      <span className="ci-kpi-nom">{nom}</span>
-      <b className="ci-kpi-qiymat">{qiymat}</b>
-      {izoh && <span className="ci-kpi-izoh">{izoh}</span>}
+    <button type="button" className={`ci-kpi${ohang ? ` ${ohang}` : ''}`} onClick={onClick}>
+      <span className="ci-kpi-bosh">
+        <span className="ci-kpi-nom">{nom}</span>
+        <span className="ci-kpi-ikon" aria-hidden="true">
+          <Ikon />
+        </span>
+      </span>
+      <b className="ci-kpi-qiymat">{qiymat.toLocaleString('ru-RU')}</b>
+      <span className="ci-kpi-izoh">{izoh ?? ' '}</span>
     </button>
   );
 }
