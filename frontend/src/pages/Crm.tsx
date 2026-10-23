@@ -66,7 +66,17 @@ interface Crm {
   /** Bir tugmada ulash (OAuth) — platformada sozlangan bo'lsa. */
   oauthAvailable: boolean;
   authType: 'oauth' | 'token' | null;
-  leads: { count: number; voronkalar: string[] | null; birinchiTugadi: boolean; oxirgi: string | null; xato: string | null };
+  leads: {
+    count: number;
+    /** Ichki CRM ga bitim bo'lib ko'chirilganlar soni. */
+    deals: number;
+    voronkalar: string[] | null;
+    birinchiTugadi: boolean;
+    oxirgi: string | null;
+    xato: string | null;
+    /** Lidlar ichki CRM ga (voronka, bosqich, maydonlar bilan) ko'chiriladimi. */
+    ichkiCrm: boolean;
+  };
 }
 
 /** amoCRM dan qaytgandagi xato kodlari (callback `?crm_xato=`) — matn URL dan olinmaydi. */
@@ -678,6 +688,26 @@ function LidlarBolimi({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi:
   const [xato, setXato] = useState<string | null>(null);
   const [tanlov, setTanlov] = useState<{ voronkalar: Tuzilish['pipelines']; tanlangan: Set<string> } | null>(null);
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
+  const [ichki, setIchki] = useState(l.ichkiCrm);
+  useEffect(() => setIchki(l.ichkiCrm), [l.ichkiCrm]);
+
+  const ichkiniOzgartir = async (v: boolean) => {
+    setIchki(v);
+    setXato(null);
+    setXabar(null);
+    try {
+      await api.patch(`${base}/settings`, { ichkiCrm: v });
+      setXabar(
+        v
+          ? t("Yoqildi — barcha sdelkalar SotuvAI CRM ga ko'chirilmoqda, bir necha daqiqa ketadi.")
+          : t("O'chirildi — ko'chirilgan bitimlar qoladi, lekin endi {crm} dan yangilanmaydi.", { crm: c.name }),
+      );
+      await onOzgardi();
+    } catch (e) {
+      setIchki(!v);
+      setXato(e instanceof ApiError ? t(e.message) : t("Saqlab bo'lmadi"));
+    }
+  };
 
   // Birinchi import davom etayotgan bo'lsa — holat har 15 soniyada yangilanadi
   useEffect(() => {
@@ -736,6 +766,12 @@ function LidlarBolimi({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi:
           <b>{l.count}</b>
           <span>{t('SotuvAI dagi lidlar')}</span>
         </div>
+        {ichki && (
+          <div className="crm-raqam">
+            <b>{l.deals}</b>
+            <span>{t('CRM dagi bitimlar')}</span>
+          </div>
+        )}
         <div className="crm-lid-matn">
           {!l.birinchiTugadi ? (
             <span className="crm-lid-jarayon">
@@ -751,6 +787,21 @@ function LidlarBolimi({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi:
           </span>
           {l.xato && <span className="crm-lid-xato">{t(l.xato)}</span>}
         </div>
+      </div>
+
+      <div className="ogoh-sozlama">
+        <label className="sozlama-satr">
+          <span className="matn">
+            <b>{t("Sdelkalarni SotuvAI CRM ga ko'chirish")}</b>
+            <span className="izoh">
+              {t(
+                "Har bir sdelka SotuvAI CRM da bitim bo'ladi — o'sha voronka, bosqich, mas'ul, kontakt va qo'shimcha maydonlar bilan. Asosiy manba {crm}: nom, summa, bosqich va mas'ul u yerda o'zgartiriladi, bu yerga har daqiqada keladi.",
+                { crm: c.name },
+              )}
+            </span>
+          </span>
+          <input type="checkbox" className="kalit" role="switch" checked={ichki} onChange={(e) => void ichkiniOzgartir(e.target.checked)} />
+        </label>
       </div>
 
       {tanlov && (
@@ -787,9 +838,15 @@ function LidlarBolimi({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi:
       {xato && <div className="xato-qator">{xato}</div>}
 
       <div className="crm-tugmalar">
-        <Link to="/lidlar?tab=crm" className="btn">
-          {t("Lidlarni ko'rish")}
-        </Link>
+        {ichki ? (
+          <Link to="/crm/bitimlar" className="btn">
+            {t("Bitimlarni ko'rish")}
+          </Link>
+        ) : (
+          <Link to="/lidlar?tab=crm" className="btn">
+            {t("Lidlarni ko'rish")}
+          </Link>
+        )}
         <button type="button" className="btn ikkinchi" disabled={yangilanmoqda} onClick={() => void hozir()}>
           <RefreshCw aria-hidden="true" className={yangilanmoqda ? 'aylan' : undefined} />
           {yangilanmoqda ? t('Yangilanmoqda…') : t('Hozir yangilash')}

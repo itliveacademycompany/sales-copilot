@@ -20,6 +20,7 @@ import {
   kontaktYarat,
 } from '../../crm/kontakt.js';
 import { kutayotganlarSoni } from '../../crm/qabul.js';
+import { faolTashqiSinxBormi } from '../../crm/tashqi.js';
 import { SHABLONLAR } from '../../crm/shablon.js';
 import { radSabablari, sozlamaniOl } from '../../crm/sozlama.js';
 import {
@@ -95,8 +96,15 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
     const qoshimcha = await withTenant(businessId, async (tx) => {
       // 1-bosqichda yoqilgan bizneslar uchun sozlama qatori bir marta yaratiladi
       if (t.pipelines.length > 0) await crmSozlamalariniBoshla(tx, businessId);
-      const [s, sabablar, kutayotgan] = await Promise.all([sozlamaniOl(tx), radSabablari(tx), kutayotganlarSoni(tx)]);
-      return { taskTypes: s.taskTypes, lossReasonRequired: s.lossReasonRequired, lossReasons: sabablar, inboxPending: kutayotgan };
+      const [s, sabablar, kutayotgan, sync] = await Promise.all([sozlamaniOl(tx), radSabablari(tx), kutayotganlarSoni(tx), faolTashqiSinxBormi(tx)]);
+      return {
+        taskTypes: s.taskTypes,
+        lossReasonRequired: s.lossReasonRequired,
+        lossReasons: sabablar,
+        inboxPending: kutayotgan,
+        /** Ichki CRM ga sinxronlanayotgan tashqi CRM nomi (amoCRM) — bo'lsa, qo'ng'iroqlardan qabul ishlamaydi. */
+        externalSync: sync,
+      };
     });
     return {
       enabled: t.pipelines.length > 0,

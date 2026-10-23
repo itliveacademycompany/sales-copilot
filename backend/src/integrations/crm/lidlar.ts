@@ -4,6 +4,7 @@ import { business, contact, crmLead, integration, seat } from '../../db/schema/i
 import { CrmXato, raqamlar, telefonKaliti, type CrmKontekst, type CrmLid, type CrmTuzilish } from './adapter.js';
 import { ADAPTERLAR, CRM_TURLARI } from './index.js';
 import { kontekstQur } from './kontekst.js';
+import { lidlarniKochir, tuzilmaniKochir, type TashqiXarita } from '../../crm/tashqi.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -44,6 +45,13 @@ export interface CrmLidSozlama {
   birinchiTugadi: boolean;
   oxirgi: string | null;
   xato: string | null;
+  /**
+   * Lidlar SotuvAI ichki CRM bitimlariga ham ko'chirilsinmi (bir tomonlama
+   * sinxron). Standart — ha: ulangan CRM ning hamma lidlari CRM bo'limida.
+   */
+  ichkiCrm: boolean;
+  /** Ichki CRM ga birinchi to'liq ko'chirish boshlanganmi (bir marta qayta import). */
+  ichkiBoshlangan: boolean;
 }
 
 export function lidSozlamaniOl(config: unknown): CrmLidSozlama {
@@ -54,6 +62,8 @@ export function lidSozlamaniOl(config: unknown): CrmLidSozlama {
     birinchiTugadi: c?.birinchiTugadi === true,
     oxirgi: typeof c?.oxirgi === 'string' ? c.oxirgi : null,
     xato: typeof c?.xato === 'string' ? c.xato : null,
+    ichkiCrm: c?.ichkiCrm !== false,
+    ichkiBoshlangan: c?.ichkiBoshlangan === true,
   };
 }
 
@@ -62,6 +72,8 @@ export interface LidSinxNatija {
   olindi: number;
   saqlandi: number;
   tugadi: boolean;
+  /** Ichki CRM da yaratilgan yoki yangilangan bitimlar. */
+  bitimlar?: number;
   xato?: string;
 }
 
@@ -80,6 +92,28 @@ async function tuzilishKesh(integrationId: string, kind: keyof typeof ADAPTERLAR
 /** Sozlama o'zgarganda (voronka tanlovi, qayta ulanish) — keshni tozalash. */
 export function tuzilishKeshniTozala(integrationId: string): void {
   kesh.delete(integrationId);
+  xaritaKesh.delete(integrationId);
+}
+
+/**
+ * Ichki CRM tuzilmasi (voronka/bosqich/maydon) — faqat tashqi tuzilma yoki
+ * voronka tanlovi o'zgarganda qayta ko'chiriladi; aks holda keshdagi xarita.
+ */
+const xaritaKesh = new Map<string, { kalit: string; x: TashqiXarita }>();
+
+async function tuzilmaXaritasi(
+  businessId: string,
+  integrationId: string,
+  t: CrmTuzilish,
+  voronkalar: string[] | null,
+  birinchi: boolean,
+): Promise<TashqiXarita> {
+  const kalit = JSON.stringify([t.pipelines, t.leadFields, voronkalar]);
+  const bor = xaritaKesh.get(integrationId);
+  if (bor && bor.kalit === kalit && !birinchi) return bor.x;
+  const x = await withTenant(businessId, (tx) => tuzilmaniKochir(tx, { businessId, integrationId, t, voronkalar, birinchi }));
+  xaritaKesh.set(integrationId, { kalit, x });
+  return x;
 }
 
 // ─── Yordamchilar ────────────────────────────────────────────────────────────
@@ -314,6 +348,22 @@ async function bittaUlanish(
   const sozlama = lidSozlamaniOl(u.config);
   const t = await tuzilishKesh(u.id, kind, ctx);
 
+  // Ichki CRM ga birinchi ko'chirish: lidlar boshidan (qo'shimcha maydonlari
+  // bilan) qayta olinadi — avval import qilinganlari ham bitim bo'lsin
+  const birinchiKochirish = sozlama.ichkiCrm && !sozlama.ichkiBoshlangan;
+  if (birinchiKochirish) {
+    sozlama.kursor = null;
+    sozlama.birinchiTugadi = false;
+  }
+  const xarita = sozlama.ichkiCrm
+    ? await tuzilmaXaritasi(u.businessId, u.id, t, sozlama.voronkalar, birinchiKochirish)
+    : null;
+  if (birinchiKochirish) {
+    sozlama.ichkiBoshlangan = true;
+    await holatniYoz(u.businessId, u.id, { ichkiBoshlangan: true, kursor: null, birinchiTugadi: false });
+  }
+  const manba = ADAPTERLAR[kind].nom;
+
   // Mas'ul (CRM foydalanuvchisi) → menejer: kartochkadagi "CRM ID"
   const seatQatorlari = await withTenant(u.businessId, (tx) =>
     tx
@@ -336,7 +386,22 @@ async function bittaUlanish(
       const qatorlar = kerakli.map((l) =>
         lidQatori(l, { businessId: u.businessId, integrationId: u.id, kind, t, seatlar, kontaktlar }),
       );
-      return lidlarniSaqla(tx, qatorlar);
+      const saqlandi = await lidlarniSaqla(tx, qatorlar);
+      if (xarita) {
+        // Shu tranzaksiyada ichki CRM bitimlari ham — lid va bitim bir-biridan orqada qolmaydi
+        const lidKontakt = new Map(qatorlar.filter((q) => q.contactId).map((q) => [q.crmId, q.contactId!]));
+        const r = await lidlarniKochir(tx, {
+          businessId: u.businessId,
+          integrationId: u.id,
+          manba,
+          lidlar: kerakli,
+          xarita,
+          seatlar,
+          kontaktlar: lidKontakt,
+        });
+        n.bitimlar = (n.bitimlar ?? 0) + r.yangi + r.yangilandi;
+      }
+      return saqlandi;
     });
 
     kursor = sahifa.kursor;

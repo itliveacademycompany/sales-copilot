@@ -207,6 +207,17 @@ button.ci-gustun-qator:focus-visible { outline: 2px solid var(--focus); }
 .ci-rahmat p { margin: 0; font-size: 16px; }
 .ci-tuzoq { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 
+/* amoCRM dan sinxronlanadigan voronka / bitim */
+.ci-sinx-qator { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 16px; font-size: 13.5px; color: var(--text-secondary); margin-bottom: 12px; }
+.ci-sinx-qator > svg { width: 16px; height: 16px; flex: none; color: var(--ia-text); }
+.ci-sinx-qator > span { flex: 1 1 240px; min-width: 0; }
+.ci-sinx-qator a { color: var(--ia-text); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.ci-sinx-qator a:hover { text-decoration: underline; }
+.ci-sinx-qator a svg { width: 13px; height: 13px; }
+.ci-fieldset-shaffof { border: none; margin: 0; padding: 0; min-width: 0; display: contents; }
+.ci-karta.qulf { cursor: default; }
+.ci-karta.qulf:active { cursor: default; }
+
 @media (max-width: 1100px) {
   .ci-ikki-ustun { grid-template-columns: 1fr; }
 }

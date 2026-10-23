@@ -235,6 +235,11 @@ export function TaqsimotSozlama() {
       <section className="card ci-blok">
         <h2>{t("SotuvAI qo'ng'iroqlaridan qabul")}</h2>
         <p className="yordam">{t("Ochiq bitimi yo'q mijoz qo'ng'iroq qilsa — u «Saralanmagan»ga o'zi tushadi (CRM yoqilgandan keyingi qo'ng'iroqlar).")}</p>
+        {holat.externalSync && (
+          <div className="card ci-sinx-qator" role="note">
+            {t("Hozir lidlar {crm} dan sinxronlanmoqda — takror bitim bo'lmasligi uchun qo'ng'iroqlardan qabul to'xtatilgan.", { crm: holat.externalSync })}
+          </div>
+        )}
         <label className="ci-belgi">
           <input type="checkbox" checked={s.callIntake.enabled} onChange={(e) => setS({ ...s, callIntake: { ...s.callIntake, enabled: e.target.checked } })} />
           <span>{t('Yoqilgan')}</span>

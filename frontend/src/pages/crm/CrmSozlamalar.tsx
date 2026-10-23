@@ -1,4 +1,4 @@
-import { Archive, ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Archive, ArrowDown, ArrowUp, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../../api';
@@ -75,6 +75,8 @@ function Voronkalar() {
   const t = useT();
   const [tanlangan, setTanlangan] = useState(holat.pipelines[0]?.id ?? '');
   const voronka = holat.pipelines.find((p) => p.id === tanlangan) ?? holat.pipelines[0]!;
+  // amoCRM dan sinxronlanadigan voronka — nomi va bosqichlari u yerda boshqariladi
+  const tashqi = voronka.external ? (holat.externalSync ?? 'CRM') : null;
   const [nom, setNom] = useState(voronka.name);
   const [bosqichlar, setBosqichlar] = useState<BosqichQoralama[]>([]);
   const [xabar, setXabar] = useState<{ ok: boolean; matn: string } | null>(null);
@@ -131,7 +133,10 @@ function Voronkalar() {
         {holat.pipelines.map((p) => (
           <button key={p.id} className={`ci-soz-band${p.id === voronka.id ? ' faol' : ''}`} onClick={() => setTanlangan(p.id)} aria-current={p.id === voronka.id}>
             <span>{p.name}</span>
-            <small>{t('{n} ta bosqich', { n: p.stages.length })}</small>
+            <small>
+              {t('{n} ta bosqich', { n: p.stages.length })}
+              {p.external && holat.externalSync && ` · ${holat.externalSync}`}
+            </small>
           </button>
         ))}
         <button className="btn ikkinchi kichik" onClick={() => setYangiOyna(true)}>
@@ -142,79 +147,91 @@ function Voronkalar() {
       <section className="card ci-blok" aria-labelledby="soz-v">
         <div className="ci-blok-bosh">
           <h2 id="soz-v">{t('Voronka')}</h2>
-          {holat.pipelines.length > 1 && (
+          {holat.pipelines.length > 1 && !tashqi && (
             <button className="btn ikkinchi kichik" onClick={() => void arxivla()} title={t("Bitimlari saqlanadi, ro'yxatdan yashiriladi")}>
               <Archive /> {t('Arxivlash')}
             </button>
           )}
         </div>
-        <div className="maydon-blok">
-          <label htmlFor="soz-v-nom">{t('Nomi')}</label>
-          <input id="soz-v-nom" className="input" value={nom} maxLength={100} onChange={(e) => setNom(e.target.value)} />
-        </div>
+        {tashqi && (
+          <div className="card ci-sinx-qator" role="note">
+            <RefreshCw aria-hidden="true" />
+            {t("Bu voronka {crm} dan sinxronlanadi — nomi, bosqichlari va ranglari {crm} da o'zgartiriladi va bu yerga avtomatik keladi.", { crm: tashqi })}
+          </div>
+        )}
+        <fieldset disabled={Boolean(tashqi)} className="ci-fieldset-shaffof">
+          <div className="maydon-blok">
+            <label htmlFor="soz-v-nom">{t('Nomi')}</label>
+            <input id="soz-v-nom" className="input" value={nom} maxLength={100} onChange={(e) => setNom(e.target.value)} />
+          </div>
 
-        <h3 className="ci-kichik-sarlavha">{t('Bosqichlar')}</h3>
-        <p className="yordam">{t("Tartib — Kanban ustunlari tartibi. Kamida bitta ochiq, bitta muvaffaqiyatli va bitta yo'qotilgan bosqich kerak.")}</p>
-        <ol className="ci-bosqich-tahrir">
-          {bosqichlar.map((b, i) => (
-            <li key={b.kalit}>
-              <input
-                type="color"
-                value={b.color}
-                onChange={(e) => qatorniOzgartir(i, { color: e.target.value })}
-                aria-label={t('Rang')}
-                className="ci-rang"
-              />
-              <input className="input" value={b.name} maxLength={100} onChange={(e) => qatorniOzgartir(i, { name: e.target.value })} aria-label={t('Bosqich nomi')} />
-              <select className="input ci-tor" value={b.kind} onChange={(e) => qatorniOzgartir(i, { kind: e.target.value as BosqichTuri })} aria-label={t('Turi')}>
-                {(Object.keys(TUR_NOMI) as BosqichTuri[]).map((k) => (
-                  <option key={k} value={k}>
-                    {t(TUR_NOMI[k])}
-                  </option>
-                ))}
-              </select>
-              <span className="ci-qator-amallar">
-                <button type="button" className="vr-amal" onClick={() => siljit(i, -1)} disabled={i === 0} aria-label={t('Yuqoriga')}>
-                  <ArrowUp />
-                </button>
-                <button type="button" className="vr-amal" onClick={() => siljit(i, 1)} disabled={i === bosqichlar.length - 1} aria-label={t('Pastga')}>
-                  <ArrowDown />
-                </button>
-                <button
-                  type="button"
-                  className="vr-amal"
-                  onClick={() => setBosqichlar((x) => x.filter((_, j) => j !== i))}
-                  disabled={bosqichlar.length <= 2}
-                  aria-label={t("O'chirish")}
-                >
-                  <Trash2 />
-                </button>
-              </span>
-            </li>
-          ))}
-        </ol>
-        <button
-          className="btn ikkinchi kichik"
-          onClick={() => {
-            // Yangi ochiq bosqich — yutuq/yo'qotishdan oldin
-            const i = bosqichlar.findIndex((b) => b.kind !== 'open');
-            const yangi: BosqichQoralama = { kalit: crypto.randomUUID(), name: t('Yangi bosqich'), color: '#c2e9fb', kind: 'open' };
-            setBosqichlar((b) => (i < 0 ? [...b, yangi] : [...b.slice(0, i), yangi, ...b.slice(i)]));
-          }}
-        >
-          <Plus /> {t("Bosqich qo'shish")}
-        </button>
+          <h3 className="ci-kichik-sarlavha">{t('Bosqichlar')}</h3>
+          {!tashqi && <p className="yordam">{t("Tartib — Kanban ustunlari tartibi. Kamida bitta ochiq, bitta muvaffaqiyatli va bitta yo'qotilgan bosqich kerak.")}</p>}
+          <ol className="ci-bosqich-tahrir">
+            {bosqichlar.map((b, i) => (
+              <li key={b.kalit}>
+                <input
+                  type="color"
+                  value={b.color}
+                  onChange={(e) => qatorniOzgartir(i, { color: e.target.value })}
+                  aria-label={t('Rang')}
+                  className="ci-rang"
+                />
+                <input className="input" value={b.name} maxLength={100} onChange={(e) => qatorniOzgartir(i, { name: e.target.value })} aria-label={t('Bosqich nomi')} />
+                <select className="input ci-tor" value={b.kind} onChange={(e) => qatorniOzgartir(i, { kind: e.target.value as BosqichTuri })} aria-label={t('Turi')}>
+                  {(Object.keys(TUR_NOMI) as BosqichTuri[]).map((k) => (
+                    <option key={k} value={k}>
+                      {t(TUR_NOMI[k])}
+                    </option>
+                  ))}
+                </select>
+                <span className="ci-qator-amallar">
+                  <button type="button" className="vr-amal" onClick={() => siljit(i, -1)} disabled={i === 0} aria-label={t('Yuqoriga')}>
+                    <ArrowUp />
+                  </button>
+                  <button type="button" className="vr-amal" onClick={() => siljit(i, 1)} disabled={i === bosqichlar.length - 1} aria-label={t('Pastga')}>
+                    <ArrowDown />
+                  </button>
+                  <button
+                    type="button"
+                    className="vr-amal"
+                    onClick={() => setBosqichlar((x) => x.filter((_, j) => j !== i))}
+                    disabled={bosqichlar.length <= 2}
+                    aria-label={t("O'chirish")}
+                  >
+                    <Trash2 />
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ol>
+        </fieldset>
+        {!tashqi && (
+          <button
+            className="btn ikkinchi kichik"
+            onClick={() => {
+              // Yangi ochiq bosqich — yutuq/yo'qotishdan oldin
+              const i = bosqichlar.findIndex((b) => b.kind !== 'open');
+              const yangi: BosqichQoralama = { kalit: crypto.randomUUID(), name: t('Yangi bosqich'), color: '#c2e9fb', kind: 'open' };
+              setBosqichlar((b) => (i < 0 ? [...b, yangi] : [...b.slice(0, i), yangi, ...b.slice(i)]));
+            }}
+          >
+            <Plus /> {t("Bosqich qo'shish")}
+          </button>
+        )}
 
         {xabar && (
           <div className={xabar.ok ? 'ok-qator' : 'xato-qator'} role={xabar.ok ? 'status' : 'alert'}>
             {xabar.matn}
           </div>
         )}
-        <div className="ci-saqlash-qator">
-          <button className="btn" onClick={() => void saqla()} disabled={band}>
-            {band ? t('Saqlanmoqda…') : t('Saqlash')}
-          </button>
-        </div>
+        {!tashqi && (
+          <div className="ci-saqlash-qator">
+            <button className="btn" onClick={() => void saqla()} disabled={band}>
+              {band ? t('Saqlanmoqda…') : t('Saqlash')}
+            </button>
+          </div>
+        )}
       </section>
 
       {yangiOyna && (
@@ -316,16 +333,19 @@ function Maydonlar() {
                   <small>
                     {t(MAYDON_TURI_NOMI[m.type])}
                     {m.options.length > 0 && ` · ${t('{n} ta variant', { n: m.options.length })}`}
+                    {m.external && holat.externalSync && ` · ${t('{crm} dan sinxronlanadi', { crm: holat.externalSync })}`}
                   </small>
                 </span>
-                <span className="ci-qator-amallar">
-                  <button className="vr-amal" onClick={() => setOyna(m)} aria-label={t('Tahrirlash')}>
-                    <Pencil />
-                  </button>
-                  <button className="vr-amal" onClick={() => void arxivla(m)} aria-label={t('Arxivlash')} title={t('Arxivlash — eski qiymatlar saqlanadi')}>
-                    <Archive />
-                  </button>
-                </span>
+                {!m.external && (
+                  <span className="ci-qator-amallar">
+                    <button className="vr-amal" onClick={() => setOyna(m)} aria-label={t('Tahrirlash')}>
+                      <Pencil />
+                    </button>
+                    <button className="vr-amal" onClick={() => void arxivla(m)} aria-label={t('Arxivlash')} title={t('Arxivlash — eski qiymatlar saqlanadi')}>
+                      <Archive />
+                    </button>
+                  </span>
+                )}
               </li>
             ))}
           </ul>

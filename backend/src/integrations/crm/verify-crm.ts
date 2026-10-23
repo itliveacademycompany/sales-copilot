@@ -45,7 +45,7 @@ const oauthSorovlar: Record<string, string>[] = [];
 
 /** 3 ta oddiy lid (bittasi o'chirilgan) + 300 ta bir xil vaqtli (ommaviy tahrir) lid. */
 const AMO_LIDLAR = [
-  { id: 1, name: 'Frontend — Aziza', price: 3500000, responsible_user_id: 6, status_id: 11, pipeline_id: 1, created_at: 50, updated_at: 100, closed_at: null, _embedded: { contacts: [{ id: 302, is_main: false }, { id: 301, is_main: true }] } },
+  { id: 1, name: 'Frontend — Aziza', price: 3500000, responsible_user_id: 6, status_id: 11, pipeline_id: 1, created_at: 50, updated_at: 100, closed_at: null, custom_fields_values: [{ field_id: 10, values: [{ value: 'Frontend', enum_id: 101 }] }, { field_id: 11, values: [{ value: 1761159600 }] }], _embedded: { contacts: [{ id: 302, is_main: false }, { id: 301, is_main: true }] } },
   { id: 2, name: 'Backend — Bobur', price: null, responsible_user_id: 7, status_id: 142, pipeline_id: 1, created_at: 60, updated_at: 200, closed_at: 210, _embedded: { contacts: [{ id: 302 }] } },
   { id: 3, name: "O'chirilgan", price: 0, responsible_user_id: 7, status_id: 11, pipeline_id: 1, created_at: 70, updated_at: 200, is_deleted: true },
   ...Array.from({ length: 300 }, (_, i) => ({ id: 1000 + i, name: `Ommaviy ${i}`, price: 0, responsible_user_id: 6, status_id: 11, pipeline_id: 1, created_at: 80, updated_at: 900, closed_at: null })),
@@ -107,8 +107,8 @@ function soxtaAmo(): Server {
               is_main: true,
               _embedded: {
                 statuses: [
-                  { id: 143, name: 'Yopildi', sort: 10000 },
-                  { id: 11, name: 'YANGI', sort: 10 },
+                  { id: 143, name: 'Yopildi', sort: 10000, color: 'javascript:1' },
+                  { id: 11, name: 'YANGI', sort: 10, color: '#99CCFF' },
                   { id: 142, name: 'Sotildi', sort: 9000 },
                 ],
               },
@@ -122,7 +122,27 @@ function soxtaAmo(): Server {
         _embedded: { users: [{ id: 1, name: 'Rahbar', rights: { is_admin: true } }, { id: 2, name: 'Ketgan', rights: { is_active: false } }] },
       });
     }
-    if (url.startsWith('/api/v4/leads/custom_fields')) return res.writeHead(204).end();
+    if (url.startsWith('/api/v4/leads/custom_fields/groups')) {
+      return json(200, { _embedded: { custom_field_groups: [{ id: 'leads_77', name: 'Anketa' }] } });
+    }
+    if (url.startsWith('/api/v4/leads/custom_fields?')) {
+      const sahifa = Number(new URL(url, 'http://x').searchParams.get('page') ?? 1);
+      // 1-sahifa to'liq (250 ta) — adapter 2-sahifani ham so'rashi kerak
+      if (sahifa === 1) {
+        return json(200, {
+          _embedded: {
+            custom_fields: [
+              { id: 10, name: 'Kurs', type: 'select', sort: 5, group_id: 'leads_77', enums: [{ id: 102, value: 'Backend', sort: 2 }, { id: 101, value: 'Frontend', sort: 1 }] },
+              { id: 11, name: 'Tashrif sanasi', type: 'date', sort: 1, group_id: null },
+              { id: 12, name: 'Shartnoma', type: 'file', sort: 2 },
+              ...Array.from({ length: 247 }, (_, i) => ({ id: 2000 + i, name: `To'ldiruvchi ${i}`, type: 'text', sort: 100 + i })),
+            ],
+          },
+        });
+      }
+      if (sahifa === 2) return json(200, { _embedded: { custom_fields: [{ id: 13, name: 'Yosh', type: 'numeric', sort: 3 }] } });
+      return res.writeHead(204).end();
+    }
     if (url.startsWith('/api/v4/contacts?query=901234567')) {
       return json(200, {
         _embedded: {
@@ -322,6 +342,19 @@ async function main(): Promise<void> {
   check('arxiv yashirildi, bosqichlar tartibda', t.pipelines.length === 1 && t.pipelines[0]!.statuses.map((s) => s.id).join(',') === '11,142,143');
   check('tizim bosqichlari turi', t.pipelines[0]!.statuses[1]!.tur === 'muvaffaqiyat' && t.pipelines[0]!.statuses[2]!.tur === 'yopilgan');
   check('foydalanuvchilar', t.users.length === 2 && t.users[1]!.isActive === false);
+  const st0 = t.pipelines[0]!.statuses;
+  check('bosqich rangi: hex kichik harfda, yaroqsizi → null', st0[0]!.color === '#99ccff' && st0[2]!.color === null && st0[1]!.color === null);
+  check("maydonlar sahifalab o'qildi, fayl turi tashlandi", t.leadFieldCount === 251 && t.leadFields.length === 250 && !t.leadFields.some((f) => f.id === '12'));
+  const kurs = t.leadFields.find((f) => f.id === '10');
+  check(
+    "ro'yxat maydoni: guruh nomi, variantlar tartibda",
+    kurs?.type === 'select' && kurs.group === 'Anketa' && kurs.options.map((o) => `${o.id}:${o.label}`).join(',') === '101:Frontend,102:Backend',
+    JSON.stringify(kurs),
+  );
+  check(
+    'sana / son turlari, guruhsiz maydon',
+    t.leadFields.find((f) => f.id === '11')?.type === 'date' && t.leadFields.find((f) => f.id === '11')?.group === null && t.leadFields.find((f) => f.id === '13')?.type === 'number',
+  );
 
   const y = await amocrmAdapter.topish(ctx, '+998901234567');
   check('telefon → eng so\'nggi OCHIQ sdelka', y?.tur === 'deal' && y.id === '501' && y.masulId === '6', JSON.stringify(y));
@@ -409,7 +442,13 @@ async function main(): Promise<void> {
     JSON.stringify(l1),
   );
   check('lid: ASOSIY kontakt (is_main) ismi va telefoni', l1?.kontaktId === '301' && l1.kontaktNom === 'Aziza' && l1.telefonlar[0] === '+998 90 123 45 67');
+  check(
+    'lid: maydon qiymatlari (enum id va qiymat)',
+    JSON.stringify(l1?.maydonlar) === '{"10":{"enum":["101"],"qiymatlar":["Frontend"]},"11":{"enum":[],"qiymatlar":[1761159600]}}',
+    JSON.stringify(l1?.maydonlar),
+  );
   const l2 = p1.lidlar.find((l) => l.id === '2');
+  check("maydonsiz lid → bo'sh obyekt", JSON.stringify(l2?.maydonlar) === '{}');
   check('telefonsiz kontakt — bo\'sh ro\'yxat, yopilgan sana', l2?.telefonlar.length === 0 && l2.yopilgan?.getTime() === 210_000);
   const p2 = await amocrmAdapter.lidlar(ctx, p1.kursor);
   check('bir xil vaqtli to\'liq sahifa → sahifa raqami oshadi', p2.lidlar.length === 250 && !p2.tugadi && p2.kursor === '{"dan":900,"sahifa":2}', p2.kursor);

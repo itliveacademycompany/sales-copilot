@@ -71,13 +71,28 @@ export interface CrmVoronka {
   id: string;
   name: string;
   isMain: boolean;
-  statuses: { id: string; name: string; tur: 'ochiq' | 'muvaffaqiyat' | 'yopilgan' }[];
+  statuses: { id: string; name: string; tur: 'ochiq' | 'muvaffaqiyat' | 'yopilgan'; color?: string | null }[];
+}
+
+/**
+ * Sdelkaning qo'shimcha maydoni (CRM tomonidagi). `type` — SotuvAI ichki CRM
+ * turlaridan biri (adapter o'giradi); qo'llab-quvvatlanmaydiganlari olinmaydi.
+ */
+export interface CrmLidMaydon {
+  id: string;
+  name: string;
+  type: 'text' | 'textarea' | 'number' | 'money' | 'select' | 'multiselect' | 'date' | 'datetime' | 'checkbox' | 'url' | 'phone';
+  group: string | null;
+  sort: number;
+  options: { id: string; label: string }[];
 }
 
 export interface CrmTuzilish {
   pipelines: CrmVoronka[];
   users: { id: string; name: string; isAdmin: boolean; isActive: boolean }[];
   leadFieldCount: number;
+  /** Sdelka maydonlari — ichki CRM ga ko'chirish uchun (bo'lmasa bo'sh). */
+  leadFields: CrmLidMaydon[];
 }
 
 /**
@@ -99,6 +114,11 @@ export interface CrmLid {
   yangilangan: Date;
   yopilgan: Date | null;
   url: string;
+  /**
+   * Qo'shimcha maydon qiymatlari: CRM maydon ID → xom qiymat. Ro'yxat
+   * maydonlarida variant ID lari (`enum`), qolganlarida `qiymatlar`.
+   */
+  maydonlar: Record<string, { enum: string[]; qiymatlar: (string | number | boolean)[] }>;
 }
 
 /**

@@ -182,6 +182,7 @@ async function tuzilishniOl(w: BitrixWebhook): Promise<CrmTuzilish> {
       isActive: u.ACTIVE !== false && u.ACTIVE !== 'N',
     })),
     leadFieldCount: Array.isArray(maydonlar) ? maydonlar.length : 0,
+    leadFields: [],
   };
 }
 
@@ -348,6 +349,7 @@ async function lidlarniOl(w: BitrixWebhook, kursor: string | null) {
       yangilangan: sana(d.DATE_MODIFY) ?? new Date(),
       yopilgan: d.CLOSED === 'Y' ? sana(d.CLOSEDATE) : null,
       url: `https://${w.portal}/crm/deal/details/${d.ID}/`,
+      maydonlar: {},
     };
   });
 
