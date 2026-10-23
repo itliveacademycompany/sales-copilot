@@ -14,6 +14,7 @@ import { registerAuthRoutes } from './routes/auth.js';
 import { registerAlertRoutes } from './routes/alerts.js';
 import { registerAppealRoutes } from './routes/appeals.js';
 import { registerBillingRoutes } from './routes/billing.js';
+import { registerAssistantRoutes } from './routes/assistant.js';
 import { registerBusinessRoutes } from './routes/business.js';
 import { registerConversationRoutes } from './routes/conversations.js';
 import { registerCrmRoutes } from './routes/crm.js';
@@ -175,6 +176,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerAnalyticsRoutes(app);
   registerLeadRoutes(app);
   registerBillingRoutes(app);
+  registerAssistantRoutes(app);
 
   // ─── Sog'liq tekshiruvi ───
   // `/healthz` — jonli-mi (deploy va load balancer uchun)
