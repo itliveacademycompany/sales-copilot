@@ -51,6 +51,8 @@ const AMO_LIDLAR = [
   ...Array.from({ length: 300 }, (_, i) => ({ id: 1000 + i, name: `Ommaviy ${i}`, price: 0, responsible_user_id: 6, status_id: 11, pipeline_id: 1, created_at: 80, updated_at: 900, closed_at: null })),
 ];
 let amoLimit = 0;
+let amoMavjudSorov = 0;
+let bxMavjudSorov = 0;
 
 function soxtaAmo(): Server {
   return createServer(async (req, res) => {
@@ -179,6 +181,14 @@ function soxtaAmo(): Server {
       const bolak = mos.slice((sahifa - 1) * 250, sahifa * 250);
       return bolak.length === 0 ? res.writeHead(204).end() : json(200, { _embedded: { leads: bolak } });
     }
+    // O'chirilganlar tekshiruvi: ID bo'yicha (is_deleted ham qaytishi mumkin)
+    if (url.startsWith('/api/v4/leads?limit=250&filter[id][]=')) {
+      amoMavjudSorov++;
+      const u = new URL(url, 'http://x');
+      const ids = u.searchParams.getAll('filter[id][]').map(Number);
+      const topildi = AMO_LIDLAR.filter((l) => ids.includes(l.id));
+      return topildi.length === 0 ? res.writeHead(204).end() : json(200, { _embedded: { leads: topildi } });
+    }
     if (url.startsWith('/api/v4/contacts?limit=250&filter[id][]=')) {
       const u = new URL(url, 'http://x');
       const ids = u.searchParams.getAll('filter[id][]').map(Number);
@@ -251,6 +261,11 @@ function soxtaBitrix(): Server {
       ]);
     }
     if (usul === 'crm.contact.list') return r([{ ID: '77', NAME: 'Dilnoza', LAST_NAME: 'K', PHONE: [{ VALUE: '+998 97 111 22 33' }] }]);
+    if (usul === 'crm.deal.list' && (t?.filter as Record<string, unknown> | undefined)?.['@ID']) {
+      bxMavjudSorov++;
+      const ids = ((t!.filter as Record<string, unknown>)['@ID'] as number[]).map(String);
+      return r(['11', '12'].filter((id) => ids.includes(id)).map((ID) => ({ ID })));
+    }
     if (usul === 'crm.deal.list') {
       const ids = ((t?.filter as Record<string, unknown>)?.['@CONTACT_ID'] as number[]) ?? [];
       return r(ids.includes(77) ? [{ ID: '1201', TITLE: 'Backend kursi', ASSIGNED_BY_ID: '9' }] : []);
@@ -296,7 +311,8 @@ async function main(): Promise<void> {
   const { izohMatni } = await import('./yozish.js');
   const { oauthAlmashtir, oauthHavola, oauthSirmi } = await import('./amocrm.js');
   const { holatYarat, holatniTekshir } = await import('./kontekst.js');
-  const { kontaktTelefoni } = await import('./lidlar.js');
+  const { kontaktTelefoni, ochirilganlarniAjrat } = await import('./lidlar.js');
+  const { tashqiXatosi } = await import('../../crm/xizmat.js');
 
   console.log("\nA. Ro'yxat va umumiy yordamchilar");
   check('ikkala CRM ro\'yxatda', CRM_TURLARI.join(',') === 'amocrm,bitrix24');
@@ -506,6 +522,26 @@ async function main(): Promise<void> {
   const b2 = bl.lidlar.find((l) => l.id === '12');
   check('yopilgan lid: sana, kontaktsiz', b2?.yopilgan !== null && b2?.kontaktId === null && b2.telefonlar.length === 0);
   check('kursor — eng so\'nggi o\'zgarish vaqti', JSON.parse(bl.kursor).dan === '2026-10-21T09:00:00+05:00');
+
+  console.log("\nM. O'chirilgan sdelkalarni aniqlash");
+  const am = await amocrmAdapter.mavjudLidlar(ctx, ['1', '2', '3', '999', 'abc']);
+  check("amoCRM: bor (1, 2); o'chirilgan (3, is_deleted) va yo'q (999) chiqmaydi", [...am].sort().join() === '1,2', [...am].join());
+  amoMavjudSorov = 0;
+  const amBosh = await amocrmAdapter.mavjudLidlar(ctx, ['998', '999']);
+  check("amoCRM: birortasi yo'q (204) → bo'sh to'plam, xato emas", amBosh.size === 0 && amoMavjudSorov === 1);
+  amoMavjudSorov = 0;
+  await amocrmAdapter.mavjudLidlar(ctx, Array.from({ length: 150 }, (_, i) => String(5000 + i)));
+  check("amoCRM: 150 ta ID → 2 so'rov (100 tadan)", amoMavjudSorov === 2, String(amoMavjudSorov));
+  const bm = await bitrix24Adapter.mavjudLidlar(bctx, ['11', '12', '13']);
+  check("Bitrix24: bor (11, 12); o'chirilgan (13) chiqmaydi", [...bm].sort().join() === '11,12', [...bm].join());
+  bxMavjudSorov = 0;
+  await bitrix24Adapter.mavjudLidlar(bctx, Array.from({ length: 120 }, (_, i) => String(i + 1)));
+  check("Bitrix24: 120 ta ID → 3 so'rov (50 tadan)", bxMavjudSorov === 3, String(bxMavjudSorov));
+  const ids30 = Array.from({ length: 30 }, (_, i) => String(i + 1));
+  const shubhali = ochirilganlarniAjrat(ids30, new Set());
+  check("hammasi yo'q chiqqan katta bo'lak → shubhali, hech narsa o'chmaydi", shubhali.shubhali && shubhali.ochirilgan.length === 0);
+  check("qismi yo'q → faqat o'sha qism", ochirilganlarniAjrat(ids30, new Set(ids30.slice(1))).ochirilgan.join() === '1');
+  check('xabar CRM nomini oladi', tashqiXatosi('Bitrix24').includes("Bitrix24 da o'zgartiring") && !tashqiXatosi('Bitrix24').includes('amoCRM'));
 
   console.log('\nL. Kontakt telefoni (Moi Zvonki bilan bir xil format)');
   check('9 xonali → 998 qo\'shiladi', kontaktTelefoni('90 123 45 67') === '998901234567');

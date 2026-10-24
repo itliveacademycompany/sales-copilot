@@ -912,9 +912,10 @@ function Lenta({ k, maydonNomi, onIzoh }: { k: Kartochka; maydonNomi: Map<string
       case 'task_reschedule':
         return t('Vazifa muddati ko‘chirildi: «{v}» → {s}', { v: String(d.title ?? ''), s: d.after ? fmtSana(String(d.after)) : t('muddatsiz') });
       case 'deleted':
-        return t('Bitim savatga o‘tkazildi');
+        // Sinxron: sdelka tashqi CRM da o'chirilgan — nega savatda ekanini aniq aytamiz.
+        return d.sync ? t('{crm} da o‘chirilgan — bitim savatga o‘tkazildi', { crm: String(d.sync) }) : t('Bitim savatga o‘tkazildi');
       case 'restored':
-        return t('Bitim savatdan tiklandi');
+        return d.sync ? t('{crm} da tiklangan — bitim savatdan qaytarildi', { crm: String(d.sync) }) : t('Bitim savatdan tiklandi');
       case 'inbox':
         return t('Murojaat biriktirildi: {n}', { n: [d.name, d.phone].filter(Boolean).join(', ') || '—' }) + (d.message ? ` — ${String(d.message)}` : '');
       case 'merge':

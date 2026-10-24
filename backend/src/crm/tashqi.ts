@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, notInArray, sql } from 'drizzle-orm';
 import type { Tx } from '../db/index.js';
 import { crmField, crmPipeline, crmStage, deal, dealEvent, integration } from '../db/schema/index.js';
 import type { CrmLid, CrmTuzilish } from '../integrations/crm/adapter.js';
@@ -39,7 +39,15 @@ export interface TashqiXarita {
  */
 export async function tuzilmaniKochir(
   tx: Tx,
-  p: { businessId: string; integrationId: string; t: CrmTuzilish; voronkalar: string[] | null; birinchi: boolean },
+  p: {
+    businessId: string;
+    integrationId: string;
+    t: CrmTuzilish;
+    voronkalar: string[] | null;
+    birinchi: boolean;
+    /** CRM nomi ("amoCRM", "Bitrix24") — guruhsiz maydonlar shu nomli guruhga tushadi. */
+    manba: string;
+  },
 ): Promise<TashqiXarita> {
   const kerakli = p.t.pipelines.filter((v) => !p.voronkalar || p.voronkalar.includes(v.id));
 
@@ -144,7 +152,7 @@ export async function tuzilmaniKochir(
     const qiymat = {
       label: f.name.slice(0, 100),
       type: f.type,
-      groupName: (f.group ?? 'amoCRM').slice(0, 60),
+      groupName: (f.group ?? p.manba).slice(0, 60),
       options: f.options,
       sort: 1000 + f.sort,
       archivedAt: null,
@@ -270,6 +278,7 @@ export async function lidlarniKochir(
       responsibleSeatId: deal.responsibleSeatId,
       contactId: deal.contactId,
       fields: deal.fields,
+      deletedAt: deal.deletedAt,
     })
     .from(deal)
     .where(and(eq(deal.integrationId, p.integrationId), inArray(deal.externalId, lidlar.map((l) => l.id))));
@@ -368,6 +377,13 @@ export async function lidlarniKochir(
     }
     if (maydonOzgardi) ozg.fields = yangiMaydonlar;
 
+    // CRM da o'chirilib, keyin savatdan tiklangan sdelka — bitim ham qaytadi.
+    // Foydalanuvchi SotuvAI da O'ZI o'chirgan bitimga tegilmaydi.
+    if (bor.deletedAt && (await sinxronOchirganmi(tx, bor.id))) {
+      ozg.deletedAt = null;
+      hodisalar.push({ type: 'restored', data: { sync: p.manba } });
+    }
+
     if (Object.keys(ozg).length === 0) continue;
     await tx
       .update(deal)
@@ -379,6 +395,42 @@ export async function lidlarniKochir(
     yangilandi++;
   }
   return { yangi, yangilandi };
+}
+
+/** Bitimning oxirgi o'chirilishi/tiklanishi sinxron tomonidan bo'lganmi. */
+async function sinxronOchirganmi(tx: Tx, dealId: string): Promise<boolean> {
+  const [h] = await tx
+    .select({ type: dealEvent.type, data: dealEvent.data })
+    .from(dealEvent)
+    .where(and(eq(dealEvent.dealId, dealId), inArray(dealEvent.type, ['deleted', 'restored'])))
+    .orderBy(desc(dealEvent.createdAt))
+    .limit(1);
+  return h?.type === 'deleted' && Boolean((h.data as { sync?: unknown } | null)?.sync);
+}
+
+/**
+ * Tashqi CRM da o'chirilgan sdelkalar — ichki CRM bitimi savatga (30 kun
+ * tiklasa bo'ladi), tarixga `sync` belgisi bilan. Butunlay o'chirilmaydi:
+ * izoh, vazifa va teglar SotuvAI da yozilgan bo'lishi mumkin. Sdelka CRM da
+ * tiklansa, keyingi sinxron bitimni ham qaytaradi (`lidlarniKochir`).
+ */
+export async function tashqiOchirilganlarniBelgila(
+  tx: Tx,
+  p: { businessId: string; integrationId: string; manba: string; idlar: string[] },
+): Promise<number> {
+  if (p.idlar.length === 0) return 0;
+  const hozir = new Date();
+  const ochirildi = await tx
+    .update(deal)
+    .set({ deletedAt: hozir, updatedAt: hozir, version: sql`${deal.version} + 1` })
+    .where(and(eq(deal.integrationId, p.integrationId), inArray(deal.externalId, p.idlar), isNull(deal.deletedAt)))
+    .returning({ id: deal.id });
+  if (ochirildi.length > 0) {
+    await tx.insert(dealEvent).values(
+      ochirildi.map((d) => ({ businessId: p.businessId, dealId: d.id, type: 'deleted', data: { sync: p.manba }, authorUserId: null })),
+    );
+  }
+  return ochirildi.length;
 }
 
 /**

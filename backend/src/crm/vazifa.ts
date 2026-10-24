@@ -206,7 +206,8 @@ async function vazifaniOl(tx: Tx, id: string, doira: CrmDoira) {
     .where(eq(task.id, id))
     .limit(1);
   if (!t) throw new CrmXatosi('topilmadi', 'Vazifa topilmadi');
-  if (doira.yozish === 'own' && t.seatId !== doira.seatId && t.responsible !== doira.seatId) {
+  // Seat'siz foydalanuvchi (auditor) uchun mas'ulsiz vazifa ham "o'ziniki" emas.
+  if (doira.yozish === 'own' && (!doira.seatId || (t.seatId !== doira.seatId && t.responsible !== doira.seatId))) {
     throw new CrmXatosi('topilmadi', 'Vazifa topilmadi');
   }
   return t;

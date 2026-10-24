@@ -161,6 +161,13 @@ export interface CrmAdapter {
    * boshidan (birinchi import). Natijadagi `kursor` keyingi chaqiruvga.
    */
   lidlar(k: CrmKontekst, kursor: string | null): Promise<CrmLidSahifa>;
+  /**
+   * Berilgan sdelka ID laridan CRM da HALI MAVJUDLARI (o'chirilmaganlari).
+   * O'chirilgan sdelka `lidlar()` da umuman kelmaydi — busiz u SotuvAI da
+   * abadiy qolib ketardi. So'rov muvaffaqiyatsiz bo'lsa — istisno: hech
+   * narsa "o'chirilgan" deb hisoblanmaydi.
+   */
+  mavjudLidlar(k: CrmKontekst, idlar: string[]): Promise<Set<string>>;
 }
 
 // ─── Xato ────────────────────────────────────────────────────────────────────

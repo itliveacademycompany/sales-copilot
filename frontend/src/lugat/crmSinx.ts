@@ -61,6 +61,23 @@ const CRM_SINX: Lugat = {
     en: 'This field is synced from amoCRM — change it in amoCRM',
     ru: 'Это поле синхронизируется из amoCRM — меняйте его в amoCRM',
   },
+  // Server xabari CRM nomini ulanishdan oladi — Bitrix24 varianti ham kerak (aniq matn bo'yicha tarjima).
+  "Bu bitim Bitrix24 dan sinxronlanadi — nom, summa, bosqich va mas'ulni Bitrix24 da o'zgartiring": {
+    en: 'This deal is synced from Bitrix24 — change the name, amount, stage and responsible user in Bitrix24',
+    ru: 'Эта сделка синхронизируется из Bitrix24 — меняйте название, сумму, этап и ответственного в Bitrix24',
+  },
+  "Bu voronka Bitrix24 dan sinxronlanadi — nomi va bosqichlarini Bitrix24 da o'zgartiring": {
+    en: 'This pipeline is synced from Bitrix24 — change its name and stages in Bitrix24',
+    ru: 'Эта воронка синхронизируется из Bitrix24 — меняйте её название и этапы в Bitrix24',
+  },
+  "Bu maydon Bitrix24 dan sinxronlanadi — uni Bitrix24 da o'zgartiring": {
+    en: 'This field is synced from Bitrix24 — change it in Bitrix24',
+    ru: 'Это поле синхронизируется из Bitrix24 — меняйте его в Bitrix24',
+  },
+  "CRM da sizda faqat ko'rish huquqi bor": {
+    en: 'You have view-only access to the CRM',
+    ru: 'В CRM у вас есть только право просмотра',
+  },
 };
 
 export default CRM_SINX;

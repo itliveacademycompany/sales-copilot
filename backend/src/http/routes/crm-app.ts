@@ -65,7 +65,7 @@ import {
   voronkaYarat,
 } from '../../crm/xizmat.js';
 import { requireBusiness, requirePermission } from '../auth-plugin.js';
-import { bajar, BASE, doira, filtrniOl, idParam, sahifa } from '../crm-yordam.js';
+import { bajar, BASE, doira, filtrniOl, idParam, sahifa, yozishDoirasi } from '../crm-yordam.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -294,7 +294,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
 
   app.post(`${BASE}/deals/bulk`, guard, async (req) => {
     const k = ommaviySxema.parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     const businessId = req.business!.businessId;
     const natija = await bajar(() => withTenant(businessId, (tx) => ommaviyAmal(tx, { userId: req.auth!.user.id, doira: d, kirish: k })));
     if (k.action === 'stage') for (const r of natija) if (r.ok) avtomatikaniUygot(businessId, r.id);
@@ -305,7 +305,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
 
   app.post(`${BASE}/deals`, guard, async (req) => {
     const kirish = bitimKirish.parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     const businessId = req.business!.businessId;
     const id = await bajar(() =>
       withTenant(businessId, (tx) => bitimYarat(tx, { businessId, userId: req.auth!.user.id, doira: d, kirish })),
@@ -323,7 +323,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   app.patch(`${BASE}/deals/:id`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
     const kirish = bitimYangilash.parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     const version = await bajar(() =>
       withTenant(req.business!.businessId, (tx) =>
         bitimniYangila(tx, { id, userId: req.auth!.user.id, doira: d, kirish }),
@@ -335,7 +335,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   app.post(`${BASE}/deals/:id/move`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
     const kirish = bitimKochirish.parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     const businessId = req.business!.businessId;
     await bajar(() =>
       withTenant(businessId, (tx) => bitimniKochir(tx, { id, userId: req.auth!.user.id, doira: d, kirish })),
@@ -346,14 +346,14 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
 
   app.delete(`${BASE}/deals/:id`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     await bajar(() => withTenant(req.business!.businessId, (tx) => bitimniOchir(tx, { id, doira: d, userId: req.auth!.user.id })));
     return { ok: true };
   });
 
   app.post(`${BASE}/deals/:id/restore`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     await bajar(() => withTenant(req.business!.businessId, (tx) => bitimniTikla(tx, { id, doira: d, userId: req.auth!.user.id })));
     return { ok: true };
   });
@@ -361,7 +361,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   app.post(`${BASE}/deals/:id/notes`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
     const { text } = z.object({ text: z.string().trim().min(1, 'Izoh matnini kiriting').max(5000) }).parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     await bajar(() =>
       withTenant(req.business!.businessId, (tx) => izohQosh(tx, { id, userId: req.auth!.user.id, doira: d, matn: text })),
     );
@@ -371,7 +371,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   app.post(`${BASE}/deals/:id/tasks`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
     const k = vazifaKirish.omit({ dealId: true, contactId: true }).parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     const businessId = req.business!.businessId;
     const taskId = await bajar(() =>
       withTenant(businessId, (tx) =>
@@ -385,7 +385,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   app.post(`${BASE}/deals/:id/items`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
     const k = qatorKirish.parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     const itemId = await bajar(() =>
       withTenant(req.business!.businessId, (tx) => qatorQosh(tx, { dealId: id, userId: req.auth!.user.id, doira: d, kirish: k })),
     );
@@ -395,7 +395,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   app.patch(`${BASE}/deals/:id/items/:itemId`, guard, async (req) => {
     const { id, itemId } = z.object({ id: z.string().uuid(), itemId: z.string().uuid() }).parse(req.params);
     const k = qatorKirish.partial().parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     await bajar(() =>
       withTenant(req.business!.businessId, (tx) => qatorniYangila(tx, { dealId: id, itemId, userId: req.auth!.user.id, doira: d, kirish: k })),
     );
@@ -404,7 +404,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
 
   app.delete(`${BASE}/deals/:id/items/:itemId`, guard, async (req) => {
     const { id, itemId } = z.object({ id: z.string().uuid(), itemId: z.string().uuid() }).parse(req.params);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     await bajar(() =>
       withTenant(req.business!.businessId, (tx) => qatorniOchir(tx, { dealId: id, itemId, userId: req.auth!.user.id, doira: d })),
     );
@@ -427,7 +427,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
 
   app.post(`${BASE}/crm-app/tasks`, guard, async (req) => {
     const k = vazifaKirish.parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     const businessId = req.business!.businessId;
     const id = await bajar(() => withTenant(businessId, (tx) => vazifaYarat(tx, { businessId, userId: req.auth!.user.id, doira: d, kirish: k })));
     return { id };
@@ -436,7 +436,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   app.patch(`${BASE}/crm-app/tasks/:id`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
     const k = vazifaYangilash.parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     await bajar(() => withTenant(req.business!.businessId, (tx) => vazifaniYangila(tx, { id, userId: req.auth!.user.id, doira: d, kirish: k })));
     return { ok: true };
   });
@@ -444,14 +444,14 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   app.post(`${BASE}/crm-app/tasks/:id/complete`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
     const { result } = z.object({ result: z.string().trim().max(2000).nullable().optional() }).parse(req.body ?? {});
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     await bajar(() => withTenant(req.business!.businessId, (tx) => vazifaniBajar(tx, { id, userId: req.auth!.user.id, doira: d, result: result || null })));
     return { ok: true };
   });
 
   app.post(`${BASE}/crm-app/tasks/:id/reopen`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     await bajar(() => withTenant(req.business!.businessId, (tx) => vazifaniQaytaOch(tx, { id, userId: req.auth!.user.id, doira: d })));
     return { ok: true };
   });
@@ -464,7 +464,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
         dueAt: z.string().datetime({ offset: true }).nullable().optional(),
       })
       .parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     const natija = await bajar(() =>
       withTenant(req.business!.businessId, (tx) => vazifalarOmmaviy(tx, { ids: k.ids, userId: req.auth!.user.id, doira: d, amal: k.action, dueAt: k.dueAt })),
     );
@@ -483,7 +483,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
 
   app.post(`${BASE}/contacts`, guard, async (req) => {
     const k = kontaktKirish.parse(req.body);
-    doira(req);
+    yozishDoirasi(req);
     const businessId = req.business!.businessId;
     const id = await bajar(() => withTenant(businessId, (tx) => kontaktYarat(tx, businessId, k)));
     return { id };
@@ -511,7 +511,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   app.patch(`${BASE}/contacts/:id`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
     const k = kontaktKirish.partial().parse(req.body);
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     const businessId = req.business!.businessId;
     await bajar(() =>
       withTenant(businessId, async (tx) => {
@@ -533,7 +533,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
 
   app.post(`${BASE}/companies`, guard, async (req) => {
     const k = kompaniyaKirish.parse(req.body);
-    doira(req);
+    yozishDoirasi(req);
     const businessId = req.business!.businessId;
     const id = await bajar(() => withTenant(businessId, (tx) => kompaniyaYarat(tx, businessId, k)));
     return { id };
@@ -548,7 +548,7 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   app.patch(`${BASE}/companies/:id`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
     const k = kompaniyaKirish.partial().parse(req.body);
-    doira(req);
+    yozishDoirasi(req);
     await bajar(() => withTenant(req.business!.businessId, (tx) => kompaniyaniYangila(tx, id, k)));
     return { ok: true };
   });

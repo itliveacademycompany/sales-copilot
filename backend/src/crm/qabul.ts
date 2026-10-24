@@ -122,8 +122,11 @@ export async function murojaatniQabul(
     const kirish = k.stageId && k.pipelineId ? { pipelineId: k.pipelineId, stageId: k.stageId } : await kirishBosqichi(tx, k.pipelineId ?? m.pipelineId);
     // Mas'ul: sotuvchi — o'zi; rahbar tanlagan; aks holda navbat bilan (round-robin)
     let masul: string | null = null;
-    if (p.doira.yozish === 'own') masul = p.doira.seatId;
-    else if (k.seatId !== undefined && k.seatId !== null) masul = k.seatId;
+    if (p.doira.yozish === 'own') {
+      // Seat'siz (auditor) mas'ulsiz bitim yarata olmasin.
+      if (!p.doira.seatId) throw new CrmXatosi('ruxsat', "CRM da sizda faqat ko'rish huquqi bor");
+      masul = p.doira.seatId;
+    } else if (k.seatId !== undefined && k.seatId !== null) masul = k.seatId;
     else masul = await navbatdagiMasul(tx, p.businessId);
 
     const payload = (m.payload ?? {}) as { fields?: Record<string, unknown>; tags?: string[]; formName?: string };

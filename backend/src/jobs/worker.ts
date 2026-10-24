@@ -215,6 +215,10 @@ export function startWorkerLoop(log: {
               if (saqlandi > 0) log.info({ saqlandi }, 'CRM: lidlar yangilandi');
               for (const x of r) {
                 if (x.xato) log.error({ businessId: x.businessId, xato: x.xato }, 'CRM: lidlar importi xatosi');
+                if (x.ochirildi) log.info({ businessId: x.businessId, ochirildi: x.ochirildi }, "CRM: o'chirilgan sdelkalar savatga olindi");
+                if (x.ochirishOtkazildi) {
+                  log.error({ businessId: x.businessId, bolak: x.ochirishOtkazildi }, "CRM: bo'lakning hammasi yo'q chiqdi — shubhali, o'chirilmadi");
+                }
               }
             })
             .catch((err: unknown) => log.error({ err }, 'CRM: lidlar importi yiqildi'))

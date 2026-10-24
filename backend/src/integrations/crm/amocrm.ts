@@ -548,6 +548,29 @@ function kursorniOqi(k: string | null): AmoKursor {
  * vaqtga ega bo'lsa (ommaviy tahrir), vaqt siljimaydi — shunda sahifa raqami
  * oshiriladi, aks holda sinxronlash bir joyda aylanib qolardi.
  */
+/**
+ * Qaysi sdelkalar hali bor. ID bo'yicha filtr, 100 tadan (URL uzunligi
+ * xavfsiz chegarada). `is_deleted` — savatdagi sdelka ham "yo'q" hisoblanadi.
+ * 204 (birortasi topilmadi) — bo'sh to'plam, xato emas.
+ */
+const mavjudJavob = z.object({
+  _embedded: z.object({ leads: z.array(z.object({ id: z.number(), is_deleted: z.boolean().nullish() })) }),
+});
+
+async function mavjudLidlarniOl(m: AmoManzil, token: string, idlar: string[]): Promise<Set<string>> {
+  const bor = new Set<string>();
+  const sonli = idlar.filter((id) => /^\d+$/.test(id));
+  for (let i = 0; i < sonli.length; i += 100) {
+    const bolak = sonli.slice(i, i + 100);
+    const r = await chaqir<unknown>(m, token, `/api/v4/leads?limit=250&${bolak.map((id) => `filter[id][]=${id}`).join('&')}`);
+    if (r === null) continue;
+    const j = mavjudJavob.safeParse(r);
+    if (!j.success) throw new CrmXato('server', "amoCRM sdelkalarini tekshirib bo'lmadi");
+    for (const l of j.data._embedded.leads) if (!l.is_deleted) bor.add(String(l.id));
+  }
+  return bor;
+}
+
 async function lidlarniOl(m: AmoManzil, token: string, kursor: string | null) {
   const k = kursorniOqi(kursor);
   const filtr = k.dan > 0 ? `&filter[updated_at][from]=${k.dan}` : '';
@@ -693,6 +716,8 @@ export const amocrmAdapter: CrmAdapter = {
   topish: async (k, telefon) => telefondanTop(kontekstdan(k), await amoToken(k), telefon),
 
   lidlar: async (k, kursor) => lidlarniOl(kontekstdan(k), await amoToken(k), kursor),
+
+  mavjudLidlar: async (k, idlar) => mavjudLidlarniOl(kontekstdan(k), await amoToken(k), idlar),
 
   async izoh(k, y, matn) {
     const r = await chaqir<unknown>(kontekstdan(k), await amoToken(k), `/api/v4/${entityYoli(y)}/${y.id}/notes`, 'POST', [
