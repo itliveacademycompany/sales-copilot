@@ -16,6 +16,7 @@ import {
   LogOut,
   Menu,
   MessagesSquare,
+  MonitorPlay,
   Phone,
   Settings as SozlamaIkon,
   Sparkles,
@@ -246,6 +247,7 @@ export function Layout() {
               {/* Tashqi CRM (amoCRM, Bitrix24) ulash endi CRM ilovasida — /crm/integratsiya */}
               {!crmIlova && crmUlaydi && item('/crm/integratsiya', <PlugZap />, 'CRM')}
               {ogohKoradi && item('/ogohlantirishlar', <Bell />, 'Ogohlantirishlar', unseen)}
+              {item('/qollanma', <MonitorPlay />, "Qo'llanma")}
             </>
           )}
           {/* Suhbatlar, Vazifalar, Mezonlar, To'lov menyudan olib tashlandi —

@@ -34,6 +34,9 @@ tmp/
 .cache/
 outputs/
 
+# Lokal yuklangan media (qo'llanma videolari) — serverda Docker volume'da
+backend/.media/
+
 # Lokal STT (GigaAM) muhiti — katta, mashinaga xos
 .venv*/
 tools/.venv-stt/

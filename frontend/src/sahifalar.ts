@@ -75,6 +75,7 @@ export const SAHIFA = {
   aktivatsiya: sahifa(() => import('./pages/Aktivatsiya').then((m) => ({ default: m.Aktivatsiya }))),
   loyiha: sahifa(() => import('./pages/LoyihaHaqida').then((m) => ({ default: m.LoyihaHaqida }))),
   mcpRuxsat: sahifa(() => import('./pages/McpRuxsat').then((m) => ({ default: m.McpRuxsat }))),
+  qollanma: sahifa(() => import('./pages/Qollanma').then((m) => ({ default: m.Qollanma }))),
 };
 
 /**
@@ -94,6 +95,7 @@ export const MANZIL_SAHIFA: Record<string, { oldindanYukla: () => void }> = {
   '/playbook': SAHIFA.playbook,
   '/billing': SAHIFA.billing,
   '/sozlamalar': SAHIFA.settings,
+  '/qollanma': SAHIFA.qollanma,
   '/crm/integratsiya': SAHIFA.crm,
   '/crm/ish-stoli': SAHIFA.crmIlova,
   '/crm/bitimlar': SAHIFA.crmIlova,

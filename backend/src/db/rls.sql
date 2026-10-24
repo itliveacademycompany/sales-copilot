@@ -106,6 +106,8 @@ $$;
 --   oauth_client,     MCP (Claude ulanishi) OAuth jadvallari. `business_id`
 --   oauth_code,       yo'q — token/kod xeshi bo'yicha, biznes konteksti
 --   oauth_token       ma'lum bo'lmasdan qidiriladi (session bilan bir toifa).
+--   guide_video       Qo'llanma videolari — butun platforma uchun bitta ro'yxat,
+--                     yozish faqat super admin (routes/qollanma.ts).
 --
 -- Bu jadvallarga tegadigan har bir so'rov ilova kodida aniq
 -- `userId` (yoki token xeshi) filtri bilan yozilishi SHART.

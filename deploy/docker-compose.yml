@@ -52,6 +52,8 @@ services:
     volumes:
       # GigaAM/pyannote modellari (~1-2 GB) — har deploy'da qayta yuklanmasin.
       - hfcache:/data/hf
+      # Qo'llanma bo'limiga yuklangan videolar — deploy'lar orasida saqlanadi.
+      - media:/data/media
     stop_grace_period: 30s
 
   web:
@@ -73,5 +75,6 @@ services:
 volumes:
   pgdata:
   hfcache:
+  media:
   caddy_data:
   caddy_config:
