@@ -75,12 +75,18 @@ export function qs(from: Date, to: Date): string {
   return `?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`;
 }
 
-/** Suhbatlarni `since` gacha sahifalab yuklaydi (ko'pi bilan `maxSahifa` * 100). */
-export async function suhbatlarniYukla(biz: string, since: Date, maxSahifa = 10): Promise<ConversationRow[]> {
+/**
+ * Suhbatlarni `since` gacha sahifalab yuklaydi (ko'pi bilan `maxSahifa` * 500).
+ * `since` serverga ham beriladi — davrdan eski qatorlar umuman kelmaydi.
+ * Ilgari 100 talik sahifa × 10 = 1000 qator chegarasi oyiga ~1500
+ * qo'ng'iroqda davrning bir qismini jimgina kesib qo'yardi.
+ */
+export async function suhbatlarniYukla(biz: string, since: Date, maxSahifa = 20): Promise<ConversationRow[]> {
   const hammasi: ConversationRow[] = [];
   let before: string | null = null;
+  const dan = `&since=${encodeURIComponent(since.toISOString())}`;
   for (let i = 0; i < maxSahifa; i++) {
-    const url: string = `${biz}/conversations?limit=100${before ? `&before=${encodeURIComponent(before)}` : ''}`;
+    const url: string = `${biz}/conversations?limit=500${dan}${before ? `&before=${encodeURIComponent(before)}` : ''}`;
     const r: { conversations: ConversationRow[]; nextCursor: string | null } = await api.get(url);
     hammasi.push(...r.conversations);
     const oxirgi = r.conversations[r.conversations.length - 1];

@@ -1,7 +1,7 @@
-import { and, asc, desc, eq, inArray, lt, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, lt, or, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { withTenant, withoutTenantIsolation } from '../../db/index.js';
+import { withTenant, withoutTenantIsolation, type Tx } from '../../db/index.js';
 import {
   analysis,
   appUser,
@@ -60,9 +60,170 @@ const listQuery = z.object({
     .enum(['received', 'filtered', 'queued', 'transcribing', 'analyzing', 'done', 'failed'])
     .optional(),
   seatId: z.string().uuid().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(30),
+  /**
+   * Analitika davr bo'yicha hamma suhbatni oladi: oyiga ~1500 qo'ng'iroqda
+   * 100 talik sahifa va mijozdagi sahifalar chegarasi davrning bir qismini
+   * kesib qo'yardi. 500 talik sahifa + `since` — eski qatorlar umuman
+   * o'qilmaydi.
+   */
+  limit: z.coerce.number().int().min(1).max(500).default(30),
   before: cursorSchema.optional(),
+  since: z.coerce.date().optional(),
 });
+
+/** Paket tafsiloti: bir so'rovda ko'pi bilan shuncha suhbat. */
+const BATCH_MAX = 200;
+const batchBody = z.object({ ids: z.array(z.string().uuid()).min(1).max(BATCH_MAX) });
+
+type ConvRef = { id: string; contactId: string | null; startedAt: Date };
+
+/**
+ * Suhbat(lar)ning tahlil qismi — tahlil, ballar (isbot bilan), va'dalar,
+ * kontakt va shu kontakt bilan OLDINGI suhbatlar. Yakka detal ham, paket
+ * ham shu funksiyadan o'tadi — ikkalasi bir-biridan farqlanib ketmasin.
+ * Har jadval uchun bitta `IN (...)` so'rov, suhbatlar soniga bog'liq emas.
+ */
+async function tahlilQismlari(tx: Tx, convs: ConvRef[]) {
+  const ids = convs.map((c) => c.id);
+  const analyses = ids.length
+    ? await tx.select().from(analysis).where(inArray(analysis.conversationId, ids))
+    : [];
+
+  /**
+   * `criterion_score` faqat kategoriya KODINI saqlaydi (A, B...),
+   * nomini emas. Kod frontend'da "A" degan harf o'rniga "Ehtiyoj
+   * aniqlash" ko'rsatishi uchun, baholashda ishlatilgan playbook
+   * VERSIYASIDAN (joriy faol versiyadan emas — u o'zgargan bo'lishi
+   * mumkin) kategoriya nomlarini olamiz.
+   */
+  const playbookIds = [...new Set(analyses.map((a) => a.playbookId).filter((v): v is string => !!v))];
+  const pbRows = playbookIds.length
+    ? await tx
+        .select({ id: playbook.id, criteria: playbook.criteria })
+        .from(playbook)
+        .where(inArray(playbook.id, playbookIds))
+    : [];
+  const categoryNamesByPlaybook = new Map(
+    pbRows.map((pb) => {
+      const categories = (pb.criteria as { categories?: { code: string; name: string }[] } | undefined)
+        ?.categories;
+      return [pb.id, categories ? Object.fromEntries(categories.map((c) => [c.code, c.name])) : {}];
+    }),
+  );
+
+  const analysisIds = analyses.map((a) => a.id);
+  const scores = analysisIds.length
+    ? await tx
+        .select({
+          analysisId: criterionScore.analysisId,
+          // FR-124: e'tiroz aynan shu ball qatoriga bog'lanadi.
+          id: criterionScore.id,
+          criterionCode: criterionScore.criterionCode,
+          criterionName: criterionScore.criterionName,
+          categoryCode: criterionScore.categoryCode,
+          categoryWeightPct: criterionScore.categoryWeightPct,
+          rubricSnapshot: criterionScore.rubricSnapshot,
+          score: criterionScore.score,
+          maxScore: criterionScore.maxScore,
+          evidenceQuote: criterionScore.evidenceQuote,
+          evidenceStartSeconds: criterionScore.evidenceStartSeconds,
+          evidenceSegmentId: criterionScore.evidenceSegmentId,
+          confidence: criterionScore.confidence,
+        })
+        .from(criterionScore)
+        .where(inArray(criterionScore.analysisId, analysisIds))
+        .orderBy(asc(criterionScore.criterionCode))
+    : [];
+
+  const commitments = ids.length
+    ? await tx
+        .select({
+          conversationId: commitment.conversationId,
+          id: commitment.id,
+          byParty: commitment.byParty,
+          what: commitment.what,
+          deadline: commitment.deadline,
+          status: commitment.status,
+        })
+        .from(commitment)
+        .where(inArray(commitment.conversationId, ids))
+        .orderBy(asc(commitment.createdAt))
+    : [];
+
+  // FR-112 kouching konteksti: shu mijoz bilan bo'lgan boshqa
+  // suhbatlar — "bu birinchi murojaatmi yoki takroriymi" darhol
+  // ko'rinadi, va sotuvchi oldingi va'dalarni eslab qoladi.
+  const contactIds = [...new Set(convs.map((c) => c.contactId).filter((v): v is string => !!v))];
+  const contacts = contactIds.length
+    ? await tx
+        .select({
+          id: contact.id,
+          name: contact.name,
+          company: contact.company,
+          role: contact.role,
+          isDecisionMaker: contact.isDecisionMaker,
+        })
+        .from(contact)
+        .where(inArray(contact.id, contactIds))
+    : [];
+  const history = contactIds.length
+    ? await tx
+        .select({
+          id: conversation.id,
+          contactId: conversation.contactId,
+          startedAt: conversation.startedAt,
+          overallScore: analysis.overallScore,
+          summary: analysis.summary,
+        })
+        .from(conversation)
+        .leftJoin(analysis, eq(analysis.conversationId, conversation.id))
+        .where(inArray(conversation.contactId, contactIds))
+        .orderBy(desc(conversation.startedAt))
+    : [];
+
+  const analysisByConv = new Map(analyses.map((a) => [a.conversationId, a]));
+  const contactById = new Map(contacts.map((c) => [c.id, c]));
+
+  return new Map(
+    convs.map((c) => {
+      const a = analysisByConv.get(c.id) ?? null;
+      return [
+        c.id,
+        {
+          analysis: a,
+          scores: a ? scores.filter((s) => s.analysisId === a.id).map(({ analysisId: _, ...s }) => s) : [],
+          categoryNames: (a?.playbookId && categoryNamesByPlaybook.get(a.playbookId)) || {},
+          commitments: commitments
+            .filter((k) => k.conversationId === c.id)
+            .map(({ conversationId: _, ...k }) => k),
+          contact: c.contactId ? (contactById.get(c.contactId) ?? null) : null,
+          // Faqat HAQIQATAN oldinroq boshlangan suhbatlar — "bu kontakt
+          // bilan oldingi suhbatlar" degani vaqtinchalik jihatdan keyin
+          // sodir bo'lgan suhbatni ko'rsatmasligi kerak (masalan, sotuvchi
+          // eski suhbatni ochsa, undan keyingi suhbat "oldingi" bo'lib
+          // ko'rinib chalkashtirmasin).
+          previousConversations: c.contactId
+            ? history
+                .filter((h) => h.contactId === c.contactId && h.id !== c.id && h.startedAt < c.startedAt)
+                .slice(0, 5)
+                .map(({ contactId: _, ...h }) => h)
+            : [],
+        },
+      ] as const;
+    }),
+  );
+}
+
+type TahlilQismi = Awaited<ReturnType<typeof tahlilQismlari>> extends Map<string, infer V> ? V : never;
+
+/** Ball qatoridagi bigint'lar JSON'ga satr bo'lib chiqadi. */
+function ballarJson(scores: TahlilQismi['scores']) {
+  return scores.map((s) => ({
+    ...s,
+    id: String(s.id),
+    evidenceSegmentId: s.evidenceSegmentId === null ? null : String(s.evidenceSegmentId),
+  }));
+}
 
 export function registerConversationRoutes(app: FastifyInstance): void {
   app.get(
@@ -119,6 +280,7 @@ export function registerConversationRoutes(app: FastifyInstance): void {
             and(
               q.status ? eq(conversation.status, q.status) : undefined,
               onlySeat ? eq(conversation.seatId, onlySeat) : undefined,
+              q.since ? gte(conversation.startedAt, q.since) : undefined,
               q.before
                 ? or(
                     lt(conversation.startedAt, q.before.startedAt),
@@ -206,122 +368,7 @@ export function registerConversationRoutes(app: FastifyInstance): void {
           .where(eq(transcriptSegment.conversationId, conversationId))
           .orderBy(asc(transcriptSegment.seq));
 
-        const [a] = await tx
-          .select()
-          .from(analysis)
-          .where(eq(analysis.conversationId, conversationId))
-          .limit(1);
-
-        /**
-         * `criterion_score` faqat kategoriya KODINI saqlaydi (A, B...),
-         * nomini emas. Kod frontend'da "A" degan harf o'rniga "Ehtiyoj
-         * aniqlash" ko'rsatishi uchun, baholashda ishlatilgan playbook
-         * VERSIYASIDAN (joriy faol versiyadan emas — u o'zgargan bo'lishi
-         * mumkin) kategoriya nomlarini olamiz.
-         */
-        let categoryNames: Record<string, string> = {};
-        if (a?.playbookId) {
-          const [pb] = await tx
-            .select({ criteria: playbook.criteria })
-            .from(playbook)
-            .where(eq(playbook.id, a.playbookId))
-            .limit(1);
-          const categories = (pb?.criteria as { categories?: { code: string; name: string }[] } | undefined)
-            ?.categories;
-          if (categories) {
-            categoryNames = Object.fromEntries(categories.map((c) => [c.code, c.name]));
-          }
-        }
-
-        const scores = a
-          ? await tx
-              .select({
-                // FR-124: e'tiroz aynan shu ball qatoriga bog'lanadi.
-                id: criterionScore.id,
-                criterionCode: criterionScore.criterionCode,
-                criterionName: criterionScore.criterionName,
-                categoryCode: criterionScore.categoryCode,
-                categoryWeightPct: criterionScore.categoryWeightPct,
-                rubricSnapshot: criterionScore.rubricSnapshot,
-                score: criterionScore.score,
-                maxScore: criterionScore.maxScore,
-                evidenceQuote: criterionScore.evidenceQuote,
-                evidenceStartSeconds: criterionScore.evidenceStartSeconds,
-                evidenceSegmentId: criterionScore.evidenceSegmentId,
-                confidence: criterionScore.confidence,
-              })
-              .from(criterionScore)
-              .where(eq(criterionScore.analysisId, a.id))
-              .orderBy(asc(criterionScore.criterionCode))
-          : [];
-
-        const commitments = await tx
-          .select({
-            id: commitment.id,
-            byParty: commitment.byParty,
-            what: commitment.what,
-            deadline: commitment.deadline,
-            status: commitment.status,
-          })
-          .from(commitment)
-          .where(eq(commitment.conversationId, conversationId))
-          .orderBy(asc(commitment.createdAt));
-
-        // FR-112 kouching konteksti: shu mijoz bilan bo'lgan boshqa
-        // suhbatlar — "bu birinchi murojaatmi yoki takroriymi" darhol
-        // ko'rinadi, va sotuvchi oldingi va'dalarni eslab qoladi.
-        let contactInfo: {
-          id: string;
-          name: string | null;
-          company: string | null;
-          role: string | null;
-          isDecisionMaker: boolean | null;
-        } | null = null;
-        let previousConversations: {
-          id: string;
-          startedAt: Date;
-          overallScore: string | null;
-          summary: string | null;
-        }[] = [];
-
-        if (conv.contactId) {
-          const [c] = await tx
-            .select({
-              id: contact.id,
-              name: contact.name,
-              company: contact.company,
-              role: contact.role,
-              isDecisionMaker: contact.isDecisionMaker,
-            })
-            .from(contact)
-            .where(eq(contact.id, conv.contactId))
-            .limit(1);
-          contactInfo = c ?? null;
-
-          // Faqat HAQIQATAN oldinroq boshlangan suhbatlar — "bu kontakt
-          // bilan oldingi suhbatlar" degani vaqtinchalik jihatdan keyin
-          // sodir bo'lgan suhbatni ko'rsatmasligi kerak (masalan, sotuvchi
-          // eski suhbatni ochsa, undan keyingi suhbat "oldingi" bo'lib
-          // ko'rinib chalkashtirmasin).
-          previousConversations = await tx
-            .select({
-              id: conversation.id,
-              startedAt: conversation.startedAt,
-              overallScore: analysis.overallScore,
-              summary: analysis.summary,
-            })
-            .from(conversation)
-            .leftJoin(analysis, eq(analysis.conversationId, conversation.id))
-            .where(
-              and(
-                eq(conversation.contactId, conv.contactId),
-                ne(conversation.id, conversationId),
-                lt(conversation.startedAt, conv.startedAt),
-              ),
-            )
-            .orderBy(desc(conversation.startedAt))
-            .limit(5);
-        }
+        const qism = (await tahlilQismlari(tx, [conv])).get(conv.id)!;
 
         // FR-123: rahbar izohlari. FR-124: ochiq e'tirozlar — sotuvchi
         // "men allaqachon shikoyat qildim" deb bilishi kerak, aks holda
@@ -358,18 +405,7 @@ export function registerConversationRoutes(app: FastifyInstance): void {
           .where(eq(scoreAppeal.conversationId, conversationId))
           .orderBy(desc(scoreAppeal.createdAt));
 
-        return {
-          conv,
-          segments,
-          analysis: a ?? null,
-          scores,
-          commitments,
-          contact: contactInfo,
-          previousConversations,
-          categoryNames,
-          comments,
-          appeals,
-        };
+        return { conv, segments, ...qism, comments, appeals };
       });
 
       if (!result) throw AppError.notFound();
@@ -409,12 +445,7 @@ export function registerConversationRoutes(app: FastifyInstance): void {
         dastlabkiTranskript,
         segments: result.segments.map((s) => ({ ...s, id: String(s.id) })),
         analysis: result.analysis,
-        scores: result.scores.map((s) => ({
-          ...s,
-          id: String(s.id),
-          evidenceSegmentId:
-            s.evidenceSegmentId === null ? null : String(s.evidenceSegmentId),
-        })),
+        scores: ballarJson(result.scores),
         commitments: result.commitments,
         contact: result.contact,
         previousConversations: result.previousConversations,
@@ -428,6 +459,82 @@ export function registerConversationRoutes(app: FastifyInstance): void {
           criterionScoreId: String(a.criterionScoreId),
         })),
       };
+    },
+  );
+
+  /**
+   * Paket tafsiloti — Analitika uchun.
+   *
+   * Analitika suhbat turi, mezon ballari, va'dalar va oldingi suhbatlarni
+   * har suhbat uchun alohida detal so'rovi bilan olardi va chegarani 150
+   * ta qilib qo'ygan edi: 706 ta tahlildan faqat 150 tasi grafiklarga
+   * tushardi ("Suhbat natijalari" 155 ko'rsatardi). Bu yerda 200 tagacha
+   * suhbat bir so'rovda — har jadvalga bitta `IN (...)`.
+   *
+   * Javob shakli detal bilan bir xil, lekin og'ir va analitikaga keraksiz
+   * qismlarsiz: transkript, izohlar, e'tirozlar bo'sh qaytadi.
+   * Ko'lam ro'yxatdagidek: sotuvchi begona suhbat id'sini yuborsa, u
+   * javobda shunchaki bo'lmaydi (404 emas — paketning qolgani kerak).
+   */
+  app.post(
+    '/api/v1/businesses/:businessId/conversations/details',
+    { preHandler: [requireBusiness] },
+    async (req) => {
+      const { ids } = batchBody.parse(req.body);
+      const businessId = req.business!.businessId;
+      const onlySeat = seatFilter(conversationScope(req));
+
+      const details = await withTenant(businessId, async (tx) => {
+        const convs = await tx
+          .select({
+            id: conversation.id,
+            businessId: conversation.businessId,
+            seatId: conversation.seatId,
+            contactId: conversation.contactId,
+            channel: conversation.channel,
+            direction: conversation.direction,
+            externalThreadId: conversation.externalThreadId,
+            startedAt: conversation.startedAt,
+            endedAt: conversation.endedAt,
+            phoneFrom: conversation.phoneFrom,
+            phoneTo: conversation.phoneTo,
+            status: conversation.status,
+            excludedReason: conversation.excludedReason,
+            isOffHours: conversation.isOffHours,
+            language: conversation.language,
+            managerName: seat.displayName,
+            mediaUrl: conversation.mediaUrl,
+            mediaKind: conversation.mediaKind,
+            durationSeconds: conversation.durationSeconds,
+          })
+          .from(conversation)
+          .leftJoin(seat, eq(seat.id, conversation.seatId))
+          .where(
+            and(
+              inArray(conversation.id, [...new Set(ids)]),
+              onlySeat ? eq(conversation.seatId, onlySeat) : undefined,
+            ),
+          );
+        const qismlar = await tahlilQismlari(tx, convs);
+        return convs.map((conv) => {
+          const q = qismlar.get(conv.id)!;
+          return {
+            conversation: conv,
+            dastlabkiTranskript: null,
+            segments: [],
+            analysis: q.analysis,
+            scores: ballarJson(q.scores),
+            commitments: q.commitments,
+            contact: q.contact,
+            previousConversations: q.previousConversations,
+            categoryNames: q.categoryNames,
+            comments: [],
+            appeals: [],
+          };
+        });
+      });
+
+      return { details };
     },
   );
 

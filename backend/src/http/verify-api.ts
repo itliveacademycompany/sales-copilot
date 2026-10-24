@@ -2,7 +2,16 @@ import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { cleanupTestDataQuietly } from '../db/clean-test-data.js';
 import { closeDb, withoutTenantIsolation } from '../db/index.js';
-import { appUser, seat, task } from '../db/schema/index.js';
+import {
+  analysis,
+  appUser,
+  commitment,
+  contact,
+  conversation,
+  criterionScore,
+  seat,
+  task,
+} from '../db/schema/index.js';
 import { buildApp } from './app.js';
 
 /**
@@ -497,6 +506,160 @@ async function main(): Promise<void> {
       mgrForeignConvs.statusCode === 404,
       `kod: ${mgrForeignConvs.statusCode}`,
     );
+
+    // ═══ ANALITIKA: PAKET TAFSILOTI VA `since` ═══
+    //
+    // Analitika ilgari har suhbat tafsilotini alohida so'rardi va 150 ta
+    // bilan to'xtardi — 706 tahlildan 155 tasi grafikka tushardi. Paket
+    // endpointi detal bilan BIR XIL tahlil qismini qaytarishi va ko'lamni
+    // ro'yxatdagidek saqlashi shart.
+    const soat = 3600_000;
+    const fx = await withoutTenantIsolation('test: analitika paketi uchun suhbatlar', async (tx) => {
+      const [kont] = await tx
+        .insert(contact)
+        .values({ businessId: owner.businessId, name: 'Paket mijozi' })
+        .returning({ id: contact.id });
+      const yangiSuhbat = async (seatId: string, kontakt: string | null, oldin: number, soha: string) => {
+        const [c] = await tx
+          .insert(conversation)
+          .values({
+            businessId: owner.businessId,
+            seatId,
+            contactId: kontakt,
+            channel: 'phone',
+            startedAt: new Date(Date.now() - oldin),
+            status: 'done',
+          })
+          .returning({ id: conversation.id });
+        const [a] = await tx
+          .insert(analysis)
+          .values({
+            conversationId: c!.id,
+            businessId: owner.businessId,
+            seatId,
+            businessRelevance: soha,
+            overallScore: '72.50',
+            summary: `xulosa ${soha}`,
+          })
+          .returning({ id: analysis.id });
+        return { conv: c!.id, an: a!.id };
+      };
+      const oldingi = await yangiSuhbat(mgrSeatId, kont!.id, 48 * soat, 'support');
+      const asosiy = await yangiSuhbat(mgrSeatId, kont!.id, 24 * soat, 'sales');
+      const begona = await yangiSuhbat(otherSeatId, null, 24 * soat, 'sales');
+      await tx.insert(criterionScore).values({
+        analysisId: asosiy.an,
+        conversationId: asosiy.conv,
+        businessId: owner.businessId,
+        seatId: mgrSeatId,
+        criterionCode: 'A1',
+        criterionName: 'Tanishtiruv',
+        rubricSnapshot: { '0': 'yo\'q', '3': 'to\'liq' },
+        score: 2,
+        evidenceQuote: 'Assalomu alaykum',
+      });
+      await tx.insert(commitment).values({
+        businessId: owner.businessId,
+        conversationId: asosiy.conv,
+        seatId: mgrSeatId,
+        byParty: 'manager',
+        what: 'Ertaga qayta qo\'ng\'iroq',
+      });
+      return { oldingi: oldingi.conv, asosiy: asosiy.conv, begona: begona.conv };
+    });
+
+    type Paket = {
+      details: {
+        conversation: { id: string };
+        analysis: { businessRelevance: string | null } | null;
+        scores: { id: string; criterionCode: string }[];
+        commitments: unknown[];
+        contact: { name: string | null } | null;
+        previousConversations: { id: string }[];
+        segments: unknown[];
+      }[];
+    };
+    const paket = await app.inject({
+      method: 'POST',
+      url: `${base}/conversations/details`,
+      cookies: auth,
+      payload: { ids: [fx.asosiy, fx.begona, fx.oldingi] },
+    });
+    check('paket tafsiloti ochiladi', paket.statusCode === 200, `kod: ${paket.statusCode}`);
+    const pk = (paket.json() as Paket).details ?? [];
+    const asosiyD = pk.find((d) => d.conversation.id === fx.asosiy);
+    check('paketda uchala suhbat bor', pk.length === 3, `soni: ${pk.length}`);
+    check(
+      'paketda suhbat turi, ball (id satr), va\'da va kontakt bor',
+      asosiyD?.analysis?.businessRelevance === 'sales' &&
+        asosiyD.scores.length === 1 &&
+        typeof asosiyD.scores[0]!.id === 'string' &&
+        asosiyD.commitments.length === 1 &&
+        asosiyD.contact?.name === 'Paket mijozi' &&
+        asosiyD.segments.length === 0,
+    );
+    check(
+      'oldingi suhbat faqat VAQT bo\'yicha oldingisi',
+      asosiyD?.previousConversations.map((p) => p.id).join() === fx.oldingi &&
+        pk.find((d) => d.conversation.id === fx.oldingi)?.previousConversations.length === 0,
+    );
+
+    // Yakka detal shu umumiy funksiyadan o'tadi — natija bir xil bo'lishi shart.
+    const yakka = await app.inject({ method: 'GET', url: `${base}/conversations/${fx.asosiy}`, cookies: auth });
+    const yk = yakka.json() as Paket['details'][number];
+    check(
+      'yakka detal paket bilan bir xil tahlil qismini beradi',
+      yakka.statusCode === 200 &&
+        JSON.stringify([yk.scores, yk.commitments, yk.contact, yk.previousConversations]) ===
+          JSON.stringify([asosiyD?.scores, asosiyD?.commitments, asosiyD?.contact, asosiyD?.previousConversations]),
+    );
+
+    const mgrPaket = await app.inject({
+      method: 'POST',
+      url: `${base}/conversations/details`,
+      cookies: mgrAuth,
+      payload: { ids: [fx.asosiy, fx.begona] },
+    });
+    const mpk = (mgrPaket.json() as Paket).details ?? [];
+    check(
+      'sotuvchi paketida BEGONA suhbat yo\'q',
+      mgrPaket.statusCode === 200 && mpk.length === 1 && mpk[0]!.conversation.id === fx.asosiy,
+      `kod: ${mgrPaket.statusCode}, soni: ${mpk.length}`,
+    );
+
+    const begonaPaket = await app.inject({
+      method: 'POST',
+      url: `${base}/conversations/details`,
+      cookies: { sid: stranger.cookie },
+      payload: { ids: [fx.asosiy] },
+    });
+    check('begona tenant paketni ocha olmaydi (404)', begonaPaket.statusCode === 404, `kod: ${begonaPaket.statusCode}`);
+
+    const kattaPaket = await app.inject({
+      method: 'POST',
+      url: `${base}/conversations/details`,
+      cookies: auth,
+      payload: { ids: Array.from({ length: 201 }, () => crypto.randomUUID()) },
+    });
+    check('201 ta id — 422', kattaPaket.statusCode === 422, `kod: ${kattaPaket.statusCode}`);
+
+    const since = new Date(Date.now() - 36 * soat).toISOString();
+    const sinceRes = await app.inject({
+      method: 'GET',
+      url: `${base}/conversations?limit=500&since=${encodeURIComponent(since)}`,
+      cookies: auth,
+    });
+    const sinceIds = (sinceRes.json() as { conversations?: { id: string }[] }).conversations?.map((r) => r.id) ?? [];
+    check(
+      '`since` eski suhbatni chiqarib tashlaydi, 500 lik sahifa ruxsat',
+      sinceRes.statusCode === 200 &&
+        sinceIds.includes(fx.asosiy) &&
+        sinceIds.includes(fx.begona) &&
+        !sinceIds.includes(fx.oldingi),
+      `kod: ${sinceRes.statusCode}`,
+    );
+    const ortiqLimit = await app.inject({ method: 'GET', url: `${base}/conversations?limit=501`, cookies: auth });
+    check('limit 501 — 422', ortiqLimit.statusCode === 422, `kod: ${ortiqLimit.statusCode}`);
 
     // Vazifa: o'zinikining HOLATINI o'zgartira oladi, muddatini emas.
     const [mgrTask] = await withoutTenantIsolation('test: sotuvchiga vazifa berish', (tx) =>

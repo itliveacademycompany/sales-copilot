@@ -122,12 +122,6 @@ function Bosh({ matn }: { matn: string }) {
   return <div className="hech-narsa an-bosh-holat">{matn}</div>;
 }
 
-function TafsilotEslatma({ q }: { q: Qoshimcha }) {
-  const t = useT();
-  if (q.tafsilotKutilmoqda === 0) return null;
-  return <div className="an-eslatma">{t('Tahlil tafsilotlari yuklanmoqda — yana {n} ta…', { n: q.tafsilotKutilmoqda })}</div>;
-}
-
 /** Sotuvchilar bo'yicha joriy davr hisobi — bir nechta bo'limda kerak. */
 function sotuvchiHisobi(data: BoshMalumot, joriy: ConversationRow[]) {
   return data.board.map((r) => {
@@ -165,9 +159,11 @@ export function UmumiyKorinish({ data, davr, q }: TabProps) {
     return { nom: b.nom, qiymat: foiz(lidHisobi(ichi).hot, ichi.length), izoh: t('{n} ta tahlil', { n: ichi.length }) };
   });
 
+  // Suhbat turi ro'yxat qatorida bor — tafsilot kutilmaydi, davrdagi
+  // HAMMA tahlil hisobga kiradi.
   const natija: Record<string, number> = {};
   for (const r of tahlil) {
-    const s = q.tafsilot[r.id]?.analysis?.businessRelevance;
+    const s = r.businessRelevance;
     if (s) natija[s] = (natija[s] ?? 0) + 1;
   }
   const filtrlangan = joriy.filter((r) => r.status === 'filtered').length;
@@ -217,7 +213,6 @@ export function UmumiyKorinish({ data, davr, q }: TabProps) {
         </Karta>
         <Karta sarlavha={t('Suhbat natijalari')} izoh={t('Tahlil qilingan suhbatlar qaysi turga tegishli (AI tasnifi) va filtrlanganlar')}>
           <Donut bolaklar={donut} markazNom={t('Suhbatlar')} saralash />
-          <TafsilotEslatma q={q} />
         </Karta>
       </div>
 

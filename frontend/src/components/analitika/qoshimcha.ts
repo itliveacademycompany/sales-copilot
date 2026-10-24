@@ -9,7 +9,6 @@ import {
   type TaskRow,
 } from '../../api';
 import type { Davr } from '../bosh/malumot';
-import { tafsilotOl } from '../tafsilotKesh';
 
 /**
  * Analitika uchun bosh sahifa ma'lumotiga QO'SHIMCHA yuklanadiganlar:
@@ -17,13 +16,17 @@ import { tafsilotOl } from '../tafsilotKesh';
  *   • vazifalar ro'yxati va statistikasi;
  *   • e'tirozlar statistikasi (AI kalibratsiyasi).
  *
- * Tafsilotlar cheklangan parallellikda, bosqichma-bosqich keladi — grafik
- * kutib turmaydi, ma'lumot kelgan sari to'ladi.
+ * Tafsilotlar davrdagi BARCHA tahlillar uchun, 100 talik paketlarda
+ * (`POST …/conversations/details`) keladi — grafik kutib turmaydi,
+ * ma'lumot kelgan sari to'ladi. Ilgari har suhbat alohida so'ralib, 150 ta
+ * bilan to'xtardi: 706 tahlildan grafiklarga 150 tasi tushardi.
+ * Paket transkriptsiz, shuning uchun umumiy `tafsilotKesh` ga yozilmaydi
+ * (u suhbat sahifasida to'liq detal sifatida ishlatiladi).
  */
 
-const TAFSILOT_CHEGARA = 150;
 const VAZIFA_HOLATLARI = ['pending', 'in_progress', 'blocked', 'done', 'cancelled'] as const;
-const PARALLEL = 6;
+const PAKET = 100;
+const PARALLEL = 3;
 
 export function useAnalitikaQoshimcha(
   business: BusinessAccess | null,
@@ -70,17 +73,20 @@ export function useAnalitikaQoshimcha(
   useEffect(() => {
     if (!business || !joriyRows) return;
     let bekor = false;
-    const navbat = joriyRows
+    const ids = joriyRows
       .filter((r) => r.status === 'done')
-      .slice(0, TAFSILOT_CHEGARA)
       .map((r) => r.id)
       .filter((id) => !kesh.current[id]);
+    const navbat: string[][] = [];
+    for (let i = 0; i < ids.length; i += PAKET) navbat.push(ids.slice(i, i + PAKET));
     const ishchi = async () => {
       while (!bekor && navbat.length) {
-        const id = navbat.shift()!;
-        const d = await tafsilotOl(biz, id).catch(() => null);
-        if (d && !bekor) {
-          kesh.current[id] = d;
+        const paket = navbat.shift()!;
+        const r = await api
+          .post<{ details: ConversationDetail[] }>(`${biz}/conversations/details`, { ids: paket })
+          .catch(() => null);
+        if (r && !bekor) {
+          for (const d of r.details) kesh.current[d.conversation.id] = d;
           setTafsilot({ ...kesh.current });
         }
       }
@@ -92,10 +98,7 @@ export function useAnalitikaQoshimcha(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [biz, joriyRows]);
 
-  const kutilmoqda = (joriyRows ?? [])
-    .filter((r) => r.status === 'done')
-    .slice(0, TAFSILOT_CHEGARA)
-    .filter((r) => !tafsilot[r.id]).length;
+  const kutilmoqda = (joriyRows ?? []).filter((r) => r.status === 'done' && !tafsilot[r.id]).length;
 
   /** Bitta vazifani joyida almashtirish yoki qo'shish (holat o'zgarganda, yangi vazifa) — qayta yuklamasdan. */
   const vazifaniYangila = useCallback((t: TaskRow) => {
