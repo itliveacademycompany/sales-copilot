@@ -43,7 +43,7 @@ import {
 import { vaqtZonasiniOrnat } from '../../crm/xizmat.js';
 import { requireBusiness, requirePermission } from '../auth-plugin.js';
 import { AppError } from '../errors.js';
-import { bajar, BASE, doira, idParam, sahifa } from '../crm-yordam.js';
+import { bajar, BASE, doira, idParam, sahifa, yozishDoirasi } from '../crm-yordam.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -131,7 +131,7 @@ export function registerCrmBoshqaruvRoutes(app: FastifyInstance): void {
   });
 
   app.post(`${BASE}/crm-app/inbox`, guard, async (req) => {
-    doira(req);
+    yozishDoirasi(req);
     const k = qoldaSxemasi.parse(req.body);
     const businessId = req.business!.businessId;
     const id = await bajar(() => withTenant(businessId, (tx) => murojaatQosh(tx, businessId, k)));
@@ -141,7 +141,7 @@ export function registerCrmBoshqaruvRoutes(app: FastifyInstance): void {
   app.post(`${BASE}/crm-app/inbox/:id/accept`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
     const k = qabulSxemasi.parse(req.body ?? {});
-    const d = doira(req);
+    const d = yozishDoirasi(req);
     const businessId = req.business!.businessId;
     const r = await bajar(() =>
       withTenant(businessId, (tx) => murojaatniQabul(tx, { id, businessId, userId: req.auth!.user.id, doira: d, kirish: k })),
@@ -152,7 +152,7 @@ export function registerCrmBoshqaruvRoutes(app: FastifyInstance): void {
 
   app.post(`${BASE}/crm-app/inbox/:id/reject`, guard, async (req) => {
     const { id } = idParam.parse(req.params);
-    doira(req);
+    yozishDoirasi(req);
     await bajar(() => withTenant(req.business!.businessId, (tx) => murojaatniRad(tx, { id, userId: req.auth!.user.id })));
     return { ok: true };
   });

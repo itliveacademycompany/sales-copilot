@@ -150,8 +150,30 @@ export async function failJob(job: ClaimedJob, error: string): Promise<'retry' |
 }
 
 /**
+ * "Tirikman" belgisi: ish bajarilayotganda worker qulfni har daqiqada
+ * yangilaydi (`worker.ts`). Busiz 10 daqiqadan uzoq ishlagan tahlil
+ * (fikrlovchi model bitta so'rovga 15 daqiqagacha o'ylaydi) "osilgan" deb
+ * qayta navbatga tushardi va ikkinchi yo'l uni yana bir marta tahlil
+ * qilardi — AI xarajati ikki baravar, natijalar bir-birini bosib ketardi.
+ *
+ * Faqat O'Z qulfini yangilaydi (`locked_by`): ish allaqachon boshqa
+ * worker'ga o'tgan bo'lsa, unikiga tegmaydi.
+ */
+export async function heartbeatJob(jobId: string, workerId: string): Promise<void> {
+  await withoutTenantIsolation("queue: ish qulfini yangilash (tirikman belgisi)", (tx) =>
+    tx.execute(sql`
+      update analysis_job
+      set locked_at = now()
+      where id = ${jobId} and status = 'running' and locked_by = ${workerId}
+    `),
+  );
+}
+
+/**
  * Osilib qolgan ishlarni qaytarish: worker o'lib qolsa, 'running' holat
- * abadiy qoladi. 10 daqiqadan oshgan qulf — o'lik worker belgisi.
+ * abadiy qoladi. Tirik worker qulfni har daqiqada yangilaydi
+ * (`heartbeatJob`), shuning uchun 10 daqiqa yangilanmagan qulf — o'lik
+ * worker belgisi, uzun tahlil emas.
  */
 export async function reclaimStuckJobs(): Promise<number> {
   const rows = await withoutTenantIsolation('queue: osilgan ishlarni qaytarish', (tx) =>

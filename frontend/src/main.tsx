@@ -3,6 +3,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
+import { birMartaYangila, XatoChegarasi } from './components/XatoChegarasi';
 import { AuthProvider } from './auth';
 import { TilProvider } from './i18n';
 import { KabinetProvider } from './kabinet';
@@ -24,11 +25,21 @@ if (saqlanganMavzu !== 'system') {
   );
 }
 
+/**
+ * Deploy'dan keyin (har push = deploy) ochiq turgan oynada eski JS bo'lagi
+ * serverda qolmaydi. Vite buni `vite:preloadError` bilan bildiradi — sahifa
+ * bir marta yangilanib, yangi versiya ochiladi (XatoChegarasi.tsx izohi).
+ */
+window.addEventListener('vite:preloadError', (e) => {
+  if (birMartaYangila()) e.preventDefault();
+});
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {/* Barcha ikonlar uchun yagona chiziq qalinligi (SF Symbols'ga yaqin).
         O'lcham CSS'da: .lucide { 1em } — matn o'lchamiga moslashadi. */}
     <LucideProvider strokeWidth={1.75}>
+      <XatoChegarasi toliq>
       <BrowserRouter>
         {/* SaaS: qaysi kabinet (asosiy sayt yoki mijoz subdomeni) — til va kirish shunga moslanadi */}
         <KabinetProvider>
@@ -39,6 +50,7 @@ createRoot(document.getElementById('root')!).render(
           </AuthProvider>
         </KabinetProvider>
       </BrowserRouter>
+      </XatoChegarasi>
     </LucideProvider>
   </StrictMode>,
 );

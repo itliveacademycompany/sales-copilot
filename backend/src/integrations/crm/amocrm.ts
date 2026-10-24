@@ -6,6 +6,7 @@ import {
   type CrmAdapter,
   type CrmKontekst,
   type CrmLid,
+  type CrmLidMaydon,
   type CrmTuzilish,
   type CrmYozuv,
 } from './adapter.js';
@@ -160,7 +161,9 @@ const voronkalarJavob = z.object({
         is_main: z.boolean().optional(),
         is_archive: z.boolean().optional(),
         _embedded: z
-          .object({ statuses: z.array(z.object({ id: z.number(), name: z.string(), sort: z.number().optional() })) })
+          .object({
+            statuses: z.array(z.object({ id: z.number(), name: z.string(), sort: z.number().optional(), color: z.string().nullish() })),
+          })
           .optional(),
       }),
     ),
@@ -179,7 +182,75 @@ const foydalanuvchilarJavob = z.object({
   }),
 });
 
-const maydonlarJavob = z.object({ _embedded: z.object({ custom_fields: z.array(z.object({ id: z.number() })) }) });
+const maydonlarJavob = z.object({
+  _embedded: z.object({
+    custom_fields: z.array(
+      z.object({
+        id: z.number(),
+        name: z.string().nullish(),
+        type: z.string().nullish(),
+        sort: z.number().nullish(),
+        group_id: z.string().nullish(),
+        enums: z.array(z.object({ id: z.number(), value: z.string().nullish(), sort: z.number().nullish() })).nullish(),
+      }),
+    ),
+  }),
+});
+
+const guruhlarJavob = z.object({
+  _embedded: z.object({ custom_field_groups: z.array(z.object({ id: z.string(), name: z.string().nullish() })) }),
+});
+
+/** amoCRM maydon turi → ichki CRM turi. Qo'llab-quvvatlanmaydigani (fayl, yuridik shaxs…) — `null`. */
+const AMO_TURLAR: Record<string, CrmLidMaydon['type']> = {
+  text: 'text',
+  textarea: 'textarea',
+  numeric: 'number',
+  price: 'money',
+  monetary: 'money',
+  checkbox: 'checkbox',
+  select: 'select',
+  radiobutton: 'select',
+  multiselect: 'multiselect',
+  date: 'date',
+  birthday: 'date',
+  date_time: 'datetime',
+  url: 'url',
+  streetaddress: 'text',
+  tracking_data: 'text',
+};
+
+/** Barcha sdelka maydonlari (sahifalab) va guruh nomlari. */
+async function lidMaydonlariniOl(m: AmoManzil, token: string): Promise<{ maydonlar: CrmLidMaydon[]; jami: number }> {
+  const xom: z.infer<typeof maydonlarJavob>['_embedded']['custom_fields'] = [];
+  for (let sahifa = 1; sahifa <= 20; sahifa++) {
+    const r = await chaqir<unknown>(m, token, `/api/v4/leads/custom_fields?limit=250&page=${sahifa}`);
+    const j = r ? maydonlarJavob.safeParse(r) : null;
+    const bolak = j?.success ? j.data._embedded.custom_fields : [];
+    xom.push(...bolak);
+    if (bolak.length < 250) break;
+  }
+  const g = await chaqir<unknown>(m, token, '/api/v4/leads/custom_fields/groups').catch(() => null);
+  const gj = g ? guruhlarJavob.safeParse(g) : null;
+  const guruhlar = new Map((gj?.success ? gj.data._embedded.custom_field_groups : []).map((x) => [x.id, x.name ?? null]));
+  const maydonlar: CrmLidMaydon[] = [];
+  for (const f of xom) {
+    const type = f.type ? AMO_TURLAR[f.type] : undefined;
+    if (!type || !f.name) continue;
+    maydonlar.push({
+      id: String(f.id),
+      name: f.name,
+      type,
+      group: (f.group_id && guruhlar.get(f.group_id)) || null,
+      sort: f.sort ?? 0,
+      options: (f.enums ?? [])
+        .slice()
+        .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))
+        .map((e) => ({ id: String(e.id), label: (e.value ?? '').trim() || `#${e.id}` })),
+    });
+  }
+  return { maydonlar, jami: xom.length };
+}
 
 /** amoCRM tizim bosqichlari: 142 — "Успешно реализовано", 143 — "Закрыто и не реализовано". */
 const MUVAFFAQIYAT = 142;
@@ -189,12 +260,12 @@ export async function tuzilishniOl(m: AmoManzil, token: string): Promise<CrmTuzi
   const [v, f, mf] = await Promise.all([
     chaqir<unknown>(m, token, '/api/v4/leads/pipelines'),
     chaqir<unknown>(m, token, '/api/v4/users?limit=250'),
-    chaqir<unknown>(m, token, '/api/v4/leads/custom_fields?limit=250'),
+    // Maydonlar ixtiyoriy: o'qib bo'lmasa ham ulanish va lidlar ishlayveradi
+    lidMaydonlariniOl(m, token).catch(() => ({ maydonlar: [] as CrmLidMaydon[], jami: 0 })),
   ]);
   const voronkalar = v ? voronkalarJavob.safeParse(v) : null;
   if (voronkalar && !voronkalar.success) throw new CrmXato('server', "amoCRM voronkalar ro'yxatini o'qib bo'lmadi");
   const users = f ? foydalanuvchilarJavob.safeParse(f) : null;
-  const maydonlar = mf ? maydonlarJavob.safeParse(mf) : null;
 
   return {
     pipelines: (voronkalar?.data._embedded.pipelines ?? [])
@@ -211,6 +282,7 @@ export async function tuzilishniOl(m: AmoManzil, token: string): Promise<CrmTuzi
             id: String(s.id),
             name: s.name,
             tur: s.id === MUVAFFAQIYAT ? ('muvaffaqiyat' as const) : s.id === YOPILGAN ? ('yopilgan' as const) : ('ochiq' as const),
+            color: s.color && /^#[0-9a-fA-F]{6}$/.test(s.color) ? s.color.toLowerCase() : null,
           })),
       })),
     users: (users?.success ? users.data._embedded.users : []).map((u) => ({
@@ -219,7 +291,8 @@ export async function tuzilishniOl(m: AmoManzil, token: string): Promise<CrmTuzi
       isAdmin: Boolean(u.rights?.is_admin),
       isActive: u.rights?.is_active !== false,
     })),
-    leadFieldCount: maydonlar?.success ? maydonlar.data._embedded.custom_fields.length : 0,
+    leadFieldCount: mf.jami,
+    leadFields: mf.maydonlar,
   };
 }
 
@@ -432,6 +505,16 @@ const lidlarJavob = z.object({
         updated_at: z.number(),
         closed_at: z.number().nullish(),
         is_deleted: z.boolean().nullish(),
+        custom_fields_values: z
+          .array(
+            z.object({
+              field_id: z.number(),
+              values: z
+                .array(z.object({ value: z.union([z.string(), z.number(), z.boolean()]).nullish(), enum_id: z.number().nullish() }))
+                .nullish(),
+            }),
+          )
+          .nullish(),
         _embedded: z
           .object({ contacts: z.array(z.object({ id: z.number(), is_main: z.boolean().nullish() })).nullish() })
           .nullish(),
@@ -465,6 +548,29 @@ function kursorniOqi(k: string | null): AmoKursor {
  * vaqtga ega bo'lsa (ommaviy tahrir), vaqt siljimaydi — shunda sahifa raqami
  * oshiriladi, aks holda sinxronlash bir joyda aylanib qolardi.
  */
+/**
+ * Qaysi sdelkalar hali bor. ID bo'yicha filtr, 100 tadan (URL uzunligi
+ * xavfsiz chegarada). `is_deleted` — savatdagi sdelka ham "yo'q" hisoblanadi.
+ * 204 (birortasi topilmadi) — bo'sh to'plam, xato emas.
+ */
+const mavjudJavob = z.object({
+  _embedded: z.object({ leads: z.array(z.object({ id: z.number(), is_deleted: z.boolean().nullish() })) }),
+});
+
+async function mavjudLidlarniOl(m: AmoManzil, token: string, idlar: string[]): Promise<Set<string>> {
+  const bor = new Set<string>();
+  const sonli = idlar.filter((id) => /^\d+$/.test(id));
+  for (let i = 0; i < sonli.length; i += 100) {
+    const bolak = sonli.slice(i, i + 100);
+    const r = await chaqir<unknown>(m, token, `/api/v4/leads?limit=250&${bolak.map((id) => `filter[id][]=${id}`).join('&')}`);
+    if (r === null) continue;
+    const j = mavjudJavob.safeParse(r);
+    if (!j.success) throw new CrmXato('server', "amoCRM sdelkalarini tekshirib bo'lmadi");
+    for (const l of j.data._embedded.leads) if (!l.is_deleted) bor.add(String(l.id));
+  }
+  return bor;
+}
+
 async function lidlarniOl(m: AmoManzil, token: string, kursor: string | null) {
   const k = kursorniOqi(kursor);
   const filtr = k.dan > 0 ? `&filter[updated_at][from]=${k.dan}` : '';
@@ -518,6 +624,18 @@ async function lidlarniOl(m: AmoManzil, token: string, kursor: string | null) {
       yangilangan: new Date(l.updated_at * 1000),
       yopilgan: sekund(l.closed_at),
       url: `${hisobManzili(m)}/leads/detail/${l.id}`,
+      maydonlar: Object.fromEntries(
+        (l.custom_fields_values ?? []).map((f) => {
+          const v = f.values ?? [];
+          return [
+            String(f.field_id),
+            {
+              enum: v.filter((x) => x.enum_id !== null && x.enum_id !== undefined).map((x) => String(x.enum_id)),
+              qiymatlar: v.map((x) => x.value).filter((x): x is string | number | boolean => x !== null && x !== undefined),
+            },
+          ];
+        }),
+      ),
     };
   });
 
@@ -598,6 +716,8 @@ export const amocrmAdapter: CrmAdapter = {
   topish: async (k, telefon) => telefondanTop(kontekstdan(k), await amoToken(k), telefon),
 
   lidlar: async (k, kursor) => lidlarniOl(kontekstdan(k), await amoToken(k), kursor),
+
+  mavjudLidlar: async (k, idlar) => mavjudLidlarniOl(kontekstdan(k), await amoToken(k), idlar),
 
   async izoh(k, y, matn) {
     const r = await chaqir<unknown>(kontekstdan(k), await amoToken(k), `/api/v4/${entityYoli(y)}/${y.id}/notes`, 'POST', [

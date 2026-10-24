@@ -16,6 +16,7 @@ import {
   LogOut,
   Menu,
   MessagesSquare,
+  MonitorPlay,
   Phone,
   Settings as SozlamaIkon,
   Sparkles,
@@ -25,6 +26,7 @@ import { useEffect, useState, type ReactNode, Suspense } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { crmdami, useIlovaYoliniEsla, useIlovaYollari } from './IlovaAlmashtirgich';
 import { MANZIL_SAHIFA } from '../sahifalar';
+import { XatoChegarasi } from './XatoChegarasi';
 import { api, type BillingStatus } from '../api';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
@@ -246,6 +248,7 @@ export function Layout() {
               {/* Tashqi CRM (amoCRM, Bitrix24) ulash endi CRM ilovasida — /crm/integratsiya */}
               {!crmIlova && crmUlaydi && item('/crm/integratsiya', <PlugZap />, 'CRM')}
               {ogohKoradi && item('/ogohlantirishlar', <Bell />, 'Ogohlantirishlar', unseen)}
+              {item('/qollanma', <MonitorPlay />, "Qo'llanma")}
             </>
           )}
           {/* Suhbatlar, Vazifalar, Mezonlar, To'lov menyudan olib tashlandi —
@@ -308,9 +311,12 @@ export function Layout() {
             )}
           </NavLink>
         )}
-        <Suspense fallback={<div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}>
-          <Outlet />
-        </Suspense>
+        {/* Sahifadagi xato menyuni o'chirib yubormasin; boshqa bo'limga o'tilsa chegara tiklanadi */}
+        <XatoChegarasi kalit={loc.pathname}>
+          <Suspense fallback={<div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}>
+            <Outlet />
+          </Suspense>
+        </XatoChegarasi>
       </main>
     </div>
   );

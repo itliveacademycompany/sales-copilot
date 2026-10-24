@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { withoutTenantIsolation, withTenant, type Tx } from '../db/index.js';
 import { contact, crmForm, crmInbox, crmPipeline, deal, dealEvent } from '../db/schema/index.js';
 import { navbatdagiMasul, sozlamaniOl, sozlamaniSaqla } from './sozlama.js';
+import { faolTashqiSinxBormi } from './tashqi.js';
 import { CrmXatosi } from './xato.js';
 import { bitimniOl, bitimYarat, kontaktniTopYokiYarat, maydonlarniTekshir, tuzilma, yozaOladimi, type CrmDoira } from './xizmat.js';
 
@@ -121,8 +122,11 @@ export async function murojaatniQabul(
     const kirish = k.stageId && k.pipelineId ? { pipelineId: k.pipelineId, stageId: k.stageId } : await kirishBosqichi(tx, k.pipelineId ?? m.pipelineId);
     // Mas'ul: sotuvchi — o'zi; rahbar tanlagan; aks holda navbat bilan (round-robin)
     let masul: string | null = null;
-    if (p.doira.yozish === 'own') masul = p.doira.seatId;
-    else if (k.seatId !== undefined && k.seatId !== null) masul = k.seatId;
+    if (p.doira.yozish === 'own') {
+      // Seat'siz (auditor) mas'ulsiz bitim yarata olmasin.
+      if (!p.doira.seatId) throw new CrmXatosi('ruxsat', "CRM da sizda faqat ko'rish huquqi bor");
+      masul = p.doira.seatId;
+    } else if (k.seatId !== undefined && k.seatId !== null) masul = k.seatId;
     else masul = await navbatdagiMasul(tx, p.businessId);
 
     const payload = (m.payload ?? {}) as { fields?: Record<string, unknown>; tags?: string[]; formName?: string };
@@ -203,6 +207,9 @@ export async function murojaatQosh(tx: Tx, businessId: string, k: z.infer<typeof
 export async function qongiroqlarniQabulQil(tx: Tx, businessId: string): Promise<number> {
   const s = await sozlamaniOl(tx);
   if (!s.callIntake.enabled) return 0;
+  // amoCRM lidlari ichki CRM ga ko'chirilayotgan bo'lsa — qo'ng'iroq qilgan mijoz
+  // o'sha yerdan bitim bo'lib keladi; bu yerda ham murojaat yaratilsa dubl bo'lardi
+  if (await faolTashqiSinxBormi(tx)) return 0;
   if (!s.callIntake.since) {
     // Birinchi marta: eski qo'ng'iroqlar bilan "Saralanmagan" to'lib ketmasin
     await sozlamaniSaqla(tx, businessId, { callIntake: { enabled: true, pipelineId: s.callIntake.pipelineId, autoAccept: s.callIntake.autoAccept } });

@@ -82,6 +82,14 @@ const CRM_ILOVA_2: Lugat = {
   'Vazifa muddati ko‘chirildi: «{v}» → {s}': { en: 'Task rescheduled: “{v}” → {s}', ru: 'Срок задачи перенесён: «{v}» → {s}' },
   'Bitim savatga o‘tkazildi': { en: 'Deal moved to trash', ru: 'Сделка перемещена в корзину' },
   'Bitim savatdan tiklandi': { en: 'Deal restored from trash', ru: 'Сделка восстановлена из корзины' },
+  '{crm} da o‘chirilgan — bitim savatga o‘tkazildi': {
+    en: 'Deleted in {crm} — deal moved to trash',
+    ru: 'Удалена в {crm} — сделка перемещена в корзину',
+  },
+  '{crm} da tiklangan — bitim savatdan qaytarildi': {
+    en: 'Restored in {crm} — deal brought back from trash',
+    ru: 'Восстановлена в {crm} — сделка возвращена из корзины',
+  },
   'Murojaat biriktirildi: {n}': { en: 'Request attached: {n}', ru: 'Привязана заявка: {n}' },
   'Kontaktlar birlashtirildi': { en: 'Contacts merged', ru: 'Контакты объединены' },
 

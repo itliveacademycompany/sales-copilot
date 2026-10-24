@@ -65,10 +65,12 @@ async function verifyRls(client: postgres.Sql): Promise<void> {
       --   oauth_client, oauth_code,  — MCP OAuth: foydalanuvchiga bog'langan
       --   oauth_token                  (business_id yo'q), token xeshi bo'yicha
       --                                qidiriladi — session bilan bir toifa
+      --   guide_video                — qo'llanma videolari: butun platforma uchun bitta ro'yxat
       AND c.relname NOT IN (
         'app_user', 'session', 'password_reset', 'playbook_template',
         'ai_provider', 'platform_setting', 'prompt_template',
         'oauth_client', 'oauth_code', 'oauth_token',
+        'guide_video',
         '__drizzle_migrations'
       )
     ORDER BY c.relname

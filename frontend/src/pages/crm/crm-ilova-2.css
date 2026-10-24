@@ -44,16 +44,52 @@ td.xavf { color: var(--past-text); font-weight: 700; }
 .ci-davr-maxsus .input { width: auto; padding: 8px 10px; }
 
 /* KPI */
-.ci-kpi-panjara { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-.ci-kpi { border: none; text-align: left; cursor: pointer; display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; color: var(--text-primary); font: inherit; transition: box-shadow 0.15s var(--ease), transform 0.15s var(--ease); border-left: 4px solid transparent; }
-.ci-kpi:hover { transform: translateY(-1px); }
+/* Ish stoli ko'rsatkichlari — ixcham: keng ekranda 8 tasi bir qatorda, o'rtada 4×2, telefonda 2 ustun */
+.ci-kpi-panjara { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+@media (min-width: 1480px) { .ci-kpi-panjara { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .ci-kpi-panjara { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } }
+.ci-kpi {
+  --kpi-rang: var(--ia-text);
+  --kpi-fon: var(--ia-soft);
+  border: none;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 11px 13px 10px;
+  border-radius: 14px;
+  background: var(--oq);
+  box-shadow: var(--shadow);
+  color: var(--text-primary);
+  font: inherit;
+  transition: box-shadow 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.ci-kpi:hover { transform: translateY(-1px); box-shadow: var(--neu-out-sm, var(--shadow)); }
 .ci-kpi:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
-.ci-kpi-nom { font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; }
-.ci-kpi-qiymat { font-size: 28px; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
-.ci-kpi-izoh { font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
-.ci-kpi.yaxshi { border-left-color: var(--yuqori); }
-.ci-kpi.ogoh { border-left-color: var(--orta); }
-.ci-kpi.xavf { border-left-color: var(--past); }
+.ci-kpi-bosh { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; min-height: 26px; }
+.ci-kpi-nom {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ci-kpi-ikon { flex: none; width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--kpi-fon); color: var(--kpi-rang); }
+.ci-kpi-ikon svg { width: 14px; height: 14px; stroke-width: 2.1; }
+.ci-kpi-qiymat { font-size: 22px; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15; margin-top: auto; padding-top: 4px; }
+.ci-kpi-izoh { font-size: 11.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ci-kpi.yaxshi { --kpi-rang: var(--yuqori); --kpi-fon: var(--yuqori-soft); }
+.ci-kpi.xavf-yumshoq { --kpi-rang: var(--past); --kpi-fon: var(--past-soft); }
+.ci-kpi.ogoh { --kpi-rang: var(--orta); --kpi-fon: var(--orta-soft); }
+.ci-kpi.ogoh .ci-kpi-qiymat { color: var(--orta-text); }
+.ci-kpi.xavf { --kpi-rang: var(--past); --kpi-fon: var(--past-soft); }
+.ci-kpi.xavf .ci-kpi-qiymat { color: var(--past-text); }
 .ci-ikki-ustun { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .ci-jamoa-reja { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 13.5px; }
 
@@ -206,6 +242,17 @@ button.ci-gustun-qator:focus-visible { outline: 2px solid var(--focus); }
 .ci-rahmat svg { width: 48px; height: 48px; color: var(--yuqori); }
 .ci-rahmat p { margin: 0; font-size: 16px; }
 .ci-tuzoq { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+/* amoCRM dan sinxronlanadigan voronka / bitim */
+.ci-sinx-qator { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 16px; font-size: 13.5px; color: var(--text-secondary); margin-bottom: 12px; }
+.ci-sinx-qator > svg { width: 16px; height: 16px; flex: none; color: var(--ia-text); }
+.ci-sinx-qator > span { flex: 1 1 240px; min-width: 0; }
+.ci-sinx-qator a { color: var(--ia-text); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.ci-sinx-qator a:hover { text-decoration: underline; }
+.ci-sinx-qator a svg { width: 13px; height: 13px; }
+.ci-fieldset-shaffof { border: none; margin: 0; padding: 0; min-width: 0; display: contents; }
+.ci-karta.qulf { cursor: default; }
+.ci-karta.qulf:active { cursor: default; }
 
 @media (max-width: 1100px) {
   .ci-ikki-ustun { grid-template-columns: 1fr; }

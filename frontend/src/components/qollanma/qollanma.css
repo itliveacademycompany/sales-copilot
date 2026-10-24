@@ -1,0 +1,507 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   QO'LLANMA — video darslar (pages/Qollanma.tsx)
+   Kurs ko'rinishi: chapda pleyer + dars haqida, o'ngda darslar ro'yxati.
+   Pleyer maydoni har ikki mavzuda ham qorong'i — video shunday yaxshi ko'rinadi.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Asboblar: qidiruv va bo'limlar ─────────────────────────────────────── */
+
+.ql-asboblar {
+  display: flex;
+  align-items: center;
+  gap: 12px 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.ql-qidiruv {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 0 1 320px;
+  min-width: 220px;
+}
+.ql-qidiruv > .lucide {
+  position: absolute;
+  left: 14px;
+  font-size: 16px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+.ql-qidiruv input {
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 10px 14px 10px 40px;
+  font: inherit;
+  font-size: 14px;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  box-shadow: var(--neu-in-sm);
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.ql-qidiruv input::placeholder { color: var(--text-muted); }
+.ql-qidiruv input:focus {
+  outline: none;
+  border-color: var(--focus);
+  box-shadow: var(--neu-in-sm), 0 0 0 3px var(--focus-ring);
+}
+.ql-bolimlar .tab { white-space: nowrap; }
+
+.ql-amal-xato { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.ql-amal-xato button { border: 0; background: none; color: inherit; cursor: pointer; display: grid; place-items: center; padding: 2px; }
+
+/* ─── Asosiy tartib ─────────────────────────────────────────────────────── */
+
+.ql-tartib {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 22px;
+  align-items: start;
+}
+
+.ql-sahna {
+  padding: 14px;
+  position: sticky;
+  top: 20px;
+  min-width: 0;
+}
+
+/* ─── Pleyer ────────────────────────────────────────────────────────────── */
+
+.ql-ekran {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #0b0f17;
+  box-shadow: 0 18px 40px -22px rgba(11, 15, 23, 0.65);
+  isolation: isolate;
+}
+.ql-video,
+.ql-ramka iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #000;
+}
+.ql-video { object-fit: contain; }
+.ql-ramka { position: absolute; inset: 0; }
+/* Tik video (Shorts, Reels, TikTok) — 16:9 ramka ichida markazda */
+.ql-ramka.vertikal {
+  inset: 0 auto;
+  left: 50%;
+  transform: translateX(-50%);
+  height: 100%;
+  aspect-ratio: 9 / 16;
+}
+
+.ql-ekran-holat {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  color: #e7eaf0;
+  background: radial-gradient(circle at 50% 38%, #1f2738 0%, #0b0f17 70%);
+}
+.ql-ekran-holat > .lucide { font-size: 34px; color: #7aa7ff; margin-bottom: 4px; }
+.ql-ekran-holat.xato > .lucide { color: #ff9aa5; }
+.ql-ekran-holat b { font-size: 16px; }
+.ql-ekran-holat span { font-size: 13.5px; color: #9aa4b4; max-width: 440px; line-height: 1.5; }
+.ql-ekran-holat.tashqi { background-size: cover; background-position: center; }
+.ql-tashqi-ichi {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  max-width: 440px;
+  padding: 24px 28px;
+  border-radius: 18px;
+  background: rgba(11, 15, 23, 0.74);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.ql-tashqi-ichi .btn { margin-top: 8px; text-decoration: none; }
+.ql-katta-play {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--ia-grad);
+  box-shadow: var(--ia-glow);
+  margin-bottom: 4px;
+}
+.ql-katta-play .lucide { font-size: 24px; color: #fff; margin-left: 3px; fill: currentColor; }
+
+.ql-aylanma { animation: aylanish 1s linear infinite; }
+
+.ql-davom {
+  position: absolute;
+  left: 14px;
+  top: 14px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 99px;
+  background: rgba(11, 15, 23, 0.74);
+  color: #fff;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  animation: ql-chiq 0.2s var(--ease) both;
+}
+.ql-davom:hover { background: rgba(11, 15, 23, 0.9); }
+
+.ql-tugadi {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px;
+  text-align: center;
+  color: #fff;
+  background: rgba(11, 15, 23, 0.84);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: ql-chiq 0.25s var(--ease) both;
+}
+.ql-tugadi-yorliq { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #9aa4b4; }
+.ql-tugadi b { font-size: 19px; max-width: 520px; line-height: 1.3; }
+.ql-tugadi-tugmalar { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 8px; }
+.ql-tugadi .btn.ikkinchi { background: rgba(255, 255, 255, 0.1); color: #fff; box-shadow: none; }
+.ql-tugadi .btn.ikkinchi:hover:not(:disabled) { background: rgba(255, 255, 255, 0.16); color: #fff; }
+
+@keyframes ql-chiq { from { opacity: 0; transform: translateY(4px); } }
+
+/* ─── Dars haqida ───────────────────────────────────────────────────────── */
+
+.ql-malumot { padding: 18px 8px 6px; }
+.ql-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.ql-raqam { font-size: 11.5px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ia-text); }
+.ql-meta-qism { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; }
+.ql-malumot h2 { margin: 10px 0 6px; font-size: 22px; line-height: 1.25; letter-spacing: -0.02em; }
+.ql-tavsif { margin: 0; max-width: 80ch; font-size: 14px; line-height: 1.6; color: var(--text-secondary); white-space: pre-line; }
+.ql-amallar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
+.ql-amallar a.btn { text-decoration: none; }
+.ql-keyingi { margin-left: auto; }
+.ql-korildi.faol { color: var(--yuqori-text); box-shadow: var(--neu-in-xs); }
+.ql-korildi.faol:hover:not(:disabled) { color: var(--yuqori-text); }
+
+/* ─── Darslar ro'yxati ──────────────────────────────────────────────────── */
+
+.ql-royxat {
+  display: flex;
+  flex-direction: column;
+  padding: 18px 12px 10px;
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 40px);
+  min-width: 0;
+}
+.ql-royxat-bosh { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 0 8px; }
+.ql-royxat-bosh b { display: block; font-size: 16px; letter-spacing: -0.01em; }
+.ql-royxat-bosh span { font-size: 12.5px; color: var(--text-secondary); }
+.ql-royxat-bosh .ql-foiz {
+  padding: 4px 11px;
+  border-radius: 99px;
+  font-size: 12.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ia-text);
+  box-shadow: var(--neu-in-xs);
+}
+.ql-umumiy {
+  height: 6px;
+  margin: 12px 8px 10px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: var(--bg-sunken);
+  box-shadow: var(--neu-in-xs);
+}
+.ql-umumiy > div { height: 100%; border-radius: inherit; background: var(--ia-grad); transition: width 0.4s var(--ease); }
+
+.ql-darslar {
+  list-style: none;
+  margin: 0;
+  padding: 4px 2px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.ql-dars { border-radius: 14px; transition: background-color 0.15s var(--ease), box-shadow 0.15s var(--ease); }
+.ql-dars:hover { background: var(--bg-elevated); }
+.ql-dars.aktiv { background: var(--bg-base); box-shadow: var(--neu-in-sm); }
+.ql-dars-tugma {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  padding: 8px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ql-dars-tugma:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+
+.ql-dars-rasm {
+  position: relative;
+  flex: 0 0 128px;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background-color: #151b27;
+  background-image: linear-gradient(145deg, #232c3d 0%, #0b0f17 100%);
+  background-size: cover;
+  background-position: center;
+  box-shadow: var(--neu-out-xs);
+}
+.ql-dars-bosh-ikon { font-size: 22px; color: rgba(255, 255, 255, 0.35); }
+.ql-dars-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(11, 15, 23, 0.38);
+  opacity: 0;
+  transition: opacity 0.15s var(--ease);
+}
+.ql-dars-play > .lucide { font-size: 22px; color: #fff; fill: currentColor; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5)); }
+.ql-dars:hover .ql-dars-play,
+.ql-dars.aktiv .ql-dars-play { opacity: 1; }
+.ql-dars-vaqt {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.74);
+}
+.ql-dars-belgi {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: #fff;
+  background: var(--yuqori);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.ql-dars-belgi .lucide { stroke-width: 3; }
+
+.ql-ekvalayzer { display: flex; align-items: flex-end; gap: 3px; height: 18px; }
+.ql-ekvalayzer i { width: 4px; height: 40%; border-radius: 2px; background: #fff; animation: ql-ekv 1s ease-in-out infinite; }
+.ql-ekvalayzer i:nth-child(2) { animation-delay: 0.2s; }
+.ql-ekvalayzer i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ql-ekv { 0%, 100% { height: 30%; } 50% { height: 100%; } }
+
+.ql-dars-matn { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-top: 2px; }
+.ql-dars-nom {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.ql-dars.aktiv .ql-dars-nom { color: var(--ia-text); }
+.ql-dars.korildi:not(.aktiv) .ql-dars-nom { color: var(--text-secondary); }
+.ql-dars-raqam { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.ql-dars.aktiv .ql-dars-raqam { color: inherit; }
+.ql-dars-izoh { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; color: var(--text-secondary); }
+.ql-dars-holat { display: flex; flex-wrap: wrap; gap: 4px; }
+.ql-dars.qoralama .ql-dars-rasm { opacity: 0.55; }
+
+.ql-dars-boshqaruv { display: flex; justify-content: flex-end; align-items: center; gap: 2px; padding: 0 8px 8px; }
+.ql-dars-boshqaruv .vr-amal { width: 28px; height: 28px; margin-left: 4px; font-size: 13px; }
+.ql-dars-boshqaruv .vr-amal:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+.ql-dars-boshqaruv .vr-amal.ql-ochir:hover { color: var(--past); }
+.ql-dars-boshqaruv .btn { margin-left: 6px; }
+.ql-tasdiq-matn { margin-right: auto; font-size: 12.5px; font-weight: 600; color: var(--past-text); }
+
+.ql-topilmadi { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 30px 10px; font-size: 13.5px; color: var(--text-secondary); }
+
+.ql-bosh-holat { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 56px 20px; }
+.ql-bosh-holat b { font-size: 16px; color: var(--text-primary); }
+.ql-bosh-holat span { max-width: 460px; line-height: 1.5; }
+.ql-bosh-holat .btn { margin-top: 10px; }
+
+/* ─── Yuklanish skeleti ─────────────────────────────────────────────────── */
+
+.ql-skelet,
+.ql-skelet-qator { position: relative; overflow: hidden; background: var(--bg-sunken); }
+.ql-skelet::after,
+.ql-skelet-qator::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: skelet 1.3s ease-in-out infinite;
+}
+.ql-skelet.ql-ekran { box-shadow: none; }
+.ql-skelet-qator { height: 12px; margin: 12px 0; border-radius: 6px; }
+.ql-skelet-qator.katta { height: 20px; }
+.ql-skelet-dars { display: flex; gap: 12px; padding: 8px; }
+.ql-skelet-dars > .ql-skelet { flex: 0 0 128px; aspect-ratio: 16 / 9; border-radius: 10px; }
+.ql-skelet-dars > div:last-child { flex: 1; }
+
+/* ─── Qo'shish / tahrirlash oynasi ──────────────────────────────────────── */
+
+.vr-oyna.ql-oyna { width: min(640px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; }
+.ql-manba { width: 100%; }
+.ql-manba .tab { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 14px; font-size: 13.5px; }
+.ql-manba .tab:disabled { cursor: default; opacity: 0.6; }
+
+.ql-qollanadi { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.ql-qollanadi span { padding: 2px 9px; border-radius: 99px; font-size: 11px; color: var(--text-secondary); background: var(--bg-sunken); }
+
+.ql-korinish {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px;
+  border-radius: 14px;
+  box-shadow: var(--neu-out-xs);
+  animation: ql-chiq 0.2s var(--ease) both;
+}
+.ql-korinish.yuklanmoqda-holat { gap: 8px; padding: 12px 14px; font-size: 13px; color: var(--text-secondary); }
+.ql-korinish-rasm {
+  flex: 0 0 112px;
+  aspect-ratio: 16 / 9;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  font-size: 20px;
+  color: rgba(255, 255, 255, 0.5);
+  background-color: #151b27;
+  background-size: cover;
+  background-position: center;
+}
+.ql-korinish-matn { display: flex; flex-direction: column; gap: 3px; min-width: 0; font-size: 13px; }
+.ql-korinish-nom { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--text-primary); }
+.ql-ok { font-size: 12px; color: var(--yuqori-text); }
+.ql-ogoh { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--orta-text); }
+.ql-havola-xato { margin: 10px 0 0; }
+
+.ql-tashla {
+  padding: 6px;
+  border: 2px dashed transparent;
+  border-radius: 16px;
+  box-shadow: var(--neu-in-sm);
+  transition: border-color 0.15s var(--ease), background-color 0.15s var(--ease);
+}
+.ql-tashla.ustida { border-color: var(--ia); background: var(--ia-soft); }
+.ql-tashla-tugma {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 26px 16px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.ql-tashla-tugma b { font-size: 14px; color: var(--text-primary); }
+.ql-tashla-tugma:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.ql-tashla-ikon {
+  width: 52px;
+  height: 52px;
+  margin-bottom: 4px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  color: var(--ia);
+  box-shadow: var(--neu-out-sm);
+  transition: transform 0.2s var(--ease);
+}
+.ql-tashla-tugma:hover .ql-tashla-ikon,
+.ql-tashla.ustida .ql-tashla-ikon { transform: translateY(-2px); }
+.ql-tanlangan-fayl { display: flex; align-items: center; gap: 12px; padding: 12px 14px; }
+.ql-tanlangan-fayl > .lucide { flex-shrink: 0; font-size: 26px; color: var(--ia); }
+.ql-tanlangan-fayl > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ql-tanlangan-fayl b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13.5px; }
+.ql-tanlangan-fayl span { font-size: 12px; color: var(--text-secondary); }
+.ql-eslatma { display: block; margin-top: 8px; }
+
+.ql-nashr { display: flex; align-items: flex-end; padding-bottom: 22px; }
+
+.ql-progress { margin: 2px 0 4px; }
+.ql-progress-qator { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 6px; font-size: 12.5px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ql-progress-yol { height: 8px; border-radius: 99px; overflow: hidden; background: var(--bg-sunken); box-shadow: var(--neu-in-xs); }
+.ql-progress-yol > div { height: 100%; border-radius: inherit; background: var(--ia-grad); transition: width 0.2s linear; }
+
+/* ─── Moslashuv ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 1180px) {
+  .ql-tartib { grid-template-columns: minmax(0, 1fr); }
+  .ql-sahna,
+  .ql-royxat { position: static; max-height: none; }
+}
+
+@media (max-width: 860px) {
+  .ql-sahna { padding: 10px; }
+  .ql-ekran { border-radius: 12px; }
+  .ql-malumot { padding: 14px 4px 4px; }
+  .ql-malumot h2 { font-size: 18px; }
+  .ql-keyingi { margin-left: 0; }
+  .ql-qidiruv { flex: 1 1 100%; }
+  .ql-bolimlar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .ql-dars-rasm { flex-basis: 112px; }
+  .ql-tashqi-ichi { padding: 16px; }
+  .ql-tashqi-ichi > span { display: none; }
+  .ql-nashr { padding-bottom: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ql-ekvalayzer i,
+  .ql-aylanma,
+  .ql-skelet::after,
+  .ql-skelet-qator::after { animation: none; }
+  .ql-ekvalayzer i { height: 70%; }
+}

@@ -33,6 +33,7 @@ import { registerMcpRoutes } from './routes/mcp.js';
 import { registerOauthRoutes } from './routes/oauth.js';
 import { registerMemberRoutes } from './routes/members.js';
 import { registerPlaybookRoutes } from './routes/playbook.js';
+import { registerQollanmaRoutes } from './routes/qollanma.js';
 import { registerReportRoutes } from './routes/reports.js';
 import { registerSeatRoutes } from './routes/seats.js';
 import { registerTelegramRoutes } from './routes/telegram.js';
@@ -58,7 +59,6 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
     trustProxy: isProd,
     bodyLimit: 1024 * 1024, // 1 MB — media yuklash alohida marshrutda
-    disableRequestLogging: false,
   });
 
   // ─── Xavfsizlik sarlavhalari ───
@@ -177,6 +177,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerLeadRoutes(app);
   registerBillingRoutes(app);
   registerAssistantRoutes(app);
+  registerQollanmaRoutes(app);
 
   // ─── Sog'liq tekshiruvi ───
   // `/healthz` — jonli-mi (deploy va load balancer uchun)

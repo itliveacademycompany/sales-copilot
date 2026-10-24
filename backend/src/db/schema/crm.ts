@@ -16,6 +16,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { contact } from './conversation.js';
 import { company, crmLossReason } from './crm2.js';
+import { integration } from './integration.js';
 import { appUser, business, seat } from './tenant.js';
 
 /**
@@ -48,11 +49,17 @@ export const crmPipeline = pgTable(
     name: text('name').notNull(),
     sort: integer('sort').notNull().default(0),
     isMain: boolean('is_main').notNull().default(false),
+    /** Tashqi CRM (amoCRM) dan ko'chirilgan voronka — o'sha ulanish va ID. */
+    integrationId: uuid('integration_id').references((): AnyPgColumn => integration.id, { onDelete: 'set null' }),
+    externalId: text('external_id'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('crm_pipeline_business_idx').on(t.businessId, t.sort)],
+  (t) => [
+    index('crm_pipeline_business_idx').on(t.businessId, t.sort),
+    uniqueIndex('crm_pipeline_external_uq').on(t.integrationId, t.externalId),
+  ],
 );
 
 /** Bosqich. `sort` — Kanban ustuni tartibi. */
@@ -70,10 +77,15 @@ export const crmStage = pgTable(
     color: text('color').notNull().default('#8ab4f8'),
     sort: integer('sort').notNull().default(0),
     kind: crmStageKind('kind').notNull().default('open'),
+    /** Tashqi CRM bosqich ID si (voronkasi `integration_id` li bo'lsa). */
+    externalId: text('external_id'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index('crm_stage_pipeline_idx').on(t.pipelineId, t.sort)],
+  (t) => [
+    index('crm_stage_pipeline_idx').on(t.pipelineId, t.sort),
+    uniqueIndex('crm_stage_external_uq').on(t.pipelineId, t.externalId),
+  ],
 );
 
 /**
@@ -96,11 +108,17 @@ export const crmField = pgTable(
     groupName: text('group_name'),
     sort: integer('sort').notNull().default(0),
     required: boolean('required').notNull().default(false),
+    /** Tashqi CRM maydoni — variant ID lari ham o'sha CRM niki. */
+    integrationId: uuid('integration_id').references((): AnyPgColumn => integration.id, { onDelete: 'set null' }),
+    externalId: text('external_id'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [uniqueIndex('crm_field_code_uq').on(t.businessId, t.code)],
+  (t) => [
+    uniqueIndex('crm_field_code_uq').on(t.businessId, t.code),
+    uniqueIndex('crm_field_external_uq').on(t.integrationId, t.externalId),
+  ],
 );
 
 /** Bitim (sdelka). */
@@ -137,6 +155,14 @@ export const deal = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    /**
+     * Tashqi CRM (amoCRM) dan sinxronlanadigan bitim. Bir tomonlama: asosiy
+     * maydonlar (nom, summa, bosqich, mas'ul, qo'shimcha maydonlar) o'sha
+     * yerda o'zgaradi; SotuvAI da izoh, vazifa, teg qo'shiladi.
+     */
+    integrationId: uuid('integration_id').references((): AnyPgColumn => integration.id, { onDelete: 'set null' }),
+    externalId: text('external_id'),
+    externalUrl: text('external_url'),
   },
   (t) => [
     index('deal_board_idx').on(t.businessId, t.pipelineId, t.stageId, t.stageEnteredAt),
@@ -145,6 +171,7 @@ export const deal = pgTable(
     index('deal_updated_idx').on(t.businessId, t.updatedAt),
     index('deal_tags_idx').using('gin', t.tags),
     index('deal_deleted_idx').on(t.businessId, t.deletedAt),
+    uniqueIndex('deal_external_uq').on(t.integrationId, t.externalId),
   ],
 );
 

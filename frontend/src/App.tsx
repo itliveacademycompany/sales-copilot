@@ -137,6 +137,8 @@ export function App() {
         <Route path="/playbook" element={<SAHIFA.playbook />} />
         <Route path="/billing" element={<SAHIFA.billing />} />
         <Route path="/sozlamalar" element={<SAHIFA.settings />} />
+        {/* Qo'llanma — hamma rol uchun (ko'rish); boshqarish faqat super admin */}
+        <Route path="/qollanma" element={<SAHIFA.qollanma />} />
         {crmIlova && <Route path="/crm/*" element={<SAHIFA.crmIlova />} />}
         {!crmIlova && crmKoradi && <Route path="/crm/integratsiya" element={<SAHIFA.crm />} />}
         <Route path="*" element={<Navigate to="/" replace />} />

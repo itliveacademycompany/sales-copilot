@@ -12,7 +12,7 @@ import { oldindanTranskriptQil, qongiroqlarniQaytaIshla, sinxronla } from '../in
 import { runDailyReportTick } from '../reports/daily.js';
 import { markOverdueCommitments } from './maintenance.js';
 import { dispatchAlertNotifications } from './notify.js';
-import { claimNextJob, completeJob, failJob, reclaimStuckJobs } from './queue.js';
+import { claimNextJob, completeJob, failJob, heartbeatJob, reclaimStuckJobs } from './queue.js';
 import { sweepIdleSessions } from './scheduler.js';
 
 /**
@@ -27,6 +27,9 @@ import { sweepIdleSessions } from './scheduler.js';
  */
 
 const workerId = `worker-${randomBytes(4).toString('hex')}`;
+
+/** Ish qulfini yangilash oralig'i. `reclaimStuckJobs` chegarasi (10 daq) undan ancha katta. */
+const YURAK_MS = 60_000;
 
 export interface TickResult {
   processed: boolean;
@@ -43,6 +46,12 @@ export interface TickResult {
 export async function runWorkerTick(llm?: LlmClient, id: string = workerId): Promise<TickResult> {
   const job = await claimNextJob(id);
   if (!job) return { processed: false };
+
+  // Uzun tahlil "osilgan" deb qayta olinmasin (queue.ts → heartbeatJob).
+  const yurak = setInterval(() => {
+    heartbeatJob(job.id, id).catch(() => undefined);
+  }, YURAK_MS);
+  yurak.unref();
 
   try {
     const client = llm ?? (await getActiveLlm());
@@ -68,6 +77,8 @@ export async function runWorkerTick(llm?: LlmClient, id: string = workerId): Pro
       outcome: fate,
       error: message,
     };
+  } finally {
+    clearInterval(yurak);
   }
 }
 
@@ -204,6 +215,10 @@ export function startWorkerLoop(log: {
               if (saqlandi > 0) log.info({ saqlandi }, 'CRM: lidlar yangilandi');
               for (const x of r) {
                 if (x.xato) log.error({ businessId: x.businessId, xato: x.xato }, 'CRM: lidlar importi xatosi');
+                if (x.ochirildi) log.info({ businessId: x.businessId, ochirildi: x.ochirildi }, "CRM: o'chirilgan sdelkalar savatga olindi");
+                if (x.ochirishOtkazildi) {
+                  log.error({ businessId: x.businessId, bolak: x.ochirishOtkazildi }, "CRM: bo'lakning hammasi yo'q chiqdi — shubhali, o'chirilmadi");
+                }
               }
             })
             .catch((err: unknown) => log.error({ err }, 'CRM: lidlar importi yiqildi'))

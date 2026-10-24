@@ -1,9 +1,9 @@
-import { and, count, desc, eq, max, ne } from 'drizzle-orm';
+import { and, count, desc, eq, isNotNull, max, ne } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { encryptSecret } from '../../crypto/secrets.js';
 import { withTenant } from '../../db/index.js';
-import { crmLead, crmSyncItem, integration } from '../../db/schema/index.js';
+import { crmLead, crmSyncItem, deal, integration } from '../../db/schema/index.js';
 import {
   ADAPTERLAR,
   CRM_TURLARI,
@@ -48,6 +48,8 @@ const sozlamaBody = z.object({
   vazifa: z.boolean().optional(),
   /** Lidlar faqat shu voronkalardan (ID). `null` — hammasi. */
   voronkalar: z.array(z.string().max(64)).max(200).nullable().optional(),
+  /** Lidlar SotuvAI ichki CRM bitimlariga ham ko'chirilsinmi (bir tomonlama). */
+  ichkiCrm: z.boolean().optional(),
 });
 
 function turniOl(req: FastifyRequest): CrmKind {
@@ -117,7 +119,7 @@ function holat(kind: CrmKind, q: Qator | undefined) {
     settings: sozlamaniOl(q?.config),
     leads: (() => {
       const l = lidSozlamaniOl(q?.config);
-      return { voronkalar: l.voronkalar, birinchiTugadi: l.birinchiTugadi, oxirgi: l.oxirgi, xato: l.xato };
+      return { voronkalar: l.voronkalar, birinchiTugadi: l.birinchiTugadi, oxirgi: l.oxirgi, xato: l.xato, ichkiCrm: l.ichkiCrm };
     })(),
   };
 }
@@ -185,13 +187,21 @@ export function registerCrmUlanishRoutes(app: FastifyInstance): void {
   /** Hamma CRM lar: forma tavsifi + holat. Tarmoqqa chiqmaydi. */
   app.get(base, guard, async (req) => {
     const businessId = req.business!.businessId;
-    const [qatorlar, soni, oauth] = await Promise.all([
+    const [qatorlar, soni, bitimSoni, oauth] = await Promise.all([
       qatorlarniOl(businessId),
       withTenant(businessId, (tx) =>
         tx
           .select({ integrationId: crmLead.integrationId, n: count(), oxirgi: max(crmLead.crmUpdatedAt) })
           .from(crmLead)
           .groupBy(crmLead.integrationId),
+      ),
+      // Ichki CRM ga ko'chirilgan bitimlar soni (CRM bo'yicha)
+      withTenant(businessId, (tx) =>
+        tx
+          .select({ integrationId: deal.integrationId, n: count() })
+          .from(deal)
+          .where(isNotNull(deal.integrationId))
+          .groupBy(deal.integrationId),
       ),
       amoOauthSozlama(),
     ]);
@@ -209,7 +219,7 @@ export function registerCrmUlanishRoutes(app: FastifyInstance): void {
         /** Bir tugmada ulash (OAuth) mumkinmi — platformada sozlangan bo'lsa. */
         oauthAvailable: kind === 'amocrm' && Boolean(oauth),
         ...h,
-        leads: { ...h.leads, count: s ? Number(s.n) : 0 },
+        leads: { ...h.leads, count: s ? Number(s.n) : 0, deals: Number((q && bitimSoni.find((x) => x.integrationId === q.id)?.n) ?? 0) },
       };
     });
     return { crmlar, active: crmlar.find((c) => c.connected)?.kind ?? null };
@@ -319,21 +329,26 @@ export function registerCrmUlanishRoutes(app: FastifyInstance): void {
     if (!q || !ulanganmi(q)) throw AppError.badRequest('CRM ulanmagan');
 
     const config = (q.config ?? {}) as Record<string, unknown>;
-    const { voronkalar, ...qolgan } = body;
+    const { voronkalar, ichkiCrm, ...qolgan } = body;
     const yangi = crmSozlamaSchema.parse({ ...sozlamaniOl(q.config), ...qolgan });
     const lid = lidSozlamaniOl(q.config);
     // Voronka tanlovi o'zgarsa — import boshidan (yangi tanlangan voronkalar ham kelsin)
-    const lidYangi =
+    let lidYangi =
       voronkalar === undefined
         ? lid
         : { ...lid, voronkalar: voronkalar && voronkalar.length > 0 ? voronkalar : null, kursor: null, birinchiTugadi: false };
+    // Ichki CRM ga ko'chirish qayta yoqilsa — lidlar boshidan qayta olinadi (orada o'zgarganlari ham kelsin)
+    if (ichkiCrm !== undefined && ichkiCrm !== lid.ichkiCrm) {
+      lidYangi = { ...lidYangi, ichkiCrm, ...(ichkiCrm ? { ichkiBoshlangan: false } : {}) };
+    }
     await withTenant(businessId, (tx) =>
       tx
         .update(integration)
         .set({ config: { ...config, crmSozlama: yangi, crmLid: lidYangi }, updatedAt: new Date() })
         .where(eq(integration.id, q.id)),
     );
-    return { ok: true, settings: yangi, leads: { voronkalar: lidYangi.voronkalar } };
+    if (voronkalar !== undefined || ichkiCrm !== undefined) tuzilishKeshniTozala(q.id);
+    return { ok: true, settings: yangi, leads: { voronkalar: lidYangi.voronkalar, ichkiCrm: lidYangi.ichkiCrm } };
   });
 
   /** Lidlarni hozir olish — keyingi avtomatik tikni kutmasdan (2 sahifagacha). */

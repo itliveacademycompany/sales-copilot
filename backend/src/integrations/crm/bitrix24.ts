@@ -182,6 +182,7 @@ async function tuzilishniOl(w: BitrixWebhook): Promise<CrmTuzilish> {
       isActive: u.ACTIVE !== false && u.ACTIVE !== 'N',
     })),
     leadFieldCount: Array.isArray(maydonlar) ? maydonlar.length : 0,
+    leadFields: [],
   };
 }
 
@@ -303,6 +304,23 @@ function sana(s: string | null | undefined): Date | null {
  * joy amoCRM dagi kabi: sahifadagi eng katta vaqt; butun sahifa bir xil
  * vaqtda bo'lsa — `start` oshiriladi.
  */
+/**
+ * Qaysi sdelkalar hali bor: `@ID` (IN) filtri, 50 tadan — Bitrix24 ro'yxat
+ * usullari bir javobda shuncha qaytaradi. O'chirilgan sdelka javobda bo'lmaydi.
+ */
+async function mavjudLidlarniOl(w: BitrixWebhook, idlar: string[]): Promise<Set<string>> {
+  const bor = new Set<string>();
+  const sonli = idlar.filter((id) => /^\d+$/.test(id));
+  for (let i = 0; i < sonli.length; i += 50) {
+    const bolak = sonli.slice(i, i + 50);
+    const javob = await bitrixChaqir<unknown>(w, 'crm.deal.list', { filter: { '@ID': bolak.map(Number) }, select: ['ID'] });
+    const j = z.array(z.object({ ID: z.coerce.string() })).safeParse(javob ?? []);
+    if (!j.success) throw new CrmXato('server', "Bitrix24 sdelkalarini tekshirib bo'lmadi");
+    for (const d of j.data) bor.add(d.ID);
+  }
+  return bor;
+}
+
 async function lidlarniOl(w: BitrixWebhook, kursor: string | null) {
   const k = bxKursorniOqi(kursor);
   const javob = await bitrixSorov<unknown>(w, 'crm.deal.list', {
@@ -348,6 +366,7 @@ async function lidlarniOl(w: BitrixWebhook, kursor: string | null) {
       yangilangan: sana(d.DATE_MODIFY) ?? new Date(),
       yopilgan: d.CLOSED === 'Y' ? sana(d.CLOSEDATE) : null,
       url: `https://${w.portal}/crm/deal/details/${d.ID}/`,
+      maydonlar: {},
     };
   });
 
@@ -428,6 +447,8 @@ export const bitrix24Adapter: CrmAdapter = {
   },
 
   lidlar: (k, kursor) => lidlarniOl(kontekstdan(k), kursor),
+
+  mavjudLidlar: (k, idlar) => mavjudLidlarniOl(kontekstdan(k), idlar),
 
   async vazifa(k, y, v) {
     const r = await bitrixChaqir<{ id?: number } | number>(kontekstdan(k), 'crm.activity.todo.add', {

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { Tx } from '../db/index.js';
 import { crmProduct, deal, dealEvent, dealItem } from '../db/schema/index.js';
 import { CrmXatosi } from './xato.js';
-import { bitimniOl, yozaOladimi, type CrmDoira } from './xizmat.js';
+import { bitimniOl, tashqiTekshir, yozaOladimi, type CrmDoira } from './xizmat.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -102,6 +102,7 @@ async function summaniHisobla(tx: Tx, p: { dealId: string; businessId: string; u
 export async function qatorQosh(tx: Tx, p: { dealId: string; userId: string; doira: CrmDoira; kirish: z.infer<typeof qatorKirish> }): Promise<string> {
   const d = await bitimniOl(tx, p.dealId, p.doira);
   yozaOladimi(d, p.doira);
+  await tashqiTekshir(tx, d);
   const k = p.kirish;
   let name = k.name ?? '';
   let price = k.price;
@@ -134,6 +135,7 @@ export async function qatorniYangila(
 ): Promise<void> {
   const d = await bitimniOl(tx, p.dealId, p.doira);
   yozaOladimi(d, p.doira);
+  await tashqiTekshir(tx, d);
   const k = p.kirish;
   const ozg: Partial<typeof dealItem.$inferInsert> = {};
   if (k.name !== undefined) ozg.name = k.name;
@@ -152,6 +154,7 @@ export async function qatorniYangila(
 export async function qatorniOchir(tx: Tx, p: { dealId: string; itemId: string; userId: string; doira: CrmDoira }): Promise<void> {
   const d = await bitimniOl(tx, p.dealId, p.doira);
   yozaOladimi(d, p.doira);
+  await tashqiTekshir(tx, d);
   const r = await tx
     .delete(dealItem)
     .where(and(eq(dealItem.id, p.itemId), eq(dealItem.dealId, d.id)))

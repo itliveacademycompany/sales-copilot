@@ -176,6 +176,20 @@
       "when": 1792663414438,
       "tag": "0024_lean_starfox",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792670008003,
+      "tag": "0025_free_sinister_six",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792818642880,
+      "tag": "0026_qollanma_video",
+      "breakpoints": true
     }
   ]
 }

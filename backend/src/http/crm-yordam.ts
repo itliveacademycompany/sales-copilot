@@ -21,6 +21,21 @@ export function doira(req: FastifyRequest): CrmDoira {
   };
 }
 
+/**
+ * O'zgartiruvchi amallar uchun doira. "Faqat o'zinikini yozish" huquqi seat'i
+ * (menejer o'rni) bor odamdagina ma'noli. Seat'siz foydalanuvchi (auditor —
+ * faqat o'qish roli) uchun "o'zi" yo'q: ilgari `null === null` tufayli u
+ * mas'ulsiz bitim va vazifalarni o'zgartira olardi. Endi bunday so'rov
+ * marshrut darajasida to'xtatiladi; xizmatdagi tekshiruvlar ikkinchi qavat.
+ */
+export function yozishDoirasi(req: FastifyRequest): CrmDoira {
+  const d = doira(req);
+  if (d.yozish === 'own' && !d.seatId) {
+    throw AppError.forbidden("CRM da sizda faqat ko'rish huquqi bor");
+  }
+  return d;
+}
+
 /** Xizmat xatosini HTTP javobiga aylantiradi. */
 export async function bajar<T>(fn: () => Promise<T>): Promise<T> {
   try {

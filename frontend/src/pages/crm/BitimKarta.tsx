@@ -4,6 +4,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Circle,
+  ExternalLink,
   History,
   ListChecks,
   MessageSquareText,
@@ -11,6 +12,7 @@ import {
   Phone,
   PhoneCall,
   Plus,
+  RefreshCw,
   RotateCcw,
   Send,
   Sparkles,
@@ -102,7 +104,11 @@ interface Kartochka {
     version: number;
     createdAt: string;
     stageEnteredAt: string;
+    externalId: string | null;
+    externalUrl: string | null;
   };
+  /** Tashqi CRM nomi (masalan "amoCRM") — bitim u yerdan sinxronlanadi. */
+  sync: string | null;
   company: { id: string; name: string; phone: string | null; website: string | null } | null;
   lossReason: { id: string; name: string } | null;
   items: TovarQatori[];
@@ -202,6 +208,8 @@ export function BitimKarta() {
   const yozaOladi = holat.canManageAll || d.responsibleSeatId === holat.seatId;
   const maydonNomi = new Map(holat.fields.map((f) => [f.id, f]));
   const tovarli = k.items.length > 0;
+  // amoCRM dan sinxronlanadi: nom, summa, bosqich, mas'ul va amoCRM maydonlari faqat o'qiladi
+  const sinx = k.sync;
 
   const saqla = async () => {
     setBand(true);
@@ -215,9 +223,9 @@ export function BitimKarta() {
       const amount = qoralama.amount.trim() === '' ? null : Number(qoralama.amount.replace(/\s/g, '').replace(',', '.'));
       await api.patch(`${base}/deals/${d.id}`, {
         version: d.version,
-        name: qoralama.name.trim() || d.name,
-        amount: tovarli ? undefined : Number.isFinite(amount as number) || amount === null ? amount : undefined,
-        responsibleSeatId: holat.canManageAll ? qoralama.responsibleSeatId || null : undefined,
+        name: sinx ? undefined : qoralama.name.trim() || d.name,
+        amount: tovarli || sinx ? undefined : Number.isFinite(amount as number) || amount === null ? amount : undefined,
+        responsibleSeatId: holat.canManageAll && !sinx ? qoralama.responsibleSeatId || null : undefined,
         companyId: qoralama.companyId || null,
         tags: qoralama.tags,
         fields: Object.keys(fields).length ? fields : undefined,
@@ -291,7 +299,7 @@ export function BitimKarta() {
               <button
                 key={s.id}
                 type="button"
-                disabled={!yozaOladi || faol}
+                disabled={!yozaOladi || faol || Boolean(sinx)}
                 aria-current={faol ? 'step' : undefined}
                 className={`ci-qadam ${s.kind}${faol ? ' faol' : ''}${otgan ? ' otgan' : ''}`}
                 style={{ ['--bosqich' as string]: s.color }}
@@ -302,6 +310,17 @@ export function BitimKarta() {
               </button>
             );
           })}
+        </div>
+      )}
+      {sinx && (
+        <div className="card ci-sinx-qator" role="note">
+          <RefreshCw aria-hidden="true" />
+          <span>{t("{crm} dan sinxronlanadi — nom, summa, bosqich, mas'ul va {crm} maydonlari u yerda o'zgartiriladi. Teglar, kompaniya, izoh va vazifalarni shu yerda qo'shish mumkin.", { crm: sinx })}</span>
+          {d.externalUrl && (
+            <a href={d.externalUrl} target="_blank" rel="noopener noreferrer">
+              {t('{crm} da ochish', { crm: sinx })} <ExternalLink aria-hidden="true" />
+            </a>
+          )}
         </div>
       )}
       {bosqich?.kind === 'lost' && (k.lossReason || d.lostReason) && (
@@ -323,7 +342,14 @@ export function BitimKarta() {
             <fieldset disabled={!yozaOladi} className="ci-fieldset">
               <div className="maydon-blok">
                 <label htmlFor="bk-nom">{t('Bitim nomi')}</label>
-                <input id="bk-nom" className="input" value={qoralama.name} maxLength={250} onChange={(e) => setQoralama({ ...qoralama, name: e.target.value })} />
+                <input
+                  id="bk-nom"
+                  className="input"
+                  value={qoralama.name}
+                  maxLength={250}
+                  readOnly={Boolean(sinx)}
+                  onChange={(e) => setQoralama({ ...qoralama, name: e.target.value })}
+                />
               </div>
               <div className="vr-oyna-ikki">
                 <div className="maydon-blok">
@@ -333,14 +359,14 @@ export function BitimKarta() {
                     className="input"
                     inputMode="decimal"
                     value={qoralama.amount}
-                    readOnly={tovarli}
+                    readOnly={tovarli || Boolean(sinx)}
                     title={tovarli ? t('Summa tovarlardan hisoblanadi') : undefined}
                     onChange={(e) => setQoralama({ ...qoralama, amount: e.target.value.replace(/[^\d.,\s]/g, '') })}
                   />
                 </div>
                 <div className="maydon-blok">
                   <label htmlFor="bk-masul">{t("Mas'ul")}</label>
-                  {holat.canManageAll ? (
+                  {holat.canManageAll && !sinx ? (
                     <select id="bk-masul" className="input" value={qoralama.responsibleSeatId} onChange={(e) => setQoralama({ ...qoralama, responsibleSeatId: e.target.value })}>
                       <option value="">{t('Biriktirilmagan')}</option>
                       {seatlar.map((s) => (
@@ -386,7 +412,7 @@ export function BitimKarta() {
             )}
           </section>
 
-          <Tovarlar dealId={d.id} items={k.items} yozaOladi={yozaOladi} onOzgardi={yukla} />
+          <Tovarlar dealId={d.id} items={k.items} yozaOladi={yozaOladi && !sinx} onOzgardi={yukla} />
 
           {guruhla(holat.fields).map((g) => (
             <section className="card ci-blok" key={g.nom} aria-label={t(g.nom)}>
@@ -398,12 +424,18 @@ export function BitimKarta() {
                       {m.label}
                       {m.required && <span className="ci-majburiy"> *</span>}
                     </label>
-                    <MaydonKiritish
-                      id={`bk-${m.id}`}
-                      m={m}
-                      qiymat={qoralama.fields[m.id]}
-                      onChange={(v) => setQoralama({ ...qoralama, fields: { ...qoralama.fields, [m.id]: v } })}
-                    />
+                    {sinx && m.external ? (
+                      <fieldset disabled className="ci-fieldset" title={t('{crm} da o‘zgartiriladi', { crm: sinx })}>
+                        <MaydonKiritish id={`bk-${m.id}`} m={m} qiymat={qoralama.fields[m.id]} onChange={() => undefined} />
+                      </fieldset>
+                    ) : (
+                      <MaydonKiritish
+                        id={`bk-${m.id}`}
+                        m={m}
+                        qiymat={qoralama.fields[m.id]}
+                        onChange={(v) => setQoralama({ ...qoralama, fields: { ...qoralama.fields, [m.id]: v } })}
+                      />
+                    )}
                   </div>
                 ))}
               </fieldset>
@@ -880,9 +912,10 @@ function Lenta({ k, maydonNomi, onIzoh }: { k: Kartochka; maydonNomi: Map<string
       case 'task_reschedule':
         return t('Vazifa muddati ko‘chirildi: «{v}» → {s}', { v: String(d.title ?? ''), s: d.after ? fmtSana(String(d.after)) : t('muddatsiz') });
       case 'deleted':
-        return t('Bitim savatga o‘tkazildi');
+        // Sinxron: sdelka tashqi CRM da o'chirilgan — nega savatda ekanini aniq aytamiz.
+        return d.sync ? t('{crm} da o‘chirilgan — bitim savatga o‘tkazildi', { crm: String(d.sync) }) : t('Bitim savatga o‘tkazildi');
       case 'restored':
-        return t('Bitim savatdan tiklandi');
+        return d.sync ? t('{crm} da tiklangan — bitim savatdan qaytarildi', { crm: String(d.sync) }) : t('Bitim savatdan tiklandi');
       case 'inbox':
         return t('Murojaat biriktirildi: {n}', { n: [d.name, d.phone].filter(Boolean).join(', ') || '—' }) + (d.message ? ` — ${String(d.message)}` : '');
       case 'merge':
@@ -977,6 +1010,8 @@ function Lenta({ k, maydonNomi, onIzoh }: { k: Kartochka; maydonNomi: Map<string
                   <RotateCcw />
                 ) : b.h.data.automation ? (
                   <Zap />
+                ) : b.h.data.sync ? (
+                  <RefreshCw />
                 ) : (
                   <History />
                 )}
@@ -984,7 +1019,11 @@ function Lenta({ k, maydonNomi, onIzoh }: { k: Kartochka; maydonNomi: Map<string
               <div className="ci-lenta-matn">
                 {b.h.type === 'note' ? <p className="ci-izoh">{String(b.h.data.text ?? '')}</p> : <p>{hodisaMatni(b.h)}</p>}
                 <small>
-                  {b.h.data.automation ? t('Avtomatika: {n}', { n: String(b.h.data.automation) }) : (b.h.authorName ?? t('Tizim'))} · {fmtSana(b.h.createdAt)}
+                  {b.h.data.automation
+                    ? t('Avtomatika: {n}', { n: String(b.h.data.automation) })
+                    : b.h.data.sync
+                      ? t('{crm} dan', { crm: String(b.h.data.sync) })
+                      : (b.h.authorName ?? t('Tizim'))} · {fmtSana(b.h.createdAt)}
                 </small>
               </div>
             </li>

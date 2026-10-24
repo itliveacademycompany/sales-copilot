@@ -43,8 +43,11 @@ RUN python -m venv /opt/stt \
       -r /tmp/requirements-gigaam.txt \
  && /opt/stt/bin/python -c "import torch, sys; print('torch', torch.__version__); sys.exit(0 if '+cpu' in torch.__version__ else 'torch CPU varianti emas - obraz keraksiz kattalashadi')"
 
+# /data/media — qo'llanma videolari (docker-compose'da doimiy volume). Papka
+# obrazda `app` egaligida turishi shart: bo'sh volume birinchi ulanganda
+# egalikni shu yerdan oladi, aks holda root'niki bo'lib, yozib bo'lmasdi.
 RUN useradd --create-home --uid 10001 app \
- && mkdir -p /data/hf \
+ && mkdir -p /data/hf /data/media \
  && chown -R app:app /data
 
 WORKDIR /app
@@ -62,7 +65,8 @@ ENV NODE_ENV=production \
     PORT=3000 \
     GIGAAM_PYTHON=/opt/stt/bin/python \
     STT_DEVICE=cpu \
-    HF_HOME=/data/hf
+    HF_HOME=/data/hf \
+    MEDIA_DIR=/data/media
 
 USER app
 EXPOSE 3000

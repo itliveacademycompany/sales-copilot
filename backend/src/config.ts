@@ -147,6 +147,22 @@ const schema = z.object({
 
   /** FR-155: to'lov kechiksa ham ishlaydigan davr (kun). */
   BILLING_GRACE_DAYS: z.coerce.number().int().min(1).max(30).default(10),
+
+  // ─── Qo'llanma videolari ───
+
+  /**
+   * Yuklangan fayllar uchun DOIMIY papka. Serverda — Docker volume
+   * (`/data/media`, docker-compose.yml), aks holda har deploy'da videolar
+   * yo'qolardi. Lokal: `backend/.media` (git'ga tushmaydi).
+   */
+  MEDIA_DIR: z.string().trim().min(1).default('.media'),
+
+  /** ffmpeg/ffprobe — yuklangan videoni brauzerga mos formatga o'tkazish uchun (obrazda bor). */
+  FFMPEG_PATH: z.string().trim().min(1).default('ffmpeg'),
+  FFPROBE_PATH: z.string().trim().min(1).default('ffprobe'),
+
+  /** Bitta qo'llanma videosining eng katta hajmi (MB). */
+  QOLLANMA_MAX_MB: z.coerce.number().int().min(10).max(20_000).default(4096),
 });
 
 const parsed = schema.safeParse(process.env);

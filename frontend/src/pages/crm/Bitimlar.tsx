@@ -8,6 +8,7 @@ import {
   Filter,
   List,
   Plus,
+  RefreshCw,
   Search,
   Trash2,
   TriangleAlert,
@@ -549,7 +550,9 @@ function SaqlanganFiltrlar({ filtr, onTanla }: { filtr: string; onTanla: (f: Rec
 // ─── Kanban ──────────────────────────────────────────────────────────────────
 
 function Kanban({ voronkaId, filtr, yangilash }: { voronkaId: string; filtr: string; yangilash: number }) {
-  const { base } = useCrm();
+  const { base, holat } = useCrm();
+  // amoCRM dan sinxronlanayotgan voronka: bosqich u yerda o'zgartiriladi
+  const tashqi = holat.pipelines.find((p) => p.id === voronkaId)?.external ? (holat.externalSync ?? 'CRM') : null;
   const t = useT();
   const navigate = useNavigate();
   const [ustunlar, setUstunlar] = useState<KanbanUstun[] | null>(null);
@@ -613,6 +616,12 @@ function Kanban({ voronkaId, filtr, yangilash }: { voronkaId: string; filtr: str
           {xato}
         </div>
       )}
+      {tashqi && (
+        <div className="card ci-sinx-qator" role="note">
+          <RefreshCw aria-hidden="true" />
+          {t("Bu voronka {crm} dan har daqiqada sinxronlanadi — bitim bosqichi, summasi va mas'uli {crm} da o'zgartiriladi.", { crm: tashqi })}
+        </div>
+      )}
       <div className="ci-kanban" role="list" aria-label={t('Bosqichlar')}>
         {ustunlar.map((u) => (
           <section
@@ -645,6 +654,7 @@ function Kanban({ voronkaId, filtr, yangilash }: { voronkaId: string; filtr: str
                 <KanbanKarta
                   key={d.id}
                   d={d}
+                  qulf={Boolean(tashqi && d.externalId)}
                   onDragStart={() => {
                     sudralayotgan.current = d;
                   }}
@@ -675,13 +685,13 @@ function Kanban({ voronkaId, filtr, yangilash }: { voronkaId: string; filtr: str
   );
 }
 
-function KanbanKarta({ d, onDragStart, onOch }: { d: BitimKartasi; onDragStart: () => void; onOch: () => void }) {
+function KanbanKarta({ d, qulf, onDragStart, onOch }: { d: BitimKartasi; qulf: boolean; onDragStart: () => void; onOch: () => void }) {
   const t = useT();
   const muddat = muddatHolati(d.nextTaskAt);
   return (
     <article
-      className="ci-karta"
-      draggable
+      className={`ci-karta${qulf ? ' qulf' : ''}`}
+      draggable={!qulf}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', d.id);

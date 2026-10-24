@@ -2,6 +2,7 @@ import { ChevronRight, ListChecks } from 'lucide-react';
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { api, fmtSana, type SeatRow, type TaskAnalytics, type TaskRow } from '../api';
+import { YuklashXatosi } from '../components/YuklashXatosi';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
 
@@ -35,12 +36,14 @@ export function Tasks() {
   const [seatId, setSeatId] = useState('');
   const [dueAt, setDueAt] = useState('');
   const [loading, setLoading] = useState(true);
+  const [xato, setXato] = useState<unknown>(null);
 
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
 
   const load = useCallback(() => {
     if (!base) return;
     setLoading(true);
+    setXato(null);
     const q = view ? `?view=${view}` : '';
     void Promise.all([
       api.get<{ tasks: TaskRow[] }>(`${base}/tasks${q}`),
@@ -50,6 +53,7 @@ export function Tasks() {
         setRows(t.tasks);
         setStats(a);
       })
+      .catch((e: unknown) => setXato(e))
       .finally(() => setLoading(false));
   }, [base, view]);
 
@@ -173,7 +177,9 @@ export function Tasks() {
       </div>
 
       <div className="card">
-        {loading ? (
+        {xato ? (
+          <YuklashXatosi xato={xato} onQayta={load} ichki />
+        ) : loading ? (
           <div className="yuklanmoqda">{tr('Yuklanmoqda…')}</div>
         ) : rows.length === 0 ? (
           <div className="hech-narsa">

@@ -25,6 +25,8 @@ export interface Voronka {
   name: string;
   sort: number;
   isMain: boolean;
+  /** amoCRM dan sinxronlanadi — tuzilmasi u yerda boshqariladi. */
+  external?: boolean;
   stages: Bosqich[];
 }
 
@@ -55,6 +57,8 @@ export interface Maydon {
   groupName: string | null;
   sort: number;
   required: boolean;
+  /** amoCRM maydoni — qiymati u yerda o'zgartiriladi. */
+  external?: boolean;
 }
 
 export interface VazifaTuri {
@@ -85,6 +89,8 @@ export interface CrmHolat {
   templates: { kod: 'bosh' | 'talim'; nom: string; tavsif: string; pipelines: number; fields: number }[];
   pipelines: Voronka[];
   fields: Maydon[];
+  /** Ichki CRM ga sinxronlanayotgan tashqi CRM nomi ("amoCRM") yoki null. */
+  externalSync?: string | null;
 }
 
 export interface BitimKartasi {
@@ -110,6 +116,8 @@ export interface BitimKartasi {
   source: string | null;
   companyId: string | null;
   lostReason: string | null;
+  /** Tashqi CRM dagi ID (sinxronlangan bitim). */
+  externalId?: string | null;
 }
 
 export interface KanbanUstun {

@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ballKlass, fmtSana, type ConversationRow } from '../api';
 import { SuhbatYuklash } from '../components/SuhbatYuklash';
+import { YuklashXatosi } from '../components/YuklashXatosi';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
 
@@ -31,6 +32,7 @@ export function Conversations() {
   const [status, setStatus] = useState('');
   const [rows, setRows] = useState<ConversationRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [xato, setXato] = useState<unknown>(null);
   const [yangilash, setYangilash] = useState(0);
 
   // Yuklash huquqi qayta tahlil bilan bir xil: ikkalasi ham LLM pulini
@@ -40,12 +42,14 @@ export function Conversations() {
   useEffect(() => {
     if (!business) return;
     setLoading(true);
+    setXato(null);
     const q = status ? `?status=${status}` : '';
     void api
       .get<{ conversations: ConversationRow[] }>(
         `/api/v1/businesses/${business.businessId}/conversations${q}`,
       )
       .then((r) => setRows(r.conversations))
+      .catch((e: unknown) => setXato(e))
       .finally(() => setLoading(false));
   }, [business, status, yangilash]);
 
@@ -82,7 +86,9 @@ export function Conversations() {
       )}
 
       <div className="card">
-        {loading ? (
+        {xato ? (
+          <YuklashXatosi xato={xato} onQayta={() => setYangilash((n) => n + 1)} ichki />
+        ) : loading ? (
           <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>
         ) : rows.length === 0 ? (
           <div className="hech-narsa">

@@ -129,6 +129,23 @@ const UMUMIY: Lugat = {
     ru: 'Платёж просрочен — анализ остановится через {kun} дн.',
   },
   boshqarish: { en: 'manage', ru: 'управлять' },
+
+  // ─── Xato chegarasi (components/XatoChegarasi.tsx) ───
+  'Sayt yangilandi': { en: 'The site has been updated', ru: 'Сайт обновлён' },
+  'Yangi versiyani ochish uchun sahifani yangilang.': {
+    en: 'Reload the page to open the new version.',
+    ru: 'Обновите страницу, чтобы открыть новую версию.',
+  },
+  "Bu qismni ko'rsatib bo'lmadi": { en: "This section couldn't be displayed", ru: 'Не удалось показать этот раздел' },
+  "Kutilmagan xato yuz berdi. Qayta urinib ko'ring — muammo takrorlansa, administratorga xabar bering.": {
+    en: 'An unexpected error occurred. Try again — if it keeps happening, tell your administrator.',
+    ru: 'Произошла непредвиденная ошибка. Попробуйте ещё раз — если повторится, сообщите администратору.',
+  },
+  'Sahifani yangilash': { en: 'Reload page', ru: 'Обновить страницу' },
+  "Internet ulanishini tekshirib, qayta urinib ko'ring.": {
+    en: 'Check your internet connection and try again.',
+    ru: 'Проверьте подключение к интернету и попробуйте снова.',
+  },
 };
 
 export default UMUMIY;

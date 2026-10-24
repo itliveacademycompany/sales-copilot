@@ -22,6 +22,7 @@ import { telefonKaliti } from '../integrations/crm/adapter.js';
 import { kontaktTelefoni } from '../integrations/crm/lidlar.js';
 import { bosqichRangi, MAYDON_TURLARI, SHABLONLAR, variantlar, type BosqichTuri, type Shablon } from './shablon.js';
 import { radSabablariniBoshla, sozlamaniBoshla, sozlamaniOl } from './sozlama.js';
+import { tashqiSinxronmi } from './tashqi.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -113,12 +114,29 @@ export interface MaydonTavsifi {
   groupName: string | null;
   sort: number;
   required: boolean;
+  /** Faol tashqi sinxron (amoCRM) maydoni — qiymati va o'zi u yerda boshqariladi. */
+  external?: boolean;
+}
+
+/**
+ * Qator faol tashqi sinxronga tegishlimi (`tashqiSinxronmi` bilan bir xil
+ * shart): CRM ulangan va lidlarni ichki CRM ga ko'chirish yoqilgan.
+ */
+function faolTashqi(jadval: 'crm_pipeline' | 'crm_field') {
+  return sql<boolean>`exists (select 1 from integration i where i.id = ${sql.raw(`"${jadval}"."integration_id"`)} and i.status in ('connected', 'error') and coalesce((i.config #>> '{crmLid,ichkiCrm}')::boolean, true))`;
 }
 
 export async function tuzilma(tx: Tx) {
   const [voronkalar, bosqichlar, maydonlar] = await Promise.all([
     tx
-      .select({ id: crmPipeline.id, name: crmPipeline.name, sort: crmPipeline.sort, isMain: crmPipeline.isMain })
+      .select({
+        id: crmPipeline.id,
+        name: crmPipeline.name,
+        sort: crmPipeline.sort,
+        isMain: crmPipeline.isMain,
+        /** Tashqi CRM dan ko'chirilgan (tuzilmasi u yerda boshqariladi). */
+        external: faolTashqi('crm_pipeline'),
+      })
       .from(crmPipeline)
       .where(isNull(crmPipeline.archivedAt))
       .orderBy(asc(crmPipeline.sort), asc(crmPipeline.createdAt)),
@@ -136,6 +154,7 @@ export async function tuzilma(tx: Tx) {
         groupName: crmField.groupName,
         sort: crmField.sort,
         required: crmField.required,
+        external: faolTashqi('crm_field'),
       })
       .from(crmField)
       .where(isNull(crmField.archivedAt))
@@ -383,9 +402,44 @@ export async function bitimniOl(tx: Tx, id: string, doira: CrmDoira, savatdan = 
 }
 
 export function yozaOladimi(d: { responsibleSeatId: string | null }, doira: CrmDoira): void {
-  if (doira.yozish === 'own' && d.responsibleSeatId !== doira.seatId) {
+  // Seat'siz "o'zi" yo'q: ilgari mas'ulsiz bitimda `null !== null` → false bo'lib,
+  // faqat o'qish huquqli auditor ham uni o'zgartira olardi.
+  if (doira.yozish === 'own' && (!doira.seatId || d.responsibleSeatId !== doira.seatId)) {
     throw new CrmXatosi('ruxsat', "Bu bitimni o'zgartirishga ruxsatingiz yo'q");
   }
+}
+
+/**
+ * Tashqi CRM dan sinxronlanadigan bitim — asosiy maydonlari shu yerda
+ * o'zgarmaydi. CRM nomi ulanishdan (`tashqiSinxronmi`): ilgari matn doim
+ * "amoCRM" derdi, Bitrix24 foydalanuvchisini ham amoCRM ga yuborardi.
+ */
+export function tashqiXatosi(crm: string): string {
+  return `Bu bitim ${crm} dan sinxronlanadi — nom, summa, bosqich va mas'ulni ${crm} da o'zgartiring`;
+}
+
+/**
+ * Tashqi CRM dan sinxronlanayotgan voronka/maydon tuzilmasi faqat o'sha
+ * yerda o'zgartiriladi — bu yerdagi tahrir keyingi sinxronda baribir yo'qolardi.
+ */
+async function tuzilmaTashqimi(tx: Tx, tur: 'voronka' | 'maydon', id: string): Promise<void> {
+  const [r] =
+    tur === 'voronka'
+      ? await tx.select({ integrationId: crmPipeline.integrationId }).from(crmPipeline).where(eq(crmPipeline.id, id)).limit(1)
+      : await tx.select({ integrationId: crmField.integrationId }).from(crmField).where(eq(crmField.id, id)).limit(1);
+  const nom = r?.integrationId ? await tashqiSinxronmi(tx, r.integrationId) : null;
+  if (!nom) return;
+  throw new CrmXatosi(
+    'ziddiyat',
+    tur === 'voronka'
+      ? `Bu voronka ${nom} dan sinxronlanadi — nomi va bosqichlarini ${nom} da o'zgartiring`
+      : `Bu maydon ${nom} dan sinxronlanadi — uni ${nom} da o'zgartiring`,
+  );
+}
+
+export async function tashqiTekshir(tx: Tx, d: { integrationId: string | null }): Promise<void> {
+  const crm = await tashqiSinxronmi(tx, d.integrationId);
+  if (crm) throw new CrmXatosi('ziddiyat', tashqiXatosi(crm));
 }
 
 export const bitimYangilash = z.object({
@@ -412,6 +466,22 @@ export async function bitimniYangila(
   const k = p.kirish;
   if (d.version !== k.version) {
     throw new CrmXatosi('ziddiyat', "Bitimni boshqa foydalanuvchi o'zgartirdi — sahifani yangilab, qayta urinib ko'ring");
+  }
+  const tashqiCrm = d.integrationId ? await tashqiSinxronmi(tx, d.integrationId) : null;
+  if (tashqiCrm) {
+    const asosiy =
+      (k.name !== undefined && k.name !== d.name) ||
+      (k.amount !== undefined && (k.amount === null ? null : Number(k.amount)) !== (d.amount === null ? null : Number(d.amount))) ||
+      (k.responsibleSeatId !== undefined && k.responsibleSeatId !== d.responsibleSeatId);
+    let tashqiMaydon = false;
+    if (k.fields && Object.keys(k.fields).length) {
+      const t = await tx
+        .select({ id: crmField.id })
+        .from(crmField)
+        .where(and(inArray(crmField.id, Object.keys(k.fields)), sql`${crmField.integrationId} is not null`));
+      tashqiMaydon = t.length > 0;
+    }
+    if (asosiy || tashqiMaydon) throw new CrmXatosi('ziddiyat', tashqiXatosi(tashqiCrm));
   }
 
   const ozgarish: Partial<typeof deal.$inferInsert> = {};
@@ -503,6 +573,7 @@ export async function bitimniKochir(
   const d = await bitimniOl(tx, p.id, p.doira);
   yozaOladimi(d, p.doira);
   if (d.stageId === p.kirish.stageId) return;
+  await tashqiTekshir(tx, d);
   const [eski, yangi] = await Promise.all([bosqichniOl(tx, d.stageId), bosqichniOl(tx, p.kirish.stageId)]);
   if (!yangi) throw new CrmXatosi('yaroqsiz', 'Bosqich topilmadi');
   let sababNomi: string | null = null;
@@ -579,6 +650,9 @@ export async function bitimniButunlayOchir(tx: Tx, p: { id: string; doira: CrmDo
 
 export async function izohQosh(tx: Tx, p: { id: string; userId: string; doira: CrmDoira; matn: string }): Promise<void> {
   const d = await bitimniOl(tx, p.id, p.doira);
+  // Izoh ham yozish: ilgari faqat ko'rish tekshirilardi — hammani ko'radigan
+  // auditor istalgan bitimga izoh qo'sha olardi.
+  yozaOladimi(d, p.doira);
   await tx.insert(dealEvent).values({ businessId: d.businessId, dealId: d.id, type: 'note', data: { text: p.matn }, authorUserId: p.userId });
 }
 
@@ -653,6 +727,7 @@ function kartaUstunlari() {
     source: deal.source,
     companyId: deal.companyId,
     lostReason: deal.lostReason,
+    externalId: deal.externalId,
     /** Eng yaqin ochiq vazifa muddati — "vazifasiz bitim" belgisi uchun. */
     nextTaskAt: sql<Date | null>`(select min(t.due_at) from task t where t.deal_id = "deal"."id" and t.status in ('pending','in_progress','blocked'))`,
     openTasks: sql<number>`(select count(*)::int from task t where t.deal_id = "deal"."id" and t.status in ('pending','in_progress','blocked'))`,
@@ -961,6 +1036,8 @@ export async function bitimKartochkasi(tx: Tx, p: { id: string; doira: CrmDoira 
   ]);
   return {
     deal: { ...d, amount: d.amount === null ? null : Number(d.amount) },
+    /** Tashqi CRM dan sinxronlanayotgan bo'lsa — uning nomi (asosiy maydonlar faqat o'qiladi). */
+    sync: await tashqiSinxronmi(tx, d.integrationId),
     company: kompaniya,
     lossReason: sabab,
     items: tovarlar.map((t) => ({ ...t, price: Number(t.price), quantity: Number(t.quantity), discount: Number(t.discount) })),
@@ -988,6 +1065,7 @@ export async function voronkaYarat(tx: Tx, businessId: string, name: string): Pr
 }
 
 export async function voronkaniYangila(tx: Tx, id: string, k: { name?: string; archived?: boolean }): Promise<void> {
+  await tuzilmaTashqimi(tx, 'voronka', id);
   const ozg: Partial<typeof crmPipeline.$inferInsert> = { updatedAt: new Date() };
   if (k.name !== undefined) ozg.name = k.name;
   if (k.archived !== undefined) {
@@ -1023,6 +1101,7 @@ export async function bosqichlarniSaqla(tx: Tx, p: { businessId: string; pipelin
   if (!b.some((x) => x.kind === 'open') || !b.some((x) => x.kind === 'won') || !b.some((x) => x.kind === 'lost')) {
     throw new CrmXatosi('yaroqsiz', "Voronkada kamida bitta ochiq, bitta muvaffaqiyatli va bitta yo'qotilgan bosqich bo'lishi kerak");
   }
+  await tuzilmaTashqimi(tx, 'voronka', p.pipelineId);
   const mavjud = await tx.select({ id: crmStage.id }).from(crmStage).where(eq(crmStage.pipelineId, p.pipelineId));
   if (mavjud.length === 0) {
     const [v] = await tx.select({ id: crmPipeline.id }).from(crmPipeline).where(eq(crmPipeline.id, p.pipelineId)).limit(1);
@@ -1111,6 +1190,7 @@ export async function maydonYarat(tx: Tx, businessId: string, k: z.infer<typeof 
 export async function maydonniYangila(tx: Tx, id: string, k: Partial<z.infer<typeof maydonKirish>> & { archived?: boolean }): Promise<void> {
   const [f] = await tx.select({ id: crmField.id, options: crmField.options }).from(crmField).where(eq(crmField.id, id)).limit(1);
   if (!f) throw new CrmXatosi('topilmadi', 'Maydon topilmadi');
+  await tuzilmaTashqimi(tx, 'maydon', id);
   const ozg: Partial<typeof crmField.$inferInsert> = { updatedAt: new Date() };
   if (k.label !== undefined) ozg.label = k.label;
   if (k.groupName !== undefined) ozg.groupName = k.groupName;
@@ -1182,6 +1262,7 @@ export async function ommaviyAmal(
       } else {
         const d = await bitimniOl(tx, id, p.doira);
         yozaOladimi(d, p.doira);
+        if (k.action === 'responsible') await tashqiTekshir(tx, d);
         const ozg: Partial<typeof deal.$inferInsert> = {};
         let hodisa: { type: string; data: Record<string, unknown> } | null = null;
         if (k.action === 'responsible') {

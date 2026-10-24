@@ -8,6 +8,7 @@ import {
   type PlaybookVersion,
   type ValidateResult,
 } from '../api';
+import { YuklashXatosi } from '../components/YuklashXatosi';
 import { useAuth } from '../auth';
 import { PlaybookForm, type PlaybookBolim } from '../components/PlaybookForm';
 import { useT } from '../i18n';
@@ -50,16 +51,21 @@ export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
   const [savedMsg, setSavedMsg] = useState('');
   const [savedOk, setSavedOk] = useState(false);
   const [takliflar, setTakliflar] = useState<string[]>([]);
+  const [xato, setXato] = useState<unknown>(null);
+  const [qayta, setQayta] = useState(0);
 
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
 
   useEffect(() => {
     if (!base) return;
+    setXato(null);
     api
       .get<PlaybookBody & { id: string }>(`${base}/playbook`)
       .then((p) => setPlaybook(p))
       .catch((e) => {
         if (e instanceof ApiError && e.status === 404) setPlaybook(EMPTY_PLAYBOOK);
+        // Boshqa xato — abadiy "Yuklanmoqda…" emas, xato va qayta urinish.
+        else setXato(e);
       });
     api.get<PlaybookVersion[]>(`${base}/playbook/versions`).then(setVersions).catch(() => undefined);
     // Xizmat yo'nalishi takliflari — biznes profilidagi asosiy xizmatlardan
@@ -67,7 +73,7 @@ export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
       .get<{ profile: BusinessProfile }>(`${base}/profile`)
       .then((r) => setTakliflar(r.profile.primaryOffers ?? []))
       .catch(() => undefined);
-  }, [base]);
+  }, [base, qayta]);
 
   async function validate(pb: PlaybookBody) {
     const result = await api.post<ValidateResult>(`${base}/playbook/validate`, pb);
@@ -106,7 +112,9 @@ export function PlaybookEditor({ bolim }: { bolim?: PlaybookBolim } = {}) {
     setVersions(vs);
   }
 
-  if (!playbook) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
+  if (!playbook) {
+    return xato ? <YuklashXatosi xato={xato} onQayta={() => setQayta((n) => n + 1)} /> : <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
+  }
 
   return (
     <>

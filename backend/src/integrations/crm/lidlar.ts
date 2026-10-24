@@ -1,9 +1,10 @@
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 import { withoutTenantIsolation, withTenant, type Tx } from '../../db/index.js';
 import { business, contact, crmLead, integration, seat } from '../../db/schema/index.js';
 import { CrmXato, raqamlar, telefonKaliti, type CrmKontekst, type CrmLid, type CrmTuzilish } from './adapter.js';
 import { ADAPTERLAR, CRM_TURLARI } from './index.js';
 import { kontekstQur } from './kontekst.js';
+import { lidlarniKochir, tashqiOchirilganlarniBelgila, tuzilmaniKochir, type TashqiXarita } from '../../crm/tashqi.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -29,6 +30,14 @@ import { kontekstQur } from './kontekst.js';
  * • CRM ga hech narsa yozilmaydi — faqat o'qiladi.
  * • Doimiy xato (token bekor) — ulanish `error`, import to'xtaydi.
  * • Sozlamada voronkalar tanlangan bo'lsa — faqat ulardagi lidlar saqlanadi.
+ *
+ * O'CHIRILGAN SDELKALAR
+ * ─────────────────────
+ * CRM o'chirilgan sdelkani `lidlar()` da umuman qaytarmaydi, ya'ni o'zgarish
+ * bo'yicha import uni hech qachon "ko'rmaydi". Shuning uchun har tikda
+ * saqlangan lidlarning kichik bir bo'lagi CRM dan qayta so'raladi
+ * (`ochirilganlarniTekshir`, kursor bilan aylanib); yo'qolganlari `crm_lead`
+ * dan olib tashlanadi, ichki CRM bitimi esa savatga tushadi.
  */
 
 /** Bir tikda bitta ulanish uchun ko'pi bilan shuncha sahifa (amoCRM: 250, Bitrix24: 50 tadan). */
@@ -44,6 +53,17 @@ export interface CrmLidSozlama {
   birinchiTugadi: boolean;
   oxirgi: string | null;
   xato: string | null;
+  /**
+   * Lidlar SotuvAI ichki CRM bitimlariga ham ko'chirilsinmi (bir tomonlama
+   * sinxron). Standart — ha: ulangan CRM ning hamma lidlari CRM bo'limida.
+   */
+  ichkiCrm: boolean;
+  /** Ichki CRM ga birinchi to'liq ko'chirish boshlanganmi (bir marta qayta import). */
+  ichkiBoshlangan: boolean;
+  /** O'chirilganlar tekshiruvi qayerga yetdi (`crm_id`). `null` — boshidan. */
+  ochirishKursor: string | null;
+  /** Oxirgi to'liq aylanish tugagan vaqt. */
+  ochirishTugadi: string | null;
 }
 
 export function lidSozlamaniOl(config: unknown): CrmLidSozlama {
@@ -54,6 +74,10 @@ export function lidSozlamaniOl(config: unknown): CrmLidSozlama {
     birinchiTugadi: c?.birinchiTugadi === true,
     oxirgi: typeof c?.oxirgi === 'string' ? c.oxirgi : null,
     xato: typeof c?.xato === 'string' ? c.xato : null,
+    ichkiCrm: c?.ichkiCrm !== false,
+    ichkiBoshlangan: c?.ichkiBoshlangan === true,
+    ochirishKursor: typeof c?.ochirishKursor === 'string' ? c.ochirishKursor : null,
+    ochirishTugadi: typeof c?.ochirishTugadi === 'string' ? c.ochirishTugadi : null,
   };
 }
 
@@ -62,6 +86,12 @@ export interface LidSinxNatija {
   olindi: number;
   saqlandi: number;
   tugadi: boolean;
+  /** Ichki CRM da yaratilgan yoki yangilangan bitimlar. */
+  bitimlar?: number;
+  /** CRM da o'chirilgani aniqlangan sdelkalar (lid nusxasi olib tashlandi). */
+  ochirildi?: number;
+  /** Shubhali javob tufayli o'chirilmay qoldirilganlar (izoh: `ochirilganlarniTekshir`). */
+  ochirishOtkazildi?: number;
   xato?: string;
 }
 
@@ -80,6 +110,29 @@ async function tuzilishKesh(integrationId: string, kind: keyof typeof ADAPTERLAR
 /** Sozlama o'zgarganda (voronka tanlovi, qayta ulanish) — keshni tozalash. */
 export function tuzilishKeshniTozala(integrationId: string): void {
   kesh.delete(integrationId);
+  xaritaKesh.delete(integrationId);
+}
+
+/**
+ * Ichki CRM tuzilmasi (voronka/bosqich/maydon) — faqat tashqi tuzilma yoki
+ * voronka tanlovi o'zgarganda qayta ko'chiriladi; aks holda keshdagi xarita.
+ */
+const xaritaKesh = new Map<string, { kalit: string; x: TashqiXarita }>();
+
+async function tuzilmaXaritasi(
+  businessId: string,
+  integrationId: string,
+  t: CrmTuzilish,
+  voronkalar: string[] | null,
+  birinchi: boolean,
+  manba: string,
+): Promise<TashqiXarita> {
+  const kalit = JSON.stringify([t.pipelines, t.leadFields, voronkalar]);
+  const bor = xaritaKesh.get(integrationId);
+  if (bor && bor.kalit === kalit && !birinchi) return bor.x;
+  const x = await withTenant(businessId, (tx) => tuzilmaniKochir(tx, { businessId, integrationId, t, voronkalar, birinchi, manba }));
+  xaritaKesh.set(integrationId, { kalit, x });
+  return x;
 }
 
 // ─── Yordamchilar ────────────────────────────────────────────────────────────
@@ -314,6 +367,22 @@ async function bittaUlanish(
   const sozlama = lidSozlamaniOl(u.config);
   const t = await tuzilishKesh(u.id, kind, ctx);
 
+  // Ichki CRM ga birinchi ko'chirish: lidlar boshidan (qo'shimcha maydonlari
+  // bilan) qayta olinadi — avval import qilinganlari ham bitim bo'lsin
+  const birinchiKochirish = sozlama.ichkiCrm && !sozlama.ichkiBoshlangan;
+  if (birinchiKochirish) {
+    sozlama.kursor = null;
+    sozlama.birinchiTugadi = false;
+  }
+  const manba = ADAPTERLAR[kind].nom;
+  const xarita = sozlama.ichkiCrm
+    ? await tuzilmaXaritasi(u.businessId, u.id, t, sozlama.voronkalar, birinchiKochirish, manba)
+    : null;
+  if (birinchiKochirish) {
+    sozlama.ichkiBoshlangan = true;
+    await holatniYoz(u.businessId, u.id, { ichkiBoshlangan: true, kursor: null, birinchiTugadi: false });
+  }
+
   // Mas'ul (CRM foydalanuvchisi) → menejer: kartochkadagi "CRM ID"
   const seatQatorlari = await withTenant(u.businessId, (tx) =>
     tx
@@ -336,7 +405,22 @@ async function bittaUlanish(
       const qatorlar = kerakli.map((l) =>
         lidQatori(l, { businessId: u.businessId, integrationId: u.id, kind, t, seatlar, kontaktlar }),
       );
-      return lidlarniSaqla(tx, qatorlar);
+      const saqlandi = await lidlarniSaqla(tx, qatorlar);
+      if (xarita) {
+        // Shu tranzaksiyada ichki CRM bitimlari ham — lid va bitim bir-biridan orqada qolmaydi
+        const lidKontakt = new Map(qatorlar.filter((q) => q.contactId).map((q) => [q.crmId, q.contactId!]));
+        const r = await lidlarniKochir(tx, {
+          businessId: u.businessId,
+          integrationId: u.id,
+          manba,
+          lidlar: kerakli,
+          xarita,
+          seatlar,
+          kontaktlar: lidKontakt,
+        });
+        n.bitimlar = (n.bitimlar ?? 0) + r.yangi + r.yangilandi;
+      }
+      return saqlandi;
     });
 
     kursor = sahifa.kursor;
@@ -348,4 +432,79 @@ async function bittaUlanish(
       break;
     }
   }
+
+  await ochirilganlarniTekshir(u, kind, ctx, sozlama, manba, n);
+}
+
+// ─── O'chirilgan sdelkalar ───────────────────────────────────────────────────
+
+/** Bir tikda CRM dan qayta so'raladigan saqlangan lidlar (amoCRM: 2 so'rov, Bitrix24: 4). */
+export const OCHIRISH_BOLAK = 200;
+/** To'liq aylanib chiqqach yangi aylanishgacha tanaffus — CRM so'rov limitini tejash. */
+const OCHIRISH_TANAFFUS_MS = 15 * 60_000;
+/** Bo'lak shundan katta bo'lib, HAMMASI "yo'q" chiqsa — shubhali (pastdagi izoh). */
+const SHUBHALI_KAMIDA = 20;
+
+/**
+ * Bo'lakdagi qaysi ID lar o'chirilgan deb hisoblanadi. Agar katta bo'lakning
+ * HAMMASI yo'q chiqsa — bu ko'pincha CRM tomonidagi muammo (ruxsat
+ * o'zgargan, API javobi o'zgargan), haqiqiy ommaviy o'chirish emas: bitta
+ * xato javob butun bitimlar bazasini savatga tushirmasin. Bunday holatda
+ * hech narsa o'chirilmaydi; kichik bo'lakda esa ishonchli.
+ */
+export function ochirilganlarniAjrat(idlar: string[], bor: Set<string>): { ochirilgan: string[]; shubhali: boolean } {
+  const yoq = idlar.filter((id) => !bor.has(id));
+  const shubhali = yoq.length > 0 && yoq.length === idlar.length && idlar.length >= SHUBHALI_KAMIDA;
+  return { ochirilgan: shubhali ? [] : yoq, shubhali };
+}
+
+async function ochirilganlarniTekshir(
+  u: { id: string; businessId: string },
+  kind: 'amocrm' | 'bitrix24',
+  ctx: CrmKontekst,
+  sozlama: CrmLidSozlama,
+  manba: string,
+  n: LidSinxNatija,
+): Promise<void> {
+  // Birinchi import davomida emas — hali hamma lid kelmagan.
+  if (!sozlama.birinchiTugadi) return;
+  if (!sozlama.ochirishKursor && sozlama.ochirishTugadi && Date.now() - Date.parse(sozlama.ochirishTugadi) < OCHIRISH_TANAFFUS_MS) return;
+
+  const qatorlar = await withTenant(u.businessId, (tx) =>
+    tx
+      .select({ id: crmLead.crmId })
+      .from(crmLead)
+      .where(and(eq(crmLead.integrationId, u.id), sozlama.ochirishKursor ? gt(crmLead.crmId, sozlama.ochirishKursor) : undefined))
+      .orderBy(asc(crmLead.crmId))
+      .limit(OCHIRISH_BOLAK),
+  );
+  const idlar = qatorlar.map((q) => q.id);
+
+  if (idlar.length > 0) {
+    let bor: Set<string>;
+    try {
+      bor = await ADAPTERLAR[kind].mavjudLidlar(ctx, idlar);
+    } catch (err) {
+      // Doimiy xato (token bekor) — tashqi ishlovchi ulanishni `error` qiladi.
+      // Vaqtinchalik xato — keyingi tikda shu bo'lak qayta tekshiriladi.
+      if (err instanceof CrmXato && err.doimiy) throw err;
+      return;
+    }
+    const { ochirilgan, shubhali } = ochirilganlarniAjrat(idlar, bor);
+    if (shubhali) n.ochirishOtkazildi = idlar.length;
+    if (ochirilgan.length > 0) {
+      n.ochirildi = ochirilgan.length;
+      await withTenant(u.businessId, async (tx) => {
+        await tx.delete(crmLead).where(and(eq(crmLead.integrationId, u.id), inArray(crmLead.crmId, ochirilgan)));
+        await tashqiOchirilganlarniBelgila(tx, { businessId: u.businessId, integrationId: u.id, manba, idlar: ochirilgan });
+      });
+    }
+  }
+
+  const oxiri = idlar.length < OCHIRISH_BOLAK;
+  await holatniYoz(
+    u.businessId,
+    u.id,
+    oxiri ? { ochirishKursor: null, ochirishTugadi: new Date().toISOString() } : { ochirishKursor: idlar[idlar.length - 1]! },
+  );
 }
