@@ -1,6 +1,7 @@
 import { CircleCheck } from 'lucide-react';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
+import { YuklashXatosi } from '../components/YuklashXatosi';
 import { useT } from '../i18n';
 import './crm/crm-ilova.css';
 import './crm/crm-ilova-2.css';
@@ -31,6 +32,8 @@ export function FormaSahifa() {
   const t = useT();
   const [forma, setForma] = useState<OchiqForma | null>(null);
   const [topilmadi, setTopilmadi] = useState(false);
+  const [yuklanmadi, setYuklanmadi] = useState<unknown>(null);
+  const [qayta, setQayta] = useState(0);
   const [qiymat, setQiymat] = useState<Record<string, string | boolean>>({});
   const [tuzoq, setTuzoq] = useState('');
   const [band, setBand] = useState(false);
@@ -39,13 +42,16 @@ export function FormaSahifa() {
   const submissionId = useMemo(() => crypto.randomUUID(), []);
 
   useEffect(() => {
+    setYuklanmadi(null);
     void fetch(`/api/v1/public/forms/${slug}`)
       .then(async (r) => {
-        if (!r.ok) throw new Error();
+        // Faqat 404 — "forma yo'q". Server xatosida mijozga "o'chirilgan" deyish noto'g'ri.
+        if (r.status === 404) return setTopilmadi(true);
+        if (!r.ok) throw new Error(String(r.status));
         setForma((await r.json()) as OchiqForma);
       })
-      .catch(() => setTopilmadi(true));
-  }, [slug]);
+      .catch((e: unknown) => setYuklanmadi(e));
+  }, [slug, qayta]);
 
   const yubor = async (e: FormEvent) => {
     e.preventDefault();
@@ -73,7 +79,8 @@ export function FormaSahifa() {
   return (
     <main className="ci-ochiq-forma">
       {topilmadi && <div className="card ci-ochiq-karta">{t('Forma topilmadi yoki o‘chirilgan')}</div>}
-      {!forma && !topilmadi && <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}
+      {yuklanmadi !== null && !forma && <YuklashXatosi xato={yuklanmadi} onQayta={() => setQayta((n) => n + 1)} />}
+      {!forma && !topilmadi && yuklanmadi === null && <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}
       {forma && rahmat && (
         <div className="card ci-ochiq-karta ci-rahmat" role="status">
           <CircleCheck aria-hidden="true" />

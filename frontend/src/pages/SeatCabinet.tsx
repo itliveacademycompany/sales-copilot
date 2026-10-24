@@ -12,6 +12,7 @@ import {
   type TaskRow,
 } from '../api';
 import { useAuth } from '../auth';
+import { YuklashXatosi } from '../components/YuklashXatosi';
 import { useT } from '../i18n';
 
 /**
@@ -54,7 +55,8 @@ export function SeatCabinet() {
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [convs, setConvs] = useState<ConversationRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [xato, setXato] = useState<string | null>(null);
+  const [xato, setXato] = useState<unknown>(null);
+  const [qayta, setQayta] = useState(0);
 
   useEffect(() => {
     if (!business || !seatId) return;
@@ -77,9 +79,10 @@ export function SeatCabinet() {
         setTasks(t.tasks.filter((x) => x.status !== 'done' && x.status !== 'cancelled'));
         setConvs(c.conversations.filter((r) => r.status !== 'filtered').slice(0, 8));
       })
-      .catch((e: unknown) => setXato(e instanceof Error ? e.message : tr("Yuklab bo'lmadi")))
+      // Xom JS xatosi ("Cannot read properties…") foydalanuvchiga chiqmasin — YuklashXatosi faqat server matnini ko'rsatadi.
+      .catch((e: unknown) => setXato(e))
       .finally(() => setLoading(false));
-  }, [business, seatId, days]);
+  }, [business, seatId, days, qayta]);
 
   if (!seatId) {
     return (
@@ -91,7 +94,7 @@ export function SeatCabinet() {
     );
   }
   if (loading && !d) return <div className="yuklanmoqda">{tr('Yuklanmoqda…')}</div>;
-  if (xato) return <div className="card"><div className="hech-narsa">{xato}</div></div>;
+  if (xato) return <YuklashXatosi xato={xato} onQayta={() => setQayta((n) => n + 1)} />;
 
   const c = d?.current;
   const p = d?.previous;

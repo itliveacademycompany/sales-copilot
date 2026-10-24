@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CrmLidlari, LidKorinishi } from '../components/crm/CrmLidlari';
 import { api, ballKlass, fmtSana, lidTuri, type ConversationRow, type SeatRow } from '../api';
+import { YuklashXatosi } from '../components/YuklashXatosi';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
 
@@ -49,11 +50,14 @@ function AiXulosalar({ almash }: { almash: ReactNode }) {
   const [seats, setSeats] = useState<Record<string, string>>({});
   const [filtr, setFiltr] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [xato, setXato] = useState<unknown>(null);
+  const [qayta, setQayta] = useState(0);
 
   useEffect(() => {
     if (!business) return;
     const base = `/api/v1/businesses/${business.businessId}`;
     setLoading(true);
+    setXato(null);
     void Promise.all([
       api.get<{ conversations: ConversationRow[] }>(`${base}/conversations?status=done&limit=100`),
       api.get<SeatRow[]>(`${base}/seats`).catch(() => [] as SeatRow[]),
@@ -62,9 +66,10 @@ function AiXulosalar({ almash }: { almash: ReactNode }) {
         setRows(c.conversations.filter((r) => r.summary));
         setSeats(Object.fromEntries(s.map((x) => [x.id, x.displayName])));
       })
-      .catch(() => setRows([]))
+      // Xato bo'sh ro'yxat bo'lib ko'rinmasin — "lid yo'q" degan noto'g'ri xulosa beradi.
+      .catch((e: unknown) => setXato(e))
       .finally(() => setLoading(false));
-  }, [business]);
+  }, [business, qayta]);
 
   const soni = useMemo(() => {
     const m: Record<string, number> = { hot: 0, warm: 0, cold: 0 };
@@ -117,7 +122,9 @@ function AiXulosalar({ almash }: { almash: ReactNode }) {
         ))}
       </div>
 
-      {loading ? (
+      {xato ? (
+        <YuklashXatosi xato={xato} onQayta={() => setQayta((n) => n + 1)} />
+      ) : loading ? (
         <div className="yuklanmoqda">{tr('Yuklanmoqda…')}</div>
       ) : korinadi.length === 0 ? (
         <div className="card hech-narsa">

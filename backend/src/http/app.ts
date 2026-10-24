@@ -59,7 +59,6 @@ export async function buildApp(): Promise<FastifyInstance> {
     },
     trustProxy: isProd,
     bodyLimit: 1024 * 1024, // 1 MB — media yuklash alohida marshrutda
-    disableRequestLogging: false,
   });
 
   // ─── Xavfsizlik sarlavhalari ───

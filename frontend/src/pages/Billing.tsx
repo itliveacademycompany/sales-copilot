@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, ApiError, fmtPul, fmtSana, type BillingFull } from '../api';
+import { YuklashXatosi } from '../components/YuklashXatosi';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
 
@@ -34,12 +35,18 @@ export function Billing({ ichki = false }: { ichki?: boolean }) {
   const [desc, setDesc] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [xato, setXato] = useState<unknown>(null);
 
   const base = business ? `/api/v1/businesses/${business.businessId}` : '';
 
   const load = () => {
     if (!base) return;
-    void api.get<BillingFull>(`${base}/billing`).then(setData);
+    setXato(null);
+    void api
+      .get<BillingFull>(`${base}/billing`)
+      .then(setData)
+      // Ilgari xato ushlanmasdi — sahifa abadiy "Yuklanmoqda…" da qolardi.
+      .catch((e: unknown) => setXato(e));
   };
   useEffect(load, [base]);
 
@@ -62,7 +69,9 @@ export function Billing({ ichki = false }: { ichki?: boolean }) {
     }
   }
 
-  if (!data) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
+  if (!data) {
+    return xato ? <YuklashXatosi xato={xato} onQayta={load} /> : <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
+  }
 
   const sub = data.subscription;
   const info = sub ? HOLAT_NOMI[sub.status] ?? { nom: sub.status, klass: 'kul', izoh: '' } : null;

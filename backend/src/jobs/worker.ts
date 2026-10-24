@@ -12,7 +12,7 @@ import { oldindanTranskriptQil, qongiroqlarniQaytaIshla, sinxronla } from '../in
 import { runDailyReportTick } from '../reports/daily.js';
 import { markOverdueCommitments } from './maintenance.js';
 import { dispatchAlertNotifications } from './notify.js';
-import { claimNextJob, completeJob, failJob, reclaimStuckJobs } from './queue.js';
+import { claimNextJob, completeJob, failJob, heartbeatJob, reclaimStuckJobs } from './queue.js';
 import { sweepIdleSessions } from './scheduler.js';
 
 /**
@@ -27,6 +27,9 @@ import { sweepIdleSessions } from './scheduler.js';
  */
 
 const workerId = `worker-${randomBytes(4).toString('hex')}`;
+
+/** Ish qulfini yangilash oralig'i. `reclaimStuckJobs` chegarasi (10 daq) undan ancha katta. */
+const YURAK_MS = 60_000;
 
 export interface TickResult {
   processed: boolean;
@@ -43,6 +46,12 @@ export interface TickResult {
 export async function runWorkerTick(llm?: LlmClient, id: string = workerId): Promise<TickResult> {
   const job = await claimNextJob(id);
   if (!job) return { processed: false };
+
+  // Uzun tahlil "osilgan" deb qayta olinmasin (queue.ts → heartbeatJob).
+  const yurak = setInterval(() => {
+    heartbeatJob(job.id, id).catch(() => undefined);
+  }, YURAK_MS);
+  yurak.unref();
 
   try {
     const client = llm ?? (await getActiveLlm());
@@ -68,6 +77,8 @@ export async function runWorkerTick(llm?: LlmClient, id: string = workerId): Pro
       outcome: fate,
       error: message,
     };
+  } finally {
+    clearInterval(yurak);
   }
 }
 

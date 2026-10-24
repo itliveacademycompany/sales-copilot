@@ -38,7 +38,8 @@ function sahifa<T extends ComponentType<Record<string, never>>>(
 ): Kechiktirilgan<T> {
   const C = lazy(yukla) as Kechiktirilgan<T>;
   C.oldindanYukla = () => {
-    void yukla();
+    // Bu faqat tezlashtirish: xato bo'lsa jim — haqiqiy ochilishda chegara ushlaydi.
+    yukla().catch(() => undefined);
   };
   return C;
 }

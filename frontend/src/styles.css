@@ -1798,6 +1798,15 @@ label.maydon {
 }
 .hech-narsa .katta-ikon .lucide { stroke-width: 1.4; }
 
+/* Xato chegarasi (components/XatoChegarasi.tsx) */
+.xato-chegara .hech-narsa { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 48px 20px; }
+.xato-chegara .hech-narsa b { font-size: 16px; color: var(--text-primary); }
+.xato-chegara .hech-narsa span { max-width: 460px; line-height: 1.5; }
+.xato-chegara .katta-ikon { color: var(--orta); }
+.xato-chegara-tugmalar { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 10px; }
+.xato-chegara.toliq { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+.xato-chegara.toliq .hech-narsa { width: min(520px, 100%); }
+
 .yuklanmoqda {
   color: var(--kul-dark);
   padding: 30px;
