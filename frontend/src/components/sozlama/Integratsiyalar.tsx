@@ -56,6 +56,8 @@ interface MzHolat {
     boglanmagan: number;
   };
   recentErrors: { id: string; startedAt: string; reason: string | null }[];
+  /** Javob berilgan, lekin yozuvi Moi Zvonki'ga hali yuklanmagan qo'ng'iroqlar. */
+  yozuvKutilmoqda: number;
   bugunBaholandi: number;
   /** AI provayder limiti (429) sabab baholash vaqtincha to'xtatilgan. */
   pauza: { gacha: string; sabab: string } | null;
@@ -381,6 +383,8 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
                   javobsiz: h.config.lastStats.javobsiz,
                   qisqa: h.config.lastStats.qisqa,
                 })}
+            {h.yozuvKutilmoqda > 0 &&
+              ' · ' + t("{n} ta qo'ng'iroq yozuvi hali yuklanmagan — yuklanishi bilan olinadi", { n: h.yozuvKutilmoqda })}
             {!h.config?.autoAnalyze && ' · ' + t("avtomatik baholash o'chiq")}
             {' · ' + t('bugun baholandi: {n}', { n: `${h.bugunBaholandi}${kunlikLimit !== null ? ` / ${kunlikLimit}` : ''}` })}
           </div>
@@ -401,6 +405,7 @@ export function MoiZvonki({ businessId, boshqaraOladi }: { businessId: string; b
           {c.xato > 0 && (
             <div className="yordam" style={{ marginBottom: 10 }}>
               {h.recentErrors[0]?.reason && <>{t('Masalan: «{sabab}».', { sabab: h.recentErrors[0].reason })} </>}
+              {t("Xatolilar o'zi 3 martagacha qayta uriniladi.")}{' '}
               {boshqaraOladi && (
                 <button
                   className="matn-tugma"

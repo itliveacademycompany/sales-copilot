@@ -12,6 +12,7 @@ import {
   baholashPauzasi,
   bugunBaholangan,
   limitXatosimi,
+  MAX_URINISH,
   mzIdlar,
   oldindanTranskriptQil,
   osilganlarniQaytar,
@@ -468,6 +469,10 @@ async function main(): Promise<void> {
     await sinxronla(businessId);
     const q3 = await qongiroqlarniQaytaIshla({ businessId, stt: soxtaStt, llm: soxtaLlm, limit: 10 });
     check('yuklanmagan yozuv → failed, sikl yiqilmadi', q3.xato === 1, JSON.stringify(q3));
+    const f1006 = (await withoutTenantIsolation('test: 1006 urinishlari', (tx) =>
+      tx.select({ f: conversation.failCount }).from(conversation).where(eq(conversation.externalId, 'mz:1006')),
+    ))[0]?.f;
+    check('haqiqiy xato urinishlar sonini oshiradi (0 → 1)', f1006 === 1, `fail_count: ${f1006}`);
 
     const holat2 = await app.inject({ method: 'GET', url: `${base}/integrations/moizvonki`, cookies: auth });
     const h2 = holat2.json() as { counts: { baholandi: number; xato: number }; recentErrors: unknown[] };
@@ -475,7 +480,10 @@ async function main(): Promise<void> {
     check('xato sababi ko\'rinadi', h2.recentErrors.length === 1);
 
     const qayta = await app.inject({ method: 'POST', url: `${base}/integrations/moizvonki/retry`, cookies: auth });
-    check('xatolilar qayta navbatga qo\'yildi', qayta.json().requeued === 1);
+    const f1006b = (await withoutTenantIsolation('test: 1006 urinishlari', (tx) =>
+      tx.select({ f: conversation.failCount }).from(conversation).where(eq(conversation.externalId, 'mz:1006')),
+    ))[0]?.f;
+    check('xatolilar qayta navbatga qo\'yildi, urinishlar 0 ga qaytdi', qayta.json().requeued === 1 && f1006b === 0, `fail_count: ${f1006b}`);
 
     // ═══ G2: AI LIMITI, KUNLIK LIMIT, OSILGAN QO'NG'IROQ ═══
     console.log('\n— G2: limitlar —');
@@ -486,9 +494,14 @@ async function main(): Promise<void> {
     );
 
     // 1006 (buzuq yozuv) bu bo'limga aralashmasin.
+    // `failed` — urinishlari tugagan holda: aks holda avtomatik qayta urinish
+    // (G6) uni darhol navbatga qaytarib, bu bo'limga aralashtirardi.
     const holatiniQoy = (extId: string, status: 'failed' | 'transcribing' | 'analyzing' | 'received', updatedAt = new Date()) =>
       withoutTenantIsolation('test: holatni qo\'yish', (tx) =>
-        tx.update(conversation).set({ status, updatedAt }).where(eq(conversation.externalId, extId)),
+        tx
+          .update(conversation)
+          .set({ status, updatedAt, ...(status === 'failed' ? { failCount: MAX_URINISH } : {}) })
+          .where(eq(conversation.externalId, extId)),
       );
     const holatlar = async (...idlar: string[]) =>
       (await withoutTenantIsolation('test: holatlar', (tx) =>
@@ -630,6 +643,107 @@ async function main(): Promise<void> {
       k2 instanceof Error && e2.length === 2,
       JSON.stringify({ urinishlar: e2.length }),
     );
+
+    // ═══ G4: AI BO'SH REPLIKA QAYTARSA ═══
+    // 2026-10-22..27: GLM uzun dialogda bitta replikani `""` qaytarardi va
+    // `min(1)` butun javobni rad etib, qo'ng'iroq abadiy `failed` bo'lardi.
+    console.log("\n— G4: bo'sh replika —");
+    const besh = (await soxtaStt.transcribe({ audio: Buffer.from('x'), mimeType: 'audio/mpeg' } as never)).utterances.map(
+      (u, seq) => ({ seq, text: u.text, startSeconds: u.startSeconds, endSeconds: u.endSeconds }),
+    );
+    const boshReplikali: LlmClient = {
+      async completeJson(req) {
+        const r = await soxtaLlm.completeJson(req);
+        const j = r.json as { turns: { text: string }[] };
+        j.turns[3]!.text = '';
+        j.turns[1]!.text = '   ';
+        return r;
+      },
+    };
+    const br = await refineAndAnalyzeTranscript(besh, pbk!.body, pbk!.businessContext, undefined, boshReplikali).catch(
+      (e: Error) => e,
+    );
+    check(
+      "bo'sh replika natijani buzmaydi — asl STT matni bilan to'ldiriladi",
+      !(br instanceof Error) &&
+        br.turns.length === 5 &&
+        br.turns.every((t) => t.text.trim().length > 0) &&
+        br.turns[3]!.text === besh[3]!.text &&
+        /2 ta replika AI javobida bo'sh/.test(br.transcriptNote),
+      br instanceof Error ? br.message.slice(0, 200) : JSON.stringify(br.turns.map((t) => t.text.slice(0, 15))),
+    );
+
+    // ═══ G5: YOZUVI KECH YUKLANGAN QO'NG'IROQ ═══
+    // Xodim Moi Zvonki ilovasiga kech kirsa, qo'ng'iroq ro'yxatda yozuvsiz
+    // paydo bo'ladi, yozuv esa keyin. Kursor undan o'tib ketadi — ilgari bu
+    // qo'ng'iroq hech qachon olinmasdi.
+    console.log('\n— G5: kech yuklangan yozuv —');
+    const eskiT = Math.floor(Date.now() / 1000) - 25 * 3600;
+    QONGIROQLAR.push(
+      { db_call_id: 1011, direction: 1, client_number: '998973333333', start_time: soat + 900, end_time: soat + 960, duration: 60, answered: 1, recording: null, user_id: 501 },
+      { db_call_id: 1012, direction: 1, client_number: '998974444444', start_time: eskiT, end_time: eskiT + 60, duration: 60, answered: 1, recording: null, user_id: 501 },
+      // Yozuvsiz, lekin qisqa — kutilmaydi.
+      { db_call_id: 1013, direction: 1, client_number: '998975555555', start_time: soat + 950, end_time: soat + 955, duration: 5, answered: 1, recording: null, user_id: 501 },
+    );
+    const borMi = async (extId: string) =>
+      (await withoutTenantIsolation('test: suhbat bormi', (tx) =>
+        tx.select({ s: conversation.status }).from(conversation).where(and(eq(conversation.businessId, businessId), eq(conversation.externalId, extId))),
+      ))[0]?.s ?? null;
+    const k5a = await sinxronla(businessId).then((r) => r[0]);
+    check(
+      'yozuvsiz 3 ta, uzunlari (2 ta) kutish ro\'yxatida, bazaga tushmadi',
+      k5a?.yozuvsiz === 3 && k5a.yozuvKutilmoqda === 2 && (await borMi('mz:1011')) === null,
+      JSON.stringify(k5a),
+    );
+    for (const q of QONGIROQLAR) {
+      if ([1011, 1012, 1013].includes(Number(q.db_call_id))) q.recording = yangiYozuv(Number(q.db_call_id));
+    }
+    const k5b = await sinxronla(businessId).then((r) => r[0]);
+    check(
+      'yozuv paydo bo\'lgach — keyingi sinxronlashda olindi',
+      k5b?.kechYozuv === 1 && (await borMi('mz:1011')) === 'received',
+      JSON.stringify(k5b),
+    );
+    check(
+      "24 soatdan eski kutish unutildi, qisqasi umuman kutilmadi",
+      k5b?.yozuvKutilmoqda === 0 && (await borMi('mz:1012')) === null && (await borMi('mz:1013')) === null,
+      JSON.stringify(k5b),
+    );
+    const k5c = await sinxronla(businessId).then((r) => r[0]);
+    check('qayta sinxronlash ikki marta saqlamaydi', k5c?.saqlandi === 0 && k5c.kechYozuv === 0, JSON.stringify(k5c));
+    const kursorSorov = [...kelganSorovlar].reverse().find((s) => s.action === 'calls.list');
+    check('asosiy kursor joyida (eng oxirgi ID dan)', kursorSorov?.from_id === 1013, JSON.stringify(kursorSorov));
+
+    // ═══ G6: XATO BILAN TUGAGAN QO'NG'IROQ QAYTA URINILADI ═══
+    console.log('\n— G6: avtomatik qayta urinish —');
+    const xatoQoy = (extId: string, failCount: number, oldin: number) =>
+      withoutTenantIsolation('test: xato holatini qo\'yish', (tx) =>
+        tx
+          .update(conversation)
+          .set({ status: 'failed', failCount, excludedReason: 'fetch failed', updatedAt: new Date(Date.now() - oldin * 60_000) })
+          .where(eq(conversation.externalId, extId)),
+      );
+    const failSoni = async (extId: string) =>
+      (await withoutTenantIsolation('test: urinishlar', (tx) =>
+        tx.select({ f: conversation.failCount, s: conversation.status, r: conversation.excludedReason }).from(conversation).where(eq(conversation.externalId, extId)),
+      ))[0];
+    // `osilganlarniQaytar` butun baza bo'ylab ishlaydi — soniga emas, aynan
+    // shu qo'ng'iroq holatiga qaraymiz.
+    const supur = async () => {
+      await osilganlarniQaytar();
+      return (await failSoni('mz:1011'))?.s;
+    };
+    await xatoQoy('mz:1011', 0, 1);
+    check("eski (urinish=0) failed darhol navbatga qaytadi", (await supur()) === 'received');
+    check('qaytganda eski xato matni tozalandi', (await failSoni('mz:1011'))?.r === null);
+    await xatoQoy('mz:1011', 1, 10);
+    check('1-urinishdan 10 daqiqa o\'tgan — hali kutadi (15 daq)', (await supur()) === 'failed');
+    await xatoQoy('mz:1011', 1, 16);
+    check('1-urinishdan 16 daqiqa o\'tgan — qaytadi', (await supur()) === 'received');
+    await xatoQoy('mz:1011', 2, 20);
+    check('2-urinishdan 20 daqiqa — hali kutadi (30 daq)', (await supur()) === 'failed');
+    await xatoQoy('mz:1011', MAX_URINISH, 600);
+    check(`${MAX_URINISH} urinishdan keyin failed da qoladi`, (await supur()) === 'failed');
 
     // ═══ H: ADMIN HUQUQI YO'Q ═══
     console.log('\n— H: admin huquqisiz —');

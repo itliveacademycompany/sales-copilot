@@ -66,7 +66,10 @@ const refineResponseSchema = z.object({
     z.object({
       sourceSeq: z.number().int().min(0),
       speaker: speakerSchema,
-      text: z.string().min(1).max(2000),
+      // Bo'sh bo'lishi mumkin (GLM ba'zan `""` qaytaradi) — pastda tashlanadi
+      // va "tushib qolgan bo'lak" himoyasi asl STT matnini qaytaradi.
+      // `min(1)` butun javobni rad etib, natijani degraded qilardi.
+      text: z.string().max(2000),
     }),
   ),
   confidence: z.number().min(0).max(1),
@@ -328,6 +331,7 @@ export async function refineTranscript(
     });
 
     const parsed = refineResponseSchema.parse(res.json);
+    parsed.turns = parsed.turns.filter((t) => t.text.trim());
     const bySeq = new Map(limited.map((s) => [s.seq, s]));
 
     // LLM tashlab ketgan seq bo'lsa — asl matnni o'zgartirmasdan qo'shamiz,

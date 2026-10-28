@@ -57,7 +57,14 @@ const mergedResponseSchema = z.object({
     z.object({
       sourceSeq: z.number().int().min(0),
       speaker: speakerSchema,
-      text: z.string().min(1).max(2000),
+      /**
+       * Bo'sh bo'lishi MUMKIN: GLM 30-50 replikali dialogda ba'zan bitta
+       * replikani `""` qaytaradi. Ilgari `min(1)` butun javobni (30k token
+       * fikrlash bilan) rad etar va qo'ng'iroq abadiy `failed` bo'lib
+       * qolardi — 2026-10-22..27 da 8 ta shunday. Bo'sh replika pastda
+       * asl STT matni bilan to'ldiriladi.
+       */
+      text: z.string().max(2000),
     }),
   ),
   transcriptConfidence: z.number().min(0).max(1),
@@ -343,6 +350,18 @@ export async function refineAndAnalyzeTranscript(
   const parsed = mergedResponseSchema.parse(res.json);
   const bySeq = new Map(limited.map((s) => [s.seq, s]));
 
+  // Bo'sh replika: manbasi ma'lum bo'lsa — asl STT matni (tozalanmagan, lekin
+  // yo'qolmagan), aks holda tashlanadi. Iqtibos indeksi (`evidenceSegment`)
+  // faqat ishora: `verifyEvidence` topa olmasa butun matndan qidiradi.
+  let toldirildi = 0;
+  parsed.turns = parsed.turns.flatMap((t) => {
+    if (t.text.trim()) return [t];
+    const asl = bySeq.get(t.sourceSeq)?.text.trim();
+    if (!asl) return [];
+    toldirildi++;
+    return [{ ...t, text: asl }];
+  });
+
   // LLM tashlab ketgan seq bo'lsa — asl matnni o'zgartirmasdan qo'shamiz,
   // shunda suhbatning bir qismi jimgina yo'qolib qolmaydi (transcript-refine
   // bilan bir xil himoya).
@@ -365,7 +384,8 @@ export async function refineAndAnalyzeTranscript(
       (parsed.transcriptNote ?? `AI transkriptni tozaladi va baholadi (${res.model}).`) +
       (missing.length > 0
         ? ` ${missing.length} ta bo'lak AI javobida yo'q edi — asl holida qo'shildi.`
-        : ''),
+        : '') +
+      (toldirildi > 0 ? ` ${toldirildi} ta replika AI javobida bo'sh edi — asl holida qo'shildi.` : ''),
     extracted: parsed.classification,
     stage3: parsed.scoring,
     costUsd: res.costUsd,

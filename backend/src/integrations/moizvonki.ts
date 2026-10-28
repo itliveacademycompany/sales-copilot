@@ -1,5 +1,5 @@
 import { config } from '../config.js';
-import { and, asc, eq, inArray, isNotNull, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { limitXatosimi, type LlmClient } from '../ai/llm.js';
 import { refineAndAnalyzeTranscript } from '../ai/refine-and-analyze.js';
@@ -117,6 +117,18 @@ export const moizvonkiConfigSchema = z
     backfillDays: z.number().int().min(0).max(30).default(1),
     /** Oxirgi olingan qo'ng'iroq ID si — keyingi sinxronlash shundan boshlanadi. */
     lastCallId: z.number().int().nullable().default(null),
+    /**
+     * Javob berilgan, yetarlicha uzun, lekin YOZUVI HALI YO'Q qo'ng'iroqlar.
+     *
+     * Yozuv Moi Zvonki'ga qo'ng'iroqdan keyin yuklanadi (xodim ilovaga kech
+     * kirsa — soatlab keyin). Kursor (`lastCallId`) bunday qo'ng'iroqdan
+     * o'tib ketadi, shuning uchun ular shu ro'yxatda `YOZUV_KUTISH_MS`
+     * davomida har sinxronlashda alohida tekshiriladi. `t` — boshlanish
+     * vaqti (unix soniya).
+     */
+    yozuvKutilmoqda: z
+      .array(z.object({ id: z.number().int(), t: z.number() }))
+      .default([]),
     lastStats: z
       .object({
         olindi: z.number(),
@@ -290,8 +302,16 @@ export interface SinxronNatija {
   qisqa: number;
   yozuvsiz: number;
   boglanmagan: number;
+  /** Avval yozuvsiz kelib, endi yozuvi paydo bo'lgani uchun saqlanganlar. */
+  kechYozuv: number;
+  /** Yozuvi hali kutilayotganlar (`yozuvKutilmoqda`). */
+  yozuvKutilmoqda: number;
   xato?: string;
 }
+
+/** Yozuvsiz kelgan qo'ng'iroq yozuvi shuncha vaqt kutiladi, keyin unutiladi. */
+export const YOZUV_KUTISH_MS = 24 * 3600 * 1000;
+const YOZUV_KUTISH_MAX = 300;
 
 /** Telefon raqamini solishtirish uchun: faqat raqamlar. */
 export function raqamniTozala(r: string | null | undefined): string | null {
@@ -418,7 +438,11 @@ async function bittaBiznesniSinxronla(ig: UlanganIntegratsiya): Promise<SinxronN
     qisqa: 0,
     yozuvsiz: 0,
     boglanmagan: 0,
+    kechYozuv: 0,
+    yozuvKutilmoqda: 0,
   };
+  // Xato bo'lsa eski ro'yxat saqlanadi — kutilayotgan yozuv yo'qolmasin.
+  let kutilayotgan = ig.cfg.yozuvKutilmoqda;
 
   try {
     // Xodim → o'rin xaritasi bir marta o'qiladi.
@@ -433,6 +457,95 @@ async function bittaBiznesniSinxronla(ig: UlanganIntegratsiya): Promise<SinxronN
       for (const mz of mzIdlar(o.ext)) xarita.set(mz, o.id);
     }
 
+    /** Javob berilgan, yozuvi bor, yetarlicha uzun qo'ng'iroqni suhbat sifatida saqlaydi. */
+    const saqla = async (tx: Tx, q: MzQongiroq & { recording: string }): Promise<boolean> => {
+      const xodim = q.user_id ? String(q.user_id) : null;
+      const seatId = xodim ? (xarita.get(xodim) ?? null) : null;
+      if (!seatId) n.boglanmagan++;
+
+      const boshi = new Date(q.start_time * 1000);
+      const oxiri = q.end_time ? new Date(q.end_time * 1000) : null;
+      const mijozRaqam = raqamniTozala(q.client_number);
+      const kirish = q.direction === 0;
+      const contactId = await kontaktniTop(
+        tx,
+        ig.businessId,
+        mijozRaqam,
+        q.client_name ?? null,
+        boshi,
+      );
+
+      const yozildi = await tx
+        .insert(conversation)
+        .values({
+          businessId: ig.businessId,
+          seatId,
+          contactId,
+          channel: 'phone',
+          direction: kirish ? 'inbound' : 'outbound',
+          externalSource: 'moizvonki',
+          externalId: `mz:${q.db_call_id}`,
+          externalUserId: xodim,
+          // Oqim — mijoz raqami: bir mijoz bilan barcha qo'ng'iroqlar
+          // bitta zanjirda ko'rinadi.
+          externalThreadId: mijozRaqam,
+          startedAt: boshi,
+          endedAt: oxiri,
+          durationSeconds: Math.round(q.duration ?? 0),
+          mediaUrl: q.recording,
+          phoneFrom: kirish ? mijozRaqam : raqamniTozala(q.src_number),
+          phoneTo: kirish ? raqamniTozala(q.src_number) : mijozRaqam,
+          status: 'received',
+        })
+        .onConflictDoNothing()
+        .returning({ id: conversation.id });
+      return yozildi.length > 0;
+    };
+
+    const royxat = async (params: Record<string, unknown>) => {
+      const r = mzRoyxat.parse(
+        await chaqir<unknown>(ig.cfg, ig.apiKey, 'calls.list', { max_results: 100, supervised: 1, ...params }),
+      );
+      const qongiroqlar = r.results
+        .map((x) => mzQongiroq.safeParse(x))
+        .filter((p): p is { success: true; data: MzQongiroq } => p.success)
+        .map((p) => p.data);
+      return { r, qongiroqlar };
+    };
+
+    /**
+     * 1) Avval yozuvsiz kelgan qo'ng'iroqlar — yozuvi paydo bo'ldimi.
+     *
+     * Har biri alohida so'ralmaydi: eng eskisidan boshlab ID oralig'i
+     * o'qiladi (odatda 1-2 sahifa). Xodimda yozuv umuman o'chirilgan bo'lsa
+     * ham, so'rovlar soni ro'yxat uzunligiga bog'liq emas.
+     */
+    const hozir = Date.now() / 1000;
+    kutilayotgan = kutilayotgan.filter((k) => hozir - k.t < YOZUV_KUTISH_MS / 1000);
+    if (kutilayotgan.length > 0) {
+      const kutilganIdlar = new Set(kutilayotgan.map((k) => k.id));
+      const engKatta = Math.max(...kutilganIdlar);
+      let fromId = Math.min(...kutilganIdlar) - 1;
+      for (let sahifa = 0; sahifa < MAX_SAHIFA; sahifa++) {
+        const { r, qongiroqlar } = await royxat({ from_id: fromId });
+        if (qongiroqlar.length === 0) break;
+        await withTenant(ig.businessId, async (tx) => {
+          for (const q of qongiroqlar) {
+            if (!kutilganIdlar.has(q.db_call_id) || !q.recording) continue;
+            kutilganIdlar.delete(q.db_call_id);
+            if (await saqla(tx, { ...q, recording: q.recording })) {
+              n.saqlandi++;
+              n.kechYozuv++;
+            }
+          }
+        });
+        fromId = Math.max(...qongiroqlar.map((q) => q.db_call_id));
+        if (!r.results_remains || fromId >= engKatta) break;
+      }
+      kutilayotgan = kutilayotgan.filter((k) => kutilganIdlar.has(k.id));
+    }
+
+    // 2) Yangi qo'ng'iroqlar — kursordan keyin.
     let oxirgiId = ig.cfg.lastCallId;
     let offset = 0;
     const birinchiMarta = oxirgiId === null;
@@ -446,19 +559,9 @@ async function bittaBiznesniSinxronla(ig: UlanganIntegratsiya): Promise<SinxronN
        * soatining farqi qo'ng'iroqni tushirib qoldirishi yoki ikki marta
        * olishi mumkin edi.
        */
-      const params: Record<string, unknown> = { max_results: 100, supervised: 1 };
-      if (birinchiMarta) {
-        params.from_date = boshSana;
-        params.from_offset = offset;
-      } else {
-        params.from_id = oxirgiId;
-      }
-
-      const r = mzRoyxat.parse(await chaqir<unknown>(ig.cfg, ig.apiKey, 'calls.list', params));
-      const qongiroqlar = r.results
-        .map((x) => mzQongiroq.safeParse(x))
-        .filter((p): p is { success: true; data: MzQongiroq } => p.success)
-        .map((p) => p.data);
+      const { r, qongiroqlar } = await royxat(
+        birinchiMarta ? { from_date: boshSana, from_offset: offset } : { from_id: oxirgiId },
+      );
 
       if (qongiroqlar.length === 0) break;
       n.olindi += qongiroqlar.length;
@@ -471,57 +574,22 @@ async function bittaBiznesniSinxronla(ig: UlanganIntegratsiya): Promise<SinxronN
             n.javobsiz++;
             continue;
           }
+          const davom = q.duration ?? 0;
           if (!q.recording) {
             n.yozuvsiz++;
+            // Kursor bu qo'ng'iroqdan o'tib ketadi — yozuvi keyin yuklansa,
+            // u faqat shu ro'yxat orqali topiladi.
+            if (davom >= ig.cfg.minDurationSeconds && !kutilayotgan.some((k) => k.id === q.db_call_id)) {
+              kutilayotgan.push({ id: q.db_call_id, t: q.start_time });
+            }
             continue;
           }
-          const davom = q.duration ?? 0;
           if (davom < ig.cfg.minDurationSeconds) {
             n.qisqa++;
             continue;
           }
 
-          const xodim = q.user_id ? String(q.user_id) : null;
-          const seatId = xodim ? (xarita.get(xodim) ?? null) : null;
-          if (!seatId) n.boglanmagan++;
-
-          const boshi = new Date(q.start_time * 1000);
-          const oxiri = q.end_time ? new Date(q.end_time * 1000) : null;
-          const mijozRaqam = raqamniTozala(q.client_number);
-          const kirish = q.direction === 0;
-          const contactId = await kontaktniTop(
-            tx,
-            ig.businessId,
-            mijozRaqam,
-            q.client_name ?? null,
-            boshi,
-          );
-
-          const yozildi = await tx
-            .insert(conversation)
-            .values({
-              businessId: ig.businessId,
-              seatId,
-              contactId,
-              channel: 'phone',
-              direction: kirish ? 'inbound' : 'outbound',
-              externalSource: 'moizvonki',
-              externalId: `mz:${q.db_call_id}`,
-              externalUserId: xodim,
-              // Oqim — mijoz raqami: bir mijoz bilan barcha qo'ng'iroqlar
-              // bitta zanjirda ko'rinadi.
-              externalThreadId: mijozRaqam,
-              startedAt: boshi,
-              endedAt: oxiri,
-              durationSeconds: Math.round(davom),
-              mediaUrl: q.recording,
-              phoneFrom: kirish ? mijozRaqam : raqamniTozala(q.src_number),
-              phoneTo: kirish ? raqamniTozala(q.src_number) : mijozRaqam,
-              status: 'received',
-            })
-            .onConflictDoNothing()
-            .returning({ id: conversation.id });
-          if (yozildi.length > 0) n.saqlandi++;
+          if (await saqla(tx, { ...q, recording: q.recording })) n.saqlandi++;
         }
       });
 
@@ -529,10 +597,13 @@ async function bittaBiznesniSinxronla(ig: UlanganIntegratsiya): Promise<SinxronN
       if (birinchiMarta) offset = r.results_next_offset ?? offset + qongiroqlar.length;
     }
 
-    await sinxronHolatiniYoz(ig, n, oxirgiId, null, Date.now() - boshlandi);
+    kutilayotgan = kutilayotgan.slice(-YOZUV_KUTISH_MAX);
+    n.yozuvKutilmoqda = kutilayotgan.length;
+    await sinxronHolatiniYoz(ig, n, oxirgiId, kutilayotgan, null, Date.now() - boshlandi);
   } catch (err) {
     n.xato = err instanceof Error ? err.message : String(err);
-    await sinxronHolatiniYoz(ig, n, ig.cfg.lastCallId, n.xato, Date.now() - boshlandi);
+    n.yozuvKutilmoqda = ig.cfg.yozuvKutilmoqda.length;
+    await sinxronHolatiniYoz(ig, n, ig.cfg.lastCallId, ig.cfg.yozuvKutilmoqda, n.xato, Date.now() - boshlandi);
   }
   return n;
 }
@@ -541,6 +612,7 @@ async function sinxronHolatiniYoz(
   ig: UlanganIntegratsiya,
   n: SinxronNatija,
   oxirgiId: number | null,
+  yozuvKutilmoqda: MoizvonkiConfig['yozuvKutilmoqda'],
   xato: string | null,
   davomMs: number,
 ): Promise<void> {
@@ -560,6 +632,7 @@ async function sinxronHolatiniYoz(
           moizvonki: {
             ...eski,
             lastCallId: oxirgiId,
+            yozuvKutilmoqda,
             lastStats: {
               olindi: n.olindi,
               saqlandi: n.saqlandi,
@@ -619,6 +692,9 @@ export interface QaytaIshlashNatija {
  * bir urinish qilinadi va limit davom etsa, pauza yana qo'yiladi.
  */
 export const LIMIT_PAUZA_MS = 15 * 60 * 1000;
+
+/** Xato bilan tugagan qo'ng'iroq jami necha marta uriniladi (birinchisi + 2 qayta). */
+export const MAX_URINISH = 3;
 const pauzalar = new Map<string, { gacha: number; sabab: string }>();
 
 /** Bitta manba — `ai/llm.ts` (zaxira zanjiri ham shu bilan qaror qiladi). */
@@ -646,7 +722,7 @@ export async function osilganlarniQaytar(): Promise<number> {
   const rows = await withoutTenantIsolation('moizvonki: osilgan qo\'ng\'iroqlarni navbatga qaytarish', (tx) =>
     tx
       .update(conversation)
-      .set({ status: 'received', updatedAt: new Date() })
+      .set({ status: 'received', excludedReason: null, updatedAt: new Date() })
       .where(
         and(
           eq(conversation.externalSource, 'moizvonki'),
@@ -665,6 +741,18 @@ export async function osilganlarniQaytar(): Promise<number> {
             and(
               eq(conversation.status, 'analyzing'),
               sql`${conversation.updatedAt} < now() - interval '30 minutes'`,
+            ),
+            /**
+             * Xato bilan tugaganlar — `MAX_URINISH` gacha, har safar uzoqroq
+             * kutib (15, 30 daqiqa). Ko'pi vaqtinchalik: tarmoq uzilishi,
+             * "This operation was aborted", AI'ning buzuq javobi. Ilgari
+             * bular abadiy `failed` da qolib, qo'lda qayta tahlil kutardi.
+             * STT tayyor bo'lsa, qayta urinish faqat baholashdan boshlanadi.
+             */
+            and(
+              eq(conversation.status, 'failed'),
+              lt(conversation.failCount, MAX_URINISH),
+              sql`${conversation.updatedAt} < now() - interval '15 minutes' * ${conversation.failCount}`,
             ),
           ),
         ),
@@ -863,7 +951,12 @@ export async function oldindanTranskriptQil(
         await withoutTenantIsolation('moizvonki: transkript xatosini yozish', (tx) =>
           tx
             .update(conversation)
-            .set({ status: 'failed', excludedReason: m.slice(0, 600), updatedAt: new Date() })
+            .set({
+              status: 'failed',
+              excludedReason: m.slice(0, 600),
+              failCount: sql`${conversation.failCount} + 1`,
+              updatedAt: new Date(),
+            })
             .where(eq(conversation.id, c.id)),
         );
       }
@@ -1086,7 +1179,12 @@ export async function qongiroqlarniQaytaIshla(
       await withoutTenantIsolation('moizvonki: qo\'ng\'iroq xatosini yozish', (tx) =>
         tx
           .update(conversation)
-          .set({ status: 'failed', excludedReason: m.slice(0, 600), updatedAt: new Date() })
+          .set({
+            status: 'failed',
+            excludedReason: m.slice(0, 600),
+            failCount: sql`${conversation.failCount} + 1`,
+            updatedAt: new Date(),
+          })
           .where(eq(conversation.id, c.id)),
       );
     }
