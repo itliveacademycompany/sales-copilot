@@ -138,7 +138,15 @@ jobs:
             # Faqat bizning obrazlar. Postgres obrazi (`postgres:18-bookworm`)
             # yuqorida yangilansa, `pull` hammasini tortib bazani har deploy'da
             # qayta ishga tushirardi — baza versiyasini yangilash qo'lda qilinadi.
-            docker compose pull backend web
+            # Tarmoq uzilishi (masalan "connection reset by peer") deployni
+            # yiqitmasin: 3 martagacha qayta urinamiz. Qayta urinishda allaqachon
+            # yuklangan qatlamlar qayta yuklanmaydi.
+            for n in 1 2 3; do
+              if docker compose pull --quiet backend web; then break; fi
+              if [ "$n" = 3 ]; then echo "Obrazlarni 3 urinishda yuklab bo'lmadi"; exit 1; fi
+              echo "Obraz yuklash uzildi (${n}-urinish), 20 soniyadan keyin qayta urinamiz"
+              sleep 20
+            done
             docker compose up -d --remove-orphans backend web
             # Backend sog'ligini kutamiz (migratsiya + ishga tushish).
             for i in $(seq 1 30); do
