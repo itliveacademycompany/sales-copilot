@@ -1,32 +1,41 @@
 import {
   ArrowLeft,
+  ArrowRight,
   Building2,
-  CalendarClock,
-  CheckCircle2,
+  Check,
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
   Circle,
+  CircleCheck,
+  Copy,
   ExternalLink,
+  FileText,
   History,
   ListChecks,
   MessageSquareText,
   Package,
-  Phone,
   PhoneCall,
+  PhoneIncoming,
+  PhoneOutgoing,
   Plus,
   RefreshCw,
   RotateCcw,
+  Search,
   Send,
   Sparkles,
+  Tag,
   Trash2,
-  User,
+  X,
   Zap,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { api, ApiError, ballKlass, fmtSana, fmtSoniya } from '../../api';
-import { BajarishOyna, TeglarKiritish, VazifaOyna } from '../../crm/komponentlar';
+import { api, ApiError, ballKlass, fmtQachon, fmtSoniya } from '../../api';
+import { AudioPleyer } from '../../components/AudioPleyer';
+import { BajarishOyna, TeglarKiritish } from '../../crm/komponentlar';
 import {
   bosqichTop,
-  guruhla,
   MaydonKiritish,
   muddatHolati,
   pul,
@@ -34,11 +43,13 @@ import {
   qiymatniTayyorla,
   useCrm,
   vazifaTuri,
+  type CrmHolat,
   type Maydon,
 } from '../../crm/malumot';
+import { MuddatTanlash, muddatMatni } from '../../crm/MuddatTanlash';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
-import { YoqotishSababi } from './Bitimlar';
+import { sanaVaqt, YoqotishSababi } from './Bitimlar';
 
 interface Hodisa {
   id: string;
@@ -64,6 +75,13 @@ interface Vazifa {
   createdAt: string;
 }
 
+interface MijozProfili {
+  name: string | null;
+  company: string | null;
+  role: string | null;
+  isDecisionMaker: boolean | null;
+}
+
 interface Qongiroq {
   id: string;
   channel: string;
@@ -75,6 +93,14 @@ interface Qongiroq {
   summary: string | null;
   leadQuality: string | null;
   seatName: string | null;
+  mediaUrl: string | null;
+  mediaKind: string | null;
+  primaryGap: string | null;
+  callFamily: string | null;
+  serviceLine: string | null;
+  clientExtracted: MijozProfili | null;
+  dealInfo: { amount: number | null; currency: string | null; stage: string | null } | null;
+  signals: { urgency: string | null; budgetReaction: string | null; objections: string[] } | null;
 }
 
 interface TovarQatori {
@@ -84,6 +110,14 @@ interface TovarQatori {
   price: number;
   quantity: number;
   discount: number;
+}
+
+interface Forma {
+  id: string;
+  source: string;
+  sourceName: string | null;
+  createdAt: string;
+  answers: { label: string; value: string }[];
 }
 
 interface Kartochka {
@@ -126,36 +160,47 @@ interface Kartochka {
   events: Hodisa[];
   tasks: Vazifa[];
   calls: Qongiroq[];
+  forms?: Forma[];
+}
+
+interface Qoralama {
+  name: string;
+  amount: string;
+  responsibleSeatId: string;
+  companyId: string;
+  tags: string[];
+  fields: Record<string, unknown>;
 }
 
 const OCHIQ = new Set(['pending', 'in_progress', 'blocked']);
+/** "Barcha maydonlarni ko'rsatish" bosilmaguncha ko'rinadigan qo'shimcha maydonlar soni. */
+const KORINADIGAN_MAYDON = 6;
 
 /**
- * Bitim kartochkasi. Chapda — asosiy ma'lumot, teglar, kompaniya, tovarlar
- * va qo'shimcha maydonlar (bitta "Saqlash", optimistik qulf bilan); o'ngda —
- * vazifalar va tarix lentasi (izoh, bosqich, maydon, vazifa, avtomatika va
- * SotuvAI qo'ng'iroqlari).
+ * ═══════════════════════════════════════════════════════════════════════════
+ * LID (BITIM) KARTASI — Metasell uslubi
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * Tepada: orqaga · voronka tablari (bosilsa lid o'sha voronkaga o'tadi) ·
+ * bosqich lentasi · nom va AI xulosa. Chapda: ID va teglar, maydonlar
+ * (joyida tahrirlanadi, bitta "Saqlash"), forma javoblari, kontakt,
+ * kompaniya, tovarlar. O'ngda: kunlar bo'yicha tarix (qo'ng'iroq audiosi va
+ * AI tahlili bilan), AI'ning maydon to'ldirish takliflari, qadalgan ochiq
+ * vazifalar va Izoh / Vazifa yozish maydoni.
  */
 export function BitimKarta() {
   const { id } = useParams<{ id: string }>();
-  const { holat, base, seatlar } = useCrm();
+  const { holat, base } = useCrm();
   const t = useT();
   const navigate = useNavigate();
   const [k, setK] = useState<Kartochka | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [xabar, setXabar] = useState<{ ok: boolean; matn: string } | null>(null);
-  const [qoralama, setQoralama] = useState<{
-    name: string;
-    amount: string;
-    responsibleSeatId: string;
-    companyId: string;
-    tags: string[];
-    fields: Record<string, unknown>;
-  } | null>(null);
+  const [qoralama, setQoralama] = useState<Qoralama | null>(null);
   const [band, setBand] = useState(false);
   const [yoqotish, setYoqotish] = useState<string | null>(null);
-  const [vazifaOyna, setVazifaOyna] = useState(false);
   const [ochirish, setOchirish] = useState(false);
+  const [chapYopiq, setChapYopiq] = useState(false);
 
   const yukla = useCallback(async () => {
     try {
@@ -194,7 +239,7 @@ export function BitimKarta() {
     return (
       <div className="ci-sahifa">
         <Link to="/crm/bitimlar" className="ci-orqaga">
-          <ArrowLeft /> {t('Bitimlar')}
+          <ArrowLeft /> {t('Lidlar')}
         </Link>
         <div className="card xato-qator">{xato}</div>
       </div>
@@ -206,10 +251,11 @@ export function BitimKarta() {
   const bosqich = bosqichTop(holat, d.stageId);
   const voronka = holat.pipelines.find((p) => p.id === d.pipelineId);
   const yozaOladi = holat.canManageAll || d.responsibleSeatId === holat.seatId;
-  const maydonNomi = new Map(holat.fields.map((f) => [f.id, f]));
-  const tovarli = k.items.length > 0;
   // amoCRM dan sinxronlanadi: nom, summa, bosqich, mas'ul va amoCRM maydonlari faqat o'qiladi
   const sinx = k.sync;
+  const tovarli = k.items.length > 0;
+  // Sarlavha ostidagi AI xulosa — eng oxirgi tahlil qilingan qo'ng'iroqdan
+  const oxirgiTahlil = k.calls.find((c) => c.summary);
 
   const saqla = async () => {
     setBand(true);
@@ -252,6 +298,13 @@ export function BitimKarta() {
     }
   };
 
+  /** Boshqa voronkaga o'tkazish — o'sha voronkaning birinchi ochiq bosqichiga. */
+  const voronkaga = (pipelineId: string) => {
+    const v = holat.pipelines.find((p) => p.id === pipelineId);
+    const birinchi = v?.stages.find((s) => s.kind === 'open') ?? v?.stages[0];
+    if (birinchi) void kochir(birinchi.id);
+  };
+
   const ochir = async () => {
     try {
       await api.del(`${base}/deals/${d.id}`);
@@ -263,55 +316,49 @@ export function BitimKarta() {
   };
 
   return (
-    <div className="ci-sahifa">
-      <Link to={`/crm/bitimlar?v=${d.pipelineId}`} className="ci-orqaga">
-        <ArrowLeft /> {voronka?.name ?? t('Bitimlar')}
-      </Link>
-
-      <div className="ci-bk-bosh">
-        <div className="ci-bk-sarlavha">
-          <h1>{d.name}</h1>
-          <div className="ci-bk-meta">
-            {bosqich && (
-              <span className="ci-bosqich-belgi" style={{ ['--bosqich' as string]: bosqich.color }}>
-                {bosqich.name}
-              </span>
-            )}
-            <span>{t('Yaratilgan: {v}', { v: fmtSana(d.createdAt) })}</span>
-            {d.source && <span>{t('Manba: {m}', { m: t(d.source) })}</span>}
-            {d.amount !== null && <b className="ci-raqam">{pul(d.amount)}</b>}
-          </div>
-        </div>
-        {yozaOladi && (
-          <button className="vr-amal" onClick={() => setOchirish(true)} aria-label={t("Bitimni o'chirish")} title={t("Bitimni o'chirish")}>
-            <Trash2 />
-          </button>
-        )}
-      </div>
-
-      {/* Bosqichlar chizig'i — bosib ko'chirish (sudrashga muqobil, klaviatura bilan ham) */}
-      {voronka && (
-        <div className="ci-bosqich-chiziq" role="group" aria-label={t('Bosqichga o‘tkazish')}>
-          {voronka.stages.map((s) => {
-            const faol = s.id === d.stageId;
-            const otgan = !faol && bosqich && s.sort < bosqich.sort && s.kind === 'open';
-            return (
+    <div className="ci-sahifa ms-bk">
+      <section className="ms-bk-bosh">
+        <div className="ms-bk-tepa">
+          <Link to={`/crm/bitimlar?v=${d.pipelineId}`} className="ms-ikon-tugma" aria-label={t('Orqaga')} title={t('Orqaga')}>
+            <ArrowLeft />
+          </Link>
+          <nav className="ms-bk-voronkalar" aria-label={t('Voronkalar')}>
+            {holat.pipelines.map((p) => (
               <button
-                key={s.id}
+                key={p.id}
                 type="button"
-                disabled={!yozaOladi || faol || Boolean(sinx)}
-                aria-current={faol ? 'step' : undefined}
-                className={`ci-qadam ${s.kind}${faol ? ' faol' : ''}${otgan ? ' otgan' : ''}`}
-                style={{ ['--bosqich' as string]: s.color }}
-                onClick={() => (s.kind === 'lost' ? setYoqotish(s.id) : void kochir(s.id))}
-                title={s.name}
+                className={p.id === d.pipelineId ? 'faol' : undefined}
+                aria-current={p.id === d.pipelineId ? 'true' : undefined}
+                disabled={p.id === d.pipelineId || !yozaOladi || Boolean(sinx)}
+                onClick={() => voronkaga(p.id)}
+                title={p.id === d.pipelineId ? undefined : t('Lidni «{v}» voronkasiga o‘tkazish', { v: p.name })}
               >
-                {s.name}
+                {p.name}
               </button>
-            );
-          })}
+            ))}
+          </nav>
+          {yozaOladi && (
+            <button type="button" className="ms-ikon-tugma ms-bk-ochir" onClick={() => setOchirish(true)} aria-label={t("Lidni o'chirish")} title={t("Lidni o'chirish")}>
+              <Trash2 />
+            </button>
+          )}
         </div>
-      )}
+
+        {voronka && <BosqichLenta voronka={voronka} joriyId={d.stageId} yoqilgan={yozaOladi && !sinx} onTanla={(s) => (s.kind === 'lost' ? setYoqotish(s.id) : void kochir(s.id))} />}
+
+        <div className="ms-bk-sarlavha">
+          <input
+            className="ms-bk-nom"
+            value={qoralama.name}
+            maxLength={250}
+            readOnly={!yozaOladi || Boolean(sinx)}
+            onChange={(e) => setQoralama({ ...qoralama, name: e.target.value })}
+            aria-label={t('Lid nomi')}
+          />
+          {oxirgiTahlil?.summary && <p className="ms-bk-xulosa">{oxirgiTahlil.summary}</p>}
+        </div>
+      </section>
+
       {sinx && (
         <div className="card ci-sinx-qator" role="note">
           <RefreshCw aria-hidden="true" />
@@ -335,130 +382,34 @@ export function BitimKarta() {
         </div>
       )}
 
-      <div className="ci-bk-ish">
-        <div className="ci-bk-chap">
-          <section className="card ci-blok" aria-labelledby="bk-asosiy">
-            <h2 id="bk-asosiy">{t("Asosiy ma'lumot")}</h2>
-            <fieldset disabled={!yozaOladi} className="ci-fieldset">
-              <div className="maydon-blok">
-                <label htmlFor="bk-nom">{t('Bitim nomi')}</label>
-                <input
-                  id="bk-nom"
-                  className="input"
-                  value={qoralama.name}
-                  maxLength={250}
-                  readOnly={Boolean(sinx)}
-                  onChange={(e) => setQoralama({ ...qoralama, name: e.target.value })}
-                />
-              </div>
-              <div className="vr-oyna-ikki">
-                <div className="maydon-blok">
-                  <label htmlFor="bk-summa">{t('Summa')}</label>
-                  <input
-                    id="bk-summa"
-                    className="input"
-                    inputMode="decimal"
-                    value={qoralama.amount}
-                    readOnly={tovarli || Boolean(sinx)}
-                    title={tovarli ? t('Summa tovarlardan hisoblanadi') : undefined}
-                    onChange={(e) => setQoralama({ ...qoralama, amount: e.target.value.replace(/[^\d.,\s]/g, '') })}
-                  />
+      <div className={`ms-bk-ish${chapYopiq ? ' chap-yopiq' : ''}`}>
+        {!chapYopiq && (
+          <aside className="ms-bk-chap">
+            <section className="ms-blok">
+              <IdQatori k={k} voronkaNomi={voronka?.name ?? ''} qoralama={qoralama} setQoralama={setQoralama} yozaOladi={yozaOladi} />
+              <Maydonlar k={k} qoralama={qoralama} setQoralama={setQoralama} yozaOladi={yozaOladi} />
+              {yozaOladi && ozgargan && (
+                <div className="ms-saqlash">
+                  <span>{t("O'zgarishlar saqlanmagan")}</span>
+                  <button className="btn ikkinchi kichik" onClick={() => void yukla()}>
+                    {t('Bekor')}
+                  </button>
+                  <button className="btn kichik" onClick={() => void saqla()} disabled={band}>
+                    {band ? t('Saqlanmoqda…') : t('Saqlash')}
+                  </button>
                 </div>
-                <div className="maydon-blok">
-                  <label htmlFor="bk-masul">{t("Mas'ul")}</label>
-                  {holat.canManageAll && !sinx ? (
-                    <select id="bk-masul" className="input" value={qoralama.responsibleSeatId} onChange={(e) => setQoralama({ ...qoralama, responsibleSeatId: e.target.value })}>
-                      <option value="">{t('Biriktirilmagan')}</option>
-                      {seatlar.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.displayName}
-                        </option>
-                      ))}
-                      {k.responsible && !seatlar.some((s) => s.id === k.responsible!.id) && <option value={k.responsible.id}>{k.responsible.name}</option>}
-                    </select>
-                  ) : (
-                    <input id="bk-masul" className="input" value={k.responsible?.name ?? '—'} readOnly />
-                  )}
-                </div>
-              </div>
-              <div className="maydon-blok">
-                <label htmlFor="bk-teg">{t('Teglar')}</label>
-                <TeglarKiritish id="bk-teg" qiymat={qoralama.tags} onChange={(tags) => setQoralama({ ...qoralama, tags })} />
-              </div>
-              <KompaniyaTanlash qiymat={qoralama.companyId} joriy={k.company} onChange={(companyId) => setQoralama({ ...qoralama, companyId })} />
-            </fieldset>
-          </section>
-
-          <section className="card ci-blok" aria-labelledby="bk-kontakt">
-            <h2 id="bk-kontakt">{t('Kontakt')}</h2>
-            {k.contact ? (
-              <Link to={`/crm/kontaktlar/${k.contact.id}`} className="ci-kontakt-qator">
-                <span className="ci-avatar" aria-hidden="true">
-                  <User />
-                </span>
-                <span>
-                  <b>{k.contact.name ?? t('Ismsiz')}</b>
-                  {k.contact.role && <span className="yordam">{k.contact.role}</span>}
-                  {[k.contact.phone, ...(k.contact.phones ?? [])].filter(Boolean).map((p) => (
-                    <span key={p} className="yordam">
-                      <Phone aria-hidden="true" /> {p}
-                    </span>
-                  ))}
-                  {k.contact.email && <span className="yordam">{k.contact.email}</span>}
-                </span>
-              </Link>
-            ) : (
-              <p className="yordam">{t('Kontakt biriktirilmagan.')}</p>
-            )}
-          </section>
-
-          <Tovarlar dealId={d.id} items={k.items} yozaOladi={yozaOladi && !sinx} onOzgardi={yukla} />
-
-          {guruhla(holat.fields).map((g) => (
-            <section className="card ci-blok" key={g.nom} aria-label={t(g.nom)}>
-              <h2>{t(g.nom)}</h2>
-              <fieldset disabled={!yozaOladi} className="ci-fieldset">
-                {g.maydonlar.map((m) => (
-                  <div className="maydon-blok" key={m.id}>
-                    <label htmlFor={`bk-${m.id}`}>
-                      {m.label}
-                      {m.required && <span className="ci-majburiy"> *</span>}
-                    </label>
-                    {sinx && m.external ? (
-                      <fieldset disabled className="ci-fieldset" title={t('{crm} da o‘zgartiriladi', { crm: sinx })}>
-                        <MaydonKiritish id={`bk-${m.id}`} m={m} qiymat={qoralama.fields[m.id]} onChange={() => undefined} />
-                      </fieldset>
-                    ) : (
-                      <MaydonKiritish
-                        id={`bk-${m.id}`}
-                        m={m}
-                        qiymat={qoralama.fields[m.id]}
-                        onChange={(v) => setQoralama({ ...qoralama, fields: { ...qoralama.fields, [m.id]: v } })}
-                      />
-                    )}
-                  </div>
-                ))}
-              </fieldset>
+              )}
             </section>
-          ))}
+            {(k.forms?.length ?? 0) > 0 && <FormaJavoblari formalar={k.forms!} />}
+            <KontaktBlok k={k} />
+            <KompaniyaBlok k={k} qiymat={qoralama.companyId} yozaOladi={yozaOladi} onChange={(companyId) => setQoralama({ ...qoralama, companyId })} />
+            <Tovarlar dealId={d.id} items={k.items} yozaOladi={yozaOladi && !sinx} onOzgardi={yukla} />
+          </aside>
+        )}
 
-          {yozaOladi && (
-            <div className={`ci-saqlash-panel${ozgargan ? ' korinadi' : ''}`} aria-hidden={!ozgargan}>
-              <span>{t("O'zgarishlar saqlanmagan")}</span>
-              <button className="btn ikkinchi kichik" onClick={() => void yukla()} tabIndex={ozgargan ? 0 : -1}>
-                {t('Bekor')}
-              </button>
-              <button className="btn kichik" onClick={() => void saqla()} disabled={band || !ozgargan} tabIndex={ozgargan ? 0 : -1}>
-                {band ? t('Saqlanmoqda…') : t('Saqlash')}
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className="ci-bk-ong">
-          <Vazifalar k={k} yozaOladi={yozaOladi} onYangi={() => setVazifaOyna(true)} onOzgardi={yukla} />
-          <Lenta k={k} maydonNomi={maydonNomi} onIzoh={yukla} />
-        </div>
+        <section className="ms-bk-ong" aria-label={t('Lid tarixi')}>
+          <Lenta k={k} yozaOladi={yozaOladi} chapYopiq={chapYopiq} onChapAlmashtir={() => setChapYopiq((v) => !v)} onOzgardi={yukla} />
+        </section>
       </div>
 
       {yoqotish && (
@@ -470,10 +421,9 @@ export function BitimKarta() {
           }}
         />
       )}
-      {vazifaOyna && <VazifaOyna dealId={d.id} onYop={() => setVazifaOyna(false)} onSaqlandi={yukla} />}
       {ochirish && (
         <Oyna
-          sarlavha={t("Bitimni o'chirish")}
+          sarlavha={t("Lidni o'chirish")}
           onYop={() => setOchirish(false)}
           onSubmit={() => void ochir()}
           past={
@@ -491,6 +441,283 @@ export function BitimKarta() {
         </Oyna>
       )}
     </div>
+  );
+}
+
+// ─── Bosqich lentasi ─────────────────────────────────────────────────────────
+
+/** O'q shaklidagi bosqichlar: o'tganlari ✓, joriysi bosqich rangida; bosilsa ko'chadi. */
+function BosqichLenta({
+  voronka,
+  joriyId,
+  yoqilgan,
+  onTanla,
+}: {
+  voronka: CrmHolat['pipelines'][number];
+  joriyId: string;
+  yoqilgan: boolean;
+  onTanla: (s: CrmHolat['pipelines'][number]['stages'][number]) => void;
+}) {
+  const t = useT();
+  const joriy = voronka.stages.find((s) => s.id === joriyId);
+  return (
+    <div className="ms-lenta-bosqich" role="group" aria-label={t('Bosqichga o‘tkazish')}>
+      {voronka.stages.map((s) => {
+        const faol = s.id === joriyId;
+        const otgan = !faol && joriy && s.kind === 'open' && s.sort < joriy.sort;
+        return (
+          <button
+            key={s.id}
+            type="button"
+            disabled={!yoqilgan || faol}
+            aria-current={faol ? 'step' : undefined}
+            className={`ms-qadam ${s.kind}${faol ? ' faol' : ''}${otgan ? ' otgan' : ''}`}
+            style={{ ['--bosqich' as string]: s.color }}
+            onClick={() => onTanla(s)}
+            title={s.name}
+          >
+            {otgan ? <Check aria-label={s.name} /> : <span>{s.name}</span>}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Chap ustun ──────────────────────────────────────────────────────────────
+
+function IdQatori({
+  k,
+  voronkaNomi,
+  qoralama,
+  setQoralama,
+  yozaOladi,
+}: {
+  k: Kartochka;
+  voronkaNomi: string;
+  qoralama: Qoralama;
+  setQoralama: (q: Qoralama) => void;
+  yozaOladi: boolean;
+}) {
+  const t = useT();
+  const [tegOchiq, setTegOchiq] = useState(false);
+  const [nusxa, setNusxa] = useState(false);
+  const d = k.deal;
+  const nusxala = async () => {
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/crm/bitimlar/${d.id}`);
+      setNusxa(true);
+      setTimeout(() => setNusxa(false), 1500);
+    } catch {
+      /* clipboard yopiq — jim */
+    }
+  };
+  return (
+    <>
+      <div className="ms-id-qator">
+        <span className="ms-id" title={d.id}>
+          #{d.id.slice(0, 8).toUpperCase()} · {voronkaNomi}
+        </span>
+        <button type="button" className="ms-mini-tugma" onClick={() => void nusxala()} aria-label={t('Havolani nusxalash')} title={t('Havolani nusxalash')}>
+          {nusxa ? <Check /> : <Copy />}
+        </button>
+        {d.source && <span className="ms-manba-teg">{t(d.source)}</span>}
+        {qoralama.tags.map((tg) => (
+          <span key={tg} className="ms-teg">
+            {tg}
+            {yozaOladi && (
+              <button type="button" onClick={() => setQoralama({ ...qoralama, tags: qoralama.tags.filter((x) => x !== tg) })} aria-label={t('Tegni olib tashlash')}>
+                <X />
+              </button>
+            )}
+          </span>
+        ))}
+        {yozaOladi && (
+          <button type="button" className="ms-teg-qosh" onClick={() => setTegOchiq((v) => !v)} aria-expanded={tegOchiq}>
+            <Plus aria-hidden="true" /> {t("Teg qo'shish")}
+          </button>
+        )}
+      </div>
+      {tegOchiq && (
+        <div className="ms-teg-kiritish">
+          <TeglarKiritish id="bk-teg" qiymat={qoralama.tags} onChange={(tags) => setQoralama({ ...qoralama, tags })} />
+        </div>
+      )}
+    </>
+  );
+}
+
+function Maydonlar({
+  k,
+  qoralama,
+  setQoralama,
+  yozaOladi,
+}: {
+  k: Kartochka;
+  qoralama: Qoralama;
+  setQoralama: (q: Qoralama) => void;
+  yozaOladi: boolean;
+}) {
+  const { holat, seatlar } = useCrm();
+  const t = useT();
+  const [hammasi, setHammasi] = useState(false);
+  const sinx = k.sync;
+  const tovarli = k.items.length > 0;
+  // To'ldirilganlari va majburiylari tepada — ko'rinadigan qismga muhimi tushsin
+  const tartiblangan = [...holat.fields].sort((a, b) => {
+    const ta = Number(qoralama.fields[a.id] != null && qoralama.fields[a.id] !== '') + Number(a.required);
+    const tb = Number(qoralama.fields[b.id] != null && qoralama.fields[b.id] !== '') + Number(b.required);
+    return tb - ta || a.sort - b.sort;
+  });
+  const korinadi = hammasi ? tartiblangan : tartiblangan.slice(0, KORINADIGAN_MAYDON);
+  const yashirin = tartiblangan.length - korinadi.length;
+
+  return (
+    <fieldset disabled={!yozaOladi} className="ms-maydonlar">
+      <div className="ms-maydon">
+        <label htmlFor="bk-masul">{t("Mas'ul xodim")}</label>
+        {holat.canManageAll && !sinx ? (
+          <select id="bk-masul" className="input" value={qoralama.responsibleSeatId} onChange={(e) => setQoralama({ ...qoralama, responsibleSeatId: e.target.value })}>
+            <option value="">{t('Biriktirilmagan')}</option>
+            {seatlar.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.displayName}
+              </option>
+            ))}
+            {k.responsible && !seatlar.some((s) => s.id === k.responsible!.id) && <option value={k.responsible.id}>{k.responsible.name}</option>}
+          </select>
+        ) : (
+          <span className="ms-maydon-qiymat">{k.responsible?.name ?? '—'}</span>
+        )}
+      </div>
+      <div className="ms-maydon">
+        <label htmlFor="bk-summa">{t('Summa')}</label>
+        <input
+          id="bk-summa"
+          className="input"
+          inputMode="decimal"
+          value={qoralama.amount}
+          placeholder="···"
+          readOnly={tovarli || Boolean(sinx)}
+          title={tovarli ? t('Summa tovarlardan hisoblanadi') : undefined}
+          onChange={(e) => setQoralama({ ...qoralama, amount: e.target.value.replace(/[^\d.,\s]/g, '') })}
+        />
+      </div>
+      {korinadi.map((m) => (
+        <div className="ms-maydon" key={m.id}>
+          <label htmlFor={`bk-${m.id}`} title={m.label}>
+            {m.label}
+            {m.required && <span className="ci-majburiy"> *</span>}
+          </label>
+          {sinx && m.external ? (
+            <span className="ms-maydon-qiymat" title={t('{crm} da o‘zgartiriladi', { crm: sinx })}>
+              {qiymatMatni(m, qoralama.fields[m.id], t)}
+            </span>
+          ) : (
+            <MaydonKiritish id={`bk-${m.id}`} m={m} qiymat={qoralama.fields[m.id]} onChange={(v) => setQoralama({ ...qoralama, fields: { ...qoralama.fields, [m.id]: v } })} />
+          )}
+        </div>
+      ))}
+      {tartiblangan.length > KORINADIGAN_MAYDON && (
+        <button type="button" className="ms-hammasi" onClick={() => setHammasi((v) => !v)} aria-expanded={hammasi}>
+          {hammasi ? t('Kamroq ko‘rsatish') : t("Barcha maydonlarni ko'rsatish")} {!hammasi && <span>{yashirin}</span>}
+          <ChevronDown className={hammasi ? 'aylangan' : undefined} aria-hidden="true" />
+        </button>
+      )}
+    </fieldset>
+  );
+}
+
+function FormaJavoblari({ formalar }: { formalar: Forma[] }) {
+  const t = useT();
+  const manba = { call: "Qo'ng'iroq", form: 'Forma', manual: "Qo'lda" } as Record<string, string>;
+  return (
+    <>
+      {formalar.map((f) => (
+        <section className="ms-blok" key={f.id}>
+          <header className="ms-blok-bosh">
+            <h2>{t('Forma javoblari')}</h2>
+            <span className="ms-manba-teg">{f.sourceName ?? t(manba[f.source] ?? f.source)}</span>
+            <time className="ms-blok-vaqt">{sanaVaqt(f.createdAt).slice(-5)}</time>
+          </header>
+          {f.answers.length === 0 ? (
+            <p className="yordam">{t("Javoblar yo'q")}</p>
+          ) : (
+            <dl className="ms-javoblar">
+              {f.answers.map((a, i) => (
+                <div key={i}>
+                  <dt>{a.label}</dt>
+                  <dd>{a.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </section>
+      ))}
+    </>
+  );
+}
+
+function boshHarflar(nom: string | null | undefined): string {
+  const s = (nom ?? '').trim();
+  if (!s) return '•';
+  const q = s.split(/\s+/);
+  return ((q[0]?.[0] ?? '') + (q[1]?.[0] ?? '')).toUpperCase() || '•';
+}
+
+function KontaktBlok({ k }: { k: Kartochka }) {
+  const t = useT();
+  const c = k.contact;
+  return (
+    <section className="ms-blok">
+      <header className="ms-blok-bosh">
+        <h2>{t('Kontaktlar')}</h2>
+      </header>
+      {c ? (
+        <Link to={`/crm/kontaktlar/${c.id}`} className="ms-kontakt">
+          <span className="ms-avatar">{boshHarflar(c.name ?? c.phone)}</span>
+          <span className="ms-kontakt-matn">
+            <b>
+              {c.name ?? t('Ismsiz')} <span className="ms-asosiy-belgi">{t('Asosiy')}</span>
+            </b>
+            {[c.phone, ...(c.phones ?? [])].filter(Boolean).map((p) => (
+              <span key={p} className="ms-kontakt-tel">
+                {p}
+              </span>
+            ))}
+            {c.role && <span className="yordam">{c.role}</span>}
+          </span>
+          <ArrowRight className="ms-kontakt-strelka" aria-hidden="true" />
+        </Link>
+      ) : (
+        <p className="yordam">{t('Kontakt biriktirilmagan.')}</p>
+      )}
+    </section>
+  );
+}
+
+function KompaniyaBlok({ k, qiymat, yozaOladi, onChange }: { k: Kartochka; qiymat: string; yozaOladi: boolean; onChange: (id: string) => void }) {
+  const t = useT();
+  const [tanlash, setTanlash] = useState(false);
+  if (!qiymat && !tanlash) {
+    if (!yozaOladi) return null;
+    return (
+      <button type="button" className="ms-blok ms-biriktir" onClick={() => setTanlash(true)}>
+        <Plus aria-hidden="true" /> {t('Kompaniya biriktirish')}
+      </button>
+    );
+  }
+  return (
+    <section className="ms-blok">
+      <header className="ms-blok-bosh">
+        <h2>
+          <Building2 aria-hidden="true" /> {t('Kompaniya')}
+        </h2>
+      </header>
+      <fieldset disabled={!yozaOladi} className="ci-fieldset">
+        <KompaniyaTanlash qiymat={qiymat} joriy={k.company} onChange={onChange} />
+      </fieldset>
+    </section>
   );
 }
 
@@ -514,9 +741,9 @@ function KompaniyaTanlash({
   const yukla = useCallback(() => {
     void api
       .get<{ items: { id: string; name: string }[] }>(`${base}/companies?limit=200`)
-      .then((r) => setRoyxat(r.items))
+      .then((r) => setRoyxat(joriy && !r.items.some((x) => x.id === joriy.id) ? [joriy, ...r.items] : r.items))
       .catch(() => undefined);
-  }, [base]);
+  }, [base, joriy]);
   useEffect(yukla, [yukla]);
 
   const yarat = async () => {
@@ -532,40 +759,33 @@ function KompaniyaTanlash({
     }
   };
 
-  return (
-    <div className="maydon-blok">
-      <label htmlFor="bk-komp">
-        <Building2 className="ci-label-ikon" aria-hidden="true" /> {t('Kompaniya')}
-      </label>
-      {yangi ? (
-        <div className="ci-qator-kiritish">
-          <input className="input" value={nom} maxLength={200} onChange={(e) => setNom(e.target.value)} placeholder={t('Kompaniya nomi')} aria-label={t('Kompaniya nomi')} autoFocus />
-          <button type="button" className="btn kichik" onClick={() => void yarat()}>
-            {t('Yaratish')}
-          </button>
-          <button type="button" className="btn ikkinchi kichik" onClick={() => setYangi(false)}>
-            {t('Bekor')}
-          </button>
-        </div>
-      ) : (
-        <div className="ci-qator-kiritish">
-          <select id="bk-komp" className="input" value={qiymat} onChange={(e) => onChange(e.target.value)}>
-            <option value="">{t('— tanlanmagan —')}</option>
-            {royxat.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <button type="button" className="vr-amal" onClick={() => setYangi(true)} aria-label={t('Yangi kompaniya')} title={t('Yangi kompaniya')}>
-            <Plus />
-          </button>
-          {qiymat && (
-            <Link to={`/crm/kompaniyalar/${qiymat}`} className="ci-havola">
-              {t('Ochish')}
-            </Link>
-          )}
-        </div>
+  return yangi ? (
+    <div className="ci-qator-kiritish">
+      <input className="input" value={nom} maxLength={200} onChange={(e) => setNom(e.target.value)} placeholder={t('Kompaniya nomi')} aria-label={t('Kompaniya nomi')} autoFocus />
+      <button type="button" className="btn kichik" onClick={() => void yarat()}>
+        {t('Yaratish')}
+      </button>
+      <button type="button" className="btn ikkinchi kichik" onClick={() => setYangi(false)}>
+        {t('Bekor')}
+      </button>
+    </div>
+  ) : (
+    <div className="ci-qator-kiritish">
+      <select className="input" value={qiymat} onChange={(e) => onChange(e.target.value)} aria-label={t('Kompaniya')}>
+        <option value="">{t('— tanlanmagan —')}</option>
+        {royxat.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+      <button type="button" className="vr-amal" onClick={() => setYangi(true)} aria-label={t('Yangi kompaniya')} title={t('Yangi kompaniya')}>
+        <Plus />
+      </button>
+      {qiymat && (
+        <Link to={`/crm/kompaniyalar/${qiymat}`} className="ci-havola">
+          {t('Ochish')}
+        </Link>
       )}
     </div>
   );
@@ -632,18 +852,25 @@ function Tovarlar({ dealId, items, yozaOladi, onOzgardi }: { dealId: string; ite
   };
 
   if (!yozaOladi && items.length === 0) return null;
+  if (items.length === 0 && !ochiq) {
+    return (
+      <button type="button" className="ms-blok ms-biriktir" onClick={() => setOchiq(true)}>
+        <Package aria-hidden="true" /> {t("Tovar yoki xizmat qo'shish")}
+      </button>
+    );
+  }
   return (
-    <section className="card ci-blok" aria-labelledby="bk-tovar">
-      <div className="ci-blok-bosh">
+    <section className="ms-blok" aria-labelledby="bk-tovar">
+      <header className="ms-blok-bosh">
         <h2 id="bk-tovar">
           <Package aria-hidden="true" /> {t('Tovarlar va xizmatlar')}
         </h2>
         {yozaOladi && !ochiq && (
-          <button className="btn ikkinchi kichik" onClick={() => setOchiq(true)}>
-            <Plus /> {t('Tovar')}
+          <button className="ms-mini-tugma" onClick={() => setOchiq(true)} aria-label={t("Tovar qo'shish")} title={t("Tovar qo'shish")}>
+            <Plus />
           </button>
         )}
-      </div>
+      </header>
       {items.length > 0 && (
         <table className="jadval ci-tovar-jadval">
           <thead>
@@ -717,7 +944,6 @@ function Tovarlar({ dealId, items, yozaOladi, onOzgardi }: { dealId: string; ite
           </tfoot>
         </table>
       )}
-      {items.length === 0 && !ochiq && <p className="yordam">{t("Tovar qo'shilsa, bitim summasi avtomatik hisoblanadi.")}</p>}
       {ochiq && (
         <div className="ci-tovar-qosh">
           <select className="input" value={tanlov} onChange={(e) => setTanlov(e.target.value)} aria-label={t('Katalogdan')}>
@@ -744,86 +970,603 @@ function Tovarlar({ dealId, items, yozaOladi, onOzgardi }: { dealId: string; ite
   );
 }
 
-// ─── Vazifalar ───────────────────────────────────────────────────────────────
+// ─── Tarix lentasi ───────────────────────────────────────────────────────────
 
-function Vazifalar({ k, yozaOladi, onYangi, onOzgardi }: { k: Kartochka; yozaOladi: boolean; onYangi: () => void; onOzgardi: () => Promise<void> }) {
-  const { holat, base } = useCrm();
+const HAFTA_KUNLARI = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
+const OY_NOMLARI = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
+
+type LentaBandi = { tur: 'hodisa'; vaqt: string; h: Hodisa } | { tur: 'qongiroq'; vaqt: string; q: Qongiroq };
+type LentaFiltr = 'hammasi' | 'izoh' | 'qongiroq' | 'vazifa' | 'bosqich';
+
+function Lenta({
+  k,
+  yozaOladi,
+  chapYopiq,
+  onChapAlmashtir,
+  onOzgardi,
+}: {
+  k: Kartochka;
+  yozaOladi: boolean;
+  chapYopiq: boolean;
+  onChapAlmashtir: () => void;
+  onOzgardi: () => Promise<void>;
+}) {
   const t = useT();
-  const [xato, setXato] = useState<string | null>(null);
-  const [bajarish, setBajarish] = useState<Vazifa | null>(null);
-  const ochiq = k.tasks.filter((v) => OCHIQ.has(v.status)).sort((a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'));
-  const yopiq = k.tasks.filter((v) => !OCHIQ.has(v.status)).slice(0, 5);
+  const [filtr, setFiltr] = useState<LentaFiltr>('hammasi');
+  const [qidiruvOchiq, setQidiruvOchiq] = useState(false);
+  const [qidiruv, setQidiruv] = useState('');
+  const pastRef = useRef<HTMLDivElement>(null);
 
-  const qaytaOch = async (v: Vazifa) => {
-    setXato(null);
-    try {
-      await api.post(`${base}/crm-app/tasks/${v.id}/reopen`, {});
-      await onOzgardi();
-    } catch (e) {
-      setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
+  const bandlar = useMemo<LentaBandi[]>(() => {
+    const a: LentaBandi[] = [];
+    for (const h of k.events) {
+      if (filtr === 'izoh' && h.type !== 'note') continue;
+      if (filtr === 'vazifa' && !h.type.startsWith('task')) continue;
+      if (filtr === 'bosqich' && h.type !== 'stage' && h.type !== 'created') continue;
+      if (filtr === 'qongiroq') continue;
+      a.push({ tur: 'hodisa', vaqt: h.createdAt, h });
     }
+    if (filtr === 'hammasi' || filtr === 'qongiroq') for (const q of k.calls) a.push({ tur: 'qongiroq', vaqt: q.startedAt, q });
+    const s = qidiruv.trim().toLowerCase();
+    const mos = s
+      ? a.filter((b) =>
+          (b.tur === 'qongiroq' ? [b.q.summary, b.q.seatName] : [JSON.stringify(b.h.data), b.h.authorName]).some((x) => (x ?? '').toLowerCase().includes(s)),
+        )
+      : a;
+    // Metasell'dagidek eskisi tepada, eng yangisi pastda (yozish maydoniga yaqin)
+    return mos.sort((x, y) => x.vaqt.localeCompare(y.vaqt));
+  }, [k, filtr, qidiruv]);
+
+  // Kunlar bo'yicha guruhlash
+  const kunlar = useMemo(() => {
+    const g: { kalit: string; sana: Date; bandlar: LentaBandi[] }[] = [];
+    for (const b of bandlar) {
+      const d = new Date(b.vaqt);
+      const kalit = d.toDateString();
+      const oxirgi = g[g.length - 1];
+      if (oxirgi && oxirgi.kalit === kalit) oxirgi.bandlar.push(b);
+      else g.push({ kalit, sana: d, bandlar: [b] });
+    }
+    return g;
+  }, [bandlar]);
+
+  // Ochilganda va yangi hodisa qo'shilganda pastga (eng yangisiga) aylantirish
+  useEffect(() => {
+    pastRef.current?.scrollIntoView({ block: 'end' });
+  }, [k.events.length, k.calls.length]);
+
+  const kunNomi = (d: Date) => {
+    const bugun = new Date();
+    const kecha = new Date();
+    kecha.setDate(bugun.getDate() - 1);
+    if (d.toDateString() === bugun.toDateString()) return t('Bugun');
+    if (d.toDateString() === kecha.toDateString()) return t('Kecha');
+    return `${d.getDate()} ${t(OY_NOMLARI[d.getMonth()]!)}`;
   };
+  const p2 = (n: number) => String(n).padStart(2, '0');
+  const kunChipi = (d: Date) => `${t(HAFTA_KUNLARI[d.getDay()]!)}, ${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()}`;
+  // AI maydon takliflari eng oxirgi tahlil qilingan qo'ng'iroq ostida chiqadi
+  const takliflarQongirogi = k.calls.find((c) => c.clientExtracted || c.dealInfo)?.id;
 
   return (
-    <section className="card ci-blok" aria-labelledby="bk-vazifa">
-      <div className="ci-blok-bosh">
-        <h2 id="bk-vazifa">
-          <ListChecks aria-hidden="true" /> {t('Vazifalar')}
-        </h2>
-        {yozaOladi && (
-          <button className="btn ikkinchi kichik" onClick={onYangi}>
-            <Plus /> {t('Vazifa')}
+    <div className="ms-lenta-qobiq">
+      <div className="ms-lenta-asboblar">
+        <button type="button" className="ms-ikon-tugma" onClick={onChapAlmashtir} aria-label={chapYopiq ? t("Ma'lumotlarni ko'rsatish") : t("Ma'lumotlarni yashirish")} title={chapYopiq ? t("Ma'lumotlarni ko'rsatish") : t("Ma'lumotlarni yashirish")}>
+          {chapYopiq ? <ChevronsRight /> : <ChevronsLeft />}
+        </button>
+        {qidiruvOchiq ? (
+          <label className="ms-qidiruv ms-lenta-qidiruv">
+            <Search aria-hidden="true" />
+            <input value={qidiruv} onChange={(e) => setQidiruv(e.target.value)} placeholder={t('Tarixdan qidirish')} aria-label={t('Tarixdan qidirish')} autoFocus />
+            <button
+              type="button"
+              className="ms-mini-tugma"
+              onClick={() => {
+                setQidiruv('');
+                setQidiruvOchiq(false);
+              }}
+              aria-label={t('Yopish')}
+            >
+              <X />
+            </button>
+          </label>
+        ) : (
+          <div className="ms-lenta-filtr" role="tablist" aria-label={t('Tarix filtri')}>
+            {(
+              [
+                ['hammasi', 'Hammasi'],
+                ['izoh', 'Izohlar'],
+                ['qongiroq', "Qo'ng'iroqlar"],
+                ['vazifa', 'Vazifalar'],
+                ['bosqich', 'Bosqichlar'],
+              ] as const
+            ).map(([kalit, nom]) => (
+              <button key={kalit} role="tab" type="button" aria-selected={filtr === kalit} className={filtr === kalit ? 'faol' : undefined} onClick={() => setFiltr(kalit)}>
+                {t(nom)}
+              </button>
+            ))}
+          </div>
+        )}
+        {!qidiruvOchiq && (
+          <button type="button" className="ms-ikon-tugma" onClick={() => setQidiruvOchiq(true)} aria-label={t('Tarixdan qidirish')} title={t('Tarixdan qidirish')}>
+            <Search />
           </button>
         )}
       </div>
-      {ochiq.length === 0 && bosqichOchiqmi(holat, k.deal.stageId) && (
-        <div className="ci-ogoh-qator">{t("Ochiq vazifa yo'q — keyingi qadamni belgilang, bitim unutilib qolmasin.")}</div>
-      )}
-      <ul className="ci-vazifalar">
-        {[...ochiq, ...yopiq].map((v) => {
-          const m = OCHIQ.has(v.status) ? muddatHolati(v.dueAt) : null;
-          const tur = vazifaTuri(holat, v.taskType);
-          return (
-            <li key={v.id} className={OCHIQ.has(v.status) ? '' : 'yopiq'}>
-              <button
-                className="ci-vazifa-belgi"
-                onClick={() => (OCHIQ.has(v.status) ? setBajarish(v) : void qaytaOch(v))}
-                aria-label={OCHIQ.has(v.status) ? t('Bajarildi deb belgilash') : t('Qayta ochish')}
-                aria-pressed={!OCHIQ.has(v.status)}
-              >
-                {OCHIQ.has(v.status) ? <Circle /> : <CheckCircle2 />}
-              </button>
-              <div className="ci-vazifa-matn">
-                <b>{v.title}</b>
-                {v.description && <span>{v.description}</span>}
-                {v.result && (
-                  <span className="ci-natija">
-                    {t('Natija')}: {v.result}
+
+      <div className="ms-lenta">
+        {kunlar.length === 0 && <p className="ms-lenta-bosh">{qidiruv ? t('Hech narsa topilmadi') : t("Hali hodisa yo'q")}</p>}
+        {kunlar.map((g) => (
+          <div key={g.kalit} className="ms-kun">
+            <div className="ms-kun-bosh">
+              <b>{kunNomi(g.sana)}</b>
+              <span className="ms-kun-chip">{kunChipi(g.sana)}</span>
+            </div>
+            {g.bandlar.map((b) =>
+              b.tur === 'qongiroq' ? (
+                <QongiroqHodisa key={`q-${b.q.id}`} q={b.q} k={k} takliflar={b.q.id === takliflarQongirogi && yozaOladi} onOzgardi={onOzgardi} />
+              ) : (
+                <HodisaBandi key={b.h.id} h={b.h} />
+              ),
+            )}
+          </div>
+        ))}
+        <div ref={pastRef} />
+      </div>
+
+      <QadalganVazifalar k={k} yozaOladi={yozaOladi} onOzgardi={onOzgardi} />
+      {yozaOladi && <Kompozer dealId={k.deal.id} masulId={k.deal.responsibleSeatId} onYuborildi={onOzgardi} />}
+    </div>
+  );
+}
+
+function HodisaBandi({ h }: { h: Hodisa }) {
+  const { seatlar } = useCrm();
+  const t = useT();
+  const d = h.data;
+  const seatNomi = (id: unknown) => (typeof id === 'string' ? (seatlar.find((s) => s.id === id)?.displayName ?? t('xodim')) : t('hech kim'));
+  const teglar = (v: unknown) => (Array.isArray(v) && v.length ? v.join(', ') : '—');
+  const muallif = d.automation ? t('Avtomatika: {n}', { n: String(d.automation) }) : d.sync ? t('{crm} dan', { crm: String(d.sync) }) : (h.authorName ?? t('Tizim'));
+  const vaqt = (
+    <time className="ms-hodisa-vaqt" dateTime={h.createdAt}>
+      {sanaVaqt(h.createdAt).slice(-5)}
+    </time>
+  );
+
+  let ikon: ReactNode = <History />;
+  let mazmun: ReactNode;
+  let sarlavha: string;
+  switch (h.type) {
+    case 'note':
+      ikon = <MessageSquareText />;
+      sarlavha = t('Izoh');
+      mazmun = <p className="ms-izoh-matn">{String(d.text ?? '')}</p>;
+      break;
+    case 'created':
+      ikon = <Plus />;
+      sarlavha = t('Lid yaratildi');
+      mazmun = d.stageName ? <span className="ms-chip">{String(d.stageName)}</span> : null;
+      break;
+    case 'stage':
+      ikon = <ArrowRight />;
+      sarlavha = t("Bosqich o'zgartirildi");
+      mazmun = (
+        <div className="ms-bosqich-otish">
+          {d.fromName ? <span className="ms-chip">{String(d.fromName)}</span> : null}
+          <ArrowRight aria-hidden="true" />
+          <span className="ms-chip faol">{String(d.toName ?? '—')}</span>
+          {d.lostReason ? <span className="ms-rad">{String(d.lostReason)}</span> : null}
+        </div>
+      );
+      break;
+    case 'task':
+      ikon = <ListChecks />;
+      sarlavha = t("Vazifa qo'yildi");
+      mazmun = (
+        <p>
+          «{String(d.title ?? '')}»{d.dueAt ? ` — ${muddatMatni(String(d.dueAt))}` : ''}
+        </p>
+      );
+      break;
+    case 'task_done':
+      ikon = <CircleCheck />;
+      sarlavha = t('Vazifa bajarildi');
+      mazmun = (
+        <p>
+          «{String(d.title ?? '')}»{d.result ? ` — ${String(d.result)}` : ''}
+        </p>
+      );
+      break;
+    case 'task_reopen':
+      ikon = <RotateCcw />;
+      sarlavha = t('Vazifa qayta ochildi');
+      mazmun = <p>«{String(d.title ?? '')}»</p>;
+      break;
+    case 'task_reschedule':
+      ikon = <ListChecks />;
+      sarlavha = t('Vazifa muddati ko‘chirildi');
+      mazmun = (
+        <p>
+          «{String(d.title ?? '')}» → {d.after ? muddatMatni(String(d.after)) : t('muddatsiz')}
+        </p>
+      );
+      break;
+    case 'responsible':
+      sarlavha = t("Mas'ul o'zgardi");
+      mazmun = (
+        <div className="ms-bosqich-otish">
+          <span className="ms-chip">{seatNomi(d.before)}</span>
+          <ArrowRight aria-hidden="true" />
+          <span className="ms-chip faol">{seatNomi(d.after)}</span>
+        </div>
+      );
+      break;
+    case 'tags':
+      ikon = <Tag />;
+      sarlavha = t("Teglar o'zgardi");
+      mazmun = (
+        <p>
+          {teglar(d.before)} → {teglar(d.after)}
+        </p>
+      );
+      break;
+    case 'inbox':
+      ikon = <FileText />;
+      sarlavha = t('Murojaat biriktirildi');
+      mazmun = <p>{[d.name, d.phone].filter(Boolean).join(', ') || '—'}{d.message ? ` — ${String(d.message)}` : ''}</p>;
+      break;
+    case 'deleted':
+      ikon = <Trash2 />;
+      sarlavha = d.sync ? t('{crm} da o‘chirilgan — bitim savatga o‘tkazildi', { crm: String(d.sync) }) : t('Bitim savatga o‘tkazildi');
+      mazmun = null;
+      break;
+    case 'restored':
+      ikon = <RotateCcw />;
+      sarlavha = d.sync ? t('{crm} da tiklangan — bitim savatdan qaytarildi', { crm: String(d.sync) }) : t('Bitim savatdan tiklandi');
+      mazmun = null;
+      break;
+    case 'merge':
+      sarlavha = t('Kontaktlar birlashtirildi');
+      mazmun = null;
+      break;
+    case 'contact':
+      sarlavha = t('Kontakt o‘zgardi');
+      mazmun = null;
+      break;
+    case 'company':
+      ikon = <Building2 />;
+      sarlavha = t('Kompaniya o‘zgardi');
+      mazmun = null;
+      break;
+    case 'field':
+      sarlavha = t("Maydon o'zgardi");
+      mazmun = <MaydonOzgarishi d={d} />;
+      break;
+    default:
+      sarlavha = h.type;
+      mazmun = null;
+  }
+  if (d.automation) ikon = <Zap />;
+  else if (d.sync) ikon = <RefreshCw />;
+
+  return (
+    <article className={`ms-hodisa ${h.type}`}>
+      <span className="ms-hodisa-ikon" aria-hidden="true">
+        {ikon}
+      </span>
+      <div className="ms-hodisa-karta">
+        <div className="ms-hodisa-bosh">
+          <b>{sarlavha}</b>
+          <span className="ms-hodisa-kim">{muallif}</span>
+          <span className="ms-hodisa-qachon">{fmtQachon(h.createdAt)}</span>
+          {vaqt}
+        </div>
+        {mazmun}
+      </div>
+    </article>
+  );
+}
+
+function MaydonOzgarishi({ d }: { d: Record<string, unknown> }) {
+  const { holat } = useCrm();
+  const t = useT();
+  if (d.field === 'name') return <p>{t('Nomi: «{a}» → «{b}»', { a: String(d.before ?? ''), b: String(d.after ?? '') })}</p>;
+  if (d.field === 'amount')
+    return (
+      <p>
+        {t('Summa: {a} → {b}', { a: pul(d.before === null ? null : Number(d.before)), b: pul(d.after === null ? null : Number(d.after)) })}
+        {d.auto === 'items' ? ` (${t('tovarlardan')})` : ''}
+      </p>
+    );
+  const m = holat.fields.find((f) => f.id === String(d.fieldId));
+  return <p>{t('«{m}»: {a} → {b}', { m: m?.label ?? t('Maydon'), a: qiymatMatni(m, d.before, t), b: qiymatMatni(m, d.after, t) })}</p>;
+}
+
+/** Qo'ng'iroq hodisasi: holat, audio, SotuvAI tahlili va (oxirgisida) maydon takliflari. */
+function QongiroqHodisa({ q, k, takliflar, onOzgardi }: { q: Qongiroq; k: Kartochka; takliflar: boolean; onOzgardi: () => Promise<void> }) {
+  const t = useT();
+  const [tahlilOchiq, setTahlilOchiq] = useState(true);
+  const yonalish = q.direction === 'outbound' ? t("Chiquvchi qo'ng'iroq") : q.direction === 'inbound' ? t("Kiruvchi qo'ng'iroq") : t('Suhbat');
+  const javobsiz = !q.durationSeconds || q.durationSeconds <= 0;
+  const tahlilBor = Boolean(q.summary || q.score !== null);
+  const profil = q.clientExtracted;
+  return (
+    <article className="ms-hodisa qongiroq">
+      <span className="ms-hodisa-ikon" aria-hidden="true">
+        {q.direction === 'outbound' ? <PhoneOutgoing /> : q.direction === 'inbound' ? <PhoneIncoming /> : <PhoneCall />}
+      </span>
+      <div className="ms-hodisa-karta">
+        <div className="ms-hodisa-bosh">
+          <Link to={`/crm/suhbatlar/${q.id}`} className="ms-qongiroq-nom">
+            {yonalish}
+          </Link>
+          <span className={`ms-holat-chip ${javobsiz ? 'qizil' : 'yashil'}`}>{javobsiz ? t('Javobsiz') : t('Tugallandi')}</span>
+          <span className="ms-hodisa-qachon">{fmtQachon(q.startedAt)}</span>
+          <span className="ms-hodisa-kim">
+            {q.seatName ?? ''}
+            {q.durationSeconds ? ` · ${fmtSoniya(q.durationSeconds)}` : ''}
+          </span>
+          <time className="ms-hodisa-vaqt" dateTime={q.startedAt}>
+            {sanaVaqt(q.startedAt).slice(-5)}
+          </time>
+        </div>
+        {q.mediaUrl && <AudioPleyer src={q.mediaUrl} kind={q.mediaKind} duration={q.durationSeconds} />}
+        {tahlilBor && (
+          <div className="ms-ai-tahlil">
+            <button type="button" className="ms-ai-tahlil-bosh" onClick={() => setTahlilOchiq((v) => !v)} aria-expanded={tahlilOchiq}>
+              <Sparkles aria-hidden="true" /> {t('SotuvAI tahlili')}
+              <ChevronDown className={tahlilOchiq ? 'aylangan' : undefined} aria-hidden="true" />
+            </button>
+            {tahlilOchiq && (
+              <>
+                <div className="ms-ai-xulosa">
+                  {q.score !== null && <BallHalqa ball={q.score} />}
+                  {q.summary && <p>{q.summary}</p>}
+                </div>
+                {(q.primaryGap || q.callFamily || q.serviceLine) && (
+                  <div className="ms-ai-kartalar">
+                    {q.primaryGap && (
+                      <div>
+                        <span>{t('Asosiy kamchilik')}</span>
+                        <b>{t(q.primaryGap)}</b>
+                      </div>
+                    )}
+                    {q.callFamily && (
+                      <div>
+                        <span>{t('Suhbat oilasi')}</span>
+                        <b>{t(q.callFamily)}</b>
+                      </div>
+                    )}
+                    {q.serviceLine && (
+                      <div>
+                        <span>{t("Xizmat yo'nalishi")}</span>
+                        <b>{t(q.serviceLine)}</b>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {profil && (profil.name || profil.role || profil.company) && (
+                  <div className="ms-mijoz-profil">
+                    <span className="ms-avatar kichik">{boshHarflar(profil.name ?? k.contact?.name)}</span>
+                    <div>
+                      <b>
+                        {profil.name ?? k.contact?.name ?? t('Mijoz')}
+                        {profil.isDecisionMaker && <span className="ms-asosiy-belgi">{t('Qaror qabul qiluvchi')}</span>}
+                      </b>
+                      <span className="yordam">{[profil.role, profil.company].filter(Boolean).join(' · ')}</span>
+                    </div>
+                  </div>
+                )}
+                {(q.signals?.objections?.length ?? 0) > 0 && (
+                  <div className="ms-faktlar">
+                    {q.signals!.objections.slice(0, 4).map((o, i) => (
+                      <span key={i} className="ms-fakt">
+                        {o}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <Link to={`/crm/suhbatlar/${q.id}`} className="ms-batafsil">
+                  {t("To'liq tahlil")} <ArrowRight aria-hidden="true" />
+                </Link>
+              </>
+            )}
+          </div>
+        )}
+        {takliflar && <MaydonTakliflari q={q} k={k} onOzgardi={onOzgardi} />}
+      </div>
+    </article>
+  );
+}
+
+function BallHalqa({ ball }: { ball: number }) {
+  const r = 18;
+  const uzunlik = 2 * Math.PI * r;
+  const ulush = Math.max(0, Math.min(100, ball)) / 100;
+  return (
+    <span className={`ms-ball-halqa ${ballKlass(ball)}`} aria-label={`${Math.round(ball * 10) / 10} / 100`}>
+      <svg viewBox="0 0 44 44" aria-hidden="true">
+        <circle cx="22" cy="22" r={r} className="iz" />
+        <circle cx="22" cy="22" r={r} className="qiymat" strokeDasharray={`${uzunlik * ulush} ${uzunlik}`} transform="rotate(-90 22 22)" />
+      </svg>
+      <b>{Math.round(ball * 10) / 10}</b>
+      <small>/100</small>
+    </span>
+  );
+}
+
+/**
+ * "Lid maydonlarini to'ldirish" — AI qo'ng'iroqdan topgan, lekin kartada hali
+ * bo'sh qiymatlar. Chip'dagi "+" bosilsa qiymat o'z joyiga yoziladi:
+ * lavozim → "Lavozim" maydoni yoki kontakt lavozimi; qaror qabul qiluvchi →
+ * shu nomdagi maydon; kompaniya → yangi kompaniya yaratilib biriktiriladi;
+ * summa → lid summasi (tovar yo'q bo'lsa).
+ */
+function MaydonTakliflari({ q, k, onOzgardi }: { q: Qongiroq; k: Kartochka; onOzgardi: () => Promise<void> }) {
+  const { holat, base } = useCrm();
+  const t = useT();
+  const [yopiq, setYopiq] = useState(false);
+  const [band, setBand] = useState<string | null>(null);
+  const [xato, setXato] = useState<string | null>(null);
+  const d = k.deal;
+  const p = q.clientExtracted;
+  const bosh = (v: unknown) => v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
+  const maydonTop = (re: RegExp) => holat.fields.find((m) => re.test(m.label) && !m.external);
+
+  const takliflar: { kalit: string; nom: string; qiymat: string; qolla: () => Promise<void> }[] = [];
+  if (p?.role) {
+    const m = maydonTop(/lavozim/i);
+    if (m && (m.type === 'text' || m.type === 'textarea') && bosh(d.fields[m.id]))
+      takliflar.push({ kalit: 'rol-m', nom: m.label, qiymat: p.role, qolla: () => maydonniYoz(m, p.role) });
+    else if (!m && k.contact && !k.contact.role)
+      takliflar.push({ kalit: 'rol-k', nom: t('Lavozim'), qiymat: p.role, qolla: () => api.patch(`${base}/contacts/${k.contact!.id}`, { role: p.role }).then(() => undefined) });
+  }
+  if (p?.isDecisionMaker !== null && p?.isDecisionMaker !== undefined) {
+    const m = maydonTop(/qaror/i);
+    if (m && bosh(d.fields[m.id])) {
+      if (m.type === 'checkbox') takliflar.push({ kalit: 'qaror', nom: m.label, qiymat: p.isDecisionMaker ? t('Ha') : t("Yo'q"), qolla: () => maydonniYoz(m, p.isDecisionMaker) });
+      if (m.type === 'select') {
+        const v = m.options.find((o) => (p.isDecisionMaker ? /^ha$/i : /^yo.?q$/i).test(o.label.trim()));
+        if (v) takliflar.push({ kalit: 'qaror', nom: m.label, qiymat: v.label, qolla: () => maydonniYoz(m, v.id) });
+      }
+    }
+  }
+  if (p?.company && !d.companyId) {
+    takliflar.push({
+      kalit: 'kompaniya',
+      nom: t('Kompaniya'),
+      qiymat: p.company,
+      qolla: async () => {
+        const r = await api.post<{ id: string }>(`${base}/companies`, { name: p.company });
+        await api.patch(`${base}/deals/${d.id}`, { version: d.version, companyId: r.id });
+      },
+    });
+  }
+  if (q.dealInfo?.amount && d.amount === null && k.items.length === 0 && !k.sync) {
+    takliflar.push({
+      kalit: 'summa',
+      nom: t('Summa'),
+      qiymat: `${pul(q.dealInfo.amount)} ${t("so'm")}`,
+      qolla: () => api.patch(`${base}/deals/${d.id}`, { version: d.version, amount: q.dealInfo!.amount }).then(() => undefined),
+    });
+  }
+
+  async function maydonniYoz(m: Maydon, qiymat: unknown) {
+    await api.patch(`${base}/deals/${d.id}`, { version: d.version, fields: { [m.id]: qiymat } });
+  }
+
+  if (yopiq || takliflar.length === 0) return null;
+  return (
+    <div className="ms-takliflar">
+      <div className="ms-takliflar-bosh">
+        <span>
+          <Sparkles aria-hidden="true" /> {t("Lid maydonlarini to'ldirish")} · {takliflar.length}
+        </span>
+        <button type="button" className="ms-mini-tugma" onClick={() => setYopiq(true)} aria-label={t('Yopish')}>
+          <X />
+        </button>
+      </div>
+      <div className="ms-takliflar-chiplar">
+        {takliflar.map((x) => (
+          <span key={x.kalit} className="ms-taklif">
+            <span className="ms-taklif-nom">{x.nom}:</span> {x.qiymat}
+            <button
+              type="button"
+              disabled={band !== null}
+              aria-label={t("Qo'llash")}
+              title={t("Qo'llash")}
+              onClick={async () => {
+                setBand(x.kalit);
+                setXato(null);
+                try {
+                  await x.qolla();
+                  await onOzgardi();
+                } catch (e) {
+                  setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
+                } finally {
+                  setBand(null);
+                }
+              }}
+            >
+              <Plus />
+            </button>
+          </span>
+        ))}
+      </div>
+      {xato && <div className="xato-qator">{xato}</div>}
+    </div>
+  );
+}
+
+// ─── Qadalgan vazifalar va yozish maydoni ────────────────────────────────────
+
+function QadalganVazifalar({ k, yozaOladi, onOzgardi }: { k: Kartochka; yozaOladi: boolean; onOzgardi: () => Promise<void> }) {
+  const { holat, base } = useCrm();
+  const t = useT();
+  const [bajarish, setBajarish] = useState<Vazifa | null>(null);
+  const [ochiq, setOchiq] = useState<string | null>(null);
+  const [xato, setXato] = useState<string | null>(null);
+  const vazifalar = k.tasks.filter((v) => OCHIQ.has(v.status)).sort((a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'));
+  const bosqichOchiq = bosqichTop(holat, k.deal.stageId)?.kind === 'open';
+
+  if (vazifalar.length === 0) {
+    return bosqichOchiq ? <div className="ms-vazifasiz">{t("Ochiq vazifa yo'q — keyingi qadamni belgilang, lid unutilib qolmasin.")}</div> : null;
+  }
+  const holatChip = (iso: string | null) => {
+    const m = muddatHolati(iso);
+    if (!iso) return <span className="ms-holat-chip">{t('Muddatsiz')}</span>;
+    const d = new Date(iso);
+    const vaqt = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    if (m === 'otgan') return <span className="ms-holat-chip qizil">{t("Muddati o'tgan")}</span>;
+    if (m === 'bugun') return <span className="ms-holat-chip sariq">{d.getHours() === 23 && d.getMinutes() === 59 ? t('Bugun') : t('Bugun, {v}', { v: vaqt })}</span>;
+    return <span className="ms-holat-chip">{muddatMatni(iso)}</span>;
+  };
+
+  return (
+    <div className="ms-qadalgan">
+      {vazifalar.map((v) => {
+        const tur = vazifaTuri(holat, v.taskType);
+        return (
+          <div key={v.id} className={`ms-qadalgan-vazifa${muddatHolati(v.dueAt) === 'otgan' ? ' otgan' : ''}`}>
+            <button
+              type="button"
+              className="ms-belgilash"
+              disabled={!yozaOladi}
+              onClick={() => setBajarish(v)}
+              aria-label={t('Bajarildi deb belgilash')}
+              title={t('Bajarildi deb belgilash')}
+            >
+              <Circle />
+            </button>
+            <div className="ms-qadalgan-matn">
+              <b>{v.title}</b>
+              <small>
+                {v.seatName && <span>{v.seatName}</span>}
+                {v.dueAt && <span className="ci-raqam">{muddatMatni(v.dueAt)}</span>}
+                {v.source !== 'manual' && (
+                  <span className="ms-ai-belgi">
+                    <Sparkles aria-hidden="true" /> AI
                   </span>
                 )}
-                <small>
+              </small>
+              {ochiq === v.id && (
+                <div className="ms-qadalgan-batafsil">
                   {v.taskType && (
                     <span>
                       <span className="ci-nuqta" style={{ background: tur.color }} aria-hidden="true" /> {t(tur.name)}
                     </span>
                   )}
-                  {v.dueAt && (
-                    <span className={m === 'otgan' ? 'xavf' : m === 'bugun' ? 'ogoh' : ''}>
-                      <CalendarClock aria-hidden="true" /> {fmtSana(v.dueAt)}
-                    </span>
-                  )}
-                  {v.seatName && <span>{v.seatName}</span>}
-                  {v.source !== 'manual' && (
-                    <span className="ci-ai-belgi">
-                      <Sparkles aria-hidden="true" /> {t('SotuvAI')}
-                    </span>
-                  )}
-                </small>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                  {v.description && <p>{v.description}</p>}
+                </div>
+              )}
+            </div>
+            {holatChip(v.dueAt)}
+            <button type="button" className="ms-mini-tugma" onClick={() => setOchiq(ochiq === v.id ? null : v.id)} aria-expanded={ochiq === v.id} aria-label={t('Batafsil')}>
+              <ChevronDown className={ochiq === v.id ? 'aylangan' : undefined} />
+            </button>
+          </div>
+        );
+      })}
       {xato && <div className="xato-qator">{xato}</div>}
       {bajarish && (
         <BajarishOyna
@@ -841,41 +1584,50 @@ function Vazifalar({ k, yozaOladi, onYangi, onOzgardi }: { k: Kartochka; yozaOla
           }}
         />
       )}
-    </section>
+    </div>
   );
 }
 
-function bosqichOchiqmi(holat: ReturnType<typeof useCrm>['holat'], stageId: string): boolean {
-  return bosqichTop(holat, stageId)?.kind === 'open';
-}
-
-// ─── Tarix lentasi ───────────────────────────────────────────────────────────
-
-type LentaBandi = { tur: 'hodisa'; vaqt: string; h: Hodisa } | { tur: 'qongiroq'; vaqt: string; q: Qongiroq };
-
-function Lenta({ k, maydonNomi, onIzoh }: { k: Kartochka; maydonNomi: Map<string, Maydon>; onIzoh: () => Promise<void> }) {
-  const { base, seatlar } = useCrm();
+/**
+ * Yozish maydoni — Metasell'dagidek tablar: Izoh | Vazifa. Vazifada: turi,
+ * mas'uli, muddati (tez tanlovli oyna) va ixtiyoriy izoh; Ctrl+Enter yuboradi.
+ */
+function Kompozer({ dealId, masulId, onYuborildi }: { dealId: string; masulId: string | null; onYuborildi: () => Promise<void> }) {
+  const { holat, base, seatlar } = useCrm();
   const t = useT();
+  const [tab, setTab] = useState<'izoh' | 'vazifa'>('izoh');
   const [matn, setMatn] = useState('');
+  const [tur, setTur] = useState(holat.taskTypes[0]?.id ?? 'call');
+  const [masul, setMasul] = useState(masulId ?? holat.seatId ?? '');
+  const [muddat, setMuddat] = useState<string | null>(() => {
+    const d = new Date();
+    d.setSeconds(0, 0);
+    d.setMinutes(d.getMinutes() + 60);
+    return d.toISOString();
+  });
   const [band, setBand] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
-  const [filtr, setFiltr] = useState<'hammasi' | 'izoh' | 'qongiroq'>('hammasi');
-
-  const bandlar = useMemo<LentaBandi[]>(() => {
-    const a: LentaBandi[] = [];
-    if (filtr !== 'qongiroq') for (const h of k.events) if (filtr === 'hammasi' || h.type === 'note') a.push({ tur: 'hodisa', vaqt: h.createdAt, h });
-    if (filtr !== 'izoh') for (const q of k.calls) a.push({ tur: 'qongiroq', vaqt: q.startedAt, q });
-    return a.sort((x, y) => y.vaqt.localeCompare(x.vaqt));
-  }, [k, filtr]);
 
   const yubor = async () => {
-    if (!matn.trim()) return;
+    if (band) return;
+    if (tab === 'izoh' && !matn.trim()) return;
     setBand(true);
     setXato(null);
     try {
-      await api.post(`${base}/deals/${k.deal.id}/notes`, { text: matn.trim() });
+      if (tab === 'izoh') {
+        await api.post(`${base}/deals/${dealId}/notes`, { text: matn.trim() });
+      } else {
+        const vt = holat.taskTypes.find((x) => x.id === tur);
+        await api.post(`${base}/deals/${dealId}/tasks`, {
+          title: t(vt?.name ?? 'Vazifa'),
+          taskType: tur,
+          description: matn.trim() || null,
+          dueAt: muddat,
+          ...(holat.canManageAll && masul ? { seatId: masul } : {}),
+        });
+      }
       setMatn('');
-      await onIzoh();
+      await onYuborildi();
     } catch (e) {
       setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
     } finally {
@@ -883,153 +1635,58 @@ function Lenta({ k, maydonNomi, onIzoh }: { k: Kartochka; maydonNomi: Map<string
     }
   };
 
-  const seatNomi = (id: unknown) => (typeof id === 'string' ? seatlar.find((s) => s.id === id)?.displayName ?? t('xodim') : t('hech kim'));
-  const teglar = (v: unknown) => (Array.isArray(v) && v.length ? v.join(', ') : '—');
-
-  const hodisaMatni = (h: Hodisa): string => {
-    const d = h.data;
-    switch (h.type) {
-      case 'created':
-        return t('Bitim yaratildi — «{b}»', { b: String(d.stageName ?? '') });
-      case 'stage':
-        return d.toName
-          ? t('Bosqich: «{a}» → «{b}»', { a: String(d.fromName ?? '—'), b: String(d.toName) }) + (d.lostReason ? ` (${String(d.lostReason)})` : '')
-          : t('Bosqich o‘zgardi');
-      case 'responsible':
-        return t("Mas'ul: {a} → {b}", { a: seatNomi(d.before), b: seatNomi(d.after) });
-      case 'contact':
-        return t('Kontakt o‘zgardi');
-      case 'company':
-        return t('Kompaniya o‘zgardi');
-      case 'tags':
-        return t('Teglar: {a} → {b}', { a: teglar(d.before), b: teglar(d.after) });
-      case 'task':
-        return t('Vazifa qo‘yildi: «{v}»', { v: String(d.title ?? '') }) + (d.dueAt ? ` — ${fmtSana(String(d.dueAt))}` : '');
-      case 'task_done':
-        return t('Vazifa bajarildi: «{v}»', { v: String(d.title ?? '') }) + (d.result ? ` — ${String(d.result)}` : '');
-      case 'task_reopen':
-        return t('Vazifa qayta ochildi: «{v}»', { v: String(d.title ?? '') });
-      case 'task_reschedule':
-        return t('Vazifa muddati ko‘chirildi: «{v}» → {s}', { v: String(d.title ?? ''), s: d.after ? fmtSana(String(d.after)) : t('muddatsiz') });
-      case 'deleted':
-        // Sinxron: sdelka tashqi CRM da o'chirilgan — nega savatda ekanini aniq aytamiz.
-        return d.sync ? t('{crm} da o‘chirilgan — bitim savatga o‘tkazildi', { crm: String(d.sync) }) : t('Bitim savatga o‘tkazildi');
-      case 'restored':
-        return d.sync ? t('{crm} da tiklangan — bitim savatdan qaytarildi', { crm: String(d.sync) }) : t('Bitim savatdan tiklandi');
-      case 'inbox':
-        return t('Murojaat biriktirildi: {n}', { n: [d.name, d.phone].filter(Boolean).join(', ') || '—' }) + (d.message ? ` — ${String(d.message)}` : '');
-      case 'merge':
-        return t('Kontaktlar birlashtirildi');
-      case 'field': {
-        if (d.field === 'name') return t('Nomi: «{a}» → «{b}»', { a: String(d.before ?? ''), b: String(d.after ?? '') });
-        if (d.field === 'amount')
-          return (
-            t('Summa: {a} → {b}', { a: pul(d.before === null ? null : Number(d.before)), b: pul(d.after === null ? null : Number(d.after)) }) +
-            (d.auto === 'items' ? ` (${t('tovarlardan')})` : '')
-          );
-        const m = maydonNomi.get(String(d.fieldId));
-        return t('«{m}»: {a} → {b}', { m: m?.label ?? t('Maydon'), a: qiymatMatni(m, d.before, t), b: qiymatMatni(m, d.after, t) });
-      }
-      default:
-        return h.type;
-    }
-  };
-
   return (
-    <section className="card ci-blok" aria-labelledby="bk-lenta">
-      <div className="ci-blok-bosh">
-        <h2 id="bk-lenta">
-          <History aria-hidden="true" /> {t('Tarix')}
-        </h2>
-        <div className="tab-qator ci-kichik-tab" role="tablist" aria-label={t('Tarix filtri')}>
-          {(
-            [
-              ['hammasi', 'Hammasi'],
-              ['izoh', 'Izohlar'],
-              ['qongiroq', "Qo'ng'iroqlar"],
-            ] as const
-          ).map(([k2, nom]) => (
-            <button key={k2} role="tab" aria-selected={filtr === k2} className={`tab${filtr === k2 ? ' active' : ''}`} onClick={() => setFiltr(k2)}>
-              {t(nom)}
-            </button>
-          ))}
+    <div className="ms-kompozer">
+      {tab === 'vazifa' && (
+        <div className="ms-kompozer-vazifa">
+          <select className="ms-kichik-select" value={tur} onChange={(e) => setTur(e.target.value)} aria-label={t('Vazifa turi')}>
+            {holat.taskTypes.map((x) => (
+              <option key={x.id} value={x.id}>
+                {t(x.name)}
+              </option>
+            ))}
+          </select>
+          {holat.canManageAll ? (
+            <select className="ms-kichik-select" value={masul} onChange={(e) => setMasul(e.target.value)} aria-label={t("Mas'ul")}>
+              <option value="">{t("Lid mas'uli")}</option>
+              {seatlar.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.displayName}
+                </option>
+              ))}
+            </select>
+          ) : null}
+          <MuddatTanlash qiymat={muddat} onChange={setMuddat} />
         </div>
-      </div>
-
-      <div className="ci-izoh-yozish">
+      )}
+      <div className="ms-kompozer-qator">
+        <div className="ms-kompozer-tablar" role="tablist" aria-label={t('Yozish turi')}>
+          <button type="button" role="tab" aria-selected={tab === 'izoh'} className={tab === 'izoh' ? 'faol' : undefined} onClick={() => setTab('izoh')} title={t('Izoh')} aria-label={t('Izoh')}>
+            <MessageSquareText />
+          </button>
+          <button type="button" role="tab" aria-selected={tab === 'vazifa'} className={tab === 'vazifa' ? 'faol' : undefined} onClick={() => setTab('vazifa')} title={t('Vazifa')} aria-label={t('Vazifa')}>
+            <ListChecks />
+          </button>
+        </div>
         <textarea
-          rows={2}
+          rows={1}
           value={matn}
           maxLength={5000}
           onChange={(e) => setMatn(e.target.value)}
-          placeholder={t('Izoh yozing…')}
-          aria-label={t('Izoh')}
+          placeholder={tab === 'izoh' ? t('Izoh yozing…') : t('Vazifa izohi (ixtiyoriy)…')}
+          aria-label={tab === 'izoh' ? t('Izoh') : t('Vazifa izohi')}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) void yubor();
           }}
         />
-        <button className="btn kichik" onClick={() => void yubor()} disabled={band || !matn.trim()} aria-keyshortcuts="Control+Enter">
-          <Send /> {t('Yuborish')}
+        <span className="ms-kompozer-izoh" aria-hidden="true">
+          ⌘/Ctrl + Enter
+        </span>
+        <button type="button" className="ms-yuborish" onClick={() => void yubor()} disabled={band || (tab === 'izoh' && !matn.trim())} aria-label={t('Yuborish')} title={t('Yuborish')}>
+          <Send />
         </button>
       </div>
       {xato && <div className="xato-qator">{xato}</div>}
-
-      {k.calls.length === 0 && filtr === 'qongiroq' && (
-        <p className="yordam">{t("Bu mijoz bilan SotuvAI orqali qo'ng'iroq hali yo'q. Qo'ng'iroq bo'lsa, tahlili shu yerda o'zi chiqadi.")}</p>
-      )}
-
-      <ol className="ci-lenta">
-        {bandlar.map((b) =>
-          b.tur === 'qongiroq' ? (
-            <li key={`q-${b.q.id}`} className="ci-lenta-band qongiroq">
-              <span className="ci-lenta-ikon" aria-hidden="true">
-                <PhoneCall />
-              </span>
-              <div className="ci-lenta-matn">
-                <div className="ci-lenta-sarlavha">
-                  <Link to={`/suhbatlar/${b.q.id}`} className="ci-havola">
-                    {b.q.direction === 'outbound' ? t("Chiquvchi qo'ng'iroq") : b.q.direction === 'inbound' ? t("Kiruvchi qo'ng'iroq") : t('Suhbat')}
-                  </Link>
-                  {b.q.score !== null && <span className={`ball ${ballKlass(b.q.score)} ci-ball`}>{Math.round(b.q.score)}</span>}
-                  <span className="yordam">
-                    {b.q.seatName ?? ''} · {fmtSoniya(b.q.durationSeconds)}
-                  </span>
-                </div>
-                {b.q.summary && <p>{b.q.summary}</p>}
-                <small>{fmtSana(b.q.startedAt)}</small>
-              </div>
-            </li>
-          ) : (
-            <li key={b.h.id} className={`ci-lenta-band ${b.h.type}`}>
-              <span className="ci-lenta-ikon" aria-hidden="true">
-                {b.h.type === 'note' ? (
-                  <MessageSquareText />
-                ) : b.h.type.startsWith('task') ? (
-                  <ListChecks />
-                ) : b.h.type === 'restored' ? (
-                  <RotateCcw />
-                ) : b.h.data.automation ? (
-                  <Zap />
-                ) : b.h.data.sync ? (
-                  <RefreshCw />
-                ) : (
-                  <History />
-                )}
-              </span>
-              <div className="ci-lenta-matn">
-                {b.h.type === 'note' ? <p className="ci-izoh">{String(b.h.data.text ?? '')}</p> : <p>{hodisaMatni(b.h)}</p>}
-                <small>
-                  {b.h.data.automation
-                    ? t('Avtomatika: {n}', { n: String(b.h.data.automation) })
-                    : b.h.data.sync
-                      ? t('{crm} dan', { crm: String(b.h.data.sync) })
-                      : (b.h.authorName ?? t('Tizim'))} · {fmtSana(b.h.createdAt)}
-                </small>
-              </div>
-            </li>
-          ),
-        )}
-      </ol>
-    </section>
+    </div>
   );
 }

@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { api, ApiError, fmtSana } from '../../api';
 import { BajarishOyna, VazifaOyna } from '../../crm/komponentlar';
 import { mahalliyVaqt, muddatHolati, useCrm, vazifaTuri } from '../../crm/malumot';
+import { MsBosh } from '../../crm/MsBosh';
 import { useT } from '../../i18n';
 
 interface VazifaQator {
@@ -60,22 +61,23 @@ export function CrmVazifalar() {
 
   return (
     <div className="ci-sahifa">
-      <div className="ci-bosh">
-        <h1>{t('Vazifalar')}</h1>
-        <div className="ci-bosh-amallar">
-          <div className="tab-qator" role="tablist" aria-label={t("Ko'rinish")}>
-            <button role="tab" aria-selected={korinish === 'royxat'} className={`tab${korinish === 'royxat' ? ' active' : ''}`} onClick={() => ozgartir({ k: null })}>
-              <List aria-hidden="true" /> {t("Ro'yxat")}
+      <MsBosh
+        sarlavha={t('Vazifalar')}
+        chap={
+          <div className="ms-korinish" role="group" aria-label={t("Ko'rinish")}>
+            <button type="button" aria-pressed={korinish === 'royxat'} onClick={() => ozgartir({ k: null })} title={t("Ro'yxat")} aria-label={t("Ro'yxat")}>
+              <List />
             </button>
-            <button role="tab" aria-selected={korinish === 'kalendar'} className={`tab${korinish === 'kalendar' ? ' active' : ''}`} onClick={() => ozgartir({ k: 'kalendar' })}>
-              <CalendarDays aria-hidden="true" /> {t('Kalendar')}
+            <button type="button" aria-pressed={korinish === 'kalendar'} onClick={() => ozgartir({ k: 'kalendar' })} title={t('Kalendar')} aria-label={t('Kalendar')}>
+              <CalendarDays />
             </button>
           </div>
-          <button className="btn" onClick={() => setYangi(true)}>
-            <Plus /> {t('Yangi vazifa')}
-          </button>
-        </div>
-      </div>
+        }
+      >
+        <button className="btn" onClick={() => setYangi(true)}>
+          <Plus /> {t('Yangi vazifa')}
+        </button>
+      </MsBosh>
       <div className="ci-filtrlar">
         <select className="input ci-tor" value={tur} onChange={(e) => ozgartir({ type: e.target.value || null })} aria-label={t('Vazifa turi')}>
           <option value="">{t('Barcha turlar')}</option>

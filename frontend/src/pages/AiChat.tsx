@@ -10,7 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { api, ApiError, fmtSana, type AlertRow } from '../api';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
@@ -230,6 +230,21 @@ export function AiChat() {
       maydon.current?.focus();
     }
   }
+
+  // Boshqa sahifadan savol bilan kelinganda (CRM bosh sahifasidagi "Savolingizni
+  // yozing…" qatori: `?q=…`) — yangi suhbatda darhol so'raladi, manzil tozalanadi.
+  const [params, setParams] = useSearchParams();
+  const boshSavol = useRef(false);
+  useEffect(() => {
+    const q = params.get('q')?.trim();
+    if (!q || boshSavol.current || !business) return;
+    boshSavol.current = true;
+    const p = new URLSearchParams(params);
+    p.delete('q');
+    setParams(p, { replace: true });
+    void sora(q, niyatniTop(q));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, business]);
 
   const yubor = () => void sora(matn, niyatniTop(matn));
   const klaviatura = (e: KeyboardEvent<HTMLTextAreaElement>) => {

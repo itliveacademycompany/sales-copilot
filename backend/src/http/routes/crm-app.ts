@@ -52,6 +52,7 @@ import {
   filtrIdlari,
   izohQosh,
   kanban,
+  kanbanKorsatkichlari,
   maydonKirish,
   maydonniYangila,
   maydonYarat,
@@ -64,6 +65,7 @@ import {
   voronkaniYangila,
   voronkaYarat,
 } from '../../crm/xizmat.js';
+import { menejerNatijalari, qaytaYarat, qaytaYaratishKirish, yoqotilganFiltr, yoqotilganLidlar } from '../../crm/qaytaTiklash.js';
 import { requireBusiness, requirePermission } from '../auth-plugin.js';
 import { bajar, BASE, doira, filtrniOl, idParam, sahifa, yozishDoirasi } from '../crm-yordam.js';
 
@@ -100,6 +102,8 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
       return {
         taskTypes: s.taskTypes,
         lossReasonRequired: s.lossReasonRequired,
+        /** Bosqich bo'yicha majburiy maydonlar: `{ stageId: fieldId[] }`. */
+        stageRequired: s.stageRequired,
         lossReasons: sabablar,
         inboxPending: kutayotgan,
         /** Ichki CRM ga sinxronlanayotgan tashqi CRM nomi (amoCRM) — bo'lsa, qo'ng'iroqlardan qabul ishlamaydi. */
@@ -204,6 +208,38 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
       return kanban(tx, { pipelineId: pipeline, doira: d, filtr });
     });
     return { stages };
+  });
+
+  // ─── Lid xulosalari: yo'qotilgan lidlar va qayta tiriltirish (Metasell) ─────
+
+  app.get(`${BASE}/crm-app/lost-leads`, guard, async (req) => {
+    const f = yoqotilganFiltr.parse(req.query);
+    const d = doira(req);
+    const businessId = req.business!.businessId;
+    return withTenant(businessId, async (tx) => {
+      const [natija, menejerlar] = await Promise.all([yoqotilganLidlar(tx, f, d), d.yozish === 'all' ? menejerNatijalari(tx) : Promise.resolve([])]);
+      return { ...natija, managers: menejerlar };
+    });
+  });
+
+  app.post(`${BASE}/crm-app/lost-leads/reactivate`, guard, async (req) => {
+    const kirish = qaytaYaratishKirish.parse(req.body);
+    const d = yozishDoirasi(req);
+    const businessId = req.business!.businessId;
+    return bajar(() => withTenant(businessId, (tx) => qaytaYarat(tx, { businessId, userId: req.auth!.user.id, doira: d, kirish })));
+  });
+
+  /** Lidlar sahifasining KPI qatori — kanban bilan bir xil voronka va filtr. */
+  app.get(`${BASE}/deals/board/stats`, guard, async (req) => {
+    const q = req.query as Record<string, unknown>;
+    const { pipeline } = z.object({ pipeline: z.string().uuid() }).parse(q);
+    const filtr = filtrniOl(q);
+    const d = doira(req);
+    const businessId = req.business!.businessId;
+    return withTenant(businessId, async (tx) => {
+      await vaqtZonasiniOrnat(tx, businessId);
+      return kanbanKorsatkichlari(tx, { pipelineId: pipeline, doira: d, filtr });
+    });
   });
 
   const royxatQuery = z.object({

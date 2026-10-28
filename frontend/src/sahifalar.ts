@@ -101,8 +101,16 @@ export const MANZIL_SAHIFA: Record<string, { oldindanYukla: () => void }> = {
   '/crm/ish-stoli': SAHIFA.crmIlova,
   '/crm/bitimlar': SAHIFA.crmIlova,
   '/crm/saralanmagan': SAHIFA.crmIlova,
-  '/crm/analitika': SAHIFA.crmIlova,
+  '/crm/voronka-tahlili': SAHIFA.crmIlova,
   '/crm/kontaktlar': SAHIFA.crmIlova,
+  '/crm/kompaniyalar': SAHIFA.crmIlova,
+  // CRM menyusidagi SotuvAI bo'limlari — o'z bo'laklari oldindan yuklanadi
+  '/crm/qongiroqlar': SAHIFA.qongiroqlar,
+  '/crm/ai-chat': SAHIFA.aiChat,
+  '/crm/analitika': SAHIFA.analitika,
+  '/crm/hisobotlar': SAHIFA.kunlikHisobot,
+  '/crm/lid-xulosalari': SAHIFA.crmIlova,
+  '/crm/ogohlantirishlar': SAHIFA.alerts,
   '/crm/vazifalar': SAHIFA.crmIlova,
   '/crm/sozlamalar': SAHIFA.crmIlova,
 };

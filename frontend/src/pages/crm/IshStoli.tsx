@@ -1,10 +1,51 @@
-import { AlarmClock, BriefcaseBusiness, CalendarCheck, CircleX, Inbox, ListX, Plus, Trophy, type LucideIcon } from 'lucide-react';
+import { AlarmClock, ArrowUp, BriefcaseBusiness, CalendarCheck, CircleX, Inbox, ListX, Plus, Trophy, type LucideIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError, fmtPul } from '../../api';
+import { useAuth } from '../../auth';
 import { DavrTanlash, GorizontalUstunlar, Progress, TrendGrafik } from '../../crm/komponentlar';
 import { davrHisobla, foiz, pul, useCrm, type DavrTuri } from '../../crm/malumot';
 import { useT } from '../../i18n';
+
+/**
+ * Bosh sahifa tepasidagi AI qatori (Metasell): "Xayrli kun, Ism —
+ * Biznesingiz haqida nimani bilmoqchisiz?". Savol AI Chat'da darhol
+ * javoblanadi (`/crm/ai-chat?q=…`).
+ */
+function AiSavolQatori() {
+  const { user } = useAuth();
+  const t = useT();
+  const navigate = useNavigate();
+  const [savol, setSavol] = useState('');
+  const soat = new Date().getHours();
+  const salom = soat < 11 ? 'Xayrli tong' : soat < 18 ? 'Xayrli kun' : 'Xayrli kech';
+  const ism = user?.displayName?.split(' ')[0] ?? '';
+  const yubor = () => {
+    const q = savol.trim();
+    if (q) navigate(`/crm/ai-chat?q=${encodeURIComponent(q)}`);
+  };
+  return (
+    <section className="ms-ai-qator" aria-label={t('AI yordamchiga savol')}>
+      <h2>
+        {t(salom)}
+        {ism ? `, ${ism}` : ''}
+      </h2>
+      <p>{t('Biznesingiz haqida nimani bilmoqchisiz?')}</p>
+      <form
+        className="ms-ai-qator-maydon"
+        onSubmit={(e) => {
+          e.preventDefault();
+          yubor();
+        }}
+      >
+        <input value={savol} onChange={(e) => setSavol(e.target.value)} maxLength={2000} placeholder={t('Savolingizni yozing…')} aria-label={t('Savolingizni yozing…')} />
+        <button type="submit" disabled={!savol.trim()} aria-label={t('Yuborish')} title={t('Yuborish')}>
+          <ArrowUp />
+        </button>
+      </form>
+    </section>
+  );
+}
 
 interface IshStoliJavob {
   kpi: {
@@ -95,8 +136,9 @@ export function IshStoli() {
 
   return (
     <div className="ci-sahifa">
+      <AiSavolQatori />
       <div className="ci-bosh">
-        <h1>{t('Ish stoli')}</h1>
+        <h1>{t('Asosiy')}</h1>
         <div className="ci-bosh-amallar">
           {holat.pipelines.length > 1 && (
             <select className="input ci-tor" value={voronka} onChange={(e) => setVoronka(e.target.value)} aria-label={t('Voronka')}>

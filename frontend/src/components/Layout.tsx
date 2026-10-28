@@ -1,15 +1,14 @@
 import {
   Bell,
+  BriefcaseBusiness,
+  Building2,
   CalendarDays,
   ChartNoAxesColumnIncreasing,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  Columns3,
   ContactRound,
   FileText,
-  Gauge,
-  Inbox,
   ListChecks,
   PlugZap,
   LayoutGrid,
@@ -25,6 +24,8 @@ import {
 import { useEffect, useState, type ReactNode, Suspense } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { crmdami, useIlovaYoliniEsla, useIlovaYollari } from './IlovaAlmashtirgich';
+import { useMenyuVoronkalari, type MenyuVoronka } from '../crm/voronkalar';
+import '../crm/crm-mavzu.css';
 import { MANZIL_SAHIFA } from '../sahifalar';
 import { XatoChegarasi } from './XatoChegarasi';
 import { api, type BillingStatus } from '../api';
@@ -100,23 +101,9 @@ export function Layout() {
   const loc = useLocation();
   const crmda = crmIlova && crmdami(loc.pathname);
 
-  /** CRM menyusida "Saralanmagan" soni — CRM ichida bo'lganda har daqiqada. */
-  const [saralanmagan, setSaralanmagan] = useState(0);
-  useEffect(() => {
-    if (!crmda || !business) return;
-    let dead = false;
-    const load = () =>
-      api
-        .get<{ total: number }>(`/api/v1/businesses/${business.businessId}/crm-app/inbox?status=pending&limit=1`)
-        .then((r) => !dead && setSaralanmagan(r.total))
-        .catch(() => undefined);
-    void load();
-    const id = setInterval(load, 60_000);
-    return () => {
-      dead = true;
-      clearInterval(id);
-    };
-  }, [crmda, business, loc.pathname]);
+  /** Metasell'dagidek har voronka menyuda alohida bo'lim — ro'yxatni CrmIlova beradi. */
+  const voronkalar = useMenyuVoronkalari();
+  const joriyVoronka = new URLSearchParams(loc.search).get('v');
   const ilovaYollari = useIlovaYollari();
   useIlovaYoliniEsla();
 
@@ -172,6 +159,30 @@ export function Layout() {
     );
   };
 
+  /**
+   * Voronka bandi: hammasi bitta `/crm/bitimlar` sahifasi, farqi `?v=` da —
+   * shuning uchun faollik NavLink bilan emas, manzildagi voronka ID bilan
+   * aniqlanadi (`v` yo'q bo'lsa — asosiy voronka).
+   */
+  const voronkaItem = (v: MenyuVoronka) => {
+    const faol = loc.pathname === '/crm/bitimlar' && (joriyVoronka ? joriyVoronka === v.id : v.isMain);
+    return (
+      <Link
+        key={v.id}
+        to={`/crm/bitimlar?v=${v.id}`}
+        className={`nav-item${faol ? ' active' : ''}`}
+        aria-current={faol ? 'page' : undefined}
+        onClick={() => setMenyu(false)}
+        title={keng ? undefined : v.name}
+      >
+        <span className="ikon">
+          <BriefcaseBusiness />
+        </span>
+        <span className="nom">{v.name}</span>
+      </Link>
+    );
+  };
+
   const banner = billing ? BANNER[billing.status] : undefined;
 
   /**
@@ -204,7 +215,7 @@ export function Layout() {
   );
 
   return (
-    <div className={`shell${keng ? '' : ' tor'}`}>
+    <div className={`shell${keng ? '' : ' tor'}${crmda ? ' crm-rejim' : ''}`}>
       {/* Mobil tepa bar — 860px dan pastda ko'rinadi (TZ 8.1 #4) */}
       <div className="topbar">
         <button
@@ -228,13 +239,20 @@ export function Layout() {
         <nav className="nav-royxat" aria-label={t('Asosiy menyu')}>
           {crmda ? (
             <>
-              {/* CRM ilovasi menyusi — tepadagi almashtirgich bilan almashadi */}
-              {item('/crm/ish-stoli', <Gauge />, 'Ish stoli')}
-              {item('/crm/bitimlar', <Columns3 />, 'Bitimlar')}
-              {item('/crm/saralanmagan', <Inbox />, 'Saralanmagan', saralanmagan)}
-              {item('/crm/kontaktlar', <ContactRound />, 'Kontaktlar')}
+              {/* CRM ilovasi menyusi (Metasell tartibi) — logo bilan SotuvAI ga almashadi */}
+              {item('/crm/ish-stoli', <LayoutGrid />, 'Asosiy')}
+              {voronkalar.length > 0
+                ? voronkalar.map((v) => voronkaItem(v))
+                : item('/crm/bitimlar', <BriefcaseBusiness />, 'Lidlar')}
               {item('/crm/vazifalar', <ListChecks />, 'Vazifalar')}
-              {item('/crm/analitika', <ChartNoAxesColumnIncreasing />, 'Analitika')}
+              {item('/crm/ai-chat', <MessagesSquare />, 'AI Chat')}
+              {item('/crm/kontaktlar', <ContactRound />, 'Kontaktlar')}
+              {item('/crm/kompaniyalar', <Building2 />, 'Kompaniyalar')}
+              {item('/crm/qongiroqlar', <Phone />, "Qo'ng'iroqlar")}
+              {rahbar && item('/crm/analitika', <ChartNoAxesColumnIncreasing />, 'Analitika')}
+              {rahbar && item('/crm/hisobotlar', <CalendarDays />, 'Hisobotlar')}
+              {item('/crm/lid-xulosalari', <FileText />, 'Lid xulosalari')}
+              {ogohKoradi && item('/crm/ogohlantirishlar', <Bell />, 'Ogohlantirishlar', unseen)}
               {crmUlaydi && item('/crm/integratsiya', <PlugZap />, 'Integratsiya')}
             </>
           ) : (

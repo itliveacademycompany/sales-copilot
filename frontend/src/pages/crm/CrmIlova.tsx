@@ -4,6 +4,7 @@ import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { api, ApiError } from '../../api';
 import { useAuth } from '../../auth';
 import { CrmKontekst, useCrm, type CrmHolat, type Seat } from '../../crm/malumot';
+import { menyuVoronkalariniYangila } from '../../crm/voronkalar';
 import { useT } from '../../i18n';
 import { SAHIFA } from '../../sahifalar';
 import { BitimKarta } from './BitimKarta';
@@ -13,6 +14,7 @@ import { CrmVazifalar } from './CrmVazifalar';
 import { CrmAnalitika } from './CrmAnalitika';
 import { IshStoli } from './IshStoli';
 import { KompaniyaKarta, KontaktKarta, Kontaktlar } from './Kontaktlar';
+import { LidXulosalariCrm } from './LidXulosalariCrm';
 import { Saralanmagan } from './Saralanmagan';
 import './crm-ilova.css';
 import './crm-ilova-2.css';
@@ -39,10 +41,14 @@ export function CrmIlova() {
   const [seatlar, setSeatlar] = useState<Seat[]>([]);
   const [xato, setXato] = useState<string | null>(null);
   const integratsiya = business!.permissions.includes('integration:manage');
+  const rahbar = business!.permissions.includes('analytics:read:all');
+  const ogohKoradi = business!.permissions.includes('alert:read');
 
   const yangila = useCallback(async () => {
     try {
-      setHolat(await api.get<CrmHolat>(`${base}/crm-app`));
+      const h = await api.get<CrmHolat>(`${base}/crm-app`);
+      setHolat(h);
+      menyuVoronkalariniYangila(h.enabled ? h.pipelines.map((p) => ({ id: p.id, name: p.name, isMain: p.isMain })) : []);
       setXato(null);
     } catch (e) {
       setXato(e instanceof ApiError ? t(e.message) : t("Ma'lumotni yuklab bo'lmadi"));
@@ -76,10 +82,21 @@ export function CrmIlova() {
             <Route path="ish-stoli" element={<IshStoli />} />
             <Route path="bitimlar" element={<Bitimlar />} />
             <Route path="saralanmagan" element={<Saralanmagan />} />
-            <Route path="analitika" element={<CrmAnalitika />} />
+            {/* CRM voronka hisobotlari — "Analitika" endi umumiy (9 tabli) analitika */}
+            <Route path="voronka-tahlili" element={<CrmAnalitika />} />
+            <Route path="kompaniyalar" element={<Kontaktlar bolim="kompaniya" />} />
             <Route path="kompaniyalar/:id" element={<KompaniyaKarta />} />
             <Route path="bitimlar/:id" element={<BitimKarta />} />
-            <Route path="kontaktlar" element={<Kontaktlar />} />
+            <Route path="kontaktlar" element={<Kontaktlar bolim="kontakt" />} />
+            {/* Metasell'dagidek SotuvAI bo'limlari ham CRM menyusi ichida ochiladi */}
+            <Route path="qongiroqlar" element={<SAHIFA.qongiroqlar />} />
+            <Route path="suhbatlar/:id" element={<SAHIFA.conversationDetail />} />
+            <Route path="ai-chat" element={<SAHIFA.aiChat />} />
+            {/* Metasell'dagi Lid xulosalari: yo'qotilgan lidlar AI tahlili va qayta tiriltirish */}
+            <Route path="lid-xulosalari" element={<LidXulosalariCrm />} />
+            {ogohKoradi && <Route path="ogohlantirishlar" element={<SAHIFA.alerts />} />}
+            {rahbar && <Route path="analitika" element={<SAHIFA.analitika />} />}
+            {rahbar && <Route path="hisobotlar" element={<SAHIFA.kunlikHisobot />} />}
             <Route path="kontaktlar/:id" element={<KontaktKarta />} />
             <Route path="vazifalar" element={<CrmVazifalar />} />
             {holat.canConfigure && <Route path="sozlamalar" element={<CrmSozlamalar />} />}

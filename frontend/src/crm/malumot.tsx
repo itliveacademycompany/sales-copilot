@@ -82,6 +82,8 @@ export interface CrmHolat {
   taskTypes: VazifaTuri[];
   lossReasons: RadSababi[];
   lossReasonRequired: boolean;
+  /** Bosqich bo'yicha majburiy maydonlar: `{ stageId: fieldId[] }`. */
+  stageRequired?: Record<string, string[]>;
   inboxPending: number;
   scope: 'all' | 'own';
   canManageAll: boolean;

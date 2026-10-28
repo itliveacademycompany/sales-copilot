@@ -280,7 +280,17 @@ type Amal =
   | { type: 'responsible'; mode: 'roundrobin' | 'seat'; seatId?: string | null; seatIds?: string[] }
   | { type: 'move'; stageId: string }
   | { type: 'tag'; tag: string }
-  | { type: 'note'; text: string };
+  | { type: 'note'; text: string }
+  | { type: 'copy'; stageId: string };
+
+interface QoidaShartlari {
+  onlyIfNoOpenTasks?: boolean;
+  onlyIfNoResponsible?: boolean;
+  /** stage — bosqichga kirgandan keyin; date — sana maydonigacha N kun qolganda. */
+  trigger?: 'stage' | 'date';
+  dateFieldId?: string;
+  daysBefore?: number;
+}
 
 interface Qoida {
   id: string;
@@ -288,7 +298,7 @@ interface Qoida {
   pipelineId: string;
   stageId: string;
   delayMinutes: number;
-  conditions: { onlyIfNoOpenTasks?: boolean; onlyIfNoResponsible?: boolean };
+  conditions: QoidaShartlari;
   actions: Amal[];
   active: boolean;
   runs: number;
@@ -331,7 +341,16 @@ export function AvtomatikaSozlama() {
     if (a.type === 'responsible') return a.mode === 'seat' ? t("Mas'ul: {n}", { n: '…' }) : t("Mas'ul: navbat bilan");
     if (a.type === 'move') return t('Ko‘chirish: {b}', { b: bosqichNomi(a.stageId) });
     if (a.type === 'tag') return t('Teg: {v}', { v: a.tag });
+    if (a.type === 'copy') return t('Nusxa: {b}', { b: bosqichNomi(a.stageId) });
     return t('Izoh: {v}', { v: a.text.slice(0, 40) });
+  };
+  const qachonMatni = (q: Qoida) => {
+    if (q.conditions.trigger === 'date') {
+      const m = holat.fields.find((f) => f.id === q.conditions.dateFieldId);
+      const n = q.conditions.daysBefore ?? 0;
+      return n > 0 ? t('«{m}» gacha {n} kun qolganda', { m: m?.label ?? '—', n }) : t('«{m}» kuni', { m: m?.label ?? '—' });
+    }
+    return kechikishMatni(q.delayMinutes, t);
   };
 
   const almashtir = async (q: Qoida) => {
@@ -360,7 +379,7 @@ export function AvtomatikaSozlama() {
             </button>
           </div>
         </div>
-        <p className="yordam">{t("Bitim bosqichga kirganda yoki unda belgilangan vaqt qolib ketganda — vazifa, mas'ul, ko'chirish, teg. Har kirish uchun bir marta ishlaydi; qoida yaratilishidan oldingi bitimlarga qo'llanmaydi.")}</p>
+        <p className="yordam">{t("Lid bosqichga kirganda, unda belgilangan vaqt qolib ketganda yoki sana maydonigacha N kun qolganda — vazifa, mas'ul, ko'chirish, boshqa voronkada nusxa, teg. Har kirish uchun bir marta ishlaydi; qoida yaratilishidan oldingi lidlarga qo'llanmaydi.")}</p>
         {qoidalar?.length === 0 && <p className="yordam">{t("Hali qoida yo'q. Masalan: «Qayta aloqa» bosqichida 24 soat qolsa — mas'ulga vazifa.")}</p>}
         <ul className="ci-royxat">
           {(qoidalar ?? []).map((q) => (
@@ -368,7 +387,7 @@ export function AvtomatikaSozlama() {
               <span>
                 <b>{q.name}</b>
                 <small>
-                  {bosqichNomi(q.stageId)} · {kechikishMatni(q.delayMinutes, t)}
+                  {bosqichNomi(q.stageId)} · {qachonMatni(q)}
                   {q.conditions.onlyIfNoOpenTasks && ` · ${t('vazifasi bo‘lmasa')}`}
                 </small>
                 <small>{q.actions.map(amalMatni).join(' · ')}</small>
@@ -436,7 +455,9 @@ function QoidaOyna({ q, onYop, onSaqlandi }: { q: Qoida | null; onYop: () => voi
   const birlik = q && q.delayMinutes % 1440 === 0 && q.delayMinutes > 0 ? 1440 : q && q.delayMinutes % 60 === 0 && q.delayMinutes > 0 ? 60 : 1;
   const [kechikish, setKechikish] = useState(q ? String(q.delayMinutes / birlik) : '0');
   const [kBirlik, setKBirlik] = useState(birlik);
-  const [shart, setShart] = useState(q?.conditions ?? {});
+  const [shart, setShart] = useState<QoidaShartlari>(q?.conditions ?? {});
+  const sanaMaydonlari = holat.fields.filter((f) => f.type === 'date' || f.type === 'datetime');
+  const sanaQoidasi = shart.trigger === 'date';
   const [amallar, setAmallar] = useState<Amal[]>(q?.actions ?? [{ type: 'task', title: '', taskType: holat.taskTypes[0]?.id ?? 'call', dueMinutes: 60 }]);
   const [xato, setXato] = useState<string | null>(null);
 
@@ -497,7 +518,54 @@ function QoidaOyna({ q, onYop, onSaqlandi }: { q: Qoida | null; onYop: () => voi
           </select>
         </div>
         <div className="maydon-blok">
-          <label htmlFor="qo-vaqt">{t('Qachon')}</label>
+          <label htmlFor="qo-trigger">{t('Qachon ishlaydi')}</label>
+          <select
+            id="qo-trigger"
+            className="input"
+            value={sanaQoidasi ? 'date' : 'stage'}
+            onChange={(e) =>
+              setShart(
+                e.target.value === 'date'
+                  ? { ...shart, trigger: 'date', dateFieldId: shart.dateFieldId ?? sanaMaydonlari[0]?.id, daysBefore: shart.daysBefore ?? 0 }
+                  : { onlyIfNoOpenTasks: shart.onlyIfNoOpenTasks, onlyIfNoResponsible: shart.onlyIfNoResponsible },
+              )
+            }
+          >
+            <option value="stage">{t('Bosqichga kirgandan keyin')}</option>
+            <option value="date" disabled={sanaMaydonlari.length === 0}>
+              {t("Sana maydoni bo'yicha")}
+              {sanaMaydonlari.length === 0 ? ` (${t("sana maydoni yo'q")})` : ''}
+            </option>
+          </select>
+        </div>
+      </div>
+      {sanaQoidasi ? (
+        <div className="vr-oyna-ikki">
+          <div className="maydon-blok">
+            <label htmlFor="qo-sana">{t('Sana maydoni')}</label>
+            <select id="qo-sana" className="input" value={shart.dateFieldId ?? ''} onChange={(e) => setShart({ ...shart, dateFieldId: e.target.value })}>
+              {sanaMaydonlari.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="maydon-blok">
+            <label htmlFor="qo-kun">{t('Necha kun qolganda')}</label>
+            <input
+              id="qo-kun"
+              className="input ci-son-kiritish keng"
+              inputMode="numeric"
+              value={String(shart.daysBefore ?? 0)}
+              onChange={(e) => setShart({ ...shart, daysBefore: Math.min(365, Number(e.target.value.replace(/\D/g, '') || 0)) })}
+            />
+            <span className="yordam">{t("Masalan, obuna tugashiga 30 / 14 / 7 kun. 0 — o'sha kuni. Lid tanlangan bosqichda turgan bo'lishi kerak; sana o'zgarsa qoida yana ishlaydi.")}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="maydon-blok">
+          <label htmlFor="qo-vaqt">{t('Qancha vaqtdan keyin')}</label>
           <div className="ci-qator-kiritish">
             <input id="qo-vaqt" className="input ci-son-kiritish keng" inputMode="numeric" value={kechikish} onChange={(e) => setKechikish(e.target.value.replace(/\D/g, ''))} />
             <select className="input" value={kBirlik} onChange={(e) => setKBirlik(Number(e.target.value))} aria-label={t('Birlik')}>
@@ -508,7 +576,7 @@ function QoidaOyna({ q, onYop, onSaqlandi }: { q: Qoida | null; onYop: () => voi
           </div>
           <span className="yordam">{t('0 — bosqichga kirishi bilan; aks holda shuncha vaqt shu bosqichda qolsa')}</span>
         </div>
-      </div>
+      )}
       <div className="ci-kopli">
         <label className="ci-belgi">
           <input type="checkbox" checked={Boolean(shart.onlyIfNoOpenTasks)} onChange={(e) => setShart({ ...shart, onlyIfNoOpenTasks: e.target.checked })} />
@@ -537,9 +605,11 @@ function QoidaOyna({ q, onYop, onSaqlandi }: { q: Qoida | null; onYop: () => voi
                         ? { type: 'responsible', mode: 'roundrobin', seatIds: [] }
                         : tur === 'move'
                           ? { type: 'move', stageId: '' }
-                          : tur === 'tag'
-                            ? { type: 'tag', tag: '' }
-                            : { type: 'note', text: '' },
+                          : tur === 'copy'
+                            ? { type: 'copy', stageId: '' }
+                            : tur === 'tag'
+                              ? { type: 'tag', tag: '' }
+                              : { type: 'note', text: '' },
                   );
                 }}
                 aria-label={t('Amal turi')}
@@ -547,6 +617,7 @@ function QoidaOyna({ q, onYop, onSaqlandi }: { q: Qoida | null; onYop: () => voi
                 <option value="task">{t('Vazifa qo‘yish')}</option>
                 <option value="responsible">{t("Mas'ul tayinlash")}</option>
                 <option value="move">{t('Bosqichga ko‘chirish')}</option>
+                <option value="copy">{t('Boshqa voronkada nusxa yaratish')}</option>
                 <option value="tag">{t("Teg qo'shish")}</option>
                 <option value="note">{t('Izoh yozish')}</option>
               </select>
@@ -619,6 +690,22 @@ function QoidaOyna({ q, onYop, onSaqlandi }: { q: Qoida | null; onYop: () => voi
                         ))}
                     </optgroup>
                   ))}
+                </select>
+              )}
+              {a.type === 'copy' && (
+                <select className="input" value={a.stageId} onChange={(e) => amalniOzgartir(i, { ...a, stageId: e.target.value })} aria-label={t('Nusxa bosqichi')}>
+                  <option value="">{t('Voronka va bosqichni tanlang')}</option>
+                  {holat.pipelines
+                    .filter((p) => !p.stages.some((s) => s.id === stageId))
+                    .map((p) => (
+                      <optgroup key={p.id} label={p.name}>
+                        {p.stages.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
                 </select>
               )}
               {a.type === 'tag' && <input className="input" value={a.tag} maxLength={50} onChange={(e) => amalniOzgartir(i, { ...a, tag: e.target.value })} placeholder={t('Teg')} aria-label={t('Teg')} />}

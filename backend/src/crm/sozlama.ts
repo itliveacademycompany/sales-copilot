@@ -1,7 +1,7 @@
 import { and, asc, count, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Tx } from '../db/index.js';
-import { crmLossReason, crmSavedFilter, crmSetting, deal, seat } from '../db/schema/index.js';
+import { crmField, crmLossReason, crmSavedFilter, crmSetting, crmStage, deal, seat } from '../db/schema/index.js';
 import { CrmXatosi } from './xato.js';
 
 /**
@@ -50,6 +50,12 @@ export const sozlamaSxemasi = z.object({
       autoAccept: z.boolean().default(false),
     })
     .default({ enabled: true, pipelineId: null, since: null, autoAccept: false }),
+  /**
+   * Bosqich bo'yicha majburiy maydonlar (Metasell: "majburiy polyalar
+   * avtomatizatsiyada"): `{ [stageId]: fieldId[] }` — bu maydonlar
+   * to'ldirilmaguncha lid o'sha bosqichga o'tmaydi.
+   */
+  stageRequired: z.record(z.string().uuid(), z.array(z.string().uuid()).max(50)).default({}),
 });
 
 export type CrmSozlama = z.infer<typeof sozlamaSxemasi>;
@@ -68,6 +74,8 @@ export const sozlamaYangilash = z.object({
   callIntake: z
     .object({ enabled: z.boolean(), pipelineId: z.string().uuid().nullable(), autoAccept: z.boolean() })
     .optional(),
+  /** Bitta bosqichning majburiy maydonlari (butun xarita emas — boshqa bosqichlar o'zgarmaydi). */
+  stageRequired: z.object({ stageId: z.string().uuid(), fieldIds: z.array(z.string().uuid()).max(50) }).optional(),
 });
 
 export async function sozlamaniSaqla(
@@ -90,6 +98,16 @@ export async function sozlamaniSaqla(
       if (bor.length !== new Set(k.roundRobin.seatIds).size) throw new CrmXatosi("yaroqsiz", "Xodim topilmadi");
     }
     yangi.roundRobin = { enabled: k.roundRobin.enabled, seatIds: [...new Set(k.roundRobin.seatIds)], cursor: -1 };
+  }
+  if (k.stageRequired) {
+    const { stageId, fieldIds } = k.stageRequired;
+    const [b] = await tx.select({ id: crmStage.id }).from(crmStage).where(eq(crmStage.id, stageId)).limit(1);
+    if (!b) throw new CrmXatosi('yaroqsiz', 'Bosqich topilmadi');
+    const bor = fieldIds.length ? await tx.select({ id: crmField.id }).from(crmField).where(inArray(crmField.id, fieldIds)) : [];
+    const xarita = { ...eski.stageRequired };
+    if (bor.length) xarita[stageId] = bor.map((f) => f.id);
+    else delete xarita[stageId];
+    yangi.stageRequired = xarita;
   }
   if (k.callIntake) {
     const yoqildi = k.callIntake.enabled && !eski.callIntake.enabled;

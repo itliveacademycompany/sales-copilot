@@ -1,4 +1,4 @@
-import { Archive, ArrowDown, ArrowUp, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Archive, ArrowDown, ArrowUp, Asterisk, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../../api';
@@ -82,6 +82,7 @@ function Voronkalar() {
   const [xabar, setXabar] = useState<{ ok: boolean; matn: string } | null>(null);
   const [band, setBand] = useState(false);
   const [yangiOyna, setYangiOyna] = useState(false);
+  const [majburiy, setMajburiy] = useState<string | null>(null);
 
   useEffect(() => {
     setNom(voronka.name);
@@ -185,6 +186,17 @@ function Voronkalar() {
                     </option>
                   ))}
                 </select>
+                {b.id && (
+                  <button
+                    type="button"
+                    className={`btn ikkinchi kichik ci-majburiy-tugma${(holat.stageRequired?.[b.id]?.length ?? 0) > 0 ? ' faol' : ''}`}
+                    onClick={() => setMajburiy(b.id!)}
+                    title={t('Bu bosqichga o‘tish uchun to‘ldirilishi shart bo‘lgan maydonlar')}
+                  >
+                    <Asterisk aria-hidden="true" /> {t('Majburiy')}
+                    {(holat.stageRequired?.[b.id]?.length ?? 0) > 0 && <b>{holat.stageRequired![b.id]!.length}</b>}
+                  </button>
+                )}
                 <span className="ci-qator-amallar">
                   <button type="button" className="vr-amal" onClick={() => siljit(i, -1)} disabled={i === 0} aria-label={t('Yuqoriga')}>
                     <ArrowUp />
@@ -234,6 +246,18 @@ function Voronkalar() {
         )}
       </section>
 
+      {majburiy && (
+        <MajburiyMaydonlarOyna
+          stageId={majburiy}
+          bosqichNomi={voronka.stages.find((s) => s.id === majburiy)?.name ?? ''}
+          onYop={() => setMajburiy(null)}
+          onSaqlandi={async () => {
+            setMajburiy(null);
+            await yangila();
+            setXabar({ ok: true, matn: t('Saqlandi') });
+          }}
+        />
+      )}
       {yangiOyna && (
         <YangiVoronka
           onYop={() => setYangiOyna(false)}
@@ -244,6 +268,84 @@ function Voronkalar() {
         />
       )}
     </div>
+  );
+}
+
+/**
+ * Bosqichning majburiy maydonlari (Metasell: "majburiy polyalar"). Tanlangan
+ * maydonlar to'ldirilmaguncha lid shu bosqichga qo'lda o'tkazilmaydi.
+ */
+function MajburiyMaydonlarOyna({
+  stageId,
+  bosqichNomi,
+  onYop,
+  onSaqlandi,
+}: {
+  stageId: string;
+  bosqichNomi: string;
+  onYop: () => void;
+  onSaqlandi: () => Promise<void>;
+}) {
+  const { holat, base } = useCrm();
+  const t = useT();
+  const [tanlov, setTanlov] = useState<string[]>(holat.stageRequired?.[stageId] ?? []);
+  const [band, setBand] = useState(false);
+  const [xato, setXato] = useState<string | null>(null);
+  const maydonlar = holat.fields.filter((m) => !m.external);
+  const saqla = async () => {
+    setBand(true);
+    setXato(null);
+    try {
+      await api.patch(`${base}/crm-app/settings`, { stageRequired: { stageId, fieldIds: tanlov } });
+      await onSaqlandi();
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
+      setBand(false);
+    }
+  };
+  return (
+    <Oyna
+      sarlavha={t('«{b}» — majburiy maydonlar', { b: bosqichNomi })}
+      onYop={onYop}
+      onSubmit={() => void saqla()}
+      past={
+        <>
+          <button type="button" className="btn ikkinchi" onClick={onYop}>
+            {t('Bekor')}
+          </button>
+          <button type="submit" className="btn" disabled={band}>
+            {band ? t('Saqlanmoqda…') : t('Saqlash')}
+          </button>
+        </>
+      }
+    >
+      <p className="yordam">{t("Belgilangan maydonlar to'ldirilmaguncha lid bu bosqichga o'tkazilmaydi. Avtomatika qoidalari bu tekshiruvdan mustasno.")}</p>
+      {maydonlar.length === 0 ? (
+        <p className="yordam">{t("Avval «Maydonlar» bo'limida qo'shimcha maydon yarating.")}</p>
+      ) : (
+        <div className="ci-kopli" role="group" aria-label={t('Maydonlar')}>
+          {maydonlar.map((m) => {
+            const bor = tanlov.includes(m.id);
+            return (
+              <button
+                type="button"
+                key={m.id}
+                className={`ci-chip${bor ? ' faol' : ''}`}
+                aria-pressed={bor}
+                onClick={() => setTanlov(bor ? tanlov.filter((x) => x !== m.id) : [...tanlov, m.id])}
+              >
+                {m.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {xato && (
+        <div className="xato-qator" role="alert">
+          {xato}
+        </div>
+      )}
+    </Oyna>
   );
 }
 

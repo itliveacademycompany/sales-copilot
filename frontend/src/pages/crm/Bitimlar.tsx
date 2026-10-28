@@ -1,22 +1,25 @@
 import {
   ArrowDown,
   ArrowUp,
+  ArrowUpDown,
+  ArrowUpRight,
   Bookmark,
-  CalendarClock,
+  ChartNoAxesColumnIncreasing,
+  Check,
+  CircleX,
+  Clock,
   Columns3,
   Download,
+  Ellipsis,
   Filter,
   List,
   Plus,
   RefreshCw,
-  Search,
   Trash2,
-  TriangleAlert,
   Upload,
-  User,
   X,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, fmtQachon } from '../../api';
 import { Teglar, TeglarKiritish } from '../../crm/komponentlar';
@@ -31,6 +34,7 @@ import {
   type BitimKartasi,
   type KanbanUstun,
 } from '../../crm/malumot';
+import { MsBosh } from '../../crm/MsBosh';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
 import { ImportOyna } from './ImportOyna';
@@ -132,6 +136,22 @@ export function Bitimlar() {
     return f.toString();
   }, [params]);
 
+  const navigate = useNavigate();
+  /** KPI qatori va "Jami" — kanban bilan bir xil voronka va filtr bo'yicha. */
+  const [stat, setStat] = useState<KpiStat | null>(null);
+  useEffect(() => {
+    if (savat) return;
+    let tirik = true;
+    api
+      .get<KpiStat>(`${base}/deals/board/stats?pipeline=${voronka.id}${filtr ? `&${filtr}` : ''}`)
+      .then((r) => tirik && setStat(r))
+      .catch(() => tirik && setStat(null));
+    return () => {
+      tirik = false;
+    };
+  }, [base, voronka.id, filtr, savat, yangilash]);
+  const filtrSoni = FILTR_KALITLARI.filter((k) => k !== 'q' && k !== 'trash' && params.get(k)).length;
+
   const korinishniTanla = (k: 'kanban' | 'jadval') => {
     ozgartir({ k: k === 'kanban' ? null : 'jadval' });
     try {
@@ -152,77 +172,63 @@ export function Bitimlar() {
   };
 
   return (
-    <div className="ci-sahifa">
-      <div className="ci-bosh">
-        <h1>{savat ? t('Savat') : t('Bitimlar')}</h1>
-        <div className="ci-bosh-amallar">
-          {savat ? (
-            <button className="btn ikkinchi" onClick={() => ozgartir({ trash: null })}>
-              <X /> {t('Savatdan chiqish')}
+    <div className="ci-sahifa ms-lidlar">
+      <MsBosh
+        sarlavha={savat ? t('Savat') : t('Lidlar')}
+        chap={
+          !savat && (
+            <div className="ms-korinish" role="group" aria-label={t("Ko'rinish")}>
+              <button type="button" aria-pressed={korinish === 'kanban'} onClick={() => korinishniTanla('kanban')} title={t('Kanban')} aria-label={t('Kanban')}>
+                <Columns3 />
+              </button>
+              <button type="button" aria-pressed={korinish === 'jadval'} onClick={() => korinishniTanla('jadval')} title={t("Ro'yxat")} aria-label={t("Ro'yxat")}>
+                <List />
+              </button>
+            </div>
+          )
+        }
+        qidiruv={{ qiymat: qidiruv, onChange: setQidiruv, nom: t('Lidlarni qidirish') }}
+        jami={!savat && stat ? `${pul(stat.total)} · ${pul(stat.sum)} ${t("so'm")}` : undefined}
+      >
+        {savat ? (
+          <button className="btn ikkinchi" onClick={() => ozgartir({ trash: null })}>
+            <X /> {t('Savatdan chiqish')}
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className={`ms-ikon-tugma${panel || filtrSoni ? ' faol' : ''}`}
+              onClick={() => setPanel((v) => !v)}
+              aria-expanded={panel}
+              title={t('Filtr')}
+              aria-label={t('Filtr')}
+            >
+              <Filter />
+              {filtrSoni > 0 && <span className="ms-nuqta-son">{filtrSoni}</span>}
             </button>
-          ) : (
-            <>
-              <div className="tab-qator" role="tablist" aria-label={t("Ko'rinish")}>
-                <button role="tab" aria-selected={korinish === 'kanban'} className={`tab${korinish === 'kanban' ? ' active' : ''}`} onClick={() => korinishniTanla('kanban')}>
-                  <Columns3 aria-hidden="true" /> {t('Kanban')}
-                </button>
-                <button role="tab" aria-selected={korinish === 'jadval'} className={`tab${korinish === 'jadval' ? ' active' : ''}`} onClick={() => korinishniTanla('jadval')}>
-                  <List aria-hidden="true" /> {t('Jadval')}
-                </button>
-              </div>
-              <button className="vr-amal" onClick={() => void eksport()} title={t('CSV eksport')} aria-label={t('CSV eksport')}>
-                <Download />
-              </button>
-              {holat.canConfigure && (
-                <button className="vr-amal" onClick={() => setImportOyna(true)} title={t('Import')} aria-label={t('Import')}>
-                  <Upload />
-                </button>
-              )}
-              <button className="vr-amal" onClick={() => ozgartir({ trash: '1', k: 'jadval' })} title={t('Savat')} aria-label={t('Savat')}>
-                <Trash2 />
-              </button>
-              <button className="btn" onClick={() => setYangi(true)}>
-                <Plus /> {t('Yangi bitim')}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="ci-filtrlar">
-        {!savat && holat.pipelines.length > 1 && (
-          <div className="tab-qator ci-voronkalar" role="tablist" aria-label={t('Voronka')}>
-            {holat.pipelines.map((p) => (
-              <button
-                key={p.id}
-                role="tab"
-                aria-selected={p.id === voronka.id}
-                className={`tab${p.id === voronka.id ? ' active' : ''}`}
-                onClick={() => ozgartir({ v: p.id, stages: null })}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
+            <SaqlanganFiltrlar filtr={filtr} onTanla={(f) => setParams(new URLSearchParams({ ...(params.get('v') ? { v: params.get('v')! } : {}), ...(params.get('k') ? { k: params.get('k')! } : {}), ...f }), { replace: true })} />
+            <KopMenyu
+              bandlar={[
+                { nom: t('CSV eksport'), ikon: <Download />, amal: () => void eksport() },
+                ...(holat.canConfigure ? [{ nom: t('Import'), ikon: <Upload />, amal: () => setImportOyna(true) }] : []),
+                { nom: t('Voronka tahlili'), ikon: <ChartNoAxesColumnIncreasing />, amal: () => navigate(`/crm/voronka-tahlili?v=${voronka.id}`) },
+                { nom: t('Savat'), ikon: <Trash2 />, amal: () => ozgartir({ trash: '1', k: 'jadval' }) },
+              ]}
+            />
+            <button className="btn" onClick={() => setYangi(true)}>
+              <Plus /> {t('Yangi lid')}
+            </button>
+          </>
         )}
-        <div className="input-qobiq ikonli ci-qidiruv">
-          <span className="input-ikon" aria-hidden="true">
-            <Search />
-          </span>
-          <input className="input" value={qidiruv} onChange={(e) => setQidiruv(e.target.value)} placeholder={t('Bitim, mijoz yoki telefon')} aria-label={t('Bitimlarni qidirish')} />
-        </div>
-        <button className={`btn ikkinchi kichik${panel ? ' faol' : ''}`} onClick={() => setPanel((v) => !v)} aria-expanded={panel}>
-          <Filter /> {t('Filtr')}
-        </button>
-        <SaqlanganFiltrlar filtr={filtr} onTanla={(f) => setParams(new URLSearchParams({ ...(params.get('v') ? { v: params.get('v')! } : {}), ...(params.get('k') ? { k: params.get('k')! } : {}), ...f }), { replace: true })} />
-      </div>
+      </MsBosh>
 
-      <TezkorFiltrlar params={params} ozgartir={ozgartir} />
+      {!savat && <KpiQator stat={stat} params={params} ozgartir={ozgartir} />}
       {panel && <FiltrPanel params={params} voronkaId={voronka.id} ozgartir={ozgartir} onYop={() => setPanel(false)} />}
       <FaolFiltrlar params={params} ozgartir={ozgartir} seatlar={seatlar} />
 
       {korinish === 'kanban' ? (
-        <Kanban voronkaId={voronka.id} filtr={filtr} yangilash={yangilash} />
+        <Kanban voronkaId={voronka.id} asosiy={voronka.isMain} filtr={filtr} yangilash={yangilash} />
       ) : (
         <Jadval voronkaId={savat ? null : voronka.id} filtr={filtr} savat={savat} yangilash={yangilash} onYangila={() => setYangilash((x) => x + 1)} />
       )}
@@ -237,34 +243,122 @@ export function Bitimlar() {
 
 type Ozgartir = (ozg: Record<string, string | null>) => void;
 
-function TezkorFiltrlar({ params, ozgartir }: { params: URLSearchParams; ozgartir: Ozgartir }) {
-  const { holat } = useCrm();
+interface KpiStat {
+  total: number;
+  sum: number;
+  todayTasks: number;
+  noTask: number;
+  overdue: number;
+  newToday: number;
+  newYesterday: number;
+  forecast: number;
+}
+
+/**
+ * KPI qatori (Metasell): bugungi vazifalar · vazifasiz · muddati o'tgan ·
+ * bugun/kecha yangi · savdo prognozi. Har ko'rsatkich bosilsa o'sha lidlar
+ * filtrlanadi (qayta bosilsa — filtr olinadi).
+ */
+function KpiQator({ stat, params, ozgartir }: { stat: KpiStat | null; params: URLSearchParams; ozgartir: Ozgartir }) {
   const t = useT();
-  if (params.get('trash') === '1') return null;
-  const tezkor: { nom: string; f: Record<string, string> }[] = [
-    ...(holat.seatId && holat.scope === 'all' ? [{ nom: 'Mening bitimlarim', f: { seat: holat.seatId } }] : []),
-    { nom: 'Ochiq', f: { status: 'open' } },
-    { nom: 'Vazifasiz', f: { status: 'open', task: 'none' } },
-    { nom: "Muddati o'tgan vazifa", f: { task: 'overdue' } },
-    { nom: 'Muvaffaqiyatli', f: { status: 'won' } },
-    { nom: "Yo'qotilgan", f: { status: 'lost' } },
+  const bugun = new Date();
+  bugun.setHours(0, 0, 0, 0);
+  const bandlar: { nom: string; qiymat: string; rang?: 'sariq' | 'qizil'; f: Record<string, string>; izoh: string }[] = [
+    { nom: 'Bugungi vazifalar', qiymat: stat ? pul(stat.todayTasks) : '—', f: { task: 'today' }, izoh: "Muddati bugun tugaydigan ochiq vazifasi bor lidlar" },
+    { nom: 'Vazifasiz', qiymat: stat ? pul(stat.noTask) : '—', rang: 'sariq', f: { status: 'open', task: 'none' }, izoh: "Ochiq, lekin keyingi qadami (vazifasi) yo'q lidlar" },
+    { nom: "Muddati o'tgan", qiymat: stat ? pul(stat.overdue) : '—', rang: 'qizil', f: { task: 'overdue' }, izoh: "Vazifa muddati o'tib ketgan lidlar" },
+    {
+      nom: 'Bugun / kecha yangi',
+      qiymat: stat ? `${pul(stat.newToday)} / ${pul(stat.newYesterday)}` : '—',
+      f: { createdFrom: bugun.toISOString() },
+      izoh: 'Bugun va kecha yaratilgan lidlar (bosilsa — bugungilar)',
+    },
   ];
   return (
-    <div className="ci-tezkor" role="group" aria-label={t('Tezkor filtrlar')}>
-      {tezkor.map((x) => {
-        const faol = Object.entries(x.f).every(([k, v]) => params.get(k) === v);
+    <section className="ms-kpi" aria-label={t("Ko'rsatkichlar")}>
+      {bandlar.map((b) => {
+        const faol = Object.entries(b.f).every(([k, v]) => params.get(k) === v);
         return (
           <button
-            key={x.nom}
+            key={b.nom}
             type="button"
-            className={`ci-chip${faol ? ' faol' : ''}`}
+            className={`ms-kpi-band${b.rang ? ` ${b.rang}` : ''}${faol ? ' faol' : ''}`}
             aria-pressed={faol}
-            onClick={() => ozgartir(Object.fromEntries(Object.keys(x.f).map((k) => [k, faol ? null : x.f[k]!])))}
+            title={t(b.izoh)}
+            onClick={() => ozgartir(Object.fromEntries(Object.keys(b.f).map((k) => [k, faol ? null : b.f[k]!])))}
           >
-            {t(x.nom)}
+            <span className="ms-kpi-nom">{t(b.nom)}</span>
+            <b className="ms-kpi-qiymat">{b.qiymat}</b>
           </button>
         );
       })}
+      <div className="ms-kpi-band ms-kpi-prognoz" title={t("Ochiq lidlar summasi bosqich ehtimoliga ko'ra: oxirgi bosqichga qanchalik yaqin bo'lsa, shuncha to'liq hisoblanadi")}>
+        <span className="ms-kpi-nom">{t('Savdo prognozi')}</span>
+        <b className="ms-kpi-qiymat">
+          {stat ? pul(stat.forecast) : '—'} <small>{t("so'm")}</small>
+        </b>
+      </div>
+    </section>
+  );
+}
+
+/** "⋯" yoki boshqa ikonka ostidagi kichik menyu. */
+function KopMenyu({
+  bandlar,
+  ikon,
+  nom,
+}: {
+  bandlar: { nom: string; ikon?: ReactNode; amal: () => void; faol?: boolean }[];
+  ikon?: ReactNode;
+  nom?: string;
+}) {
+  const t = useT();
+  const [ochiq, setOchiq] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!ochiq) return;
+    const yop = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOchiq(false);
+    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOchiq(false);
+    document.addEventListener('mousedown', yop);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', yop);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [ochiq]);
+  return (
+    <div className="ci-menyu-qobiq" ref={ref}>
+      <button
+        type="button"
+        className="ms-ikon-tugma"
+        onClick={() => setOchiq((v) => !v)}
+        aria-expanded={ochiq}
+        aria-haspopup="menu"
+        aria-label={nom ?? t('Boshqa amallar')}
+        title={nom ?? t('Boshqa amallar')}
+      >
+        {ikon ?? <Ellipsis />}
+      </button>
+      {ochiq && (
+        <div className="ci-menyu ms-menyu" role="menu">
+          {bandlar.map((b) => (
+            <button
+              key={b.nom}
+              type="button"
+              role="menuitem"
+              className={b.faol ? 'faol' : undefined}
+              onClick={() => {
+                setOchiq(false);
+                b.amal();
+              }}
+            >
+              {b.ikon}
+              <span>{b.nom}</span>
+              {b.faol && <Check className="ms-menyu-belgi" aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -549,8 +643,26 @@ function SaqlanganFiltrlar({ filtr, onTanla }: { filtr: string; onTanla: (f: Rec
 
 // ─── Kanban ──────────────────────────────────────────────────────────────────
 
-function Kanban({ voronkaId, filtr, yangilash }: { voronkaId: string; filtr: string; yangilash: number }) {
+type UstunTartibi = 'yangi' | 'eski' | 'summa' | 'uzoq';
+const USTUN_TARTIBI: { k: UstunTartibi; nom: string }[] = [
+  { k: 'yangi', nom: 'Bosqichga yaqinda tushganlar' },
+  { k: 'uzoq', nom: 'Bosqichda uzoq turganlar' },
+  { k: 'summa', nom: "Summa bo'yicha" },
+  { k: 'eski', nom: 'Avval yaratilganlar' },
+];
+
+function tartibla(deals: BitimKartasi[], tartib: UstunTartibi): BitimKartasi[] {
+  if (tartib === 'yangi') return deals; // server tartibi: bosqichga tushgan vaqt bo'yicha, yangisi tepada
+  const a = [...deals];
+  if (tartib === 'uzoq') a.sort((x, y) => x.stageEnteredAt.localeCompare(y.stageEnteredAt));
+  if (tartib === 'summa') a.sort((x, y) => (y.amount ?? 0) - (x.amount ?? 0));
+  if (tartib === 'eski') a.sort((x, y) => x.createdAt.localeCompare(y.createdAt));
+  return a;
+}
+
+function Kanban({ voronkaId, asosiy, filtr, yangilash }: { voronkaId: string; asosiy: boolean; filtr: string; yangilash: number }) {
   const { base, holat } = useCrm();
+  const [tartib, setTartib] = useState<Record<string, UstunTartibi>>({});
   // amoCRM dan sinxronlanayotgan voronka: bosqich u yerda o'zgartiriladi
   const tashqi = holat.pipelines.find((p) => p.id === voronkaId)?.external ? (holat.externalSync ?? 'CRM') : null;
   const t = useT();
@@ -622,54 +734,65 @@ function Kanban({ voronkaId, filtr, yangilash }: { voronkaId: string; filtr: str
           {t("Bu voronka {crm} dan har daqiqada sinxronlanadi — bitim bosqichi, summasi va mas'uli {crm} da o'zgartiriladi.", { crm: tashqi })}
         </div>
       )}
-      <div className="ci-kanban" role="list" aria-label={t('Bosqichlar')}>
-        {ustunlar.map((u) => (
-          <section
-            key={u.id}
-            role="listitem"
-            className={`ci-ustun${ustida === u.id ? ' ustida' : ''} ${u.kind}`}
-            style={{ ['--bosqich' as string]: u.color }}
-            aria-label={u.name}
-            onDragOver={(e) => {
-              e.preventDefault();
-              e.dataTransfer.dropEffect = 'move';
-              if (ustida !== u.id) setUstida(u.id);
-            }}
-            onDragLeave={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node)) setUstida(null);
-            }}
-            onDrop={(e) => tushdi(e, u)}
-          >
-            <header className="ci-ustun-bosh">
-              <div className="ci-ustun-nom" title={u.name}>
-                {u.name}
-              </div>
-              <div className="ci-ustun-jami">
-                <span>{t('{n} ta bitim', { n: u.count })}</span>
-                {u.sum > 0 && <b>{pul(u.sum)}</b>}
-              </div>
-            </header>
-            <div className="ci-ustun-ichi">
-              {u.deals.map((d) => (
-                <KanbanKarta
-                  key={d.id}
-                  d={d}
-                  qulf={Boolean(tashqi && d.externalId)}
-                  onDragStart={() => {
-                    sudralayotgan.current = d;
-                  }}
-                  onOch={() => navigate(`/crm/bitimlar/${d.id}`)}
+      <div className="ms-kanban" role="list" aria-label={t('Bosqichlar')}>
+        {asosiy && <SaralanmaganUstun yangilash={yangilash} />}
+        {ustunlar.map((u) => {
+          const ut = tartib[u.id] ?? 'yangi';
+          return (
+            <section
+              key={u.id}
+              role="listitem"
+              className={`ms-ustun ${u.kind}${ustida === u.id ? ' ustida' : ''}`}
+              style={{ ['--bosqich' as string]: u.color }}
+              aria-label={u.name}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (ustida !== u.id) setUstida(u.id);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setUstida(null);
+              }}
+              onDrop={(e) => tushdi(e, u)}
+            >
+              <header className="ms-ustun-bosh">
+                <div className="ms-ustun-matn">
+                  <div className="ms-ustun-nom" title={u.name}>
+                    {u.name}
+                  </div>
+                  <div className="ms-ustun-jami">
+                    {t('{n} ta lid', { n: pul(u.count) })} · {pul(u.sum)} {t("so'm")}
+                  </div>
+                </div>
+                <KopMenyu
+                  ikon={<ArrowUpDown />}
+                  nom={t('Saralash')}
+                  bandlar={USTUN_TARTIBI.map((x) => ({ nom: t(x.nom), faol: ut === x.k, amal: () => setTartib((s) => ({ ...s, [u.id]: x.k })) }))}
                 />
-              ))}
-              {u.count > u.deals.length && (
-                <Link className="ci-yana" to={`/crm/bitimlar?v=${voronkaId}&k=jadval&stages=${u.id}`}>
-                  {t('Yana {n} ta — jadvalda', { n: u.count - u.deals.length })}
-                </Link>
-              )}
-              {u.count === 0 && <div className="ci-ustun-bosh-holat">{t("Bitim yo'q")}</div>}
-            </div>
-          </section>
-        ))}
+              </header>
+              <div className="ms-ustun-ichi">
+                {tartibla(u.deals, ut).map((d) => (
+                  <LidKarta
+                    key={d.id}
+                    d={d}
+                    tur={u.kind}
+                    qulf={Boolean(tashqi && d.externalId)}
+                    onDragStart={() => {
+                      sudralayotgan.current = d;
+                    }}
+                    onOch={() => navigate(`/crm/bitimlar/${d.id}`)}
+                  />
+                ))}
+                {u.count > u.deals.length && (
+                  <Link className="ms-yana" to={`/crm/bitimlar?v=${voronkaId}&k=jadval&stages=${u.id}`}>
+                    {t("Yana {n} ta — ro'yxatda", { n: pul(u.count - u.deals.length) })}
+                  </Link>
+                )}
+                {u.count === 0 && <div className="ms-ustun-bosh-holat">{t("Bu bosqichda lid yo'q")}</div>}
+              </div>
+            </section>
+          );
+        })}
       </div>
 
       {yoqotish && (
@@ -685,52 +808,176 @@ function Kanban({ voronkaId, filtr, yangilash }: { voronkaId: string; filtr: str
   );
 }
 
-function KanbanKarta({ d, qulf, onDragStart, onOch }: { d: BitimKartasi; qulf: boolean; onDragStart: () => void; onOch: () => void }) {
+/** Bosqichda shuncha kundan ko'p turgan ochiq lid qizil soat belgisi oladi. */
+const UZOQ_KUN = 7;
+
+/** "26.10.2026 16:45" — kartadagi sana-vaqt. */
+export function sanaVaqt(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/**
+ * Lid kartasi (Metasell): tepada kontakt va yaratilgan vaqt, o'rtada lid
+ * nomi ↗, pastda summa · mas'ul · vazifa holati, so'ng teglar. Bosqichda
+ * uzoq turgan ochiq lidda "⏱ N kun", yo'qotilganida — rad sababi.
+ */
+function LidKarta({
+  d,
+  tur,
+  qulf,
+  onDragStart,
+  onOch,
+}: {
+  d: BitimKartasi;
+  tur: KanbanUstun['kind'];
+  qulf: boolean;
+  onDragStart: () => void;
+  onOch: () => void;
+}) {
   const t = useT();
   const muddat = muddatHolati(d.nextTaskAt);
+  const kun = Math.floor((Date.now() - new Date(d.stageEnteredAt).getTime()) / 86_400_000);
+  const vazifa =
+    tur !== 'open'
+      ? null
+      : d.openTasks === 0
+        ? { k: 'yoq', nom: 'Vazifasiz' }
+        : muddat === 'otgan'
+          ? { k: 'otgan', nom: "Muddati o'tgan" }
+          : { k: 'bor', nom: 'Vazifa bor', title: fmtQachonKeyin(d.nextTaskAt, t) };
   return (
     <article
-      className={`ci-karta${qulf ? ' qulf' : ''}`}
+      className={`ms-karta${qulf ? ' qulf' : ''}`}
       draggable={!qulf}
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', d.id);
         onDragStart();
       }}
+      onClick={(e) => {
+        // Ichidagi havolalar o'zi ishlaydi; kartaning bo'sh joyi bosilsa — ochiladi
+        if (!(e.target as HTMLElement).closest('a,button')) onOch();
+      }}
     >
-      <Link to={`/crm/bitimlar/${d.id}`} className="ci-karta-nom" onClick={(e) => (e.preventDefault(), onOch())}>
-        {d.name}
-      </Link>
-      {(d.contactName || d.contactPhone) && (
-        <div className="ci-karta-kontakt">
-          {d.contactName ?? d.contactPhone}
-          {d.contactName && d.contactPhone && <span> · {d.contactPhone}</span>}
+      <div className="ms-karta-tepa">
+        <span className="ms-karta-kontakt">{d.contactName ?? d.contactPhone ?? ''}</span>
+        {tur === 'open' && kun >= UZOQ_KUN && (
+          <span className="ms-kun-belgi" title={t('Shu bosqichda {n} kundan beri', { n: kun })}>
+            <Clock aria-hidden="true" /> {t('{n} kun', { n: kun })}
+          </span>
+        )}
+        <time className="ms-karta-vaqt" dateTime={d.createdAt}>
+          {sanaVaqt(d.createdAt)}
+        </time>
+      </div>
+      <div className="ms-karta-nom">
+        <Link to={`/crm/bitimlar/${d.id}`} onClick={(e) => (e.preventDefault(), onOch())}>
+          {d.name}
+        </Link>
+        <a href={`/crm/bitimlar/${d.id}`} target="_blank" rel="noopener noreferrer" className="ms-karta-ochish" aria-label={t('Yangi oynada ochish')} title={t('Yangi oynada ochish')}>
+          <ArrowUpRight />
+        </a>
+      </div>
+      <div className="ms-karta-past">
+        <span className="ms-summa">
+          {pul(d.amount ?? 0)} {t("so'm")}
+        </span>
+        {d.responsibleName && (
+          <span className="ms-masul" title={t("Mas'ul")}>
+            {d.responsibleName}
+          </span>
+        )}
+        {vazifa && (
+          <span className={`ms-vazifa ${vazifa.k}`} title={vazifa.title}>
+            {t(vazifa.nom)}
+          </span>
+        )}
+      </div>
+      {tur === 'lost' && d.lostReason && (
+        <div className="ms-rad">
+          <CircleX aria-hidden="true" /> {t(d.lostReason)}
         </div>
       )}
-      <Teglar teglar={d.tags ?? []} />
-      <div className="ci-karta-past">
-        {d.amount !== null && <b className="ci-karta-summa">{pul(d.amount)}</b>}
-        {d.responsibleName && (
-          <span className="ci-karta-masul" title={t("Mas'ul")}>
-            <User aria-hidden="true" /> {d.responsibleName}
-          </span>
-        )}
-      </div>
-      <div className="ci-karta-holat">
-        {d.openTasks === 0 ? (
-          <span className="ci-belgi-matn ogoh">
-            <TriangleAlert aria-hidden="true" /> {t("Vazifa yo'q")}
-          </span>
-        ) : (
-          <span className={`ci-belgi-matn ${muddat === 'otgan' ? 'xavf' : ''}`}>
-            <CalendarClock aria-hidden="true" /> {muddat === 'otgan' ? t("Muddati o'tgan") : fmtQachonKeyin(d.nextTaskAt, t)}
-          </span>
-        )}
-        <span className="ci-karta-vaqt" title={t('Bosqichda')}>
-          {fmtQachon(d.stageEnteredAt)}
-        </span>
-      </div>
+      {(d.tags?.length ?? 0) > 0 && (
+        <div className="ms-teglar">
+          {d.tags.map((tg) => (
+            <span key={tg} className="ms-teg">
+              {tg}
+            </span>
+          ))}
+        </div>
+      )}
     </article>
+  );
+}
+
+interface MurojaatQisqa {
+  id: string;
+  source: 'call' | 'form' | 'manual';
+  name: string | null;
+  phone: string | null;
+  message: string | null;
+  formName: string | null;
+  createdAt: string;
+}
+
+/**
+ * Asosiy voronkaning birinchi ustuni — saralanmagan murojaatlar (Metasell'dagi
+ * "Неразобранное"): SotuvAI qo'ng'iroqlari, veb-formalar va qo'lda
+ * kiritilganlar. Qabul / rad "Saralanmagan" sahifasida.
+ */
+function SaralanmaganUstun({ yangilash }: { yangilash: number }) {
+  const { base } = useCrm();
+  const t = useT();
+  const navigate = useNavigate();
+  const [data, setData] = useState<{ total: number; items: MurojaatQisqa[] } | null>(null);
+  useEffect(() => {
+    let tirik = true;
+    api
+      .get<{ total: number; items: MurojaatQisqa[] }>(`${base}/crm-app/inbox?status=pending&limit=20`)
+      .then((r) => tirik && setData(r))
+      .catch(() => tirik && setData({ total: 0, items: [] }));
+    return () => {
+      tirik = false;
+    };
+  }, [base, yangilash]);
+  const manba = { call: "Qo'ng'iroq", form: 'Forma', manual: "Qo'lda" } as const;
+  return (
+    <section className="ms-ustun saralanmagan" role="listitem" aria-label={t('Saralanmagan')}>
+      <header className="ms-ustun-bosh">
+        <div className="ms-ustun-matn">
+          <div className="ms-ustun-nom">{t('Saralanmagan')}</div>
+          <div className="ms-ustun-jami">{t('{n} ta lid', { n: pul(data?.total ?? 0) })}</div>
+        </div>
+      </header>
+      <div className="ms-ustun-ichi">
+        {data?.items.map((m) => (
+          <article key={m.id} className="ms-karta" onClick={() => navigate('/crm/saralanmagan')}>
+            <div className="ms-karta-tepa">
+              <span className="ms-karta-kontakt">{t(manba[m.source])}</span>
+              <time className="ms-karta-vaqt" dateTime={m.createdAt}>
+                {sanaVaqt(m.createdAt)}
+              </time>
+            </div>
+            <div className="ms-karta-nom">
+              <Link to="/crm/saralanmagan">{m.name ?? m.phone ?? t('Murojaat')}</Link>
+            </div>
+            {(m.message || m.formName) && <div className="ms-karta-izoh">{m.message ?? m.formName}</div>}
+            {m.name && m.phone && <div className="ms-karta-izoh">{m.phone}</div>}
+          </article>
+        ))}
+        {data && data.total > data.items.length && (
+          <Link className="ms-yana" to="/crm/saralanmagan">
+            {t('Hammasini saralash ({n})', { n: pul(data.total) })}
+          </Link>
+        )}
+        {data && data.total === 0 && <div className="ms-ustun-bosh-holat">{t("Bu bosqichda lid yo'q")}</div>}
+      </div>
+    </section>
   );
 }
 

@@ -1,8 +1,9 @@
-import { ArrowLeft, Building2, CalendarClock, Merge, PhoneCall, Plus, Search, Trash2, User } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarClock, Merge, PhoneCall, Plus, Trash2, User } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, ApiError, ballKlass, fmtQachon, fmtSana, fmtSoniya } from '../../api';
 import { VazifaOyna } from '../../crm/komponentlar';
+import { MsBosh, MsSahifalash } from '../../crm/MsBosh';
 import { muddatHolati, pul, useCrm } from '../../crm/malumot';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
@@ -35,33 +36,40 @@ interface KompaniyaQator {
 
 const HAJM = 50;
 
-/** Kontaktlar: SotuvAI qo'ng'iroqlaridagi mijozlar ham, CRM da qo'shilganlar ham — bitta ro'yxat. */
-export function Kontaktlar() {
+/**
+ * Kontaktlar va Kompaniyalar — Metasell'dagidek menyuda alohida bo'limlar.
+ * Kontaktlar: SotuvAI qo'ng'iroqlaridagi mijozlar ham, CRM da qo'shilganlar
+ * ham — bitta ro'yxat; rahbarda "Dublikatlar" tabi ham bor.
+ */
+export function Kontaktlar({ bolim }: { bolim: 'kontakt' | 'kompaniya' }) {
   const { holat } = useCrm();
   const t = useT();
   const [params, setParams] = useSearchParams();
-  const tab = (params.get('tab') as 'kontakt' | 'kompaniya' | 'dublikat' | null) ?? 'kontakt';
+  // Eski havola: /crm/kontaktlar?tab=kompaniya → Kompaniyalar bo'limi
+  if (bolim === 'kontakt' && params.get('tab') === 'kompaniya') return <Navigate to="/crm/kompaniyalar" replace />;
+  if (bolim === 'kompaniya') {
+    return (
+      <div className="ci-sahifa">
+        <KompaniyaRoyxati />
+      </div>
+    );
+  }
+  const tab = params.get('tab') === 'dublikat' && holat.canConfigure ? 'dublikat' : 'kontakt';
   return (
     <div className="ci-sahifa">
-      <div className="ci-bosh">
-        <h1>{t('Kontaktlar')}</h1>
-        <div className="tab-qator" role="tablist">
-          <button role="tab" aria-selected={tab === 'kontakt'} className={`tab${tab === 'kontakt' ? ' active' : ''}`} onClick={() => setParams({}, { replace: true })}>
-            {t('Kontaktlar')}
-          </button>
-          <button role="tab" aria-selected={tab === 'kompaniya'} className={`tab${tab === 'kompaniya' ? ' active' : ''}`} onClick={() => setParams({ tab: 'kompaniya' }, { replace: true })}>
-            {t('Kompaniyalar')}
-          </button>
-          {holat.canConfigure && (
+      {holat.canConfigure && (
+        <div className="ci-bosh-tablar">
+          <div className="tab-qator" role="tablist">
+            <button role="tab" aria-selected={tab === 'kontakt'} className={`tab${tab === 'kontakt' ? ' active' : ''}`} onClick={() => setParams({}, { replace: true })}>
+              {t('Kontaktlar')}
+            </button>
             <button role="tab" aria-selected={tab === 'dublikat'} className={`tab${tab === 'dublikat' ? ' active' : ''}`} onClick={() => setParams({ tab: 'dublikat' }, { replace: true })}>
               {t('Dublikatlar')}
             </button>
-          )}
+          </div>
         </div>
-      </div>
-      {tab === 'kontakt' && <KontaktRoyxati />}
-      {tab === 'kompaniya' && <KompaniyaRoyxati />}
-      {tab === 'dublikat' && holat.canConfigure && <Dublikatlar />}
+      )}
+      {tab === 'kontakt' ? <KontaktRoyxati /> : <Dublikatlar />}
     </div>
   );
 }
@@ -73,6 +81,7 @@ function KontaktRoyxati() {
   const [q, setQ] = useState('');
   const [sorov, setSorov] = useState('');
   const [sahifa, setSahifa] = useState(0);
+  const [hajm, setHajm] = useState(HAJM);
   const [data, setData] = useState<{ total: number; items: KontaktQator[] } | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [yangi, setYangi] = useState(false);
@@ -87,7 +96,7 @@ function KontaktRoyxati() {
 
   useEffect(() => {
     let tirik = true;
-    const p = new URLSearchParams({ limit: String(HAJM), offset: String(sahifa * HAJM) });
+    const p = new URLSearchParams({ limit: String(hajm), offset: String(sahifa * hajm) });
     if (sorov) p.set('q', sorov);
     api
       .get<{ total: number; items: KontaktQator[] }>(`${base}/contacts?${p}`)
@@ -96,35 +105,35 @@ function KontaktRoyxati() {
     return () => {
       tirik = false;
     };
-  }, [base, sorov, sahifa, t]);
+  }, [base, sorov, sahifa, hajm, t]);
 
-  const sahifalar = data ? Math.max(1, Math.ceil(data.total / HAJM)) : 1;
+  const sahifalar = data ? Math.max(1, Math.ceil(data.total / hajm)) : 1;
   return (
     <>
-      <div className="ci-filtrlar">
-        <div className="input-qobiq ikonli ci-qidiruv">
-          <span className="input-ikon" aria-hidden="true">
-            <Search />
-          </span>
-          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Ism, kompaniya yoki telefon')} aria-label={t('Kontaktlarni qidirish')} />
-        </div>
+      <MsBosh
+        sarlavha={t('Kontaktlar')}
+        qidiruv={{ qiymat: q, onChange: setQ, placeholder: t('Ism, kompaniya yoki telefon'), nom: t('Kontaktlarni qidirish') }}
+        jami={data ? pul(data.total) : undefined}
+      >
         <button className="btn" onClick={() => setYangi(true)}>
           <Plus /> {t('Yangi kontakt')}
         </button>
-      </div>
+      </MsBosh>
       <div className="card ci-jadval-karta">
         {xato && <div className="xato-qator">{xato}</div>}
         {!data && !xato && <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}
         {data && data.items.length === 0 && <div className="ci-bosh-holat">{t('Kontaktlar topilmadi')}</div>}
         {data && data.items.length > 0 && (
           <div className="ci-jadval-qobiq">
-            <table className="jadval">
+            <table className="jadval ms-jadval">
               <thead>
                 <tr>
                   <th>{t('Ism')}</th>
-                  <th>{t('Telefon')}</th>
+                  <th>{t('Telefon raqami')}</th>
+                  <th>{t('Email')}</th>
                   <th>{t('Kompaniya')}</th>
-                  <th className="ci-ong">{t('Bitimlar')}</th>
+                  <th>{t('Lavozim')}</th>
+                  <th className="ci-ong">{t('Lidlar')}</th>
                   <th className="ci-ong">{t("Qo'ng'iroqlar")}</th>
                   <th>{t('Oxirgi faollik')}</th>
                 </tr>
@@ -133,16 +142,17 @@ function KontaktRoyxati() {
                 {data.items.map((c) => (
                   <tr key={c.id} className="bosiladigan" onClick={() => navigate(`/crm/kontaktlar/${c.id}`)}>
                     <td>
-                      <Link to={`/crm/kontaktlar/${c.id}`} className="ci-havola" onClick={(e) => e.stopPropagation()}>
+                      <Link to={`/crm/kontaktlar/${c.id}`} className="ms-jadval-nom" onClick={(e) => e.stopPropagation()}>
                         {c.name ?? t('Ismsiz')}
                       </Link>
-                      {c.role && <div className="yordam">{c.role}</div>}
                     </td>
-                    <td>
+                    <td className="ci-raqam">
                       {c.phone ?? '—'}
-                      {c.phones.length > 0 && <div className="yordam">+{c.phones.length}</div>}
+                      {c.phones.length > 0 && <span className="yordam"> +{c.phones.length}</span>}
                     </td>
+                    <td>{c.email ?? '—'}</td>
                     <td>{c.companyName ?? c.company ?? '—'}</td>
+                    <td>{c.role ?? '—'}</td>
                     <td className="ci-ong ci-raqam">{c.deals}</td>
                     <td className="ci-ong ci-raqam">{c.calls}</td>
                     <td className="yordam">{fmtQachon(c.lastSeenAt)}</td>
@@ -152,27 +162,21 @@ function KontaktRoyxati() {
             </table>
           </div>
         )}
-        {data && sahifalar > 1 && <Sahifalash sahifa={sahifa} sahifalar={sahifalar} setSahifa={setSahifa} />}
+        {data && (
+          <MsSahifalash
+            sahifa={sahifa}
+            sahifalar={sahifalar}
+            onSahifa={setSahifa}
+            hajm={hajm}
+            onHajm={(h) => {
+              setHajm(h);
+              setSahifa(0);
+            }}
+          />
+        )}
       </div>
       {yangi && <KontaktOyna onYop={() => setYangi(false)} onSaqlandi={(id) => navigate(`/crm/kontaktlar/${id}`)} />}
     </>
-  );
-}
-
-function Sahifalash({ sahifa, sahifalar, setSahifa }: { sahifa: number; sahifalar: number; setSahifa: (f: (s: number) => number) => void }) {
-  const t = useT();
-  return (
-    <div className="ci-sahifalash">
-      <button className="btn ikkinchi kichik" disabled={sahifa === 0} onClick={() => setSahifa((s) => s - 1)}>
-        {t('Oldingi')}
-      </button>
-      <span>
-        {sahifa + 1} / {sahifalar}
-      </span>
-      <button className="btn ikkinchi kichik" disabled={sahifa + 1 >= sahifalar} onClick={() => setSahifa((s) => s + 1)}>
-        {t('Keyingi')}
-      </button>
-    </div>
   );
 }
 
@@ -481,6 +485,7 @@ function KompaniyaRoyxati() {
   const [q, setQ] = useState('');
   const [sorov, setSorov] = useState('');
   const [sahifa, setSahifa] = useState(0);
+  const [hajm, setHajm] = useState(25);
   const [data, setData] = useState<{ total: number; items: KompaniyaQator[] } | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [yangi, setYangi] = useState(false);
@@ -495,7 +500,7 @@ function KompaniyaRoyxati() {
 
   useEffect(() => {
     let tirik = true;
-    const p = new URLSearchParams({ limit: String(HAJM), offset: String(sahifa * HAJM) });
+    const p = new URLSearchParams({ limit: String(hajm), offset: String(sahifa * hajm) });
     if (sorov) p.set('q', sorov);
     api
       .get<{ total: number; items: KompaniyaQator[] }>(`${base}/companies?${p}`)
@@ -504,48 +509,50 @@ function KompaniyaRoyxati() {
     return () => {
       tirik = false;
     };
-  }, [base, sorov, sahifa, t]);
+  }, [base, sorov, sahifa, hajm, t]);
 
-  const sahifalar = data ? Math.max(1, Math.ceil(data.total / HAJM)) : 1;
+  const sahifalar = data ? Math.max(1, Math.ceil(data.total / hajm)) : 1;
   return (
     <>
-      <div className="ci-filtrlar">
-        <div className="input-qobiq ikonli ci-qidiruv">
-          <span className="input-ikon" aria-hidden="true">
-            <Search />
-          </span>
-          <input className="input" value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Kompaniya nomi, telefon yoki sayt')} aria-label={t('Kompaniyalarni qidirish')} />
-        </div>
+      <MsBosh
+        sarlavha={t('Kompaniyalar')}
+        qidiruv={{ qiymat: q, onChange: setQ, placeholder: t('Kompaniya nomi, telefon yoki sayt'), nom: t('Kompaniyalarni qidirish') }}
+        jami={data ? pul(data.total) : undefined}
+      >
         <button className="btn" onClick={() => setYangi(true)}>
           <Plus /> {t('Yangi kompaniya')}
         </button>
-      </div>
+      </MsBosh>
       <div className="card ci-jadval-karta">
         {xato && <div className="xato-qator">{xato}</div>}
         {!data && !xato && <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}
         {data && data.items.length === 0 && <div className="ci-bosh-holat">{t('Kompaniyalar topilmadi')}</div>}
         {data && data.items.length > 0 && (
           <div className="ci-jadval-qobiq">
-            <table className="jadval">
+            <table className="jadval ms-jadval">
               <thead>
                 <tr>
-                  <th>{t('Nomi')}</th>
-                  <th>{t('Telefon')}</th>
-                  <th>{t('Sayt')}</th>
+                  <th>{t('Kompaniya nomi')}</th>
+                  <th>{t('Telefon raqami')}</th>
+                  <th>{t('Veb-sayt')}</th>
+                  <th>{t('Email')}</th>
+                  <th>{t('Manzil')}</th>
                   <th className="ci-ong">{t('Kontaktlar')}</th>
-                  <th className="ci-ong">{t('Bitimlar')}</th>
+                  <th className="ci-ong">{t('Lidlar')}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((c) => (
                   <tr key={c.id} className="bosiladigan" onClick={() => navigate(`/crm/kompaniyalar/${c.id}`)}>
                     <td>
-                      <Link to={`/crm/kompaniyalar/${c.id}`} className="ci-havola" onClick={(e) => e.stopPropagation()}>
+                      <Link to={`/crm/kompaniyalar/${c.id}`} className="ms-jadval-nom" onClick={(e) => e.stopPropagation()}>
                         {c.name}
                       </Link>
                     </td>
-                    <td>{c.phone ?? '—'}</td>
+                    <td className="ci-raqam">{c.phone ?? '—'}</td>
                     <td>{c.website ?? '—'}</td>
+                    <td>{c.email ?? '—'}</td>
+                    <td>{c.address ?? '—'}</td>
                     <td className="ci-ong ci-raqam">{c.contacts}</td>
                     <td className="ci-ong ci-raqam">{c.deals}</td>
                   </tr>
@@ -554,7 +561,18 @@ function KompaniyaRoyxati() {
             </table>
           </div>
         )}
-        {data && sahifalar > 1 && <Sahifalash sahifa={sahifa} sahifalar={sahifalar} setSahifa={setSahifa} />}
+        {data && (
+          <MsSahifalash
+            sahifa={sahifa}
+            sahifalar={sahifalar}
+            onSahifa={setSahifa}
+            hajm={hajm}
+            onHajm={(h) => {
+              setHajm(h);
+              setSahifa(0);
+            }}
+          />
+        )}
       </div>
       {yangi && <KompaniyaOyna onYop={() => setYangi(false)} onSaqlandi={(id) => navigate(`/crm/kompaniyalar/${id}`)} />}
     </>

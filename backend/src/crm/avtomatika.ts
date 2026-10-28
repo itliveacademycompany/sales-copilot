@@ -1,10 +1,10 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { withoutTenantIsolation, withTenant, type Tx } from '../db/index.js';
-import { crmAutomation, crmAutomationRun, crmStage, deal, dealEvent, seat, task } from '../db/schema/index.js';
+import { crmAutomation, crmAutomationRun, crmField, crmPipeline, crmStage, deal, dealEvent, seat, task } from '../db/schema/index.js';
 import { navbatdagiMasul, sozlamaniOl } from './sozlama.js';
 import { CrmXatosi } from './xato.js';
-import { bitimniKochir, bitimVazifasi, teglarniTozala, type CrmDoira } from './xizmat.js';
+import { bitimniKochir, bitimVazifasi, teglarniTozala, vaqtZonasiniOrnat, type CrmDoira } from './xizmat.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -43,20 +43,37 @@ const masulAmali = z.object({
 const kochirishAmali = z.object({ type: z.literal('move'), stageId: z.string().uuid() });
 const tegAmali = z.object({ type: z.literal('tag'), tag: z.string().trim().min(1).max(50) });
 const izohAmali = z.object({ type: z.literal('note'), text: z.string().trim().min(1).max(2000) });
+/**
+ * Boshqa voronkada nusxa (Metasell: "100% to'landi" → Vnedreniye). Asl lid
+ * joyida qoladi — sotuv statistikasi buzilmaydi; nusxa bir marta yaratiladi.
+ */
+const nusxaAmali = z.object({ type: z.literal('copy'), stageId: z.string().uuid() });
 
-export const amalSxemasi = z.discriminatedUnion('type', [vazifaAmali, masulAmali, kochirishAmali, tegAmali, izohAmali]);
+export const amalSxemasi = z.discriminatedUnion('type', [vazifaAmali, masulAmali, kochirishAmali, tegAmali, izohAmali, nusxaAmali]);
 export type Amal = z.infer<typeof amalSxemasi>;
+
+/**
+ * Qoida qachon ishlaydi:
+ *   • `stage` (standart) — lid bosqichga kirgandan `delayMinutes` o'tgach;
+ *   • `date` — lid shu bosqichda turganda, sana maydonidagi kungacha
+ *     `daysBefore` kun qolganda (0 — o'sha kuni yoki o'tib ketgan bo'lsa).
+ *     Masalan, Qayta to'lov: obuna tugashiga 30 / 14 / 7 / 0 kun. Sana
+ *     o'zgarsa (obuna uzaytirilsa) qoida yangi sana uchun yana ishlaydi.
+ */
+const shartlar = z.object({
+  onlyIfNoOpenTasks: z.boolean().optional(),
+  onlyIfNoResponsible: z.boolean().optional(),
+  trigger: z.enum(['stage', 'date']).optional(),
+  dateFieldId: z.string().uuid().optional(),
+  daysBefore: z.number().int().min(0).max(365).optional(),
+});
+type Shartlar = z.infer<typeof shartlar>;
 
 export const qoidaKirish = z.object({
   name: z.string().trim().min(1, 'Qoida nomini kiriting').max(120),
   stageId: z.string().uuid(),
   delayMinutes: z.number().int().min(0).max(60 * 24 * 90).default(0),
-  conditions: z
-    .object({
-      onlyIfNoOpenTasks: z.boolean().optional(),
-      onlyIfNoResponsible: z.boolean().optional(),
-    })
-    .default({}),
+  conditions: shartlar.default({}),
   actions: z.array(amalSxemasi).min(1, 'Kamida bitta amal qo‘shing').max(10),
   active: z.boolean().default(true),
 });
@@ -86,11 +103,21 @@ async function qoidaniTekshir(tx: Tx, k: z.infer<typeof qoidaKirish>): Promise<s
   const [b] = await tx.select({ pipelineId: crmStage.pipelineId }).from(crmStage).where(eq(crmStage.id, k.stageId)).limit(1);
   if (!b) throw new CrmXatosi('yaroqsiz', 'Bosqich topilmadi');
   const s = await sozlamaniOl(tx);
+  if (k.conditions.trigger === 'date') {
+    if (!k.conditions.dateFieldId) throw new CrmXatosi('yaroqsiz', 'Sana maydonini tanlang');
+    const [m] = await tx.select({ type: crmField.type }).from(crmField).where(eq(crmField.id, k.conditions.dateFieldId)).limit(1);
+    if (!m || (m.type !== 'date' && m.type !== 'datetime')) throw new CrmXatosi('yaroqsiz', 'Sana turidagi maydonni tanlang');
+  }
   for (const a of k.actions) {
     if (a.type === 'move') {
       if (a.stageId === k.stageId) throw new CrmXatosi('yaroqsiz', 'Bitimni o‘sha bosqichning o‘ziga ko‘chirib bo‘lmaydi');
       const [m] = await tx.select({ id: crmStage.id }).from(crmStage).where(eq(crmStage.id, a.stageId)).limit(1);
       if (!m) throw new CrmXatosi('yaroqsiz', 'Ko‘chiriladigan bosqich topilmadi');
+    }
+    if (a.type === 'copy') {
+      const [m] = await tx.select({ pipelineId: crmStage.pipelineId }).from(crmStage).where(eq(crmStage.id, a.stageId)).limit(1);
+      if (!m) throw new CrmXatosi('yaroqsiz', 'Nusxa bosqichi topilmadi');
+      if (m.pipelineId === b.pipelineId) throw new CrmXatosi('yaroqsiz', 'Nusxa boshqa voronkada yaratiladi — shu voronka uchun «Ko‘chirish» amalini tanlang');
     }
     if (a.type === 'task' && !s.taskTypes.some((t) => t.id === a.taskType)) throw new CrmXatosi('yaroqsiz', "Vazifa turi noto'g'ri");
     if (a.type === 'responsible') {
@@ -163,9 +190,29 @@ export async function avtomatikaniIjroEt(tx: Tx, businessId: string, opts: { dea
     .from(crmAutomation)
     .where(eq(crmAutomation.active, true));
   if (qoidaRoyxati.length === 0) return 0;
+  // Sana qoidalari biznes vaqt zonasidagi "bugun" bilan solishtiriladi
+  if (qoidaRoyxati.some((q) => (q.conditions as Shartlar | null)?.trigger === 'date')) await vaqtZonasiniOrnat(tx, businessId);
   let bajarildi = 0;
   for (const q of qoidaRoyxati) {
-    const r = await tx.execute(sql`
+    const sh = (q.conditions ?? {}) as Shartlar;
+    const sanaQoidasi = sh.trigger === 'date' && sh.dateFieldId;
+    const r = sanaQoidasi
+      ? await tx.execute(sql`
+      select d.id, (d.fields->>${sh.dateFieldId}) as entry_key, d.responsible_seat_id,
+        (select count(*)::int from task t where t.deal_id = d.id and t.status in ('pending','in_progress','blocked')) as open_tasks,
+        (select count(*)::int from crm_automation_run x where x.deal_id = d.id and x.created_at > now() - interval '1 hour') as recent_runs
+      from deal d
+      where d.stage_id = ${q.stageId}
+        and d.deleted_at is null
+        and coalesce(d.fields->>${sh.dateFieldId}, '') ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}'
+        and (left(d.fields->>${sh.dateFieldId}, 10))::date - ${sh.daysBefore ?? 0}::int <= current_date
+        ${opts.dealId ? sql`and d.id = ${opts.dealId}` : sql``}
+        and not exists (select 1 from crm_automation_run r
+                        where r.automation_id = ${q.id} and r.deal_id = d.id and r.entry_key = (d.fields->>${sh.dateFieldId}))
+      order by d.updated_at
+      limit 100
+    `)
+      : await tx.execute(sql`
       select d.id, ${KIRISH_KALITI} as entry_key, d.responsible_seat_id,
         (select count(*)::int from task t where t.deal_id = d.id and t.status in ('pending','in_progress','blocked')) as open_tasks,
         (select count(*)::int from crm_automation_run x where x.deal_id = d.id and x.created_at > now() - interval '1 hour') as recent_runs
@@ -270,6 +317,62 @@ async function amalniBajar(tx: Tx, businessId: string, dealId: string, a: Amal, 
     case 'note':
       await tx.insert(dealEvent).values({ businessId, dealId, type: 'note', data: { text: a.text, automation: qoidaNomi }, authorUserId: null });
       return;
+    case 'copy': {
+      const [[d], [b]] = await Promise.all([
+        tx.select().from(deal).where(eq(deal.id, dealId)).limit(1),
+        tx
+          .select({ id: crmStage.id, pipelineId: crmStage.pipelineId, name: crmStage.name, kind: crmStage.kind, pipelineName: crmPipeline.name })
+          .from(crmStage)
+          .innerJoin(crmPipeline, eq(crmPipeline.id, crmStage.pipelineId))
+          .where(eq(crmStage.id, a.stageId))
+          .limit(1),
+      ]);
+      if (!d || d.deletedAt) return;
+      if (!b) throw new CrmXatosi('yaroqsiz', 'Nusxa bosqichi topilmadi');
+      // Takror yo'q: shu lidning shu voronkada tirik nusxasi bo'lsa — qaytadan yaratilmaydi
+      const bor = await tx.execute(sql`
+        select 1 from deal_event e join deal x on x.id = e.deal_id
+        where e.type = 'created' and e.data->>'copiedFrom' = ${dealId}
+          and x.pipeline_id = ${b.pipelineId} and x.deleted_at is null
+        limit 1
+      `);
+      if ((((bor as unknown as { rows?: unknown[] }).rows ?? (bor as unknown as unknown[])) as unknown[]).length > 0) return;
+      const [n] = await tx
+        .insert(deal)
+        .values({
+          businessId,
+          pipelineId: b.pipelineId,
+          stageId: b.id,
+          name: d.name,
+          amount: d.amount,
+          responsibleSeatId: d.responsibleSeatId,
+          contactId: d.contactId,
+          companyId: d.companyId,
+          tags: d.tags,
+          fields: d.fields,
+          source: d.source,
+          closedAt: b.kind === 'open' ? null : new Date(),
+          createdBy: null,
+        })
+        .returning({ id: deal.id });
+      await tx.insert(dealEvent).values([
+        {
+          businessId,
+          dealId: n!.id,
+          type: 'created',
+          data: { stageId: b.id, stageName: b.name, copiedFrom: dealId, copiedFromName: d.name, automation: qoidaNomi },
+          authorUserId: null,
+        },
+        {
+          businessId,
+          dealId,
+          type: 'note',
+          data: { text: `«${b.pipelineName}» voronkasida nusxa yaratildi («${b.name}»)`, copiedTo: n!.id, automation: qoidaNomi },
+          authorUserId: null,
+        },
+      ]);
+      return;
+    }
   }
 }
 

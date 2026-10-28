@@ -9,6 +9,8 @@ import {
   contact,
   conversation,
   crmField,
+  crmForm,
+  crmInbox,
   crmLossReason,
   crmPipeline,
   crmStage,
@@ -576,6 +578,22 @@ export async function bitimniKochir(
   await tashqiTekshir(tx, d);
   const [eski, yangi] = await Promise.all([bosqichniOl(tx, d.stageId), bosqichniOl(tx, p.kirish.stageId)]);
   if (!yangi) throw new CrmXatosi('yaroqsiz', 'Bosqich topilmadi');
+  // Bosqichning majburiy maydonlari (sozlamada) to'ldirilmagan bo'lsa — o'tkazilmaydi.
+  // Avtomatika bundan mustasno: zanjir (masalan, to'lovdan keyin joriy etish) to'xtab qolmasin.
+  if (!p.avtomatika) {
+    const kerak = (await sozlamaniOl(tx)).stageRequired[yangi.id] ?? [];
+    const qiymatlar = (d.fields ?? {}) as Record<string, unknown>;
+    const bosh = kerak.filter((fid) => {
+      const v = qiymatlar[fid];
+      return v === null || v === undefined || v === '' || (Array.isArray(v) && v.length === 0);
+    });
+    if (bosh.length) {
+      const nomlar = await tx.select({ label: crmField.label }).from(crmField).where(inArray(crmField.id, bosh));
+      if (nomlar.length) {
+        throw new CrmXatosi('yaroqsiz', `«${yangi.name}» bosqichiga o'tish uchun to'ldiring: ${nomlar.map((n) => `«${n.label}»`).join(', ')}`);
+      }
+    }
+  }
   let sababNomi: string | null = null;
   if (yangi.kind === 'lost') {
     if (p.kirish.lostReasonId) {
@@ -848,6 +866,80 @@ export async function kanban(tx: Tx, p: { pipelineId: string; doira: CrmDoira; f
   });
 }
 
+/**
+ * Lidlar sahifasining KPI qatori (Metasell): voronka va joriy filtr bo'yicha.
+ *
+ *  - Bugungi vazifalar — shu bitimlarning bugun muddati tugaydigan ochiq vazifalari;
+ *  - Vazifasiz — ochiq bosqichdagi, birorta ochiq vazifasi yo'q bitimlar;
+ *  - Muddati o'tgan — muddati o'tgan ochiq vazifasi bor bitimlar;
+ *  - Bugun / kecha yangi — shu kunlarda yaratilgan bitimlar;
+ *  - Savdo prognozi — ochiq bitimlar summasi bosqich ehtimoliga ko'paytirilgan:
+ *    n ta ochiq bosqichdan i-chisi (1 dan) uchun ehtimol i/(n+1). Oxirgi
+ *    bosqichga yaqin bitim to'liqroq hisoblanadi — bu oddiy va tushuntirsa
+ *    bo'ladigan qoida (bosqich ehtimollari sozlamasi keyin qo'shilishi mumkin).
+ *
+ * Kunlar biznes vaqt zonasida (`vaqtZonasiniOrnat` chaqirilgan bo'lishi kerak).
+ */
+export async function kanbanKorsatkichlari(tx: Tx, p: { pipelineId: string; doira: CrmDoira; filtr: BitimFiltr }) {
+  const sh = [...filtrShartlari(p.filtr, p.doira), eq(deal.pipelineId, p.pipelineId)];
+  const bugun = sql`date_trunc('day', now())`;
+  const ochiqVazifa = (qoshimcha: SQL) => sql`exists (select 1 from task t where t.deal_id = ${deal.id} and t.status in ${OCHIQ_VAZIFA} ${qoshimcha})`;
+  const [[j], [v], bosqichSummalari, bosqichlar] = await Promise.all([
+    tx
+      .select({
+        jami: count(),
+        summa: sql<string | null>`sum(${deal.amount})`,
+        vazifasiz: sql<number>`count(*) filter (where ${crmStage.kind} = 'open' and not ${ochiqVazifa(sql``)})`,
+        muddatiOtgan: sql<number>`count(*) filter (where ${ochiqVazifa(sql`and t.due_at < now()`)})`,
+        bugunYangi: sql<number>`count(*) filter (where ${deal.createdAt} >= ${bugun})`,
+        kechaYangi: sql<number>`count(*) filter (where ${deal.createdAt} >= ${bugun} - interval '1 day' and ${deal.createdAt} < ${bugun})`,
+      })
+      .from(deal)
+      .leftJoin(contact, eq(contact.id, deal.contactId))
+      .innerJoin(crmStage, eq(crmStage.id, deal.stageId))
+      .where(and(...sh)),
+    tx
+      .select({ n: count() })
+      .from(task)
+      .innerJoin(deal, eq(deal.id, task.dealId))
+      .leftJoin(contact, eq(contact.id, deal.contactId))
+      .where(
+        and(
+          ...sh,
+          sql`${task.status} in ${OCHIQ_VAZIFA}`,
+          sql`${task.dueAt} >= ${bugun} and ${task.dueAt} < ${bugun} + interval '1 day'`,
+        ),
+      ),
+    tx
+      .select({ stageId: deal.stageId, sum: sql<string | null>`sum(${deal.amount})` })
+      .from(deal)
+      .leftJoin(contact, eq(contact.id, deal.contactId))
+      .where(and(...sh))
+      .groupBy(deal.stageId),
+    tx
+      .select({ id: crmStage.id, kind: crmStage.kind })
+      .from(crmStage)
+      .where(eq(crmStage.pipelineId, p.pipelineId))
+      .orderBy(asc(crmStage.sort)),
+  ]);
+  const ochiqlar = bosqichlar.filter((b) => b.kind === 'open');
+  let prognoz = 0;
+  ochiqlar.forEach((b, i) => {
+    const s = bosqichSummalari.find((x) => x.stageId === b.id)?.sum;
+    if (s) prognoz += (Number(s) * (i + 1)) / (ochiqlar.length + 1);
+  });
+  return {
+    total: Number(j?.jami ?? 0),
+    sum: j?.summa ? Number(j.summa) : 0,
+    todayTasks: Number(v?.n ?? 0),
+    noTask: Number(j?.vazifasiz ?? 0),
+    overdue: Number(j?.muddatiOtgan ?? 0),
+    newToday: Number(j?.bugunYangi ?? 0),
+    newYesterday: Number(j?.kechaYangi ?? 0),
+    forecast: Math.round(prognoz),
+  };
+}
+
 /** Jadval ko'rinishi — sahifalab. */
 export async function bitimlarRoyxati(
   tx: Tx,
@@ -1022,6 +1114,16 @@ export async function bitimKartochkasi(tx: Tx, p: { id: string; doira: CrmDoira 
             summary: analysis.summary,
             leadQuality: analysis.leadQuality,
             seatName: seat.displayName,
+            // Kartochkadagi audio pleyer va AI tahlil bloki (Metasell): asosiy
+            // kamchilik, suhbat oilasi, xizmat yo'nalishi, mijoz profili
+            mediaUrl: conversation.mediaUrl,
+            mediaKind: conversation.mediaKind,
+            primaryGap: analysis.primaryGap,
+            callFamily: analysis.callFamily,
+            serviceLine: analysis.serviceLine,
+            clientExtracted: analysis.clientExtracted,
+            dealInfo: analysis.deal,
+            signals: analysis.signals,
           })
           .from(conversation)
           .leftJoin(analysis, eq(analysis.conversationId, conversation.id))
@@ -1034,6 +1136,38 @@ export async function bitimKartochkasi(tx: Tx, p: { id: string; doira: CrmDoira 
       ? tx.select({ id: seat.id, name: seat.displayName }).from(seat).where(eq(seat.id, d.responsibleSeatId)).limit(1).then((r) => r[0] ?? null)
       : Promise.resolve(null),
   ]);
+  // "Forma javoblari": bitimga aylangan murojaatlar — forma savollari nomi bilan
+  const murojaatlar = await tx
+    .select({
+      id: crmInbox.id,
+      source: crmInbox.source,
+      name: crmInbox.name,
+      phone: crmInbox.phone,
+      email: crmInbox.email,
+      message: crmInbox.message,
+      payload: crmInbox.payload,
+      formName: crmForm.name,
+      formFields: crmForm.fields,
+      createdAt: crmInbox.createdAt,
+    })
+    .from(crmInbox)
+    .leftJoin(crmForm, eq(crmForm.id, crmInbox.formId))
+    .where(eq(crmInbox.dealId, d.id))
+    .orderBy(desc(crmInbox.createdAt))
+    .limit(5);
+  const formalar = murojaatlar.map((m) => {
+    const p = (m.payload ?? {}) as { values?: Record<string, string>; formName?: string };
+    const maydonlar = (Array.isArray(m.formFields) ? m.formFields : []) as { key: string; label: string }[];
+    const javoblar = p.values
+      ? maydonlar.filter((f) => p.values![f.key]).map((f) => ({ label: f.label, value: p.values![f.key]! }))
+      : [
+          ...(m.name ? [{ label: 'Ism', value: m.name }] : []),
+          ...(m.phone ? [{ label: 'Telefon', value: m.phone }] : []),
+          ...(m.email ? [{ label: 'Email', value: m.email }] : []),
+          ...(m.message ? [{ label: 'Xabar', value: m.message }] : []),
+        ];
+    return { id: m.id, source: m.source, sourceName: p.formName ?? m.formName ?? null, createdAt: m.createdAt, answers: javoblar };
+  });
   return {
     deal: { ...d, amount: d.amount === null ? null : Number(d.amount) },
     /** Tashqi CRM dan sinxronlanayotgan bo'lsa — uning nomi (asosiy maydonlar faqat o'qiladi). */
@@ -1046,6 +1180,7 @@ export async function bitimKartochkasi(tx: Tx, p: { id: string; doira: CrmDoira 
     events: tarix,
     tasks: vazifalar,
     calls: qongiroqlar.map((c) => ({ ...c, score: c.score === null ? null : Number(c.score) })),
+    forms: formalar,
   };
 }
 
