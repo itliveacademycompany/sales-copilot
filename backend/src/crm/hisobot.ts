@@ -398,3 +398,193 @@ export async function maqsadFakti(tx: Tx, p: { doira: CrmDoira; davr: Davr }) {
     seats: xodimlar,
   };
 }
+
+// ─── Bosh sahifa (Metasell vidjetlari) ──────────────────────────────────────
+
+/**
+ * Metasell bosh sahifasidagi qo'shimcha vidjetlar uchun ma'lumot:
+ * avvalgi davr bilan solishtirish, uchrashuvlar (sana maydoni bo'yicha),
+ * menejerlar bo'yicha vazifalar va qo'ng'iroqlar, lid almashinuvi.
+ *
+ * Har bo'lim alohida savepoint ichida — bitta so'rov xato bersa (masalan,
+ * maydonda noto'g'ri sana yozilgan), qolgan vidjetlar baribir chiqadi.
+ */
+export async function boshSahifa(tx: Tx, p: { doira: CrmDoira; davr: Davr }) {
+  const { doira, davr } = p;
+  const b = bitimSharti(doira, davr);
+  const from = davr.from;
+  const to = davr.to;
+  const uzunlik = new Date(to).getTime() - new Date(from).getTime();
+  const oldinFrom = new Date(new Date(from).getTime() - uzunlik).toISOString();
+  const seatSharti =
+    doira.korish === 'own' ? sql`and se.id = ${doira.seatId ?? BOSH_UUID}` : davr.seat ? sql`and se.id = ${davr.seat}` : sql``;
+
+  const xavfsiz = async <T>(ish: (t: Tx) => Promise<T>): Promise<T | null> => {
+    try {
+      return await tx.transaction(async (t) => ish(t as unknown as Tx));
+    } catch {
+      return null;
+    }
+  };
+
+  // 1) Avvalgi teng davr — o'zgarish foizlari uchun
+  const oldingi = await xavfsiz(async (t) => {
+    const [r] = qatorlar<{ won: number; lost: number }>(
+      await t.execute(sql`
+        select
+          count(*) filter (where s.kind = 'won' and d.closed_at >= ${oldinFrom} and d.closed_at < ${from})::int as won,
+          count(*) filter (where s.kind = 'lost' and d.closed_at >= ${oldinFrom} and d.closed_at < ${from})::int as lost
+        from deal d join crm_stage s on s.id = d.stage_id
+        where ${b}
+      `),
+    );
+    const won = Number(r?.won ?? 0);
+    const lost = Number(r?.lost ?? 0);
+    return { wonCount: won, lostCount: lost, winRate: won + lost > 0 ? won / (won + lost) : null };
+  });
+
+  // 2) Uchrashuvlar — "Uchrashuv" nomli (bo'lmasa birinchi) sana maydoni bo'yicha, tanlangan davrda
+  const uchrashuvlar = await xavfsiz(async (t) => {
+    const [m] = qatorlar<{ id: string; label: string; type: string }>(
+      await t.execute(sql`
+        select id, label, type from crm_field
+        where archived_at is null and type in ('date', 'datetime')
+        order by (label ilike '%uchrashuv%' or label ilike '%встреч%' or label ilike '%meeting%') desc, sort, created_at
+        limit 1
+      `),
+    );
+    if (!m) return null;
+    const qiymat = sql`(d.fields ->> ${m.id})`;
+    const vaqt =
+      m.type === 'date'
+        ? sql`(case when ${qiymat} ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}' then left(${qiymat}, 10)::date::timestamptz end)`
+        : sql`(case when ${qiymat} ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T' then ${qiymat}::timestamptz end)`;
+    const r = qatorlar<{
+      id: string;
+      name: string;
+      contact: string | null;
+      seat_id: string | null;
+      seat: string | null;
+      at: string;
+      stage: string;
+      color: string;
+    }>(
+      await t.execute(sql`
+        select * from (
+          select d.id, d.name, c.name as contact, d.responsible_seat_id as seat_id, se.display_name as seat,
+            ${vaqt} as at, st.name as stage, st.color
+          from deal d
+          join crm_stage st on st.id = d.stage_id
+          left join contact c on c.id = d.contact_id
+          left join seat se on se.id = d.responsible_seat_id
+          where ${b}
+        ) x
+        where x.at >= ${from} and x.at < ${to}
+        order by x.at
+        limit 300
+      `),
+    );
+    const hozir = Date.now();
+    const bugun = new Date();
+    bugun.setHours(0, 0, 0, 0);
+    const oldinda = (iso: string) => (m.type === 'date' ? new Date(iso).getTime() >= bugun.getTime() : new Date(iso).getTime() > hozir);
+    const kimda = new Map<string, { seatId: string | null; name: string; count: number }>();
+    for (const x of r) {
+      const k = x.seat_id ?? '-';
+      const e = kimda.get(k) ?? { seatId: x.seat_id, name: x.seat ?? '', count: 0 };
+      e.count += 1;
+      kimda.set(k, e);
+    }
+    return {
+      fieldId: m.id,
+      fieldLabel: m.label,
+      fieldType: m.type,
+      total: r.length,
+      ahead: r.filter((x) => oldinda(x.at)).length,
+      items: r.slice(0, 100).map((x) => ({
+        dealId: x.id,
+        name: x.name,
+        contact: x.contact,
+        seat: x.seat,
+        at: new Date(x.at).toISOString(),
+        stage: x.stage,
+        stageColor: x.color,
+        ahead: oldinda(x.at),
+      })),
+      bySeat: [...kimda.values()].sort((a, c) => c.count - a.count),
+    };
+  });
+
+  // 3) Menejerlar bo'yicha vazifalar: davrda bajarilgan / jami va hozir muddati o'tganlar
+  const vazifalar = await xavfsiz(async (t) =>
+    qatorlar<{ id: string; name: string; done: number; total: number; overdue: number }>(
+      await t.execute(sql`
+        select se.id, se.display_name as name,
+          count(tk.id) filter (where tk.status = 'done' and tk.completed_at >= ${from} and tk.completed_at < ${to})::int as done,
+          count(tk.id) filter (where (tk.due_at >= ${from} and tk.due_at < ${to})
+                                  or (tk.status = 'done' and tk.completed_at >= ${from} and tk.completed_at < ${to}))::int as total,
+          count(tk.id) filter (where tk.status in ('pending','in_progress','blocked') and tk.due_at < now())::int as overdue
+        from seat se
+        left join task tk on tk.seat_id = se.id
+          and (tk.deal_id is not null or tk.contact_id is not null or tk.task_type is not null)
+        where se.is_active = true ${seatSharti}
+        group by se.id, se.display_name
+        having count(tk.id) > 0
+        order by overdue desc, total desc
+        limit 30
+      `),
+    ).map((x) => ({ seatId: x.id, name: x.name, done: Number(x.done), total: Number(x.total), overdue: Number(x.overdue) })),
+  );
+
+  // 4) Menejerlar bo'yicha qo'ng'iroqlar: kiruvchi/chiquvchi, unikal mijoz, davomiylik, o'rtacha sifat
+  const qongiroqlar = await xavfsiz(async (t) =>
+    qatorlar<{ id: string; name: string; inbound: number; outbound: number; uniq: number; dur: number; score: number | null }>(
+      await t.execute(sql`
+        select se.id, se.display_name as name,
+          count(c.id) filter (where c.direction = 'inbound')::int as inbound,
+          count(c.id) filter (where c.direction <> 'inbound')::int as outbound,
+          count(distinct c.contact_id)::int as uniq,
+          coalesce(sum(c.duration_seconds), 0)::int as dur,
+          avg(a.overall_score)::float8 as score
+        from seat se
+        join conversation c on c.seat_id = se.id and c.channel = 'phone' and c.started_at >= ${from} and c.started_at < ${to}
+        left join analysis a on a.conversation_id = c.id
+        where se.is_active = true ${seatSharti}
+        group by se.id, se.display_name
+        order by count(c.id) desc
+        limit 30
+      `),
+    ).map((x) => ({
+      seatId: x.id,
+      name: x.name,
+      inbound: Number(x.inbound),
+      outbound: Number(x.outbound),
+      unique: Number(x.uniq),
+      durationSeconds: Number(x.dur),
+      quality: x.score === null ? null : Math.round(Number(x.score)),
+    })),
+  );
+
+  // 5) Lid almashinuvi — mas'ul o'zgargan bitimlar (kimdan → kimga)
+  const almashinuv = await xavfsiz(async (t) => {
+    const uuid = (k: string) => sql`(case when e.data ->> ${k} ~* '^[0-9a-f-]{36}$' then (e.data ->> ${k})::uuid end)`;
+    const r = qatorlar<{ at: string; id: string; name: string; frm: string | null; too: string | null; jami: number }>(
+      await t.execute(sql`
+        select e.created_at as at, d.id, d.name, a.display_name as frm, s2.display_name as too, count(*) over ()::int as jami
+        from deal_event e
+        join deal d on d.id = e.deal_id
+        left join seat a on a.id = ${uuid('before')}
+        left join seat s2 on s2.id = ${uuid('after')}
+        where ${b} and e.type = 'responsible' and e.created_at >= ${from} and e.created_at < ${to}
+        order by e.created_at desc
+        limit 50
+      `),
+    );
+    return {
+      total: Number(r[0]?.jami ?? 0),
+      items: r.map((x) => ({ at: new Date(x.at).toISOString(), dealId: x.id, name: x.name, from: x.frm, to: x.too })),
+    };
+  });
+
+  return { previous: oldingi, meetings: uchrashuvlar, tasksBySeat: vazifalar, callsBySeat: qongiroqlar, transfers: almashinuv };
+}

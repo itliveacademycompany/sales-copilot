@@ -5,6 +5,7 @@ import { avtomatikaniUygot, ijroJurnali, qoidaKirish, qoidalar, qoidaniOchir, qo
 import {
   davrSxemasi,
   hodisalarJurnali,
+  boshSahifa,
   ishStoli,
   jurnalSxemasi,
   maqsadFakti,
@@ -244,6 +245,17 @@ export function registerCrmBoshqaruvRoutes(app: FastifyInstance): void {
     return withTenant(businessId, async (tx) => {
       await vaqtZonasiniOrnat(tx, businessId);
       return ishStoli(tx, { doira: d, davr });
+    });
+  });
+
+  // Bosh sahifaning Metasell vidjetlari (uchrashuvlar, vazifalar, qo'ng'iroqlar, lid almashinuvi)
+  app.get(`${BASE}/crm-app/reports/home`, guard, async (req) => {
+    const davr = davrniOl(req.query);
+    const d = doira(req);
+    const businessId = req.business!.businessId;
+    return withTenant(businessId, async (tx) => {
+      await vaqtZonasiniOrnat(tx, businessId);
+      return boshSahifa(tx, { doira: d, davr });
     });
   });
 

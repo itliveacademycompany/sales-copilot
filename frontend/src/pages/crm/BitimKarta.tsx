@@ -196,7 +196,16 @@ export function BitimKarta() {
   const [k, setK] = useState<Kartochka | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [xabar, setXabar] = useState<{ ok: boolean; matn: string } | null>(null);
-  const [qoralama, setQoralama] = useState<Qoralama | null>(null);
+  const [qoralama, setQoralamaXom] = useState<Qoralama | null>(null);
+  // Metasell'dagidek avtomatik saqlash: har tahrir hisoblanadi — saqlash
+  // davomida yangi tahrir bo'lsa, serverdan kelgan javob qoralamani bosib ketmaydi.
+  const tahrirlar = useRef(0);
+  const setQoralama = useCallback((q: Qoralama) => {
+    tahrirlar.current += 1;
+    setQoralamaXom(q);
+  }, []);
+  const [avtoHolat, setAvtoHolat] = useState<'saqlanmoqda' | 'saqlandi' | null>(null);
+  const saqlaRef = useRef<(() => Promise<void>) | null>(null);
   const [band, setBand] = useState(false);
   const [yoqotish, setYoqotish] = useState<string | null>(null);
   const [ochirish, setOchirish] = useState(false);
@@ -206,7 +215,7 @@ export function BitimKarta() {
     try {
       const r = await api.get<Kartochka>(`${base}/deals/${id}`);
       setK(r);
-      setQoralama({
+      setQoralamaXom({
         name: r.deal.name,
         amount: r.deal.amount === null ? '' : String(r.deal.amount),
         responsibleSeatId: r.deal.responsibleSeatId ?? '',
@@ -235,6 +244,28 @@ export function BitimKarta() {
     return holat.fields.some((m) => JSON.stringify(qiymatniTayyorla(m, qoralama.fields[m.id]) ?? null) !== JSON.stringify(k.deal.fields[m.id] ?? null));
   }, [k, qoralama, holat.fields]);
 
+  // Avtomatik saqlash: o'zgarish bo'lsa va foydalanuvchi matn yozib turmagan
+  // bo'lsa (fokus matn maydonidan chiqqan) — o'zi saqlanadi.
+  const yozaOladiAvto = Boolean(k && (holat.canManageAll || k.deal.responsibleSeatId === holat.seatId));
+  useEffect(() => {
+    if (!ozgargan || !yozaOladiAvto) return;
+    let taymer = 0;
+    const tekshir = () => {
+      const a = document.activeElement as HTMLElement | null;
+      const yozmoqda =
+        a &&
+        a.closest('.ms-bk') &&
+        (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !['checkbox', 'radio'].includes((a as HTMLInputElement).type)));
+      if (yozmoqda) {
+        taymer = window.setTimeout(tekshir, 700);
+        return;
+      }
+      void saqlaRef.current?.();
+    };
+    taymer = window.setTimeout(tekshir, 500);
+    return () => window.clearTimeout(taymer);
+  }, [qoralama, ozgargan, yozaOladiAvto]);
+
   if (xato && !k) {
     return (
       <div className="ci-sahifa">
@@ -258,8 +289,11 @@ export function BitimKarta() {
   const oxirgiTahlil = k.calls.find((c) => c.summary);
 
   const saqla = async () => {
+    if (band) return;
     setBand(true);
     setXabar(null);
+    setAvtoHolat('saqlanmoqda');
+    const boshlanish = tahrirlar.current;
     try {
       const fields: Record<string, unknown> = {};
       for (const m of holat.fields) {
@@ -276,15 +310,29 @@ export function BitimKarta() {
         tags: qoralama.tags,
         fields: Object.keys(fields).length ? fields : undefined,
       });
-      setXabar({ ok: true, matn: t('Saqlandi') });
-      await yukla();
+      const r = await api.get<Kartochka>(`${base}/deals/${d.id}`);
+      setK(r);
+      // Saqlash paytida yangi tahrir bo'lmagan bo'lsa — qoralama serverdagi holatga tenglashadi
+      if (tahrirlar.current === boshlanish) {
+        setQoralamaXom({
+          name: r.deal.name,
+          amount: r.deal.amount === null ? '' : String(r.deal.amount),
+          responsibleSeatId: r.deal.responsibleSeatId ?? '',
+          companyId: r.deal.companyId ?? '',
+          tags: r.deal.tags ?? [],
+          fields: { ...r.deal.fields },
+        });
+      }
+      setAvtoHolat('saqlandi');
     } catch (e) {
+      setAvtoHolat(null);
       setXabar({ ok: false, matn: e instanceof ApiError ? t(e.message) : t('Saqlanmadi') });
       if (e instanceof ApiError && e.status === 409) await yukla();
     } finally {
       setBand(false);
     }
   };
+  saqlaRef.current = saqla;
 
   const kochir = async (stageId: string, sabab?: { lostReasonId: string | null; lostReason: string | null }) => {
     setXabar(null);
@@ -388,15 +436,17 @@ export function BitimKarta() {
             <section className="ms-blok">
               <IdQatori k={k} voronkaNomi={voronka?.name ?? ''} qoralama={qoralama} setQoralama={setQoralama} yozaOladi={yozaOladi} />
               <Maydonlar k={k} qoralama={qoralama} setQoralama={setQoralama} yozaOladi={yozaOladi} />
-              {yozaOladi && ozgargan && (
-                <div className="ms-saqlash">
-                  <span>{t("O'zgarishlar saqlanmagan")}</span>
-                  <button className="btn ikkinchi kichik" onClick={() => void yukla()}>
-                    {t('Bekor')}
-                  </button>
-                  <button className="btn kichik" onClick={() => void saqla()} disabled={band}>
-                    {band ? t('Saqlanmoqda…') : t('Saqlash')}
-                  </button>
+              {yozaOladi && (ozgargan || avtoHolat) && (
+                <div className={`ms-avto-holat${avtoHolat === 'saqlandi' && !ozgargan ? ' ok' : ''}`} role="status">
+                  {band || avtoHolat === 'saqlanmoqda' ? (
+                    t('Saqlanmoqda…')
+                  ) : ozgargan ? (
+                    t('Tahrirlanmoqda — maydondan chiqqach saqlanadi')
+                  ) : (
+                    <>
+                      <Check aria-hidden="true" /> {t('Saqlandi')}
+                    </>
+                  )}
                 </div>
               )}
             </section>
@@ -578,7 +628,7 @@ function Maydonlar({
         <label htmlFor="bk-masul">{t("Mas'ul xodim")}</label>
         {holat.canManageAll && !sinx ? (
           <select id="bk-masul" className="input" value={qoralama.responsibleSeatId} onChange={(e) => setQoralama({ ...qoralama, responsibleSeatId: e.target.value })}>
-            <option value="">{t('Biriktirilmagan')}</option>
+            <option value="">···</option>
             {seatlar.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.displayName}
@@ -614,7 +664,7 @@ function Maydonlar({
               {qiymatMatni(m, qoralama.fields[m.id], t)}
             </span>
           ) : (
-            <MaydonKiritish id={`bk-${m.id}`} m={m} qiymat={qoralama.fields[m.id]} onChange={(v) => setQoralama({ ...qoralama, fields: { ...qoralama.fields, [m.id]: v } })} />
+            <MaydonKiritish ixcham id={`bk-${m.id}`} m={m} qiymat={qoralama.fields[m.id]} onChange={(v) => setQoralama({ ...qoralama, fields: { ...qoralama.fields, [m.id]: v } })} />
           )}
         </div>
       ))}

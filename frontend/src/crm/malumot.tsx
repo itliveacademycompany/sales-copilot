@@ -237,16 +237,29 @@ export function MaydonKiritish({
   qiymat,
   onChange,
   id,
+  ixcham = false,
 }: {
   m: Maydon;
   qiymat: unknown;
   onChange: (v: unknown) => void;
   id: string;
+  /** Lid kartasidagi Metasell ko'rinishi: bo'sh qiymat "···", matn bir qatorli. */
+  ixcham?: boolean;
 }) {
   const t = useT();
+  const bosh = ixcham ? '···' : undefined;
   switch (m.type) {
     case 'textarea':
-      return <textarea id={id} rows={3} value={(qiymat as string) ?? ''} maxLength={5000} onChange={(e) => onChange(e.target.value)} />;
+      return (
+        <textarea
+          id={id}
+          rows={ixcham ? 1 : 3}
+          placeholder={bosh}
+          value={(qiymat as string) ?? ''}
+          maxLength={5000}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      );
     case 'number':
     case 'money':
       return (
@@ -254,6 +267,7 @@ export function MaydonKiritish({
           id={id}
           className="input"
           inputMode="decimal"
+          placeholder={bosh}
           value={qiymat === null || qiymat === undefined ? '' : String(qiymat)}
           onChange={(e) => {
             const s = e.target.value.replace(/[^\d.,\s-]/g, '');
@@ -264,7 +278,7 @@ export function MaydonKiritish({
     case 'select':
       return (
         <select id={id} className="input" value={(qiymat as string) ?? ''} onChange={(e) => onChange(e.target.value || null)}>
-          <option value="">{t('— tanlanmagan —')}</option>
+          <option value="">{ixcham ? '···' : t('— tanlanmagan —')}</option>
           {m.options.map((o) => (
             <option key={o.id} value={o.id}>
               {o.label}
@@ -313,11 +327,11 @@ export function MaydonKiritish({
         </label>
       );
     case 'phone':
-      return <input id={id} className="input" type="tel" value={(qiymat as string) ?? ''} maxLength={40} onChange={(e) => onChange(e.target.value)} />;
+      return <input id={id} className="input" type="tel" placeholder={bosh} value={(qiymat as string) ?? ''} maxLength={40} onChange={(e) => onChange(e.target.value)} />;
     case 'url':
-      return <input id={id} className="input" type="url" placeholder="https://" value={(qiymat as string) ?? ''} maxLength={500} onChange={(e) => onChange(e.target.value)} />;
+      return <input id={id} className="input" type="url" placeholder={bosh ?? 'https://'} value={(qiymat as string) ?? ''} maxLength={500} onChange={(e) => onChange(e.target.value)} />;
     default:
-      return <input id={id} className="input" value={(qiymat as string) ?? ''} maxLength={500} onChange={(e) => onChange(e.target.value)} />;
+      return <input id={id} className="input" placeholder={bosh} value={(qiymat as string) ?? ''} maxLength={500} onChange={(e) => onChange(e.target.value)} />;
   }
 }
 
