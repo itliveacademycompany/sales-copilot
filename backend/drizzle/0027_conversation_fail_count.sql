@@ -1,0 +1,1 @@
+ALTER TABLE "conversation" ADD COLUMN "fail_count" integer DEFAULT 0 NOT NULL;

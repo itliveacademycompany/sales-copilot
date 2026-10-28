@@ -908,6 +908,14 @@ const SOZLAMALAR: Lugat = {
   'Oxirgi xato: {xato}': { en: 'Last error: {xato}', ru: 'Последняя ошибка: {xato}' },
   'Masalan: «{sabab}».': { en: 'For example: “{sabab}”.', ru: 'Например: «{sabab}».' },
   'Xatolilarni qayta urinish': { en: 'Retry failed ones', ru: 'Повторить ошибочные' },
+  "Xatolilar o'zi 3 martagacha qayta uriniladi.": {
+    en: 'Failed calls are retried automatically up to 3 times.',
+    ru: 'Ошибочные звонки автоматически повторяются до 3 раз.',
+  },
+  "{n} ta qo'ng'iroq yozuvi hali yuklanmagan — yuklanishi bilan olinadi": {
+    en: '{n} calls have no recording uploaded yet — they will be picked up as soon as it arrives',
+    ru: 'У {n} звонков запись ещё не загружена — они будут получены, как только она появится',
+  },
   'Xodimlar → menejerlar': { en: 'Employees → sales reps', ru: 'Сотрудники → менеджеры' },
   "Faqat menejerga bog'langan xodimning qo'ng'iroqlari baholanadi. Bog'lagan zahoti kutib turgan qo'ng'iroqlari ham o'sha menejerga o'tadi.": {
     en: "Only calls of employees linked to a sales rep are scored. As soon as you link them, their pending calls move to that sales rep too.",

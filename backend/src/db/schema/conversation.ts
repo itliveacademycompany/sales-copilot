@@ -166,6 +166,12 @@ export const conversation = pgTable(
     status: conversationStatus('status').notNull().default('received'),
     /** Pre-filter yoki AI nega chiqarib tashladi. */
     excludedReason: text('excluded_reason'),
+    /**
+     * Necha marta `failed` bo'ldi. Vaqtinchalik xato (tarmoq uzildi, AI
+     * buzuq javob berdi) qo'ng'iroqni abadiy yo'qotmasin: `osilganlarniQaytar`
+     * uni `MAX_URINISH` gacha navbatga qaytaradi, keyin `failed` da qoladi.
+     */
+    failCount: integer('fail_count').notNull().default(0),
     /** Ish vaqtidan tashqarimi (FR-163). */
     isOffHours: boolean('is_off_hours').notNull().default(false),
 

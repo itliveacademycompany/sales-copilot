@@ -149,6 +149,8 @@ export function registerMoizvonkiRoutes(app: FastifyInstance): void {
         boglanmagan: Number(boglanmagan?.n ?? 0),
       },
       recentErrors: oxirgiXatolar,
+      /** Javob berilgan, lekin yozuvi Moi Zvonki'ga hali yuklanmagan qo'ng'iroqlar (24 soat kutiladi). */
+      yozuvKutilmoqda: q?.cfg.yozuvKutilmoqda.length ?? 0,
       /** Bugun baholangan va AI limiti pauzasi — interfeys «nega to'xtadi» ni tushuntirishi uchun. */
       bugunBaholandi: q ? await bugunBaholangan(businessId) : 0,
       pauza: baholashPauzasi(businessId),
@@ -204,6 +206,7 @@ export function registerMoizvonkiRoutes(app: FastifyInstance): void {
       dailyLimit: body.dailyLimit,
       lastCallId: boshqaHisob ? null : (mavjud?.cfg.lastCallId ?? null),
       lastStats: boshqaHisob ? null : (mavjud?.cfg.lastStats ?? null),
+      yozuvKutilmoqda: boshqaHisob ? [] : (mavjud?.cfg.yozuvKutilmoqda ?? []),
     });
 
     await withTenant(businessId, async (tx) => {
@@ -264,7 +267,8 @@ export function registerMoizvonkiRoutes(app: FastifyInstance): void {
     const rows = await withTenant(req.business!.businessId, (tx) =>
       tx
         .update(conversation)
-        .set({ status: 'received', excludedReason: null, updatedAt: new Date() })
+        // Qo'lda qaytarilgani yana to'liq avtomatik urinishlar oladi.
+        .set({ status: 'received', excludedReason: null, failCount: 0, updatedAt: new Date() })
         .where(and(eq(conversation.externalSource, 'moizvonki'), eq(conversation.status, 'failed')))
         .returning({ id: conversation.id }),
     );
