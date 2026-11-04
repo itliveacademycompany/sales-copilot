@@ -152,7 +152,7 @@ function Royxat({ qatorlar, birlik, maks = 6 }: { qatorlar: Qator[]; birlik?: (n
               {q.delta !== undefined && <Delta n={q.delta} />}
             </span>
             <span className="pn-trek" aria-hidden="true">
-              <span style={{ width: `${(q.son / eng) * 100}%` }} />
+              <span style={{ width: q.son > 0 ? `max(3px, ${(q.son / eng) * 100}%)` : 0 }} />
             </span>
           </button>
         </li>
@@ -544,7 +544,7 @@ export function VidjetIchi({ w, ctx }: { w: Vidjet; ctx: VidjetKontekst }) {
                     <span className={`pn-faollik-vaqt${q.onlayn ? ' onlayn' : ''}`}>{q.matn}</span>
                   </span>
                   <span className="pn-trek" aria-hidden="true">
-                    <span style={{ width: `${(u.minutes / eng) * 100}%` }} />
+                    <span style={{ width: u.minutes > 0 ? `max(3px, ${(u.minutes / eng) * 100}%)` : 0 }} />
                   </span>
                 </span>
               </li>

@@ -4,13 +4,18 @@
  * boshidagi izohda.
  */
 
+/**
+ * Tartib amoCRM'dagidek joylashishi uchun tanlangan: to'r `dense` oqimda,
+ * shuning uchun 4 ta kichik plitka manbalar va menejerlar yonida 2×2 blok
+ * bo'ladi, 4 ta qo'ng'iroq/izoh plitkasi esa prognoz yonida.
+ */
 export const STANDART_TURLAR = [
   'overdue_tasks',
   'done_tasks',
-  'todo_tasks',
-  'no_task_deals',
   'deal_sources',
   'deals_by_manager',
+  'todo_tasks',
+  'no_task_deals',
   'goals',
   'system_usage',
   'recent_files',
