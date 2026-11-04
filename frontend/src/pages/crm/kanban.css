@@ -256,11 +256,26 @@
 .kb-murojaat-amallar .kb-rad-tugma:hover { color: var(--past-text); }
 .kb-murojaat-amallar button:active { box-shadow: var(--neu-in-xs); }
 .kb-murojaat-amallar button:disabled { opacity: 0.5; cursor: default; }
-/* Sichqonchali ekranda amallar faqat karta ustiga kelganda — amoCRM'dagidek toza */
+/* Sichqonchali ekranda amallar joy egallamaydi: karta ustiga kelganda yuqori
+   o'ng burchakda (vaqt o'rnida) chiqadi — karta amoCRM'dagidek ixcham qoladi */
 @media (hover: hover) {
-  .kb-murojaat-amallar { opacity: 0; transition: opacity 0.15s var(--ease); }
+  .kb-murojaat { position: relative; }
+  .kb-murojaat-amallar {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    margin: 0;
+    padding: 2px;
+    border-radius: 10px;
+    background: var(--bg-surface);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s var(--ease);
+  }
   .kb-murojaat:hover .kb-murojaat-amallar,
-  .kb-murojaat:focus-within .kb-murojaat-amallar { opacity: 1; }
+  .kb-murojaat:focus-within .kb-murojaat-amallar { opacity: 1; pointer-events: auto; }
+  .kb-murojaat:hover .kb-karta-tepa time,
+  .kb-murojaat:focus-within .kb-karta-tepa time { visibility: hidden; }
 }
 
 /* ─── Tezkor qo'shish ───────────────────────────────────────────────────── */
