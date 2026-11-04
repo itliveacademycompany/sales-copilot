@@ -48,7 +48,7 @@ export function CrmIlova() {
     try {
       const h = await api.get<CrmHolat>(`${base}/crm-app`);
       setHolat(h);
-      menyuVoronkalariniYangila(h.enabled ? h.pipelines.map((p) => ({ id: p.id, name: p.name, isMain: p.isMain })) : []);
+      menyuVoronkalariniYangila(h.enabled ? h.pipelines.map((p) => ({ id: p.id, name: p.name, isMain: p.isMain, external: Boolean(p.external) })) : []);
       setXato(null);
     } catch (e) {
       setXato(e instanceof ApiError ? t(e.message) : t("Ma'lumotni yuklab bo'lmadi"));

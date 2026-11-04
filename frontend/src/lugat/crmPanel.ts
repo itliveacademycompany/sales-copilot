@@ -46,6 +46,19 @@ const CRM_PANEL: Lugat = {
     ru: 'Создаётся со стандартными этапами — их можно изменить в настройках',
   },
 
+  "Voronkani o'chirish": { en: 'Delete pipeline', ru: 'Удалить воронку' },
+  "«{nom}» voronkasi o'chirilsinmi?": { en: 'Delete the “{nom}” pipeline?', ru: 'Удалить воронку «{nom}»?' },
+  "Bitimlar o'chmaydi — voronka bilan birga arxivda saqlanadi.": {
+    en: 'Deals are not deleted — they are kept in the archive with the pipeline.',
+    ru: 'Сделки не удаляются — они сохраняются в архиве вместе с воронкой.',
+  },
+  "O'chirilmoqda…": { en: 'Deleting…', ru: 'Удаление…' },
+  "O'chirib bo'lmadi": { en: 'Could not delete', ru: 'Не удалось удалить' },
+  "Nomini o'zgartirib bo'lmadi": { en: 'Could not rename', ru: 'Не удалось переименовать' },
+  'Nomini o‘zgartirish': { en: 'Rename', ru: 'Переименовать' },
+  '{nom} — nomini o‘zgartirish': { en: '{nom} — rename', ru: '{nom} — переименовать' },
+  '{nom} — o‘chirish': { en: '{nom} — delete', ru: '{nom} — удалить' },
+
   // ─── Vidjet ichi ───
   '{s} so‘m': { en: '{s} UZS', ru: '{s} сум' },
   "Ko'rsatish uchun ma'lumot yetarli emas": { en: 'Not enough data to display', ru: 'Недостаточно данных для отображения' },

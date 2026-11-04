@@ -1,9 +1,9 @@
-import { BriefcaseBusiness, Check, List, Plus, X } from 'lucide-react';
+import { BriefcaseBusiness, Check, List, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api';
-import { useT } from '../i18n';
+import { joyla, useT } from '../i18n';
 import { crmHolatiniQaytaYukla, type MenyuVoronka } from './voronkalar';
 import './bitimlar-menyu.css';
 
@@ -46,6 +46,10 @@ export function BitimlarMenyu({
   const [nom, setNom] = useState('');
   const [band, setBand] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
+  /** Nomi o'zgartirilayotgan / o'chirish tasdig'i so'ralayotgan voronka. */
+  const [tahrir, setTahrir] = useState<{ id: string; nom: string } | null>(null);
+  const [ochirish, setOchirish] = useState<string | null>(null);
+  const [qatorXato, setQatorXato] = useState<{ id: string; matn: string } | null>(null);
 
   const bitimlarda = loc.pathname === '/crm/bitimlar' || loc.pathname.startsWith('/crm/bitimlar/');
   const joriy = new URLSearchParams(loc.search).get('v');
@@ -66,6 +70,9 @@ export function BitimlarMenyu({
     setQoshish(false);
     setNom('');
     setXato(null);
+    setTahrir(null);
+    setOchirish(null);
+    setQatorXato(null);
   }, []);
   const kechikibOch = () => {
     tozala();
@@ -73,8 +80,8 @@ export function BitimlarMenyu({
   };
   const kechikibYop = () => {
     tozala();
-    // Nom yozilayotgan bo'lsa panel sichqoncha chiqib ketganda ham yopilmasin
-    if (qoshish) return;
+    // Nom yozilayotgan yoki o'chirish so'ralayotgan bo'lsa panel sichqoncha chiqib ketganda ham yopilmasin
+    if (qoshish || tahrir || ochirish) return;
     taymer.current = window.setTimeout(yop, YOPISH_MS);
   };
 
@@ -121,6 +128,48 @@ export function BitimlarMenyu({
       navigate(`/crm/bitimlar?v=${r.id}`);
     } catch (err) {
       setXato(err instanceof ApiError ? t(err.message) : t('Voronkani yaratib bo‘lmadi'));
+    } finally {
+      setBand(false);
+    }
+  };
+
+  const qatorniBekor = () => {
+    setTahrir(null);
+    setOchirish(null);
+    setQatorXato(null);
+  };
+
+  const nomniSaqla = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!tahrir) return;
+    const n = tahrir.nom.trim();
+    if (!n) return setQatorXato({ id: tahrir.id, matn: t('Voronka nomini kiriting') });
+    if (n === voronkalar.find((v) => v.id === tahrir.id)?.name) return qatorniBekor();
+    setBand(true);
+    setQatorXato(null);
+    try {
+      await api.patch(`/api/v1/businesses/${businessId}/pipelines/${tahrir.id}`, { name: n });
+      await crmHolatiniQaytaYukla();
+      setTahrir(null);
+    } catch (err) {
+      setQatorXato({ id: tahrir.id, matn: err instanceof ApiError ? t(err.message) : t("Nomini o'zgartirib bo'lmadi") });
+    } finally {
+      setBand(false);
+    }
+  };
+
+  const ochir = async (id: string) => {
+    setBand(true);
+    setQatorXato(null);
+    try {
+      // Voronka arxivlanadi — bitimlari va tarixi bazada qoladi
+      await api.patch(`/api/v1/businesses/${businessId}/pipelines/${id}`, { archived: true });
+      await crmHolatiniQaytaYukla();
+      setOchirish(null);
+      // Shu voronka ochiq turgan bo'lsa — asosiy voronkaga o'tamiz
+      if (bitimlarda && joriy === id) navigate('/crm/bitimlar', { replace: true });
+    } catch (err) {
+      setQatorXato({ id, matn: err instanceof ApiError ? t(err.message) : t("O'chirib bo'lmadi") });
     } finally {
       setBand(false);
     }
@@ -184,20 +233,109 @@ export function BitimlarMenyu({
             <nav className="bvm-royxat">
               {voronkalar.map((v) => {
                 const faol = bitimlarda && joriy !== 'all' && (joriy ? joriy === v.id : v.isMain);
+                const xatoMatn = qatorXato?.id === v.id ? qatorXato.matn : null;
+
+                // Nomini o'zgartirish — qator o'rnida maydon
+                if (tahrir?.id === v.id) {
+                  return (
+                    <form key={v.id} className="bvm-qoshish-forma bvm-qator-forma" onSubmit={(e) => void nomniSaqla(e)}>
+                      <input
+                        className="input"
+                        autoFocus
+                        value={tahrir.nom}
+                        maxLength={100}
+                        onChange={(e) => setTahrir({ id: v.id, nom: e.target.value })}
+                        onFocus={(e) => e.currentTarget.select()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            e.stopPropagation();
+                            qatorniBekor();
+                          }
+                        }}
+                        aria-label={t('Voronka nomi')}
+                        disabled={band}
+                      />
+                      <button type="submit" className="bvm-ikon-tugma asosiy" disabled={band || !tahrir.nom.trim()} aria-label={t('Saqlash')} title={t('Saqlash')}>
+                        <Check />
+                      </button>
+                      <button type="button" className="bvm-ikon-tugma" onClick={qatorniBekor} aria-label={t('Bekor qilish')} title={t('Bekor qilish')}>
+                        <X />
+                      </button>
+                      {xatoMatn && <p className="bvm-xato">{xatoMatn}</p>}
+                    </form>
+                  );
+                }
+
+                // O'chirishni tasdiqlash — qator o'rnida
+                if (ochirish === v.id) {
+                  return (
+                    <div key={v.id} className="bvm-tasdiq" role="alertdialog" aria-label={t("Voronkani o'chirish")}>
+                      <p>{joyla(t("«{nom}» voronkasi o'chirilsinmi?"), { nom: <b>{v.name}</b> })}</p>
+                      <small>{t("Bitimlar o'chmaydi — voronka bilan birga arxivda saqlanadi.")}</small>
+                      {xatoMatn && <p className="bvm-xato">{xatoMatn}</p>}
+                      <div className="bvm-tasdiq-tugmalar">
+                        <button type="button" className="btn ikkinchi kichik" onClick={qatorniBekor} autoFocus disabled={band}>
+                          {t('Bekor qilish')}
+                        </button>
+                        <button type="button" className="btn kichik bvm-xavfli" onClick={() => void ochir(v.id)} disabled={band}>
+                          <Trash2 /> {band ? t("O'chirilmoqda…") : t("O'chirish")}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Tahrirlash huquqi: sozlash ruxsati bor va voronka tashqi CRM dan sinxronlanmaydi.
+                // Asosiy voronka o'chirilmaydi — CRM ga kirish va yangi lidlar shunga tushadi.
+                const tahrirlaydi = qoshaOladi && !v.external;
+                const ochiradi = tahrirlaydi && !v.isMain && voronkalar.length > 1;
                 return (
-                  <Link
-                    key={v.id}
-                    role="menuitem"
-                    to={`/crm/bitimlar?v=${v.id}`}
-                    className={`bvm-band${faol ? ' faol' : ''}`}
-                    aria-current={faol ? 'page' : undefined}
-                    onClick={() => {
-                      yop();
-                      onTanlandi();
-                    }}
-                  >
-                    {v.name}
-                  </Link>
+                  <div key={v.id} className={`bvm-qator${faol ? ' faol' : ''}`}>
+                    <Link
+                      role="menuitem"
+                      to={`/crm/bitimlar?v=${v.id}`}
+                      className={`bvm-band${faol ? ' faol' : ''}`}
+                      aria-current={faol ? 'page' : undefined}
+                      onClick={() => {
+                        yop();
+                        onTanlandi();
+                      }}
+                    >
+                      <span className="bvm-band-nom">{v.name}</span>
+                    </Link>
+                    {tahrirlaydi && (
+                      <span className="bvm-amallar">
+                        <button
+                          type="button"
+                          className="bvm-amal"
+                          onClick={() => {
+                            setOchirish(null);
+                            setQatorXato(null);
+                            setTahrir({ id: v.id, nom: v.name });
+                          }}
+                          aria-label={t('{nom} — nomini o‘zgartirish', { nom: v.name })}
+                          title={t('Nomini o‘zgartirish')}
+                        >
+                          <Pencil />
+                        </button>
+                        {ochiradi && (
+                          <button
+                            type="button"
+                            className="bvm-amal xavfli"
+                            onClick={() => {
+                              setTahrir(null);
+                              setQatorXato(null);
+                              setOchirish(v.id);
+                            }}
+                            aria-label={t('{nom} — o‘chirish', { nom: v.name })}
+                            title={t("O'chirish")}
+                          >
+                            <Trash2 />
+                          </button>
+                        )}
+                      </span>
+                    )}
+                  </div>
                 );
               })}
 

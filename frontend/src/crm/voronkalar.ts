@@ -12,6 +12,8 @@ export interface MenyuVoronka {
   id: string;
   name: string;
   isMain: boolean;
+  /** Tashqi CRM (amoCRM) dan sinxronlanadi — nomini bu yerda o'zgartirib bo'lmaydi. */
+  external?: boolean;
 }
 
 let joriy: MenyuVoronka[] = [];

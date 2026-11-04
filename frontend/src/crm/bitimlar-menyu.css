@@ -85,6 +85,68 @@
 .bvm-hammasi:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); border-radius: 10px; }
 .bvm-qosh { color: var(--text-secondary); border-bottom: none; }
 
+/* ─── Voronka qatori: hover'da tahrirlash va o'chirish ─── */
+.bvm-qator { position: relative; border-bottom: 1px solid var(--border); }
+.bvm-qator .bvm-band { border-bottom: none; padding-right: 12px; }
+.bvm-band-nom { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bvm-qator:has(.bvm-amallar):hover .bvm-band,
+.bvm-qator:has(.bvm-amallar):focus-within .bvm-band { padding-right: 84px; }
+.bvm-amallar {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s var(--ease);
+}
+.bvm-qator:hover .bvm-amallar,
+.bvm-qator:focus-within .bvm-amallar { opacity: 1; pointer-events: auto; }
+/* Sensorli ekranda hover yo'q — tugmalar doim ko'rinadi */
+@media (hover: none) {
+  .bvm-amallar { opacity: 1; pointer-events: auto; }
+  .bvm-qator:has(.bvm-amallar) .bvm-band { padding-right: 84px; }
+}
+.bvm-amal {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-base);
+  box-shadow: var(--neu-out-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.bvm-amal svg { width: 15px; height: 15px; }
+.bvm-amal:hover { color: var(--ia-text); }
+.bvm-amal.xavfli:hover { color: var(--past); }
+.bvm-amal:active { box-shadow: var(--neu-in-xs); }
+.bvm-amal:focus-visible { outline: none; box-shadow: var(--neu-out-xs), 0 0 0 3px var(--focus-ring); }
+
+.bvm-qator-forma { padding: 8px 4px; border-bottom: 1px solid var(--border); }
+
+/* O'chirishni tasdiqlash */
+.bvm-tasdiq {
+  margin: 6px 0;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--past-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bvm-tasdiq p { margin: 0; font-size: 13.5px; color: var(--text-primary); }
+.bvm-tasdiq small { font-size: 12px; color: var(--text-secondary); }
+.bvm-tasdiq-tugmalar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.bvm-tasdiq-tugmalar .btn svg { width: 14px; height: 14px; }
+.btn.bvm-xavfli { background: var(--past); box-shadow: none; }
+.btn.bvm-xavfli:hover:not(:disabled) { filter: brightness(0.95); }
+
 .bvm-ikon-tugma {
   flex-shrink: 0;
   width: 30px;
