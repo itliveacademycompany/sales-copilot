@@ -133,7 +133,7 @@ export function BitimlarMenyu({
       <Link
         ref={bandRef}
         to={asosiy ? `/crm/bitimlar?v=${asosiy.id}` : '/crm/bitimlar'}
-        className={`nav-item${bitimlarda ? ' active' : ''}${ochiq ? ' bm-ochiq' : ''}`}
+        className={`nav-item${bitimlarda ? ' active' : ''}${ochiq ? ' bvm-ochiq' : ''}`}
         aria-current={bitimlarda ? 'page' : undefined}
         aria-haspopup="true"
         aria-expanded={ochiq}
@@ -168,20 +168,20 @@ export function BitimlarMenyu({
         createPortal(
           <div
             ref={panelRef}
-            className="bm-panel"
+            className="bvm-panel"
             style={{ left: chap }}
             role="menu"
             aria-label={nomi}
             onMouseEnter={tozala}
             onMouseLeave={kechikibYop}
           >
-            <div className="bm-sarlavha">
+            <div className="bvm-sarlavha">
               <span>{nomi}</span>
-              <button type="button" className="bm-yopish" onClick={yop} aria-label={t('Yopish')}>
+              <button type="button" className="bvm-yopish" onClick={yop} aria-label={t('Yopish')}>
                 <X />
               </button>
             </div>
-            <nav className="bm-royxat">
+            <nav className="bvm-royxat">
               {voronkalar.map((v) => {
                 const faol = bitimlarda && joriy !== 'all' && (joriy ? joriy === v.id : v.isMain);
                 return (
@@ -189,7 +189,7 @@ export function BitimlarMenyu({
                     key={v.id}
                     role="menuitem"
                     to={`/crm/bitimlar?v=${v.id}`}
-                    className={`bm-band${faol ? ' faol' : ''}`}
+                    className={`bvm-band${faol ? ' faol' : ''}`}
                     aria-current={faol ? 'page' : undefined}
                     onClick={() => {
                       yop();
@@ -203,7 +203,7 @@ export function BitimlarMenyu({
 
               {qoshaOladi &&
                 (qoshish ? (
-                  <form className="bm-qoshish-forma" onSubmit={(e) => void yarat(e)}>
+                  <form className="bvm-qoshish-forma" onSubmit={(e) => void yarat(e)}>
                     <input
                       className="input"
                       autoFocus
@@ -222,12 +222,12 @@ export function BitimlarMenyu({
                       aria-label={t('Voronka nomi')}
                       disabled={band}
                     />
-                    <button type="submit" className="bm-ikon-tugma asosiy" disabled={band || !nom.trim()} aria-label={t('Yaratish')} title={t('Yaratish')}>
+                    <button type="submit" className="bvm-ikon-tugma asosiy" disabled={band || !nom.trim()} aria-label={t('Yaratish')} title={t('Yaratish')}>
                       <Check />
                     </button>
                     <button
                       type="button"
-                      className="bm-ikon-tugma"
+                      className="bvm-ikon-tugma"
                       onClick={() => {
                         setQoshish(false);
                         setNom('');
@@ -238,13 +238,13 @@ export function BitimlarMenyu({
                     >
                       <X />
                     </button>
-                    {xato && <p className="bm-xato">{xato}</p>}
-                    {!xato && <p className="bm-izoh">{t("Standart bosqichlar bilan yaratiladi — keyin sozlamalarda o'zgartirasiz")}</p>}
+                    {xato && <p className="bvm-xato">{xato}</p>}
+                    {!xato && <p className="bvm-izoh">{t("Standart bosqichlar bilan yaratiladi — keyin sozlamalarda o'zgartirasiz")}</p>}
                   </form>
                 ) : (
-                  <button type="button" role="menuitem" className="bm-band bm-qosh" onClick={() => setQoshish(true)}>
+                  <button type="button" role="menuitem" className="bvm-band bvm-qosh" onClick={() => setQoshish(true)}>
                     <span>{t("Voronka qo'shish")}</span>
-                    <span className="bm-ikon-tugma" aria-hidden="true">
+                    <span className="bvm-ikon-tugma" aria-hidden="true">
                       <Plus />
                     </span>
                   </button>
@@ -253,7 +253,7 @@ export function BitimlarMenyu({
             <Link
               role="menuitem"
               to="/crm/bitimlar?v=all"
-              className={`bm-hammasi${bitimlarda && joriy === 'all' ? ' faol' : ''}`}
+              className={`bvm-hammasi${bitimlarda && joriy === 'all' ? ' faol' : ''}`}
               onClick={() => {
                 yop();
                 onTanlandi();
