@@ -16,6 +16,7 @@ import { IshStoli } from './IshStoli';
 import { KompaniyaKarta, KontaktKarta, Kontaktlar } from './Kontaktlar';
 import { LidXulosalariCrm } from './LidXulosalariCrm';
 import { Saralanmagan } from './Saralanmagan';
+import { VoronkaSozlash } from './VoronkaSozlash';
 import './crm-ilova.css';
 import './crm-ilova-2.css';
 
@@ -92,6 +93,8 @@ export function CrmIlova() {
             <Route path="voronka-tahlili" element={<CrmAnalitika />} />
             <Route path="kompaniyalar" element={<Kontaktlar bolim="kompaniya" />} />
             <Route path="kompaniyalar/:id" element={<KompaniyaKarta />} />
+            {/* amoCRM "Настроить": voronka bosqichlari, triggerlar, manbalar (statik yo'l :id dan ustun) */}
+            {holat.canConfigure && <Route path="bitimlar/sozlash" element={<VoronkaSozlash />} />}
             <Route path="bitimlar/:id" element={<BitimKarta />} />
             <Route path="kontaktlar" element={<Kontaktlar bolim="kontakt" />} />
             {/* Metasell'dagidek SotuvAI bo'limlari ham CRM menyusi ichida ochiladi */}

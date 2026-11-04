@@ -10,6 +10,7 @@ import {
   Ellipsis,
   FileText,
   Filter,
+  Info,
   List,
   PenLine,
   Phone,
@@ -225,7 +226,7 @@ export function Bitimlar() {
               ]}
             />
             {holat.canConfigure && !hammasi && (
-              <button type="button" className="btn ikkinchi" onClick={() => navigate(`/crm/sozlamalar?tab=voronka&v=${voronka.id}`)} title={t('Voronka bosqichlari va sozlamalari')}>
+              <button type="button" className="btn ikkinchi" onClick={() => navigate(`/crm/bitimlar/sozlash?v=${voronka.id}`)} title={t('Voronka bosqichlari va sozlamalari')}>
                 <Settings2 /> {t('Sozlash')}
               </button>
             )}
@@ -756,6 +757,11 @@ function Kanban({ voronkaId, filtr, yangilash, onYangila }: { voronkaId: string;
             <header className="kb-ustun-bosh">
               <h2 title={u.name}>{u.name}</h2>
               <p>{t('{n} bitim: {s} so‘m', { n: pul(u.count), s: pul(u.sum) })}</p>
+              {holat.stageHints?.[u.id] && (
+                <p className="kb-korsatma" title={holat.stageHints[u.id]}>
+                  <Info aria-hidden="true" /> <span>{holat.stageHints[u.id]}</span>
+                </p>
+              )}
             </header>
             <div className="kb-ustun-ichi">
               {u.id === birinchiOchiq && !tashqi && <TezkorQoshish voronkaId={voronkaId} bosqichId={u.id} onQoshildi={onYangila} />}

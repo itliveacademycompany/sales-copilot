@@ -104,6 +104,8 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
         lossReasonRequired: s.lossReasonRequired,
         /** Bosqich bo'yicha majburiy maydonlar: `{ stageId: fieldId[] }`. */
         stageRequired: s.stageRequired,
+        /** Bosqich ko'rsatmalari: stageId → matn. */
+        stageHints: s.stageHints,
         lossReasons: sabablar,
         inboxPending: kutayotgan,
         /** Ichki CRM ga sinxronlanayotgan tashqi CRM nomi (amoCRM) — bo'lsa, qo'ng'iroqlardan qabul ishlamaydi. */

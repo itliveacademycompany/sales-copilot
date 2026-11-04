@@ -84,6 +84,8 @@ export interface CrmHolat {
   lossReasonRequired: boolean;
   /** Bosqich bo'yicha majburiy maydonlar: `{ stageId: fieldId[] }`. */
   stageRequired?: Record<string, string[]>;
+  /** Bosqich ko'rsatmalari (amoCRM "Подсказки"): `{ stageId: matn }`. */
+  stageHints?: Record<string, string>;
   inboxPending: number;
   scope: 'all' | 'own';
   canManageAll: boolean;

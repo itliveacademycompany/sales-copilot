@@ -1,0 +1,522 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   VORONKANI SOZLASH — amoCRM "Настроить" tartibi, SotuvAI dizayni
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.vs-sahifa { display: flex; flex-direction: column; gap: 14px; }
+
+/* ─── Tepa panel ─────────────────────────────────────────────────────────── */
+
+.vs-tepa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 10px;
+  z-index: 30;
+}
+.vs-voronka { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.vs-voronka h1 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vs-voronka-input { width: min(320px, 60vw); font-size: 15px; font-weight: 700; }
+.vs-ikon {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-base);
+  box-shadow: var(--neu-out-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.vs-ikon:hover { color: var(--ia-text); }
+.vs-ikon svg { width: 15px; height: 15px; }
+.vs-voronka-royxat {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 40;
+  min-width: 260px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-lg);
+}
+.vs-voronka-royxat button {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.vs-voronka-royxat button:hover { background: var(--bg-elevated); color: var(--ia-text); }
+.vs-voronka-royxat small { color: var(--text-muted); font-size: 12px; }
+.vs-tepa-ong { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.vs-xabar { font-size: 13px; color: var(--past-text); }
+.vs-xabar.ok { color: var(--yuqori-text); }
+
+/* ─── Ish maydoni: chap panel + ustunlar ─────────────────────────────────── */
+
+.vs-ish {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 16px;
+  height: calc(100vh - 128px);
+  min-height: 460px;
+}
+
+.vs-manbalar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 16px;
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow);
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.vs-manbalar h2 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+.vs-manba-karta {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  box-shadow: var(--neu-in-sm);
+}
+.vs-manba-bosh { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.vs-manba-bosh > span:first-child { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.vs-manba-bosh b { font-size: 14px; color: var(--text-primary); }
+.vs-manba-bosh small,
+.vs-ichki small { font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
+.vs-manba-bosh > svg { width: 18px; height: 18px; color: var(--text-muted); flex-shrink: 0; }
+.vs-manba-belgi { display: none; }
+.vs-ichki {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+}
+.vs-ichki > span:first-child { display: flex; flex-direction: column; gap: 3px; }
+.vs-ichki b { font-size: 13px; }
+.vs-havola {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ia-text);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.vs-formalar { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.vs-forma {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  box-shadow: var(--neu-out-xs);
+  color: inherit;
+  text-decoration: none;
+}
+.vs-forma:hover b { color: var(--ia-text); text-decoration: underline; }
+.vs-forma > span:last-child { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vs-forma b { font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vs-forma small { font-size: 12px; color: var(--text-secondary); }
+.vs-forma-ikon {
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: var(--ia-grad);
+  box-shadow: var(--ia-glow);
+}
+.vs-forma-ikon svg { width: 18px; height: 18px; }
+.vs-manba-qosh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.vs-manba-qosh:hover { color: var(--ia-text); border-color: var(--ia); }
+.vs-manba-qosh svg { width: 15px; height: 15px; }
+
+/* Almashtirgich (toggle) */
+.vs-almash { position: relative; display: inline-flex; flex-shrink: 0; cursor: pointer; }
+.vs-almash input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.vs-almash > span {
+  width: 38px;
+  height: 22px;
+  border-radius: 99px;
+  background: var(--bg-sunken);
+  box-shadow: var(--neu-in-xs);
+  position: relative;
+  transition: background-color 0.15s var(--ease);
+}
+.vs-almash > span::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--bg-surface);
+  box-shadow: var(--neu-out-xs);
+  transition: transform 0.15s var(--ease);
+}
+.vs-almash input:checked + span { background: var(--ia); }
+.vs-almash input:checked + span::after { transform: translateX(16px); }
+.vs-almash input:focus-visible + span { box-shadow: 0 0 0 3px var(--focus-ring); }
+.vs-almash input:disabled + span { opacity: 0.5; }
+
+/* ─── Ustunlar to'ri ─────────────────────────────────────────────────────── */
+
+.vs-doska {
+  display: flex;
+  overflow-x: auto;
+  border-radius: var(--radius);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow);
+  scrollbar-width: thin;
+}
+.vs-ustun {
+  position: relative;
+  flex: 0 0 280px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--border);
+  transition: background-color 0.15s var(--ease);
+}
+.vs-ustun:last-child { border-right: none; }
+.vs-ustun.ustida { background: var(--ia-soft); }
+
+.vs-ustun-bosh {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  padding: 14px 14px 0;
+}
+.vs-bosh-qator { display: flex; align-items: center; gap: 6px; min-height: 30px; }
+.vs-bosh-qator h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  text-align: center;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
+  border-radius: 6px;
+  padding: 3px 4px;
+}
+.vs-bosh-qator h3:hover { background: var(--bg-elevated); }
+.vs-bosh-qator h3:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.vs-ustun.saralanmagan .vs-bosh-qator h3 { color: var(--text-secondary); cursor: default; }
+.vs-ustun.saralanmagan .vs-bosh-qator h3:hover { background: none; }
+.vs-nom-input {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-base);
+  box-shadow: var(--neu-in-xs), 0 0 0 2px var(--ia-soft);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: center;
+  color: var(--text-primary);
+  outline: none;
+}
+.vs-sudrash { display: grid; place-items: center; color: var(--text-muted); cursor: grab; flex-shrink: 0; }
+.vs-sudrash:active { cursor: grabbing; }
+.vs-sudrash svg { width: 15px; height: 15px; }
+.vs-bosh-amallar { display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0; }
+@media (hover: hover) {
+  .vs-bosh-amallar { opacity: 0; transition: opacity 0.15s var(--ease); }
+  .vs-ustun-bosh:hover .vs-bosh-amallar,
+  .vs-ustun-bosh:focus-within .vs-bosh-amallar { opacity: 1; }
+  .vs-sudrash { opacity: 0.45; }
+  .vs-ustun-bosh:hover .vs-sudrash { opacity: 1; }
+}
+.vs-rang-qobiq { position: relative; display: inline-flex; }
+.vs-rang {
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 3px var(--border-strong);
+  cursor: pointer;
+}
+.vs-palitra {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: -8px;
+  z-index: 35;
+  display: grid;
+  grid-template-columns: repeat(5, 24px);
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  box-shadow: var(--shadow-lg);
+}
+.vs-palitra button { width: 24px; height: 24px; border: none; border-radius: 50%; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08); }
+.vs-palitra button.tanlangan { box-shadow: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--ia); }
+.vs-ochir {
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: none;
+  color: var(--past);
+  cursor: pointer;
+}
+.vs-ochir:hover:not(:disabled) { background: var(--past-soft); }
+.vs-ochir:disabled { color: var(--text-muted); opacity: 0.45; cursor: not-allowed; }
+.vs-ochir svg { width: 15px; height: 15px; }
+.vs-tur { align-self: center; font-size: 11px; font-weight: 600; color: var(--text-muted); }
+.vs-tur.won { color: var(--yuqori-text); }
+.vs-tur.lost { color: var(--past-text); }
+.vs-chiziq { display: block; height: 4px; margin-top: 8px; border-radius: 99px; background: var(--bosqich, var(--border-strong)); }
+.vs-ustun.saralanmagan .vs-chiziq { background: var(--border-strong); }
+
+/* Ustunlar orasidagi (+) — chiziq balandligida, chegarada */
+.vs-plus {
+  position: absolute;
+  top: 44px;
+  right: -15px;
+  z-index: 3;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--bg-surface);
+  box-shadow: var(--neu-out-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.vs-plus:hover { color: var(--ia-text); transform: scale(1.08); }
+.vs-plus:focus-visible { outline: none; box-shadow: var(--neu-out-xs), 0 0 0 3px var(--focus-ring); }
+.vs-plus svg { width: 16px; height: 16px; }
+
+/* Ko'rsatma qatori */
+.vs-korsatma-joy {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.vs-korsatma {
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.vs-korsatma:hover { color: var(--ia-text); }
+.vs-korsatma.bor {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  text-decoration: none;
+  color: var(--text-primary);
+}
+.vs-korsatma.bor svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 2px; color: var(--ia-text); }
+.vs-korsatma.bor span { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.vs-izoh { font-size: 12px; color: var(--text-muted); text-align: center; }
+
+/* Triggerlar */
+.vs-triggerlar {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 10px 16px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+.vs-trigger {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  box-shadow: var(--neu-out-xs);
+  transition: opacity 0.15s var(--ease);
+}
+.vs-trigger.ochiq-emas { opacity: 0.55; }
+.vs-trigger.tizim { background: var(--ia-soft); box-shadow: none; gap: 10px; }
+.vs-trigger.tizim > span:last-child { display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
+.vs-trigger.tizim small { color: var(--text-secondary); }
+.vs-trigger.tizim b { color: var(--text-primary); }
+.vs-trigger-asos {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.vs-trigger-asos:hover b { color: var(--ia-text); }
+.vs-trigger-asos:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); border-radius: 8px; }
+.vs-trigger-ikon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--yuqori);
+  background: var(--yuqori-soft);
+}
+.vs-trigger.tizim .vs-trigger-ikon { color: var(--ia-text); background: var(--bg-surface); }
+.vs-trigger-ikon svg { width: 17px; height: 17px; }
+.vs-trigger-matn { min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; }
+.vs-trigger-matn small { color: var(--text-secondary); line-height: 1.35; }
+.vs-trigger-matn b { font-size: 13px; color: var(--text-primary); }
+.vs-trigger-matn > span { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vs-trigger-matn .vs-izoh { text-align: left; }
+.vs-xato-son { color: var(--past-text) !important; font-weight: 600; }
+.vs-trigger .vs-almash { margin-top: 2px; }
+
+.vs-trigger-qosh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 46px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.vs-trigger-qosh:hover { color: var(--ia-text); border-color: var(--ia); }
+.vs-trigger-qosh svg { width: 16px; height: 16px; }
+@media (hover: hover) {
+  .vs-trigger-qosh { opacity: 0; transition: opacity 0.15s var(--ease); }
+  .vs-ustun:hover .vs-trigger-qosh,
+  .vs-trigger-qosh:focus-visible { opacity: 1; }
+}
+
+/* Rad sabablari bloki (yo'qotilgan ustunda) */
+.vs-blok {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  box-shadow: var(--neu-in-sm);
+}
+.vs-blok-bosh { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.vs-blok-bosh > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-primary);
+}
+.vs-blok-bosh svg { width: 15px; height: 15px; color: var(--past); }
+.vs-blok p { margin: 0; font-size: 12.5px; line-height: 1.45; color: var(--text-secondary); }
+.vs-blok .vs-izoh { text-align: left; }
+
+/* ─── Telefon ───────────────────────────────────────────────────────────── */
+
+@media (max-width: 980px) {
+  .vs-ish { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .vs-manbalar { max-height: none; }
+  .vs-doska { min-height: 520px; }
+  .vs-ustun { flex-basis: 260px; }
+}

@@ -56,6 +56,11 @@ export const sozlamaSxemasi = z.object({
    * to'ldirilmaguncha lid o'sha bosqichga o'tmaydi.
    */
   stageRequired: z.record(z.string().uuid(), z.array(z.string().uuid()).max(50)).default({}),
+  /**
+   * Bosqich ko'rsatmalari (amoCRM "Подсказки"): menejerga shu bosqichda nima
+   * qilish kerakligi haqida qisqa eslatma — kanbanda ustun boshida ko'rinadi.
+   */
+  stageHints: z.record(z.string().uuid(), z.string().max(1000)).default({}),
 });
 
 export type CrmSozlama = z.infer<typeof sozlamaSxemasi>;
@@ -76,6 +81,8 @@ export const sozlamaYangilash = z.object({
     .optional(),
   /** Bitta bosqichning majburiy maydonlari (butun xarita emas — boshqa bosqichlar o'zgarmaydi). */
   stageRequired: z.object({ stageId: z.string().uuid(), fieldIds: z.array(z.string().uuid()).max(50) }).optional(),
+  /** Bitta bosqichning ko'rsatmasi; bo'sh matn — o'chiriladi. */
+  stageHint: z.object({ stageId: z.string().uuid(), text: z.string().trim().max(1000) }).optional(),
 });
 
 export async function sozlamaniSaqla(
@@ -108,6 +115,15 @@ export async function sozlamaniSaqla(
     if (bor.length) xarita[stageId] = bor.map((f) => f.id);
     else delete xarita[stageId];
     yangi.stageRequired = xarita;
+  }
+  if (k.stageHint) {
+    const { stageId, text } = k.stageHint;
+    const [b] = await tx.select({ id: crmStage.id }).from(crmStage).where(eq(crmStage.id, stageId)).limit(1);
+    if (!b) throw new CrmXatosi('yaroqsiz', 'Bosqich topilmadi');
+    const xarita = { ...eski.stageHints };
+    if (text) xarita[stageId] = text;
+    else delete xarita[stageId];
+    yangi.stageHints = xarita;
   }
   if (k.callIntake) {
     const yoqildi = k.callIntake.enabled && !eski.callIntake.enabled;

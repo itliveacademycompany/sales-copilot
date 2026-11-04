@@ -275,7 +275,7 @@ export function TaqsimotSozlama() {
 
 // ─── Avtomatika (AUTO-*) ─────────────────────────────────────────────────────
 
-type Amal =
+export type Amal =
   | { type: 'task'; title: string; taskType: string; dueMinutes: number }
   | { type: 'responsible'; mode: 'roundrobin' | 'seat'; seatId?: string | null; seatIds?: string[] }
   | { type: 'move'; stageId: string }
@@ -283,7 +283,7 @@ type Amal =
   | { type: 'note'; text: string }
   | { type: 'copy'; stageId: string };
 
-interface QoidaShartlari {
+export interface QoidaShartlari {
   onlyIfNoOpenTasks?: boolean;
   onlyIfNoResponsible?: boolean;
   /** stage — bosqichga kirgandan keyin; date — sana maydonigacha N kun qolganda. */
@@ -292,7 +292,7 @@ interface QoidaShartlari {
   daysBefore?: number;
 }
 
-interface Qoida {
+export interface Qoida {
   id: string;
   name: string;
   pipelineId: string;
@@ -306,7 +306,7 @@ interface Qoida {
   lastRunAt: string | null;
 }
 
-function kechikishMatni(daq: number, t: (s: string, v?: Record<string, string | number>) => string): string {
+export function kechikishMatni(daq: number, t: (s: string, v?: Record<string, string | number>) => string): string {
   if (daq === 0) return t('darhol');
   if (daq % 1440 === 0) return t('{n} kundan keyin', { n: daq / 1440 });
   if (daq % 60 === 0) return t('{n} soatdan keyin', { n: daq / 60 });
@@ -447,11 +447,22 @@ export function AvtomatikaSozlama() {
   );
 }
 
-function QoidaOyna({ q, onYop, onSaqlandi }: { q: Qoida | null; onYop: () => void; onSaqlandi: () => void }) {
+export function QoidaOyna({
+  q,
+  onYop,
+  onSaqlandi,
+  bosqichId,
+}: {
+  q: Qoida | null;
+  onYop: () => void;
+  onSaqlandi: () => void;
+  /** Yangi qoida shu bosqich uchun (voronka sozlash sahifasidan). */
+  bosqichId?: string;
+}) {
   const { holat, base, seatlar } = useCrm();
   const t = useT();
   const [nom, setNom] = useState(q?.name ?? '');
-  const [stageId, setStageId] = useState(q?.stageId ?? holat.pipelines[0]?.stages[0]?.id ?? '');
+  const [stageId, setStageId] = useState(q?.stageId ?? bosqichId ?? holat.pipelines[0]?.stages[0]?.id ?? '');
   const birlik = q && q.delayMinutes % 1440 === 0 && q.delayMinutes > 0 ? 1440 : q && q.delayMinutes % 60 === 0 && q.delayMinutes > 0 ? 60 : 1;
   const [kechikish, setKechikish] = useState(q ? String(q.delayMinutes / birlik) : '0');
   const [kBirlik, setKBirlik] = useState(birlik);
