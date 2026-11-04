@@ -1,6 +1,6 @@
 import { LogOut } from 'lucide-react';
-import { Suspense } from 'react';
-import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Suspense, useLayoutEffect, useRef } from 'react';
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth';
 import { useT } from './i18n';
 import { useKabinet } from './kabinet';
@@ -14,6 +14,26 @@ export function App() {
   const kabinet = useKabinet();
   const t = useT();
   const loc = useLocation();
+  const navigate = useNavigate();
+
+  /**
+   * Kirishda rahbar to'g'ridan-to'g'ri CRM bosh sahifasiga tushadi (amoCRM
+   * "Рабочий стол"). Bir marta — sahifa ochilganda yoki login qilingandan
+   * keyin, agar odam bosh sahifaga ("/", "/kirish") kelayotgan bo'lsa.
+   * Aniq havola (masalan /qongiroqlar/…) o'z joyida qoladi; keyin logo
+   * orqali "/" ga qaytilsa — SotuvAI bosh sahifasi ochiladi.
+   */
+  const kirishTekshirildi = useRef(false);
+  useLayoutEffect(() => {
+    if (kirishTekshirildi.current || loading || !user || !business || business.onboardingStep !== 'done') return;
+    kirishTekshirildi.current = true;
+    const p = business.permissions;
+    const rahbarMi = p.includes('analytics:read:all');
+    const crmBor = rahbarMi || p.includes('task:read:all') || Boolean(business.seatId);
+    if (rahbarMi && crmBor && (loc.pathname === '/' || loc.pathname === '/kirish')) {
+      navigate('/crm/ish-stoli', { replace: true });
+    }
+  }, [loading, user, business, loc.pathname, navigate]);
 
   // Ochiq veb-forma (CRM) — kirishsiz va kabinet tekshiruvisiz; saytga iframe bilan joylanadi
   if (loc.pathname.startsWith('/f/')) {

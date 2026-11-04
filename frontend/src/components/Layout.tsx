@@ -25,6 +25,7 @@ import { useEffect, useState, type ReactNode, Suspense } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { crmdami, useIlovaYoliniEsla, useIlovaYollari } from './IlovaAlmashtirgich';
 import { useMenyuVoronkalari, type MenyuVoronka } from '../crm/voronkalar';
+import { useFaollikBelgisi } from '../crm/panel/faollik';
 import '../crm/crm-mavzu.css';
 import { MANZIL_SAHIFA } from '../sahifalar';
 import { XatoChegarasi } from './XatoChegarasi';
@@ -106,6 +107,8 @@ export function Layout() {
   const joriyVoronka = new URLSearchParams(loc.search).get('v');
   const ilovaYollari = useIlovaYollari();
   useIlovaYoliniEsla();
+  // CRM bosh sahifasidagi "Tizimdan foydalanish" vidjeti uchun (butun platformada)
+  useFaollikBelgisi(business?.businessId);
 
   /**
    * Menyu ikki ko'rinishda: tor (ikon tepada, nom pastda) va keng.

@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { boolean, date, index, integer, jsonb, numeric, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { boolean, date, index, integer, jsonb, numeric, pgTable, primaryKey, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { contact } from './conversation.js';
 import { crmPipeline, crmStage, deal } from './crm.js';
 import { appUser, business, seat } from './tenant.js';
@@ -256,4 +256,46 @@ export const dealItem = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index('deal_item_deal_idx').on(t.dealId)],
+);
+
+/**
+ * Tizimdan foydalanish (CRM bosh sahifasidagi "Tizimdan foydalanish" vidjeti).
+ * Brauzer ochiq va foydalanuvchi faol bo'lsa, har daqiqada bitta belgi
+ * keladi — kunlik daqiqalar shu yerda yig'iladi. Bir kunga bitta qator.
+ */
+export const crmActivity = pgTable(
+  'crm_activity',
+  {
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => business.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUser.id, { onDelete: 'cascade' }),
+    /** Biznes vaqt zonasidagi kun. */
+    day: date('day').notNull(),
+    minutes: integer('minutes').notNull().default(0),
+    firstAt: timestamp('first_at', { withTimezone: true }).notNull().defaultNow(),
+    lastAt: timestamp('last_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.businessId, t.userId, t.day] }), index('crm_activity_day_idx').on(t.businessId, t.day)],
+);
+
+/**
+ * CRM bosh sahifasining vidjetlari (amoCRM "Настроить"): tartib, maxsus
+ * bitim vidjetlari va ularning filtri. Har foydalanuvchiniki alohida.
+ */
+export const crmDashboard = pgTable(
+  'crm_dashboard',
+  {
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => business.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => appUser.id, { onDelete: 'cascade' }),
+    widgets: jsonb('widgets').notNull().default(sql`'[]'::jsonb`),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.businessId, t.userId] })],
 );

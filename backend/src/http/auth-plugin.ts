@@ -31,6 +31,10 @@ declare module 'fastify' {
      */
     tenantSlug: string | null;
   }
+  interface FastifyContextConfig {
+    /** true — muvaffaqiyatli POST ham auth keshini tozalamaydi (ruxsatlarga tegmaydigan yo'l). */
+    keshTozalamaydi?: boolean;
+  }
 }
 
 /**
@@ -150,6 +154,8 @@ export function registerAuth(app: FastifyInstance): void {
   app.addHook('onResponse', async (req, reply) => {
     if (req.method === 'GET' || req.method === 'HEAD') return;
     if (reply.statusCode >= 400) return;
+    // Ruxsatlarga tegmaydigan tez-tez POST lar (faollik belgisi, hisobot so'rovi)
+    if (req.routeOptions.config?.keshTozalamaydi) return;
     const url = req.url;
     if (url.startsWith('/api/v1/auth/') || url.startsWith('/api/v1/businesses/')) {
       keshniTozala();

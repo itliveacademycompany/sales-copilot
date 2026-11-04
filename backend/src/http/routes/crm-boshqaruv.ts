@@ -14,6 +14,16 @@ import {
   voronkaHisoboti,
   xodimlarHisoboti,
 } from '../../crm/hisobot.js';
+import {
+  bitimVidjetKirish,
+  bitimVidjetlari,
+  boshPanel,
+  faollikBelgisi,
+  panelKirish,
+  panelniOl,
+  panelniSaqla,
+  panelniTikla,
+} from '../../crm/boshPanel.js';
 import { tovarKirish, tovarlar, tovarniYangila, tovarYarat } from '../../crm/katalog.js';
 import {
   formaKirish,
@@ -258,6 +268,62 @@ export function registerCrmBoshqaruvRoutes(app: FastifyInstance): void {
       return boshSahifa(tx, { doira: d, davr });
     });
   });
+
+  // ─── Bosh sahifa (amoCRM namunasi): vidjetlar, ma'lumot, faollik ─────────
+
+  app.get(`${BASE}/crm-app/dashboard`, guard, async (req) => {
+    doira(req);
+    return withTenant(req.business!.businessId, (tx) => panelniOl(tx, req.auth!.user.id));
+  });
+
+  app.put(`${BASE}/crm-app/dashboard`, guard, async (req) => {
+    doira(req);
+    const k = panelKirish.parse(req.body);
+    const businessId = req.business!.businessId;
+    await withTenant(businessId, (tx) => panelniSaqla(tx, { businessId, userId: req.auth!.user.id, widgets: k.widgets }));
+    return { ok: true };
+  });
+
+  app.delete(`${BASE}/crm-app/dashboard`, guard, async (req) => {
+    doira(req);
+    await withTenant(req.business!.businessId, (tx) => panelniTikla(tx, req.auth!.user.id));
+    return { ok: true };
+  });
+
+  app.get(`${BASE}/crm-app/reports/panel`, guard, async (req) => {
+    const davr = davrniOl(req.query);
+    const d = doira(req);
+    const businessId = req.business!.businessId;
+    return withTenant(businessId, async (tx) => {
+      await vaqtZonasiniOrnat(tx, businessId);
+      return boshPanel(tx, { doira: d, davr, userId: req.auth!.user.id });
+    });
+  });
+
+  // Maxsus bitim vidjetlari — filtrlar ko'p bo'lgani uchun POST (faqat o'qiydi)
+  app.post(`${BASE}/crm-app/reports/panel/deals`, { ...guard, config: { keshTozalamaydi: true } }, async (req) => {
+    const k = bitimVidjetKirish.parse(req.body);
+    const d = doira(req);
+    const businessId = req.business!.businessId;
+    return withTenant(businessId, async (tx) => {
+      await vaqtZonasiniOrnat(tx, businessId);
+      return bitimVidjetlari(tx, { doira: d, kirish: k });
+    });
+  });
+
+  // Tizimdan foydalanish: ochiq va faol brauzer har daqiqada belgi yuboradi
+  app.post(
+    `${BASE}/activity/ping`,
+    { ...guard, config: { keshTozalamaydi: true, rateLimit: { max: 6, timeWindow: '1 minute' } } },
+    async (req) => {
+      const businessId = req.business!.businessId;
+      await withTenant(businessId, async (tx) => {
+        await vaqtZonasiniOrnat(tx, businessId);
+        await faollikBelgisi(tx, { businessId, userId: req.auth!.user.id });
+      });
+      return { ok: true };
+    },
+  );
 
   app.get(`${BASE}/crm-app/reports/funnel`, guard, async (req) => {
     const davr = davrniOl(req.query);
