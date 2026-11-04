@@ -107,6 +107,23 @@ const CRM_PANEL: Lugat = {
   'Bitim «{b}» bosqichiga tushadi': { en: 'The deal goes to “{b}”', ru: 'Сделка попадает в этап «{b}»' },
   'Bosqichda {n} ta bitim bor — avval ularni boshqa bosqichga o‘tkazing': { en: 'The stage has {n} deals — move them to another stage first', ru: 'В этапе {n} сделок — сначала перенесите их' },
   "Voronkada bu turdagi yagona bosqich — o'chirib bo'lmaydi": { en: 'The only stage of this type — cannot be deleted', ru: 'Единственный этап этого типа — удалить нельзя' },
+  "Voronkada kamida bitta «{t}» bosqichi bo'lishi kerak — nomini o'zgartirishingiz mumkin": {
+    en: 'A pipeline needs at least one “{t}” stage — you can rename it',
+    ru: 'В воронке должен быть хотя бы один этап «{t}» — его можно переименовать',
+  },
+  "Voronkada kamida bitta ochiq bosqich bo'lishi kerak": { en: 'A pipeline needs at least one open stage', ru: 'В воронке должен быть хотя бы один открытый этап' },
+  "O'chirish — {n} ta bitim boshqa bosqichga o'tkaziladi": { en: 'Delete — {n} deals will be moved to another stage', ru: 'Удалить — {n} сделок будут перенесены в другой этап' },
+  '«{b}» bosqichini o‘chirish': { en: 'Delete the “{b}” stage', ru: 'Удалить этап «{b}»' },
+  "O'tkazish va o'chirish": { en: 'Move and delete', ru: 'Перенести и удалить' },
+  "Bu bosqichda {n} ta bitim bor. Ular qaysi bosqichga o'tkazilsin? Har bitim tarixida bosqich o'zgargani yoziladi.": {
+    en: 'This stage has {n} deals. Which stage should they move to? The stage change is recorded in each deal’s history.',
+    ru: 'В этом этапе {n} сделок. В какой этап их перенести? Смена этапа запишется в историю каждой сделки.',
+  },
+  'Qaysi bosqichga': { en: 'Which stage', ru: 'В какой этап' },
+  "O'chirish «Saqlash» bosilgandan keyin bajariladi — ungacha bekor qilish mumkin.": {
+    en: 'Deletion happens after you press “Save” — until then you can undo it.',
+    ru: 'Удаление выполнится после «Сохранить» — до этого его можно отменить.',
+  },
   "Ko'rsatma qo'shish": { en: 'Add hint', ru: 'Добавить подсказку' },
   'Saqlangandan keyin ko‘rsatma va trigger qo‘shiladi': { en: 'Save first to add hints and triggers', ru: 'Сохраните, чтобы добавить подсказки и триггеры' },
   "Trigger qo'shish": { en: 'Add trigger', ru: 'Добавить триггер' },

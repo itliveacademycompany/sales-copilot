@@ -100,9 +100,13 @@ export function VoronkaSozlash() {
   const [band, setBand] = useState(false);
   const [xabar, setXabar] = useState<{ ok: boolean; matn: string } | null>(null);
   const [fokus, setFokus] = useState<string | null>(null);
+  /** O'chirilgan bosqich (ID) bitimlari qaysi bosqichga (kalit) o'tadi — "Saqlash" bilan yuboriladi. */
+  const [kochirish, setKochirish] = useState<Record<string, string>>({});
+  const [ochirishOyna, setOchirishOyna] = useState<{ kalit: string; nom: string; soni: number } | null>(null);
 
   useEffect(() => {
     setBosqichlar(asl);
+    setKochirish({});
     setNom(voronka.name);
     setNomTahrir(false);
     setXabar(null);
@@ -175,6 +179,29 @@ export function VoronkaSozlash() {
     setFokus(k);
   };
   const ochir = (kalit: string) => setBosqichlar((b) => b.filter((x) => x.kalit !== kalit));
+  /** Bosqichdagi bitimlar: o'zinikilari + boshqa o'chirilgan bosqichlardan unga yo'naltirilganlari. */
+  const bitimSoni = (b: Qoralama) =>
+    (b.id ? (sonlar[b.id] ?? 0) : 0) + Object.entries(kochirish).reduce((n, [from, to]) => n + (to === b.kalit ? (sonlar[from] ?? 0) : 0), 0);
+  const ochirishniBoshla = (b: Qoralama) => {
+    const n = bitimSoni(b);
+    if (n === 0) {
+      ochir(b.kalit);
+      return;
+    }
+    setOchirishOyna({ kalit: b.kalit, nom: b.name || t('Nomsiz bosqich'), soni: n });
+  };
+  const kochirIbOchir = (kalit: string, maqsad: string) => {
+    setKochirish((k) => {
+      const n: Record<string, string> = {};
+      // Shu bosqichga yo'naltirilganlar ham yangi manzilga o'tadi
+      for (const [from, to] of Object.entries(k)) n[from] = to === kalit ? maqsad : to;
+      const b = bosqichlar.find((x) => x.kalit === kalit);
+      if (b?.id && (sonlar[b.id] ?? 0) > 0) n[b.id] = maqsad;
+      return n;
+    });
+    ochir(kalit);
+    setOchirishOyna(null);
+  };
 
   // Sudrab tartiblash — faqat ochiq bosqichlar orasida (yakuniylari doim oxirida)
   const sudralayotgan = useRef<string | null>(null);
@@ -208,7 +235,8 @@ export function VoronkaSozlash() {
       if (nom.trim() !== voronka.name) await api.patch(`${base}/pipelines/${voronka.id}`, { name: nom.trim() });
       if (!tashqi) {
         await api.put(`${base}/pipelines/${voronka.id}/stages`, {
-          stages: tartiblangan.map((b) => ({ ...(b.id ? { id: b.id } : {}), name: b.name.trim(), color: b.color, kind: b.kind })),
+          stages: tartiblangan.map((b) => ({ ...(b.id ? { id: b.id } : { key: b.kalit }), name: b.name.trim(), color: b.color, kind: b.kind })),
+          moves: Object.entries(kochirish).map(([from, to]) => ({ from, to })),
         });
       }
       await yangila();
@@ -357,8 +385,15 @@ export function VoronkaSozlash() {
           {tartiblangan.map((b, i) => {
             const son = b.id ? (sonlar[b.id] ?? 0) : 0;
             const yagona = b.kind !== 'open' && bosqichlar.filter((x) => x.kind === b.kind).length === 1;
-            const ochiradi = !tashqi && son === 0 && !yagona && (b.kind !== 'open' || ochiqlar.length > 1);
-            const sabab = son > 0 ? t('Bosqichda {n} ta bitim bor — avval ularni boshqa bosqichga o‘tkazing', { n: pul(son) }) : yagona ? t("Voronkada bu turdagi yagona bosqich — o'chirib bo'lmaydi") : '';
+            const oxirgiOchiq = b.kind === 'open' && ochiqlar.length <= 1;
+            const ochiradi = !tashqi && !yagona && !oxirgiOchiq;
+            const sabab = yagona
+              ? t("Voronkada kamida bitta «{t}» bosqichi bo'lishi kerak — nomini o'zgartirishingiz mumkin", { t: b.kind === 'won' ? t('Muvaffaqiyatli') : t("Yo'qotilgan") })
+              : oxirgiOchiq
+                ? t("Voronkada kamida bitta ochiq bosqich bo'lishi kerak")
+                : son > 0
+                  ? t("O'chirish — {n} ta bitim boshqa bosqichga o'tkaziladi", { n: pul(son) })
+                  : '';
             const ochiqIndeks = ochiqlar.findIndex((x) => x.kalit === b.kalit);
             const hint = b.id ? holat.stageHints?.[b.id] : undefined;
             return (
@@ -387,7 +422,7 @@ export function VoronkaSozlash() {
                   onRang={(color) => ozgartir(b.kalit, { color })}
                   ochiradi={ochiradi}
                   ochirishSababi={sabab}
-                  onOchir={() => ochir(b.kalit)}
+                  onOchir={() => ochirishniBoshla(b)}
                   onSudrashBoshi={() => {
                     sudralayotgan.current = b.kalit;
                   }}
@@ -457,6 +492,15 @@ export function VoronkaSozlash() {
             setQoidaOyna(null);
             void qoidalarniYukla();
           }}
+        />
+      )}
+      {ochirishOyna && (
+        <OchirishOyna
+          nom={ochirishOyna.nom}
+          soni={ochirishOyna.soni}
+          variantlar={tartiblangan.filter((x) => x.kalit !== ochirishOyna.kalit)}
+          onYop={() => setOchirishOyna(null)}
+          onTasdiq={(maqsad) => kochirIbOchir(ochirishOyna.kalit, maqsad)}
         />
       )}
       {sabablarOyna && (
@@ -834,6 +878,57 @@ function QongiroqManbasi({
         <Phone />
       </span>
     </section>
+  );
+}
+
+// ─── Bitimli bosqichni o'chirish: bitimlar qayerga ────────────────────────────
+
+function OchirishOyna({
+  nom,
+  soni,
+  variantlar,
+  onYop,
+  onTasdiq,
+}: {
+  nom: string;
+  soni: number;
+  variantlar: Qoralama[];
+  onYop: () => void;
+  onTasdiq: (kalit: string) => void;
+}) {
+  const t = useT();
+  // Odatda — birinchi ochiq bosqich (amoCRM'dagidek "Неразобранное"dan keyingi)
+  const [maqsad, setMaqsad] = useState(variantlar.find((v) => v.kind === 'open')?.kalit ?? variantlar[0]?.kalit ?? '');
+  const tur = (k: BosqichTuri) => (k === 'won' ? t('Muvaffaqiyatli') : k === 'lost' ? t("Yo'qotilgan") : null);
+  return (
+    <Oyna
+      sarlavha={t('«{b}» bosqichini o‘chirish', { b: nom })}
+      onYop={onYop}
+      onSubmit={() => maqsad && onTasdiq(maqsad)}
+      past={
+        <>
+          <button type="button" className="btn ikkinchi" onClick={onYop}>
+            {t('Bekor qilish')}
+          </button>
+          <button type="submit" className="btn xavfli" disabled={!maqsad}>
+            <Trash2 /> {t("O'tkazish va o'chirish")}
+          </button>
+        </>
+      }
+    >
+      <p className="yordam">{t("Bu bosqichda {n} ta bitim bor. Ular qaysi bosqichga o'tkazilsin? Har bitim tarixida bosqich o'zgargani yoziladi.", { n: pul(soni) })}</p>
+      <div className="vs-maqsadlar" role="radiogroup" aria-label={t('Qaysi bosqichga')}>
+        {variantlar.map((v) => (
+          <label key={v.kalit} className={`vs-maqsad${maqsad === v.kalit ? ' tanlangan' : ''}`} style={{ ['--bosqich' as string]: v.color }}>
+            <input type="radio" name="vs-maqsad" checked={maqsad === v.kalit} onChange={() => setMaqsad(v.kalit)} />
+            <span className="vs-maqsad-rang" aria-hidden="true" />
+            <span className="vs-maqsad-nom">{v.name || t('Nomsiz bosqich')}</span>
+            {tur(v.kind) && <small className={`vs-maqsad-tur ${v.kind}`}>{tur(v.kind)}</small>}
+          </label>
+        ))}
+      </div>
+      <p className="yordam">{t("O'chirish «Saqlash» bosilgandan keyin bajariladi — ungacha bekor qilish mumkin.")}</p>
+    </Oyna>
   );
 }
 

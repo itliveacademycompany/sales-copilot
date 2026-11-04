@@ -1261,6 +1261,8 @@ export const bosqichlarKirish = z
   .array(
     z.object({
       id: z.string().uuid().optional(),
+      /** Mijozdagi vaqtinchalik kalit — yangi bosqichni `kochirish.to` da ko'rsatish uchun. */
+      key: z.string().max(60).optional(),
       name: z.string().trim().min(1, 'Bosqich nomini kiriting').max(100),
       color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
       kind: z.enum(['open', 'won', 'lost']),
@@ -1270,17 +1272,38 @@ export const bosqichlarKirish = z
   .max(40);
 
 /**
- * Voronka bosqichlarini to'liq ro'yxat bilan almashtiradi (tartib — massiv
- * tartibi). Olib tashlangan bosqichda bitim bo'lsa — rad: bitimlar "yetim"
- * qolmasin (TZ PIPE-01). Kamida bitta ochiq, bitta yutuq va bitta yo'qotish.
+ * O'chirilayotgan bosqich bitimlari qayerga o'tadi (amoCRM'dagidek): `from` —
+ * o'chirilayotgan bosqich ID si, `to` — qoladigan bosqichning ID si yoki yangi
+ * bosqichning `key` i.
  */
-export async function bosqichlarniSaqla(tx: Tx, p: { businessId: string; pipelineId: string; bosqichlar: z.infer<typeof bosqichlarKirish> }): Promise<void> {
+export const bosqichKochirishKirish = z
+  .array(z.object({ from: z.string().uuid(), to: z.string().min(1).max(60) }))
+  .max(40)
+  .default([]);
+
+/**
+ * Voronka bosqichlarini to'liq ro'yxat bilan almashtiradi (tartib — massiv
+ * tartibi). Olib tashlangan bosqichda bitim bo'lsa, ular `kochirish` bo'yicha
+ * ko'rsatilgan bosqichga o'tkaziladi (har biriga tarixda yozuv); ko'rsatilmagan
+ * bo'lsa — rad: bitimlar "yetim" qolmasin (TZ PIPE-01). Kamida bitta ochiq,
+ * bitta yutuq va bitta yo'qotish.
+ */
+export async function bosqichlarniSaqla(
+  tx: Tx,
+  p: {
+    businessId: string;
+    pipelineId: string;
+    bosqichlar: z.infer<typeof bosqichlarKirish>;
+    kochirish?: z.infer<typeof bosqichKochirishKirish>;
+    userId?: string | null;
+  },
+): Promise<void> {
   const b = p.bosqichlar;
   if (!b.some((x) => x.kind === 'open') || !b.some((x) => x.kind === 'won') || !b.some((x) => x.kind === 'lost')) {
     throw new CrmXatosi('yaroqsiz', "Voronkada kamida bitta ochiq, bitta muvaffaqiyatli va bitta yo'qotilgan bosqich bo'lishi kerak");
   }
   await tuzilmaTashqimi(tx, 'voronka', p.pipelineId);
-  const mavjud = await tx.select({ id: crmStage.id }).from(crmStage).where(eq(crmStage.pipelineId, p.pipelineId));
+  const mavjud = await tx.select({ id: crmStage.id, name: crmStage.name }).from(crmStage).where(eq(crmStage.pipelineId, p.pipelineId));
   if (mavjud.length === 0) {
     const [v] = await tx.select({ id: crmPipeline.id }).from(crmPipeline).where(eq(crmPipeline.id, p.pipelineId)).limit(1);
     if (!v) throw new CrmXatosi('topilmadi', 'Voronka topilmadi');
@@ -1290,15 +1313,24 @@ export async function bosqichlarniSaqla(tx: Tx, p: { businessId: string; pipelin
     if (!mavjud.some((m) => m.id === id)) throw new CrmXatosi('yaroqsiz', 'Bosqich shu voronkaga tegishli emas');
   }
   const ochiriladi = mavjud.filter((m) => !qoladi.has(m.id)).map((m) => m.id);
+  const kochirish = new Map((p.kochirish ?? []).filter((k) => ochiriladi.includes(k.from)).map((k) => [k.from, k.to]));
   if (ochiriladi.length > 0) {
-    const [band] = await tx
-      .select({ n: count() })
+    const bandlar = await tx
+      .select({ stageId: deal.stageId, n: count() })
       .from(deal)
-      .where(and(inArray(deal.stageId, ochiriladi), isNull(deal.deletedAt)));
-    if (Number(band?.n ?? 0) > 0) {
-      throw new CrmXatosi('ziddiyat', "O'chirilayotgan bosqichda bitimlar bor — avval ularni boshqa bosqichga o'tkazing");
+      .where(and(inArray(deal.stageId, ochiriladi), isNull(deal.deletedAt)))
+      .groupBy(deal.stageId);
+    for (const x of bandlar) {
+      if (Number(x.n) === 0) continue;
+      const to = kochirish.get(x.stageId);
+      const yaroqli = to && (qoladi.has(to) || b.some((s) => !s.id && s.key === to));
+      if (!yaroqli) {
+        throw new CrmXatosi('ziddiyat', "O'chirilayotgan bosqichda bitimlar bor — ular qaysi bosqichga o'tkazilishini tanlang");
+      }
     }
   }
+  /** Yangi bosqich kalitidan haqiqiy ID ga. */
+  const kalitlar = new Map<string, string>();
   let birinchi: string | null = null;
   for (const [i, x] of b.entries()) {
     const color = x.color ?? bosqichRangi(x.kind, i);
@@ -1311,6 +1343,38 @@ export async function bosqichlarniSaqla(tx: Tx, p: { businessId: string; pipelin
         .values({ businessId: p.businessId, pipelineId: p.pipelineId, name: x.name, kind: x.kind, color, sort: i })
         .returning({ id: crmStage.id });
       birinchi ??= s!.id;
+      if (x.key) kalitlar.set(x.key, s!.id);
+    }
+  }
+  // Bitimlarni ko'rsatilgan bosqichga o'tkazish — har biriga "bosqich o'zgardi" yozuvi
+  for (const [from, toKalit] of kochirish) {
+    const to = kalitlar.get(toKalit) ?? toKalit;
+    const maqsad = b.find((s) => s.id === to) ?? b.find((s) => s.key === toKalit);
+    if (!maqsad) continue;
+    const hozir = new Date();
+    const kochdi = await tx
+      .update(deal)
+      .set({
+        stageId: to,
+        stageEnteredAt: hozir,
+        closedAt: maqsad.kind === 'open' ? null : sql`coalesce(${deal.closedAt}, ${hozir.toISOString()}::timestamptz)`,
+        ...(maqsad.kind === 'lost' ? {} : { lostReason: null, lostReasonId: null }),
+        version: sql`${deal.version} + 1`,
+        updatedAt: hozir,
+      })
+      .where(and(eq(deal.stageId, from), isNull(deal.deletedAt)))
+      .returning({ id: deal.id });
+    const eskiNom = mavjud.find((m) => m.id === from)?.name ?? null;
+    for (let i = 0; i < kochdi.length; i += 500) {
+      await tx.insert(dealEvent).values(
+        kochdi.slice(i, i + 500).map((d) => ({
+          businessId: p.businessId,
+          dealId: d.id,
+          type: 'stage',
+          data: { fromStageId: from, fromName: eskiNom, toStageId: to, toName: maqsad.name, pipelineChanged: false, stageDeleted: true },
+          authorUserId: p.userId ?? null,
+        })),
+      );
     }
   }
   if (ochiriladi.length > 0) {

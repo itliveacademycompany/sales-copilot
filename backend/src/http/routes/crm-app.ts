@@ -45,6 +45,7 @@ import {
   bitimniYangila,
   bitimYangilash,
   bitimYarat,
+  bosqichKochirishKirish,
   bosqichlarKirish,
   bosqichlarniSaqla,
   crmniYoq,
@@ -169,10 +170,12 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
 
   app.put(`${BASE}/pipelines/:id/stages`, sozlama, async (req) => {
     const { id } = idParam.parse(req.params);
-    const { stages } = z.object({ stages: bosqichlarKirish }).parse(req.body);
+    const { stages, moves } = z.object({ stages: bosqichlarKirish, moves: bosqichKochirishKirish }).parse(req.body);
     const businessId = req.business!.businessId;
     await bajar(() =>
-      withTenant(businessId, (tx) => bosqichlarniSaqla(tx, { businessId, pipelineId: id, bosqichlar: stages })),
+      withTenant(businessId, (tx) =>
+        bosqichlarniSaqla(tx, { businessId, pipelineId: id, bosqichlar: stages, kochirish: moves, userId: req.auth!.user.id }),
+      ),
     );
     return { ok: true };
   });
