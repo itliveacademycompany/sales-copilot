@@ -46,7 +46,9 @@ export type MaydonTuri =
   | 'datetime'
   | 'checkbox'
   | 'phone'
-  | 'url';
+  | 'url'
+  /** Xodim (seat) — qiymat seat ID. */
+  | 'user';
 
 export interface Maydon {
   id: string;
@@ -86,6 +88,8 @@ export interface CrmHolat {
   stageRequired?: Record<string, string[]>;
   /** Bosqich ko'rsatmalari (amoCRM "Подсказки"): `{ stageId: matn }`. */
   stageHints?: Record<string, string>;
+  /** Lid kartasidagi maydon guruhlari tartibi (bo'sh guruh ham bo'lishi mumkin). */
+  fieldGroups?: string[];
   inboxPending: number;
   scope: 'all' | 'own';
   canManageAll: boolean;
@@ -182,13 +186,16 @@ export const MAYDON_TURI_NOMI: Record<MaydonTuri, string> = {
   checkbox: 'Belgi (ha/yo‘q)',
   phone: 'Telefon',
   url: 'Havola',
+  user: 'Xodim',
 };
 
 /** Maydon qiymatini matn ko'rinishida (jadval va tarix uchun). */
-export function qiymatMatni(m: Maydon | undefined, v: unknown, t: (s: string) => string): string {
+export function qiymatMatni(m: Maydon | undefined, v: unknown, t: (s: string) => string, seatlar?: { id: string; displayName: string }[]): string {
   if (v === null || v === undefined || v === '') return '—';
   if (!m) return String(v);
   switch (m.type) {
+    case 'user':
+      return seatlar?.find((x) => x.id === v)?.displayName ?? t('Xodim');
     case 'select':
       return m.options.find((o) => o.id === v)?.label ?? '—';
     case 'multiselect':
@@ -252,7 +259,24 @@ export function MaydonKiritish({
 }) {
   const t = useT();
   const bosh = ixcham ? '···' : undefined;
+  // Kontekstdan tashqarida (masalan, ochiq forma) xodimlar ro'yxati bo'lmaydi
+  const crm = useContext(CrmKontekst);
   switch (m.type) {
+    case 'user': {
+      const seatlar = crm?.seatlar ?? [];
+      const v = (qiymat as string) ?? '';
+      return (
+        <select id={id} className="input" value={v} onChange={(e) => onChange(e.target.value || null)}>
+          <option value="">{ixcham ? '···' : t('— tanlanmagan —')}</option>
+          {seatlar.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.displayName}
+            </option>
+          ))}
+          {v && !seatlar.some((x) => x.id === v) && <option value={v}>{t('Xodim')}</option>}
+        </select>
+      );
+    }
     case 'textarea':
       return (
         <textarea

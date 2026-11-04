@@ -61,6 +61,8 @@ export const sozlamaSxemasi = z.object({
    * qilish kerakligi haqida qisqa eslatma — kanbanda ustun boshida ko'rinadi.
    */
   stageHints: z.record(z.string().uuid(), z.string().max(1000)).default({}),
+  /** Lid kartasidagi maydon guruhlari tartibi (bo'sh guruh ham bo'lishi mumkin). */
+  fieldGroups: z.array(z.string().max(60)).max(50).default([]),
 });
 
 export type CrmSozlama = z.infer<typeof sozlamaSxemasi>;
@@ -83,6 +85,7 @@ export const sozlamaYangilash = z.object({
   stageRequired: z.object({ stageId: z.string().uuid(), fieldIds: z.array(z.string().uuid()).max(50) }).optional(),
   /** Bitta bosqichning ko'rsatmasi; bo'sh matn — o'chiriladi. */
   stageHint: z.object({ stageId: z.string().uuid(), text: z.string().trim().max(1000) }).optional(),
+  fieldGroups: z.array(z.string().trim().min(1).max(60)).max(50).optional(),
 });
 
 export async function sozlamaniSaqla(
@@ -116,6 +119,7 @@ export async function sozlamaniSaqla(
     else delete xarita[stageId];
     yangi.stageRequired = xarita;
   }
+  if (k.fieldGroups) yangi.fieldGroups = [...new Set(k.fieldGroups)];
   if (k.stageHint) {
     const { stageId, text } = k.stageHint;
     const [b] = await tx.select({ id: crmStage.id }).from(crmStage).where(eq(crmStage.id, stageId)).limit(1);

@@ -36,7 +36,6 @@ import { AudioPleyer } from '../../components/AudioPleyer';
 import { BajarishOyna, TeglarKiritish } from '../../crm/komponentlar';
 import {
   bosqichTop,
-  MaydonKiritish,
   muddatHolati,
   pul,
   qiymatMatni,
@@ -50,6 +49,7 @@ import { MuddatTanlash, muddatMatni } from '../../crm/MuddatTanlash';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
 import { sanaVaqt, YoqotishSababi } from './Bitimlar';
+import { KartaMaydonlari } from './KartaMaydonlari';
 
 interface Hodisa {
   id: string;
@@ -173,8 +173,6 @@ interface Qoralama {
 }
 
 const OCHIQ = new Set(['pending', 'in_progress', 'blocked']);
-/** "Barcha maydonlarni ko'rsatish" bosilmaguncha ko'rinadigan qo'shimcha maydonlar soni. */
-const KORINADIGAN_MAYDON = 6;
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -435,7 +433,7 @@ export function BitimKarta() {
           <aside className="ms-bk-chap">
             <section className="ms-blok">
               <IdQatori k={k} voronkaNomi={voronka?.name ?? ''} qoralama={qoralama} setQoralama={setQoralama} yozaOladi={yozaOladi} />
-              <Maydonlar k={k} qoralama={qoralama} setQoralama={setQoralama} yozaOladi={yozaOladi} />
+              <KartaMaydonlari qoralama={qoralama} setQoralama={setQoralama} yozaOladi={yozaOladi} sinx={k.sync} tovarli={k.items.length > 0} masul={k.responsible} />
               {yozaOladi && (ozgargan || avtoHolat) && (
                 <div className={`ms-avto-holat${avtoHolat === 'saqlandi' && !ozgargan ? ' ok' : ''}`} role="status">
                   {band || avtoHolat === 'saqlanmoqda' ? (
@@ -594,87 +592,6 @@ function IdQatori({
         </div>
       )}
     </>
-  );
-}
-
-function Maydonlar({
-  k,
-  qoralama,
-  setQoralama,
-  yozaOladi,
-}: {
-  k: Kartochka;
-  qoralama: Qoralama;
-  setQoralama: (q: Qoralama) => void;
-  yozaOladi: boolean;
-}) {
-  const { holat, seatlar } = useCrm();
-  const t = useT();
-  const [hammasi, setHammasi] = useState(false);
-  const sinx = k.sync;
-  const tovarli = k.items.length > 0;
-  // To'ldirilganlari va majburiylari tepada — ko'rinadigan qismga muhimi tushsin
-  const tartiblangan = [...holat.fields].sort((a, b) => {
-    const ta = Number(qoralama.fields[a.id] != null && qoralama.fields[a.id] !== '') + Number(a.required);
-    const tb = Number(qoralama.fields[b.id] != null && qoralama.fields[b.id] !== '') + Number(b.required);
-    return tb - ta || a.sort - b.sort;
-  });
-  const korinadi = hammasi ? tartiblangan : tartiblangan.slice(0, KORINADIGAN_MAYDON);
-  const yashirin = tartiblangan.length - korinadi.length;
-
-  return (
-    <fieldset disabled={!yozaOladi} className="ms-maydonlar">
-      <div className="ms-maydon">
-        <label htmlFor="bk-masul">{t("Mas'ul xodim")}</label>
-        {holat.canManageAll && !sinx ? (
-          <select id="bk-masul" className="input" value={qoralama.responsibleSeatId} onChange={(e) => setQoralama({ ...qoralama, responsibleSeatId: e.target.value })}>
-            <option value="">···</option>
-            {seatlar.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.displayName}
-              </option>
-            ))}
-            {k.responsible && !seatlar.some((s) => s.id === k.responsible!.id) && <option value={k.responsible.id}>{k.responsible.name}</option>}
-          </select>
-        ) : (
-          <span className="ms-maydon-qiymat">{k.responsible?.name ?? '—'}</span>
-        )}
-      </div>
-      <div className="ms-maydon">
-        <label htmlFor="bk-summa">{t('Summa')}</label>
-        <input
-          id="bk-summa"
-          className="input"
-          inputMode="decimal"
-          value={qoralama.amount}
-          placeholder="···"
-          readOnly={tovarli || Boolean(sinx)}
-          title={tovarli ? t('Summa tovarlardan hisoblanadi') : undefined}
-          onChange={(e) => setQoralama({ ...qoralama, amount: e.target.value.replace(/[^\d.,\s]/g, '') })}
-        />
-      </div>
-      {korinadi.map((m) => (
-        <div className="ms-maydon" key={m.id}>
-          <label htmlFor={`bk-${m.id}`} title={m.label}>
-            {m.label}
-            {m.required && <span className="ci-majburiy"> *</span>}
-          </label>
-          {sinx && m.external ? (
-            <span className="ms-maydon-qiymat" title={t('{crm} da o‘zgartiriladi', { crm: sinx })}>
-              {qiymatMatni(m, qoralama.fields[m.id], t)}
-            </span>
-          ) : (
-            <MaydonKiritish ixcham id={`bk-${m.id}`} m={m} qiymat={qoralama.fields[m.id]} onChange={(v) => setQoralama({ ...qoralama, fields: { ...qoralama.fields, [m.id]: v } })} />
-          )}
-        </div>
-      ))}
-      {tartiblangan.length > KORINADIGAN_MAYDON && (
-        <button type="button" className="ms-hammasi" onClick={() => setHammasi((v) => !v)} aria-expanded={hammasi}>
-          {hammasi ? t('Kamroq ko‘rsatish') : t("Barcha maydonlarni ko'rsatish")} {!hammasi && <span>{yashirin}</span>}
-          <ChevronDown className={hammasi ? 'aylangan' : undefined} aria-hidden="true" />
-        </button>
-      )}
-    </fieldset>
   );
 }
 

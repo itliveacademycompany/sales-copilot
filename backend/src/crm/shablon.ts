@@ -25,7 +25,9 @@ export type MaydonTuri =
   | 'datetime'
   | 'checkbox'
   | 'phone'
-  | 'url';
+  | 'url'
+  /** Xodim (seat) — "Call-center xodimi" kabi maydonlar; qiymat — seat ID. */
+  | 'user';
 
 export const MAYDON_TURLARI: MaydonTuri[] = [
   'text',
@@ -39,6 +41,7 @@ export const MAYDON_TURLARI: MaydonTuri[] = [
   'checkbox',
   'phone',
   'url',
+  'user',
 ];
 
 export interface ShablonVoronka {

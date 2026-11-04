@@ -177,6 +177,8 @@ const SANA = /^\d{4}-\d{2}-\d{2}$/;
  * tozalaydi. Noma'lum maydon — rad (begona kalit bazaga tushmasin).
  * `null` / bo'sh — qiymatni o'chirish.
  */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export function maydonlarniTekshir(
   kirish: Record<string, unknown>,
   maydonlar: MaydonTavsifi[],
@@ -227,6 +229,10 @@ export function maydonlarniTekshir(
         break;
       case 'checkbox':
         if (typeof xom !== 'boolean') throw xato();
+        natija[id] = xom;
+        break;
+      case 'user':
+        if (typeof xom !== 'string' || !UUID_RE.test(xom)) throw xato();
         natija[id] = xom;
         break;
       default:
@@ -1423,6 +1429,37 @@ export async function maydonYarat(tx: Tx, businessId: string, k: z.infer<typeof 
     })
     .returning({ id: crmField.id });
   return f!.id;
+}
+
+/**
+ * Lid kartasidagi maydonlar tuzilmasi (amoCRM): guruhlar tartibi va har
+ * maydonning guruhi hamda o'rni — bitta so'rovda. Bo'sh guruh ham saqlanadi
+ * (`fieldGroups` sozlamada). Tashqi CRM dan sinxronlanadigan maydonlar
+ * o'zgarmaydi (ularning tuzilmasi o'sha yerda).
+ */
+export const maydonTartibiKirish = z.object({
+  groups: z.array(z.string().trim().min(1).max(60)).max(50),
+  fields: z
+    .array(z.object({ id: z.string().uuid(), groupName: z.string().trim().max(60).nullable(), sort: z.number().int().min(0).max(10_000) }))
+    .max(500),
+});
+
+export async function maydonTartibiniSaqla(tx: Tx, businessId: string, k: z.infer<typeof maydonTartibiKirish>): Promise<void> {
+  const guruhlar = [...new Set(k.groups.map((g) => g.trim()).filter(Boolean))];
+  if (k.fields.length > 0) {
+    const bor = await tx
+      .select({ id: crmField.id, integrationId: crmField.integrationId })
+      .from(crmField)
+      .where(inArray(crmField.id, k.fields.map((f) => f.id)));
+    const ichki = new Set(bor.filter((b) => !b.integrationId).map((b) => b.id));
+    for (const f of k.fields) {
+      if (!bor.some((b) => b.id === f.id)) throw new CrmXatosi('yaroqsiz', 'Maydon topilmadi');
+      if (!ichki.has(f.id)) continue;
+      const g = f.groupName?.trim() || null;
+      await tx.update(crmField).set({ groupName: g, sort: f.sort, updatedAt: new Date() }).where(eq(crmField.id, f.id));
+    }
+  }
+  await sozlamaniSaqla(tx, businessId, { fieldGroups: guruhlar });
 }
 
 /**

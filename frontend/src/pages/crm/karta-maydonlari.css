@@ -1,0 +1,147 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   LID KARTASI MAYDONLARI — amoCRM guruhlari, SotuvAI dizayni (prefiks km-)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.km { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+
+/* Asboblar qatori */
+.km-asboblar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; min-height: 28px; }
+.km-sozla {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.km-sozla:hover { color: var(--ia-text); background: var(--bg-elevated); }
+.km-sozla svg { width: 14px; height: 14px; }
+.km-rejim { flex: 1; font-size: 12px; color: var(--ia-text); }
+.km-asboblar .btn svg { width: 14px; height: 14px; }
+
+.km-tepa { margin-top: 0; }
+.km-tepa-ichi { display: flex; flex-direction: column; border-radius: 10px; transition: background-color 0.15s var(--ease); }
+.km-tepa-ichi.ustida { background: var(--ia-soft); }
+.km-bosh { margin: 6px 0; padding: 10px; border: 1.5px dashed var(--border-strong); border-radius: 10px; font-size: 12px; text-align: center; color: var(--text-muted); }
+
+/* ─── Guruh ─── */
+.km-guruh {
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  box-shadow: var(--neu-out-xs);
+  transition: box-shadow 0.15s var(--ease), background-color 0.15s var(--ease);
+}
+.km-guruh.ustida { box-shadow: var(--neu-out-xs), 0 0 0 2px var(--ia); }
+.km-guruh-bosh { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 4px; }
+.km-guruh-tugma {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  font: inherit;
+  text-align: left;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.km-guruh-tugma:disabled { cursor: default; }
+.km-guruh-tugma:not(:disabled):hover { background: var(--bg-elevated); }
+.km-guruh-tugma:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus-ring); }
+.km-guruh-nom { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.km-guruh-tugma small { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.km-chevron { width: 16px; height: 16px; color: var(--text-secondary); transition: transform 0.15s var(--ease); }
+.km-guruh.ochiq .km-chevron { transform: rotate(180deg); }
+.km-guruh-input { flex: 1; min-width: 0; height: 34px; font-size: 14px; font-weight: 700; }
+.km-guruh-ichi { margin: 0; padding: 2px 10px 10px; }
+
+/* ─── Sozlash rejimidagi maydon qatori ─── */
+.km-qator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 4px 6px;
+  border-radius: 9px;
+  transition: background-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.km-qator.sozlash { cursor: grab; }
+.km-qator.sozlash:hover { background: var(--bg-elevated); }
+.km-qator.sozlash:active { cursor: grabbing; }
+.km-qator.ustida { box-shadow: inset 0 2px 0 var(--ia); }
+.km-tutqich { display: grid; place-items: center; flex-shrink: 0; color: var(--text-muted); cursor: grab; }
+.km-tutqich svg { width: 15px; height: 15px; }
+.km-nom { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.km-nom b { font-size: 13px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.km-nom small { font-size: 11.5px; color: var(--text-muted); }
+.km-sinx { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.km-amallar { display: inline-flex; gap: 5px; flex-shrink: 0; }
+.km-amal {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-surface);
+  box-shadow: var(--neu-out-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.km-amal svg { width: 14px; height: 14px; }
+.km-amal:hover:not(:disabled) { color: var(--ia-text); }
+.km-amal.xavfli:hover:not(:disabled) { color: var(--past); }
+.km-amal.asosiy { background: var(--ia-grad); color: #fff; box-shadow: var(--ia-glow); }
+.km-amal:disabled { opacity: 0.45; cursor: default; }
+.km-amal:focus-visible { outline: none; box-shadow: var(--neu-out-xs), 0 0 0 3px var(--focus-ring); }
+
+/* Qo'shish tugmalari */
+.km-qosh,
+.km-guruh-qosh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 10px;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.km-qosh:hover,
+.km-guruh-qosh:hover { color: var(--ia-text); border-color: var(--ia); }
+.km-qosh svg,
+.km-guruh-qosh svg { width: 14px; height: 14px; }
+.km-guruh-qosh { padding: 11px; font-size: 13px; }
+.km-yangi-guruh { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; }
+
+/* Tasdiq (maydon / guruh o'chirish) */
+.km-tasdiq {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--past-soft);
+}
+.km-tasdiq p { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.km-tasdiq small { font-size: 12px; line-height: 1.4; color: var(--text-secondary); }
+.km-tasdiq-tugmalar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.km-tasdiq-tugmalar .btn svg { width: 14px; height: 14px; }
+.btn.km-xavfli { background: var(--past); box-shadow: none; }

@@ -171,6 +171,38 @@ const CRM_PANEL: Lugat = {
     ru: 'Например: позвоните в течение 24 часов, выявите потребность и назначьте встречу',
   },
 
+  // ─── Lid kartasi maydonlari (guruhlar) ───
+  'Bunday guruh bor': { en: 'This group already exists', ru: 'Такая группа уже есть' },
+  "Maydonni o'chirish": { en: 'Delete field', ru: 'Удалить поле' },
+  "«{m}» maydoni o'chirilsinmi?": { en: 'Delete the “{m}” field?', ru: 'Удалить поле «{m}»?' },
+  "Kartalardan yo'qoladi; avval kiritilgan qiymatlar bazada saqlanadi va sozlamalardan qaytarish mumkin.": {
+    en: 'It disappears from cards; entered values stay in the database and the field can be restored in settings.',
+    ru: 'Поле исчезнет из карточек; введённые значения сохранятся, поле можно вернуть в настройках.',
+  },
+  '{m} — tahrirlash': { en: '{m} — edit', ru: '{m} — редактировать' },
+  '{m} — o‘chirish': { en: '{m} — delete', ru: '{m} — удалить' },
+  "Maydon qo'shish": { en: 'Add field', ru: 'Добавить поле' },
+  "Maydonlarni sudrab tartiblang yoki boshqa guruhga o'tkazing": { en: 'Drag fields to reorder or move them to another group', ru: 'Перетаскивайте поля, чтобы изменить порядок или группу' },
+  'Guruh va maydonlarni qo‘shish, tahrirlash, o‘chirish': { en: 'Add, edit and delete groups and fields', ru: 'Добавлять, изменять и удалять группы и поля' },
+  'Maydonlarni sozlash': { en: 'Customize fields', ru: 'Настроить поля' },
+  "Mas'ul xodim": { en: 'Owner', ru: 'Ответственный' },
+  'Guruhsiz maydonlar shu yerda — maydonni sudrab tashlang': { en: 'Ungrouped fields live here — drag a field in', ru: 'Здесь поля без группы — перетащите поле сюда' },
+  "Guruhni o'chirish": { en: 'Delete group', ru: 'Удалить группу' },
+  "«{g}» guruhi o'chirilsinmi?": { en: 'Delete the “{g}” group?', ru: 'Удалить группу «{g}»?' },
+  "Ichidagi {n} ta maydon o'chmaydi — tepadagi guruhsiz qismga o'tadi.": {
+    en: 'Its {n} fields are kept — they move to the ungrouped section at the top.',
+    ru: 'Её {n} полей сохранятся — они перейдут в верхнюю часть без группы.',
+  },
+  "Guruh bo'sh.": { en: 'The group is empty.', ru: 'Группа пуста.' },
+  'Sudrab guruh tartibini almashtiring': { en: 'Drag to reorder groups', ru: 'Перетащите, чтобы изменить порядок групп' },
+  'Guruh nomi': { en: 'Group name', ru: 'Название группы' },
+  '{g} — nomini o‘zgartirish': { en: '{g} — rename', ru: '{g} — переименовать' },
+  '{g} — o‘chirish': { en: '{g} — delete', ru: '{g} — удалить' },
+  'Bo‘sh guruh — maydon qo‘shing yoki sudrab tashlang': { en: 'Empty group — add a field or drag one in', ru: 'Пустая группа — добавьте или перетащите поле' },
+  "Bu guruhda hali maydon yo'q": { en: 'No fields in this group yet', ru: 'В этой группе пока нет полей' },
+  'Guruh nomi, masalan: Call-Center': { en: 'Group name, e.g. Call-Center', ru: 'Название группы, например: Call-Center' },
+  "Guruh qo'shish": { en: 'Add group', ru: 'Добавить группу' },
+
   // ─── Vidjet ichi ───
   '{s} so‘m': { en: '{s} UZS', ru: '{s} сум' },
   "Ko'rsatish uchun ma'lumot yetarli emas": { en: 'Not enough data to display', ru: 'Недостаточно данных для отображения' },

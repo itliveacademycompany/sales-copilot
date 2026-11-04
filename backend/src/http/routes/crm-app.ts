@@ -55,6 +55,8 @@ import {
   kanban,
   kanbanKorsatkichlari,
   maydonKirish,
+  maydonTartibiKirish,
+  maydonTartibiniSaqla,
   maydonniYangila,
   maydonYarat,
   ommaviyAmal,
@@ -107,6 +109,8 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
         stageRequired: s.stageRequired,
         /** Bosqich ko'rsatmalari: stageId → matn. */
         stageHints: s.stageHints,
+        /** Lid kartasidagi maydon guruhlari tartibi. */
+        fieldGroups: s.fieldGroups,
         lossReasons: sabablar,
         inboxPending: kutayotgan,
         /** Ichki CRM ga sinxronlanayotgan tashqi CRM nomi (amoCRM) — bo'lsa, qo'ng'iroqlardan qabul ishlamaydi. */
@@ -187,6 +191,14 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
     const businessId = req.business!.businessId;
     const id = await withTenant(businessId, (tx) => maydonYarat(tx, businessId, k));
     return { id };
+  });
+
+  // Lid kartasidagi guruhlar va maydonlar tartibi (sudrab tartiblash, guruh qo'shish/nomlash/o'chirish)
+  app.put(`${BASE}/crm-fields/layout`, sozlama, async (req) => {
+    const k = maydonTartibiKirish.parse(req.body);
+    const businessId = req.business!.businessId;
+    await bajar(() => withTenant(businessId, (tx) => maydonTartibiniSaqla(tx, businessId, k)));
+    return { ok: true };
   });
 
   app.patch(`${BASE}/crm-fields/:id`, sozlama, async (req) => {

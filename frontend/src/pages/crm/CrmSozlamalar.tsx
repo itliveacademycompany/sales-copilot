@@ -458,18 +458,18 @@ function Maydonlar() {
   );
 }
 
-function MaydonOyna({ m, onYop }: { m: Maydon | null; onYop: () => void }) {
+export function MaydonOyna({ m, onYop, guruh }: { m: Maydon | null; onYop: () => void; /** Yangi maydon shu guruhda (lid kartasidan). */ guruh?: string | null }) {
   const { holat, base, yangila } = useCrm();
   const t = useT();
   const [label, setLabel] = useState(m?.label ?? '');
   const [type, setType] = useState<MaydonTuri>(m?.type ?? 'text');
-  const [group, setGroup] = useState(m?.groupName ?? '');
+  const [group, setGroup] = useState(m?.groupName ?? guruh ?? '');
   const [required, setRequired] = useState(m?.required ?? false);
   const [variantlar, setVariantlar] = useState<{ id?: string; label: string }[]>(m?.options ?? [{ label: '' }]);
   const [xato, setXato] = useState<string | null>(null);
   const [band, setBand] = useState(false);
   const royxatli = type === 'select' || type === 'multiselect';
-  const guruhlar = [...new Set(holat.fields.map((f) => f.groupName).filter(Boolean))] as string[];
+  const guruhlar = [...new Set([...(holat.fieldGroups ?? []), ...holat.fields.map((f) => f.groupName)].filter(Boolean))] as string[];
 
   const saqla = async () => {
     if (!label.trim()) return setXato(t('Maydon nomini kiriting'));
