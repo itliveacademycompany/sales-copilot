@@ -24,6 +24,21 @@ export function menyuVoronkalariniYangila(v: MenyuVoronka[]): void {
   for (const f of tinglovchilar) f();
 }
 
+/**
+ * Menyudan yangi voronka qo'shilganda CRM holatini qayta yuklash. CRM ilovasi
+ * o'z `yangila` funksiyasini shu yerga ro'yxatdan o'tkazadi — menyu (Layout)
+ * CRM kontekstidan tashqarida turadi.
+ */
+let yuklovchi: (() => Promise<void>) | null = null;
+
+export function voronkaYuklovchisi(fn: (() => Promise<void>) | null): void {
+  yuklovchi = fn;
+}
+
+export async function crmHolatiniQaytaYukla(): Promise<void> {
+  await yuklovchi?.();
+}
+
 export function useMenyuVoronkalari(): MenyuVoronka[] {
   return useSyncExternalStore(
     (f) => {

@@ -4,7 +4,7 @@ import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { api, ApiError } from '../../api';
 import { useAuth } from '../../auth';
 import { CrmKontekst, useCrm, type CrmHolat, type Seat } from '../../crm/malumot';
-import { menyuVoronkalariniYangila } from '../../crm/voronkalar';
+import { menyuVoronkalariniYangila, voronkaYuklovchisi } from '../../crm/voronkalar';
 import { useT } from '../../i18n';
 import { SAHIFA } from '../../sahifalar';
 import { BitimKarta } from './BitimKarta';
@@ -54,6 +54,12 @@ export function CrmIlova() {
       setXato(e instanceof ApiError ? t(e.message) : t("Ma'lumotni yuklab bo'lmadi"));
     }
   }, [base, t]);
+
+  // Menyudagi "Bitimlar" panelidan voronka qo'shilsa — holat qayta yuklanadi
+  useEffect(() => {
+    voronkaYuklovchisi(yangila);
+    return () => voronkaYuklovchisi(null);
+  }, [yangila]);
 
   useEffect(() => {
     void yangila();

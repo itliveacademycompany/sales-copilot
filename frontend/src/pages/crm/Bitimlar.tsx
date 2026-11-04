@@ -74,7 +74,9 @@ export function Bitimlar() {
   const asosiy = holat.pipelines.find((p) => p.isMain) ?? holat.pipelines[0]!;
   const voronka = holat.pipelines.find((p) => p.id === params.get('v')) ?? asosiy;
   const savat = params.get('trash') === '1';
-  const korinish: 'kanban' | 'jadval' = savat
+  /** Menyudagi "Barcha bitimlar" (`?v=all`) — hamma voronkalar bitta jadvalda. */
+  const hammasi = !savat && params.get('v') === 'all';
+  const korinish: 'kanban' | 'jadval' = savat || hammasi
     ? 'jadval'
     : ((params.get('k') as 'kanban' | 'jadval' | null) ??
       (() => {
@@ -140,7 +142,7 @@ export function Bitimlar() {
   /** KPI qatori va "Jami" — kanban bilan bir xil voronka va filtr bo'yicha. */
   const [stat, setStat] = useState<KpiStat | null>(null);
   useEffect(() => {
-    if (savat) return;
+    if (savat || hammasi) return;
     let tirik = true;
     api
       .get<KpiStat>(`${base}/deals/board/stats?pipeline=${voronka.id}${filtr ? `&${filtr}` : ''}`)
@@ -149,7 +151,7 @@ export function Bitimlar() {
     return () => {
       tirik = false;
     };
-  }, [base, voronka.id, filtr, savat, yangilash]);
+  }, [base, voronka.id, filtr, savat, hammasi, yangilash]);
   const filtrSoni = FILTR_KALITLARI.filter((k) => k !== 'q' && k !== 'trash' && params.get(k)).length;
 
   const korinishniTanla = (k: 'kanban' | 'jadval') => {
@@ -174,9 +176,9 @@ export function Bitimlar() {
   return (
     <div className="ci-sahifa ms-lidlar">
       <MsBosh
-        sarlavha={savat ? t('Savat') : t('Lidlar')}
+        sarlavha={savat ? t('Savat') : hammasi ? t('Barcha bitimlar') : t('Lidlar')}
         chap={
-          !savat && (
+          !savat && !hammasi && (
             <div className="ms-korinish" role="group" aria-label={t("Ko'rinish")}>
               <button type="button" aria-pressed={korinish === 'kanban'} onClick={() => korinishniTanla('kanban')} title={t('Kanban')} aria-label={t('Kanban')}>
                 <Columns3 />
@@ -188,7 +190,7 @@ export function Bitimlar() {
           )
         }
         qidiruv={{ qiymat: qidiruv, onChange: setQidiruv, nom: t('Lidlarni qidirish') }}
-        jami={!savat && stat ? `${pul(stat.total)} · ${pul(stat.sum)} ${t("so'm")}` : undefined}
+        jami={!savat && !hammasi && stat ? `${pul(stat.total)} · ${pul(stat.sum)} ${t("so'm")}` : undefined}
       >
         {savat ? (
           <button className="btn ikkinchi" onClick={() => ozgartir({ trash: null })}>
@@ -223,14 +225,14 @@ export function Bitimlar() {
         )}
       </MsBosh>
 
-      {!savat && <KpiQator stat={stat} params={params} ozgartir={ozgartir} />}
+      {!savat && !hammasi && <KpiQator stat={stat} params={params} ozgartir={ozgartir} />}
       {panel && <FiltrPanel params={params} voronkaId={voronka.id} ozgartir={ozgartir} onYop={() => setPanel(false)} />}
       <FaolFiltrlar params={params} ozgartir={ozgartir} seatlar={seatlar} />
 
       {korinish === 'kanban' ? (
         <Kanban voronkaId={voronka.id} asosiy={voronka.isMain} filtr={filtr} yangilash={yangilash} />
       ) : (
-        <Jadval voronkaId={savat ? null : voronka.id} filtr={filtr} savat={savat} yangilash={yangilash} onYangila={() => setYangilash((x) => x + 1)} />
+        <Jadval voronkaId={savat || hammasi ? null : voronka.id} filtr={filtr} savat={savat} yangilash={yangilash} onYangila={() => setYangilash((x) => x + 1)} />
       )}
 
       {yangi && <YangiBitim voronkaId={voronka.id} onYop={() => setYangi(false)} />}

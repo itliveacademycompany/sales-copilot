@@ -36,6 +36,16 @@ const CRM_PANEL: Lugat = {
   'shu oyda##davr': { en: 'this month', ru: 'за месяц' },
   'davrda##davr': { en: 'in period', ru: 'за период' },
 
+  // ─── Menyudagi "Bitimlar" paneli ───
+  'Barcha bitimlar': { en: 'All deals', ru: 'Все сделки' },
+  'Voronka nomini kiriting': { en: 'Enter a pipeline name', ru: 'Введите название воронки' },
+  'Voronkani yaratib bo‘lmadi': { en: 'Could not create the pipeline', ru: 'Не удалось создать воронку' },
+  Yaratish: { en: 'Create', ru: 'Создать' },
+  "Standart bosqichlar bilan yaratiladi — keyin sozlamalarda o'zgartirasiz": {
+    en: 'Created with default stages — you can change them later in settings',
+    ru: 'Создаётся со стандартными этапами — их можно изменить в настройках',
+  },
+
   // ─── Vidjet ichi ───
   '{s} so‘m': { en: '{s} UZS', ru: '{s} сум' },
   "Ko'rsatish uchun ma'lumot yetarli emas": { en: 'Not enough data to display', ru: 'Недостаточно данных для отображения' },

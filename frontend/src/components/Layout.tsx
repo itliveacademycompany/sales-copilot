@@ -1,6 +1,5 @@
 import {
   Bell,
-  BriefcaseBusiness,
   Building2,
   CalendarDays,
   ChartNoAxesColumnIncreasing,
@@ -24,7 +23,8 @@ import {
 import { useEffect, useState, type ReactNode, Suspense } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { crmdami, useIlovaYoliniEsla, useIlovaYollari } from './IlovaAlmashtirgich';
-import { useMenyuVoronkalari, type MenyuVoronka } from '../crm/voronkalar';
+import { useMenyuVoronkalari } from '../crm/voronkalar';
+import { BitimlarMenyu } from '../crm/BitimlarMenyu';
 import { useFaollikBelgisi } from '../crm/panel/faollik';
 import '../crm/crm-mavzu.css';
 import { MANZIL_SAHIFA } from '../sahifalar';
@@ -102,9 +102,8 @@ export function Layout() {
   const loc = useLocation();
   const crmda = crmIlova && crmdami(loc.pathname);
 
-  /** Metasell'dagidek har voronka menyuda alohida bo'lim — ro'yxatni CrmIlova beradi. */
+  /** Voronkalar "Bitimlar" panelida (amoCRM "Сделки") — ro'yxatni CrmIlova beradi. */
   const voronkalar = useMenyuVoronkalari();
-  const joriyVoronka = new URLSearchParams(loc.search).get('v');
   const ilovaYollari = useIlovaYollari();
   useIlovaYoliniEsla();
   // CRM bosh sahifasidagi "Tizimdan foydalanish" vidjeti uchun (butun platformada)
@@ -159,30 +158,6 @@ export function Layout() {
       </span>
       <span className="nom">{nom}</span>
     </NavLink>
-    );
-  };
-
-  /**
-   * Voronka bandi: hammasi bitta `/crm/bitimlar` sahifasi, farqi `?v=` da —
-   * shuning uchun faollik NavLink bilan emas, manzildagi voronka ID bilan
-   * aniqlanadi (`v` yo'q bo'lsa — asosiy voronka).
-   */
-  const voronkaItem = (v: MenyuVoronka) => {
-    const faol = loc.pathname === '/crm/bitimlar' && (joriyVoronka ? joriyVoronka === v.id : v.isMain);
-    return (
-      <Link
-        key={v.id}
-        to={`/crm/bitimlar?v=${v.id}`}
-        className={`nav-item${faol ? ' active' : ''}`}
-        aria-current={faol ? 'page' : undefined}
-        onClick={() => setMenyu(false)}
-        title={keng ? undefined : v.name}
-      >
-        <span className="ikon">
-          <BriefcaseBusiness />
-        </span>
-        <span className="nom">{v.name}</span>
-      </Link>
     );
   };
 
@@ -244,9 +219,15 @@ export function Layout() {
             <>
               {/* CRM ilovasi menyusi (Metasell tartibi) — logo bilan SotuvAI ga almashadi */}
               {item('/crm/ish-stoli', <LayoutGrid />, 'Asosiy')}
-              {voronkalar.length > 0
-                ? voronkalar.map((v) => voronkaItem(v))
-                : item('/crm/bitimlar', <BriefcaseBusiness />, 'Lidlar')}
+              {business && (
+                <BitimlarMenyu
+                  voronkalar={voronkalar}
+                  keng={keng}
+                  qoshaOladi={crmSozlaydi}
+                  businessId={business.businessId}
+                  onTanlandi={() => setMenyu(false)}
+                />
+              )}
               {item('/crm/vazifalar', <ListChecks />, 'Vazifalar')}
               {item('/crm/ai-chat', <MessagesSquare />, 'AI Chat')}
               {item('/crm/kontaktlar', <ContactRound />, 'Kontaktlar')}
