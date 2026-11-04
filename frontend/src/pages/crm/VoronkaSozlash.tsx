@@ -619,7 +619,8 @@ function BosqichBoshi({
           />
         ) : (
           <h3
-            title={tashqi ? b.name : t('Nomini o‘zgartirish uchun bosing')}
+            // Tur (muvaffaqiyatli / yo'qotilgan) izohda — ustun chiziqlari bir qatorda tursin
+            title={[turNomi, tashqi ? b.name : t('Nomini o‘zgartirish uchun bosing')].filter(Boolean).join(' · ')}
             onClick={() => !tashqi && setTahrir(true)}
             onKeyDown={(e) => e.key === 'Enter' && !tashqi && setTahrir(true)}
             tabIndex={tashqi ? undefined : 0}
@@ -664,7 +665,6 @@ function BosqichBoshi({
           </span>
         )}
       </div>
-      {turNomi && <small className={`vs-tur ${b.kind}`}>{turNomi}</small>}
       <span className="vs-chiziq" />
     </header>
   );
