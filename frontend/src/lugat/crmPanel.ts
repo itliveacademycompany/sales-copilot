@@ -47,6 +47,16 @@ const CRM_PANEL: Lugat = {
   },
 
   "Voronkani o'chirish": { en: 'Delete pipeline', ru: 'Удалить воронку' },
+  '«{nom}» — yagona voronka': { en: '“{nom}” is the only pipeline', ru: '«{nom}» — единственная воронка' },
+  "CRMda kamida bitta voronka bo'lishi kerak. O'chirishdan oldin «Voronka qo'shish» bilan boshqasini yarating.": {
+    en: 'The CRM needs at least one pipeline. Create another one with “Add pipeline” before deleting.',
+    ru: 'В CRM должна быть хотя бы одна воронка. Перед удалением создайте другую через «Добавить воронку».',
+  },
+  "Bu asosiy voronka: yangi murojaatlar va qo'ng'iroqlar endi «{nom}» voronkasiga tushadi.": {
+    en: 'This is the main pipeline: new requests and calls will now go to “{nom}”.',
+    ru: 'Это основная воронка: новые заявки и звонки будут попадать в «{nom}».',
+  },
+  Tushunarli: { en: 'Got it', ru: 'Понятно' },
   "«{nom}» voronkasi o'chirilsinmi?": { en: 'Delete the “{nom}” pipeline?', ru: 'Удалить воронку «{nom}»?' },
   "Bitimlar o'chmaydi — voronka bilan birga arxivda saqlanadi.": {
     en: 'Deals are not deleted — they are kept in the archive with the pipeline.',

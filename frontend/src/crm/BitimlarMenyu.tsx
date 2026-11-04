@@ -268,27 +268,58 @@ export function BitimlarMenyu({
 
                 // O'chirishni tasdiqlash — qator o'rnida
                 if (ochirish === v.id) {
+                  // Yagona voronka o'chirilmaydi (server ham rad etadi) — sababi tushuntiriladi
+                  const yagona = voronkalar.length <= 1;
+                  // Asosiy voronka o'chirilsa, belgi keyingisiga o'tadi (avval o'z voronkalaringiz)
+                  const keyingi = v.isMain ? (voronkalar.find((x) => x.id !== v.id && !x.external) ?? voronkalar.find((x) => x.id !== v.id)) : undefined;
                   return (
-                    <div key={v.id} className="bvm-tasdiq" role="alertdialog" aria-label={t("Voronkani o'chirish")}>
-                      <p>{joyla(t("«{nom}» voronkasi o'chirilsinmi?"), { nom: <b>{v.name}</b> })}</p>
-                      <small>{t("Bitimlar o'chmaydi — voronka bilan birga arxivda saqlanadi.")}</small>
+                    <div key={v.id} className={`bvm-tasdiq${yagona ? ' yagona' : ''}`} role="alertdialog" aria-label={t("Voronkani o'chirish")}>
+                      {yagona ? (
+                        <>
+                          <p>{joyla(t("«{nom}» — yagona voronka"), { nom: <b>{v.name}</b> })}</p>
+                          <small>{t("CRMda kamida bitta voronka bo'lishi kerak. O'chirishdan oldin «Voronka qo'shish» bilan boshqasini yarating.")}</small>
+                        </>
+                      ) : (
+                        <>
+                          <p>{joyla(t("«{nom}» voronkasi o'chirilsinmi?"), { nom: <b>{v.name}</b> })}</p>
+                          <small>{t("Bitimlar o'chmaydi — voronka bilan birga arxivda saqlanadi.")}</small>
+                          {keyingi && (
+                            <small className="bvm-ogoh">
+                              {joyla(t("Bu asosiy voronka: yangi murojaatlar va qo'ng'iroqlar endi «{nom}» voronkasiga tushadi."), { nom: <b>{keyingi.name}</b> })}
+                            </small>
+                          )}
+                        </>
+                      )}
                       {xatoMatn && <p className="bvm-xato">{xatoMatn}</p>}
                       <div className="bvm-tasdiq-tugmalar">
                         <button type="button" className="btn ikkinchi kichik" onClick={qatorniBekor} autoFocus disabled={band}>
-                          {t('Bekor qilish')}
+                          {yagona ? t('Tushunarli') : t('Bekor qilish')}
                         </button>
-                        <button type="button" className="btn kichik bvm-xavfli" onClick={() => void ochir(v.id)} disabled={band}>
-                          <Trash2 /> {band ? t("O'chirilmoqda…") : t("O'chirish")}
-                        </button>
+                        {yagona ? (
+                          <button
+                            type="button"
+                            className="btn kichik"
+                            onClick={() => {
+                              qatorniBekor();
+                              setQoshish(true);
+                            }}
+                          >
+                            <Plus /> {t("Voronka qo'shish")}
+                          </button>
+                        ) : (
+                          <button type="button" className="btn kichik bvm-xavfli" onClick={() => void ochir(v.id)} disabled={band}>
+                            <Trash2 /> {band ? t("O'chirilmoqda…") : t("O'chirish")}
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
                 }
 
                 // Tahrirlash huquqi: sozlash ruxsati bor va voronka tashqi CRM dan sinxronlanmaydi.
-                // Asosiy voronka o'chirilmaydi — CRM ga kirish va yangi lidlar shunga tushadi.
+                // O'chirish ham shunday — asosiy voronka ham (belgi keyingisiga o'tadi).
                 const tahrirlaydi = qoshaOladi && !v.external;
-                const ochiradi = tahrirlaydi && !v.isMain && voronkalar.length > 1;
+                const ochiradi = tahrirlaydi;
                 return (
                   <div key={v.id} className={`bvm-qator${faol ? ' faol' : ''}`}>
                     <Link

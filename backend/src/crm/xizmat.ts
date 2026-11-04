@@ -23,7 +23,7 @@ import {
 import { telefonKaliti } from '../integrations/crm/adapter.js';
 import { kontaktTelefoni } from '../integrations/crm/lidlar.js';
 import { bosqichRangi, MAYDON_TURLARI, SHABLONLAR, variantlar, type BosqichTuri, type Shablon } from './shablon.js';
-import { radSabablariniBoshla, sozlamaniBoshla, sozlamaniOl } from './sozlama.js';
+import { radSabablariniBoshla, sozlamaniBoshla, sozlamaniOl, sozlamaniSaqla } from './sozlama.js';
 import { tashqiSinxronmi } from './tashqi.js';
 
 /**
@@ -1217,8 +1217,44 @@ export async function voronkaniYangila(tx: Tx, id: string, k: { name?: string; a
     }
     ozg.archivedAt = k.archived ? new Date() : null;
   }
-  const r = await tx.update(crmPipeline).set(ozg).where(eq(crmPipeline.id, id)).returning({ id: crmPipeline.id });
-  if (r.length === 0) throw new CrmXatosi('topilmadi', 'Voronka topilmadi');
+  const r = await tx
+    .update(crmPipeline)
+    .set(ozg)
+    .where(eq(crmPipeline.id, id))
+    .returning({ id: crmPipeline.id, businessId: crmPipeline.businessId, isMain: crmPipeline.isMain });
+  const v = r[0];
+  if (!v) throw new CrmXatosi('topilmadi', 'Voronka topilmadi');
+  if (k.archived) await arxivlanganVoronkaniBoshat(tx, v);
+}
+
+/**
+ * Arxivlangan voronkaga bog'langan narsalar qolib ketmasin:
+ *   • asosiy bo'lsa — "asosiy" belgisi keyingi faol voronkaga o'tadi (voronkasiz
+ *     murojaatlar, qo'ng'iroqlar va menyudagi "Bitimlar" asosiy voronkaga tayanadi);
+ *   • qo'ng'iroqlar qabuli, veb-formalar va kutayotgan murojaatlar shu voronkaga
+ *     yo'naltirilgan bo'lsa — asosiy voronkaga (`null`) qaytadi.
+ * Bitimlarning o'zi o'zgarmaydi — voronka bilan birga arxivda qoladi.
+ */
+async function arxivlanganVoronkaniBoshat(tx: Tx, v: { id: string; businessId: string; isMain: boolean }): Promise<void> {
+  if (v.isMain) {
+    await tx.update(crmPipeline).set({ isMain: false }).where(eq(crmPipeline.id, v.id));
+    const [keyingi] = await tx
+      .select({ id: crmPipeline.id })
+      .from(crmPipeline)
+      .where(and(isNull(crmPipeline.archivedAt), sql`${crmPipeline.id} <> ${v.id}`))
+      // Avval o'z (sinxronlanmaydigan) voronkalar, keyin menyudagi tartib
+      .orderBy(sql`${crmPipeline.integrationId} is not null`, asc(crmPipeline.sort), asc(crmPipeline.createdAt))
+      .limit(1);
+    if (keyingi) await tx.update(crmPipeline).set({ isMain: true, updatedAt: new Date() }).where(eq(crmPipeline.id, keyingi.id));
+  }
+  await tx.update(crmForm).set({ pipelineId: null }).where(eq(crmForm.pipelineId, v.id));
+  await tx.update(crmInbox).set({ pipelineId: null }).where(and(eq(crmInbox.pipelineId, v.id), eq(crmInbox.status, 'pending')));
+  const s = await sozlamaniOl(tx);
+  if (s.callIntake.pipelineId === v.id) {
+    await sozlamaniSaqla(tx, v.businessId, {
+      callIntake: { enabled: s.callIntake.enabled, pipelineId: null, autoAccept: s.callIntake.autoAccept },
+    });
+  }
 }
 
 export const bosqichlarKirish = z
