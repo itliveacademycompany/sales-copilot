@@ -59,6 +59,28 @@ const CRM_PANEL: Lugat = {
   '{nom} — nomini o‘zgartirish': { en: '{nom} — rename', ru: '{nom} — переименовать' },
   '{nom} — o‘chirish': { en: '{nom} — delete', ru: '{nom} — удалить' },
 
+  // ─── Voronka kanbani (amoCRM "Сделки") ───
+  '{n} bitim: {s} so‘m': { en: '{n} deals: {s} UZS', ru: '{n} сделок: {s} сум' },
+  '{n} bitim:': { en: '{n} deals:', ru: '{n} сделок:' },
+  'Yana {n} ta bitim': { en: '{n} more deals', ru: 'Ещё {n} сделок' },
+  'Bugun {v}': { en: 'Today {v}', ru: 'Сегодня {v}' },
+  'Kecha {v}': { en: 'Yesterday {v}', ru: 'Вчера {v}' },
+  "Vazifa yo'q — keyingi qadamni belgilang": { en: 'No task — set the next step', ru: 'Нет задачи — назначьте следующий шаг' },
+  Kontaktsiz: { en: 'No contact', ru: 'Без контакта' },
+  "Bajarib bo'lmadi": { en: 'Could not complete', ru: 'Не удалось выполнить' },
+  'Murojaat: {n}': { en: 'Requests: {n}', ru: 'Заявок: {n}' },
+  'dan:': { en: 'from:', ru: 'от:' },
+  'Hammasini saralash ({n})': { en: 'Sort all ({n})', ru: 'Разобрать все ({n})' },
+  "Yangi murojaat yo'q": { en: 'No new requests', ru: 'Новых заявок нет' },
+  "Tezkor qo'shish": { en: 'Quick add', ru: 'Быстрое добавление' },
+  'Bitim nomi yoki kontaktni kiriting': { en: 'Enter a deal name or contact', ru: 'Введите название сделки или контакт' },
+  'Kontakt: ism': { en: 'Contact: name', ru: 'Контакт: имя' },
+  'Summa, so‘m': { en: 'Amount, UZS', ru: 'Бюджет, сум' },
+  'Qidirish va filtr': { en: 'Search and filter', ru: 'Поиск и фильтр' },
+  'Filtrga mos bitimlar soni va summasi': { en: 'Number and total of deals matching the filter', ru: 'Количество и сумма сделок по фильтру' },
+  'Voronka bosqichlari va sozlamalari': { en: 'Pipeline stages and settings', ru: 'Этапы и настройки воронки' },
+  "Qo'lda kiritilgan": { en: 'Added manually', ru: 'Добавлено вручную' },
+
   // ─── Vidjet ichi ───
   '{s} so‘m': { en: '{s} UZS', ru: '{s} сум' },
   "Ko'rsatish uchun ma'lumot yetarli emas": { en: 'Not enough data to display', ru: 'Недостаточно данных для отображения' },

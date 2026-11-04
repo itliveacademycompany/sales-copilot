@@ -117,6 +117,8 @@ export interface BitimKartasi {
   tags: string[];
   source: string | null;
   companyId: string | null;
+  /** Kartada "Ism, Kompaniya" (amoCRM). */
+  companyName?: string | null;
   lostReason: string | null;
   /** Tashqi CRM dagi ID (sinxronlangan bitim). */
   externalId?: string | null;

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { and, asc, count, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, isNull, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { withoutTenantIsolation, withTenant, type Tx } from '../db/index.js';
 import { contact, crmForm, crmInbox, crmPipeline, deal, dealEvent } from '../db/schema/index.js';
@@ -23,8 +23,23 @@ import { bitimniOl, bitimYarat, kontaktniTopYokiYarat, maydonlarniTekshir, tuzil
 
 const TIZIM: CrmDoira = { korish: 'all', yozish: 'all', seatId: null };
 
-export async function murojaatlar(tx: Tx, p: { status: 'pending' | 'accepted' | 'rejected'; limit: number; offset: number }) {
-  const where = eq(crmInbox.status, p.status);
+export async function murojaatlar(
+  tx: Tx,
+  p: { status: 'pending' | 'accepted' | 'rejected'; limit: number; offset: number; pipelineId?: string | undefined },
+) {
+  /**
+   * Voronka bo'yicha (amoCRM'dagidek har voronkaning o'z "Saralanmagan" ustuni):
+   * shu voronkaga yo'naltirilgan murojaatlar; asosiy voronkada — voronkasiz
+   * kelganlari ham (qo'ng'iroq, qo'lda kiritilgan).
+   */
+  let voronkaSharti;
+  if (p.pipelineId) {
+    const [v] = await tx.select({ isMain: crmPipeline.isMain }).from(crmPipeline).where(eq(crmPipeline.id, p.pipelineId)).limit(1);
+    voronkaSharti = v?.isMain
+      ? or(eq(crmInbox.pipelineId, p.pipelineId), isNull(crmInbox.pipelineId))
+      : eq(crmInbox.pipelineId, p.pipelineId);
+  }
+  const where = voronkaSharti ? and(eq(crmInbox.status, p.status), voronkaSharti)! : eq(crmInbox.status, p.status);
   const [qatorlar, [jami], sonlar] = await Promise.all([
     tx
       .select({

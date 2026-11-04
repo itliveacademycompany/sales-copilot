@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, ilike, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, gt, ilike, inArray, isNull, lte, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Tx } from '../db/index.js';
 import {
@@ -744,6 +744,8 @@ function kartaUstunlari() {
     tags: deal.tags,
     source: deal.source,
     companyId: deal.companyId,
+    /** Kartada "Ism, Kompaniya" (amoCRM) — alohida join'siz, bitta qiymat. */
+    companyName: sql<string | null>`(select c.name from company c where c.id = "deal"."company_id")`,
     lostReason: deal.lostReason,
     externalId: deal.externalId,
     /** Eng yaqin ochiq vazifa muddati — "vazifasiz bitim" belgisi uchun. */
@@ -819,9 +821,14 @@ function filtrShartlari(f: BitimFiltr, doira: CrmDoira): SQL[] {
 }
 
 /** Kanban: har bosqich uchun soni, summasi va birinchi `limit` ta bitim. */
-export async function kanban(tx: Tx, p: { pipelineId: string; doira: CrmDoira; filtr: BitimFiltr; limit?: number }) {
+export async function kanban(
+  tx: Tx,
+  p: { pipelineId: string; doira: CrmDoira; filtr: BitimFiltr; limit?: number; stageId?: string; offset?: number },
+) {
   const limit = p.limit ?? 50;
-  const sh = [...filtrShartlari(p.filtr, p.doira), eq(deal.pipelineId, p.pipelineId)];
+  // Bitta ustunni davomidan yuklash (ustun oxiriga aylantirilganda)
+  const offset = p.offset ?? 0;
+  const sh = [...filtrShartlari(p.filtr, p.doira), eq(deal.pipelineId, p.pipelineId), ...(p.stageId ? [eq(deal.stageId, p.stageId)] : [])];
   // Har bosqichdan eng yangi `limit` tasi — oyna funksiyasi bilan, bazada kesiladi
   const tartib = tx
     .select({
@@ -845,12 +852,12 @@ export async function kanban(tx: Tx, p: { pipelineId: string; doira: CrmDoira; f
       .innerJoin(tartib, eq(tartib.id, deal.id))
       .leftJoin(contact, eq(contact.id, deal.contactId))
       .leftJoin(seat, eq(seat.id, deal.responsibleSeatId))
-      .where(lte(tartib.rn, limit)),
+      .where(and(gt(tartib.rn, offset), lte(tartib.rn, offset + limit))),
   ]);
   const bosqichlar = await tx
     .select({ id: crmStage.id, name: crmStage.name, color: crmStage.color, kind: crmStage.kind, sort: crmStage.sort })
     .from(crmStage)
-    .where(eq(crmStage.pipelineId, p.pipelineId))
+    .where(p.stageId ? and(eq(crmStage.pipelineId, p.pipelineId), eq(crmStage.id, p.stageId)) : eq(crmStage.pipelineId, p.pipelineId))
     .orderBy(asc(crmStage.sort));
   return bosqichlar.map((b) => {
     const j = jamlar.find((x) => x.stageId === b.id);

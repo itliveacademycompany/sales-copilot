@@ -199,13 +199,16 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
 
   app.get(`${BASE}/deals/board`, guard, async (req) => {
     const q = req.query as Record<string, unknown>;
-    const { pipeline } = z.object({ pipeline: z.string().uuid() }).parse(q);
+    const { pipeline, stage, offset } = z
+      .object({ pipeline: z.string().uuid(), stage: z.string().uuid().optional(), offset: z.coerce.number().int().min(0).max(100_000).optional() })
+      .parse(q);
     const filtr = filtrniOl(q);
     const d = doira(req);
     const businessId = req.business!.businessId;
+    // `stage` + `offset` — bitta ustunning keyingi bitimlari (kanbanda pastga aylantirilganda)
     const stages = await withTenant(businessId, async (tx) => {
       await vaqtZonasiniOrnat(tx, businessId);
-      return kanban(tx, { pipelineId: pipeline, doira: d, filtr });
+      return kanban(tx, { pipelineId: pipeline, doira: d, filtr, stageId: stage, offset });
     });
     return { stages };
   });

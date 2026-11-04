@@ -272,120 +272,7 @@ button.ms-kpi-band:hover { background: var(--bg-elevated); }
   .ms-kpi-prognoz { grid-column: span 2; align-items: flex-start; text-align: left; }
 }
 
-/* ─── Kanban ───────────────────────────────────────────────────────────── */
-
-.ms-kanban {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding: 2px 2px 12px;
-  align-items: flex-start;
-  min-height: 60vh;
-}
-.ms-ustun {
-  flex: 0 0 272px;
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100vh - 230px);
-  border-radius: 12px;
-  background: transparent;
-  transition: background-color 0.15s var(--ease);
-}
-.ms-ustun.ustida { background: var(--ms-asosiy-och); }
-.ms-ustun-bosh {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  padding: 8px 6px 9px 8px;
-  margin-bottom: 8px;
-  border-bottom: 2px solid var(--bosqich, var(--ms-chegara-kuchli));
-}
-.ms-ustun.saralanmagan .ms-ustun-bosh { border-bottom-color: var(--ms-chegara-kuchli); }
-.ms-ustun-matn { flex: 1; min-width: 0; }
-.ms-ustun-nom {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ms-ustun-jami { margin-top: 2px; font-family: var(--ms-mono); font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
-.ms-ustun-bosh .ms-ikon-tugma { width: 28px; height: 28px; }
-.ms-ustun-bosh .ms-ikon-tugma svg { width: 15px; height: 15px; }
-.ms-ustun-ichi { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; padding: 0 2px 4px; }
-.ms-ustun-bosh-holat {
-  padding: 22px 10px;
-  border-radius: 10px;
-  border: 1px dashed var(--ms-chegara-kuchli);
-  text-align: center;
-  font-size: 12.5px;
-  color: var(--text-muted);
-}
-
-.ms-karta {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--bg-surface);
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  transition: box-shadow 0.15s var(--ease);
-}
-.ms-karta:hover { box-shadow: 0 0 0 1px var(--ms-chegara-kuchli), 0 6px 16px -8px rgba(16, 24, 40, 0.25); }
-.ms-karta[draggable='true'] { cursor: grab; }
-.ms-karta.qulf { opacity: 0.92; }
-.ms-karta-tepa { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-muted); min-width: 0; }
-.ms-karta-kontakt { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--text-secondary); }
-.ms-karta-vaqt { font-family: var(--ms-mono); font-size: 10.5px; white-space: nowrap; }
-.ms-kun-belgi {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 6px;
-  border-radius: 99px;
-  background: var(--ms-qizil-och);
-  color: var(--ms-qizil);
-  font-size: 10.5px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-.ms-kun-belgi svg { width: 11px; height: 11px; }
-.ms-karta-nom { display: flex; align-items: center; gap: 4px; min-width: 0; }
-.ms-karta-nom > a:first-child {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-.ms-karta-nom > a:first-child:hover { color: var(--ms-asosiy); }
-.ms-karta-ochish { display: inline-grid; place-items: center; color: var(--text-muted); flex-shrink: 0; }
-.ms-karta-ochish:hover { color: var(--ms-asosiy); }
-.ms-karta-ochish svg { width: 13px; height: 13px; }
-.ms-karta-izoh { font-size: 12px; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ms-karta-past { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 11.5px; }
-.ms-summa { font-family: var(--ms-mono); color: var(--text-secondary); white-space: nowrap; }
-.ms-masul {
-  max-width: 130px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  padding: 1px 7px;
-  border-radius: 6px;
-  background: var(--bg-sunken);
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-.ms-vazifa { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; font-weight: 600; white-space: nowrap; }
-.ms-vazifa::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-.ms-vazifa.bor { color: var(--ms-yashil); }
-.ms-vazifa.otgan { color: var(--ms-qizil); }
-.ms-vazifa.yoq { color: var(--text-muted); }
+/* ─── Bitim teglari va rad sababi (lid kartasi) — kanban: pages/crm/kanban.css ─── */
 .ms-rad {
   display: inline-flex;
   align-items: center;
@@ -411,19 +298,6 @@ button.ms-kpi-band:hover { background: var(--bg-elevated); }
   color: var(--ia-text);
   font-size: 11px;
   font-weight: 500;
-}
-.ms-yana {
-  display: block;
-  padding: 8px;
-  border-radius: 8px;
-  text-align: center;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ms-asosiy);
-}
-.ms-yana:hover { background: var(--ms-asosiy-och); }
-@media (max-width: 860px) {
-  .ms-ustun { flex-basis: 248px; max-height: none; }
 }
 
 /* ─── Lid xulosalari (yo'qotilgan lidlar) ──────────────────────────────── */
