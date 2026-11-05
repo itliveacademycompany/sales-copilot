@@ -24,6 +24,7 @@ import {
   panelniSaqla,
   panelniTikla,
 } from '../../crm/boshPanel.js';
+import { hodisalarLentasi, lentaSxemasi } from '../../crm/hodisalar.js';
 import { tovarKirish, tovarlar, tovarniYangila, tovarYarat } from '../../crm/katalog.js';
 import {
   formaKirish,
@@ -343,6 +344,18 @@ export function registerCrmBoshqaruvRoutes(app: FastifyInstance): void {
     const davr = davrniOl(req.query);
     const d = doira(req);
     return { items: await withTenant(req.business!.businessId, (tx) => xodimlarHisoboti(tx, { doira: d, davr })) };
+  });
+
+  // Hodisalar lentasi (amoCRM "События"): bitim hodisalari + qo'ng'iroqlar, filtr va sahifalash
+  app.get(`${BASE}/crm-app/events-feed`, guard, async (req) => {
+    const r = req.query as Record<string, unknown>;
+    const f = lentaSxemasi.parse(Object.fromEntries(Object.entries(r).filter(([, v]) => v !== '' && v !== undefined)));
+    const d = doira(req);
+    const businessId = req.business!.businessId;
+    return withTenant(businessId, async (tx) => {
+      await vaqtZonasiniOrnat(tx, businessId);
+      return hodisalarLentasi(tx, { doira: d, f });
+    });
   });
 
   app.get(`${BASE}/crm-app/reports/events`, guard, async (req) => {
