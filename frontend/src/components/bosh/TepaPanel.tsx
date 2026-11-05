@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { fmtSana, type ConversationRow } from '../../api';
 import { useAuth } from '../../auth';
 import { useT } from '../../i18n';
+import { IlovaKaliti } from '../IlovaKaliti';
 import { TilTanlash } from '../TilTanlash';
 import { avatarRang, boshHarf, type Davr, type DavrTuri } from './malumot';
 
@@ -123,7 +124,11 @@ export function TepaPanel({
 
   return (
     <header className="tepa-panel">
-      <div className="tepa-biznes">{biznesNomi}</div>
+      {/* Biznes nomi va qidiruv orasida — SotuvAI ↔ CRM kaliti */}
+      <div className="tepa-chap">
+        <div className="tepa-biznes">{biznesNomi}</div>
+        <IlovaKaliti />
+      </div>
 
       <div className="tepa-qidiruv" role="combobox" aria-expanded={ochiq && soz.length >= 2} aria-haspopup="listbox">
         <Search className="tepa-qidiruv-ikon" aria-hidden="true" />

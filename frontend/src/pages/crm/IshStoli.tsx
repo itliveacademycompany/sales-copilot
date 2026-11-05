@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../../api';
 import { useAuth } from '../../auth';
 import { davrHisobla, useCrm, type DavrTuri } from '../../crm/malumot';
+import { IlovaKaliti } from '../../components/IlovaKaliti';
 import { HodisalarOyna } from '../../crm/HodisalarOyna';
 import { BitimVidjetTahrir, VidjetQoshish } from '../../crm/panel/Sozlash';
 import { STANDART_TARTIB, STANDART_TURLAR, VIDJET_META, type BitimVidjetNatija, type PanelJavob, type Vidjet } from '../../crm/panel/turlar';
@@ -214,7 +215,10 @@ export function IshStoli() {
   return (
     <div className={`pn-sahifa${tahrir ? ' tahrirda' : ''}`}>
       <header className="pn-sarlavha">
-        <span aria-hidden="true" />
+        {/* CRM ↔ SotuvAI kaliti (SotuvAI tepa panelidagi bilan bir xil) */}
+        <div className="pn-sarlavha-chap">
+          <IlovaKaliti />
+        </div>
         <h1>{business?.name}</h1>
         <div className="pn-sarlavha-ong">
           <button type="button" className="btn ikkinchi kichik" onClick={() => setHodisalar(true)} aria-haspopup="dialog">
