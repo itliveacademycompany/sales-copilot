@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
 import { useIlovaYollari } from './IlovaAlmashtirgich';
+import { bolimniOldindanYukla, ilovagaOt } from './ilovaOtish';
 import './ilova-kaliti.css';
 
 /**
@@ -13,17 +14,17 @@ import './ilova-kaliti.css';
  *
  * Neumorfik kapsula: chapda tugma (✨ SotuvAI / 💼 CRM), o'ngda chuqur.
  * Bosilganda tugma botadi, yonidan odamcha chiqadi, chuqurgacha yuradi,
- * sakrab unga tushadi — chuqur ochiladi, kapsula ikkinchi ilova rangiga
- * o'tadi (SotuvAI — yorug', CRM — to'q) va o'sha ilovaning oxirgi ochilgan
- * sahifasi ochiladi.
+ * sakrab unga tushadi — chuqur ochiladi va ikkinchi ilova (oxirgi ochilgan
+ * sahifasi) aynan shu chuqurdan aylana bo'lib butun ekranga yoyiladi.
+ * Kapsula ikkala ilovada ham oq; tugmadagi belgi ✨ SotuvAI / 💼 CRM.
  *
  * "Harakatni kamaytirish" yoqilgan bo'lsa — animatsiyasiz, darhol o'tadi.
  */
 
-type Bosqich = 'tinch' | 'bosildi' | 'yurish' | 'tushish' | 'almashish';
+type Bosqich = 'tinch' | 'bosildi' | 'yurish' | 'tushish';
 
 /** Bosqichlar davomiyligi (ms) — CSS bilan bir xil. */
-const VAQT = { bosildi: 160, yurish: 1150, tushish: 520, almashish: 520 } as const;
+const VAQT = { bosildi: 160, yurish: 1150, tushish: 520 } as const;
 
 export function IlovaKaliti() {
   const { business } = useAuth();
@@ -32,6 +33,7 @@ export function IlovaKaliti() {
   const yollar = useIlovaYollari();
   const [bosqich, setBosqich] = useState<Bosqich>('tinch');
   const taymerlar = useRef<number[]>([]);
+  const chuqur = useRef<HTMLSpanElement>(null);
 
   useEffect(() => () => taymerlar.current.forEach((x) => window.clearTimeout(x)), []);
 
@@ -46,6 +48,7 @@ export function IlovaKaliti() {
 
   const bos = () => {
     if (bosqich !== 'tinch') return;
+    bolimniOldindanYukla(manzil);
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       navigate(manzil);
       return;
@@ -57,19 +60,25 @@ export function IlovaKaliti() {
     t0 += VAQT.yurish;
     keyin(t0, () => setBosqich('tushish'));
     t0 += VAQT.tushish;
-    keyin(t0, () => setBosqich('almashish'));
-    t0 += VAQT.almashish;
-    keyin(t0, () => navigate(manzil));
+    keyin(t0, () => {
+      // Yangi bo'lim odamcha tushgan chuqurdan yoyiladi
+      const c = chuqur.current?.getBoundingClientRect();
+      const markaz = c
+        ? { x: c.left + c.width / 2, y: c.top + c.height / 2 }
+        : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+      ilovagaOt(() => navigate(manzil), !crmda, markaz);
+    });
   };
 
-  // Kapsula rangi: almashish boshlangach — ikkinchi ilovaniki
-  const korinish = (bosqich === 'almashish') !== crmda ? 'crm' : 'sotuv';
+  const korinish = crmda ? 'crm' : 'sotuv';
 
   return (
     <button
       type="button"
       className={`ik ik-${korinish} ik-${bosqich}`}
       onClick={bos}
+      onMouseEnter={() => bolimniOldindanYukla(manzil)}
+      onFocus={() => bolimniOldindanYukla(manzil)}
       aria-label={nomi}
       title={nomi}
       aria-busy={bosqich !== 'tinch'}
@@ -78,7 +87,7 @@ export function IlovaKaliti() {
         <Sparkles className="ik-belgi sotuv" />
         <BriefcaseBusiness className="ik-belgi crm" />
       </span>
-      <span className="ik-chuqur" aria-hidden="true" />
+      <span ref={chuqur} className="ik-chuqur" aria-hidden="true" />
       <span className="ik-yol" aria-hidden="true">
         <svg className="ik-odam" viewBox="0 0 14 22" width="14" height="22">
           <circle className="ik-bosh" cx="7" cy="3.4" r="2.6" />
