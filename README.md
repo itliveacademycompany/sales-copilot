@@ -1,4 +1,4 @@
-# AI Sotuv Intellekti
+# Dill Mind
 
 Sotuv bo'limining Telegram yozishmalarini yig'ib, kompaniyaning **o'z sotuv
 skripti (playbook) bo'yicha** baholaydigan va kouching beradigan platforma.

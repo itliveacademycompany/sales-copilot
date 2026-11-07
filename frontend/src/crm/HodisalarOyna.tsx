@@ -9,7 +9,7 @@ import './hodisalar.css';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * HODISALAR JURNALI — amoCRM "События" namunasida (SotuvAI dizayni)
+ * HODISALAR JURNALI — amoCRM "События" namunasida (Dill Mind dizayni)
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * Bosh sahifadagi "Hodisalar" tugmasi ochadigan to'liq ekranli jadval:

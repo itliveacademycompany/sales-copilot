@@ -11,7 +11,7 @@ import { bitimniOl, seatniTekshir, yozaOladimi, type CrmDoira } from './xizmat.j
  * ICHKI CRM — vazifalar (TASK-01..05)
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * Bitta `task` jadvali: SotuvAI tahlil vazifalari ham, CRM vazifalari ham.
+ * Bitta `task` jadvali: Dill Mind tahlil vazifalari ham, CRM vazifalari ham.
  * CRM ko'rinishi — bitim yoki kontaktga bog'langanlar va mustaqil (CRM da
  * yaratilgan) vazifalar. Sotuvchi faqat o'ziga tegishlilarini ko'radi.
  */

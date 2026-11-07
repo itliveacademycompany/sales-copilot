@@ -1249,7 +1249,7 @@ function MaydonOzgarishi({ d }: { d: Record<string, unknown> }) {
   return <p>{t('«{m}»: {a} → {b}', { m: m?.label ?? t('Maydon'), a: qiymatMatni(m, d.before, t), b: qiymatMatni(m, d.after, t) })}</p>;
 }
 
-/** Qo'ng'iroq hodisasi: holat, audio, SotuvAI tahlili va (oxirgisida) maydon takliflari. */
+/** Qo'ng'iroq hodisasi: holat, audio, Dill Mind tahlili va (oxirgisida) maydon takliflari. */
 function QongiroqHodisa({ q, k, takliflar, onOzgardi }: { q: Qongiroq; k: Kartochka; takliflar: boolean; onOzgardi: () => Promise<void> }) {
   const t = useT();
   const [tahlilOchiq, setTahlilOchiq] = useState(true);
@@ -1281,7 +1281,7 @@ function QongiroqHodisa({ q, k, takliflar, onOzgardi }: { q: Qongiroq; k: Kartoc
         {tahlilBor && (
           <div className="ms-ai-tahlil">
             <button type="button" className="ms-ai-tahlil-bosh" onClick={() => setTahlilOchiq((v) => !v)} aria-expanded={tahlilOchiq}>
-              <Sparkles aria-hidden="true" /> {t('SotuvAI tahlili')}
+              <Sparkles aria-hidden="true" /> {t('Dill Mind tahlili')}
               <ChevronDown className={tahlilOchiq ? 'aylangan' : undefined} aria-hidden="true" />
             </button>
             {tahlilOchiq && (

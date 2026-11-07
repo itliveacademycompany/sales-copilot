@@ -273,7 +273,7 @@ export function registerTelegramRoutes(app: FastifyInstance): void {
       const natija = await sendTelegramMessage(
         decryptSecret(row.credentials),
         manzil.chatId,
-        'Sotuv Intellekti: sinov xabari. Bu manzilga ogohlantirishlar keladi.',
+        'Dill Mind: sinov xabari. Bu manzilga ogohlantirishlar keladi.',
       );
       return { ok: natija.ok, error: natija.error ?? null };
     },

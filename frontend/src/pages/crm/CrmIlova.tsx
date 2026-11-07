@@ -22,10 +22,10 @@ import './crm-ilova-2.css';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CRM ILOVASI — SotuvAI yonidagi o'z CRM
+ * CRM ILOVASI — Dill Mind yonidagi o'z CRM
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * Tepadagi "SotuvAI | CRM" almashtirgichi shu yerga olib keladi. Holat
+ * Tepadagi "Dill Mind | CRM" almashtirgichi shu yerga olib keladi. Holat
  * (voronkalar, maydonlar, ruxsatlar) bir marta yuklanib, kontekst orqali
  * hamma CRM sahifasiga beriladi.
  *
@@ -97,7 +97,7 @@ export function CrmIlova() {
             {holat.canConfigure && <Route path="bitimlar/sozlash" element={<VoronkaSozlash />} />}
             <Route path="bitimlar/:id" element={<BitimKarta />} />
             <Route path="kontaktlar" element={<Kontaktlar bolim="kontakt" />} />
-            {/* Metasell'dagidek SotuvAI bo'limlari ham CRM menyusi ichida ochiladi */}
+            {/* Metasell'dagidek Dill Mind bo'limlari ham CRM menyusi ichida ochiladi */}
             <Route path="qongiroqlar" element={<SAHIFA.qongiroqlar />} />
             <Route path="suhbatlar/:id" element={<SAHIFA.conversationDetail />} />
             <Route path="ai-chat" element={<SAHIFA.aiChat />} />
@@ -146,7 +146,7 @@ function CrmYoqish() {
           <Columns3 />
         </span>
         <div>
-          <h1>{t('SotuvAI CRM')}</h1>
+          <h1>{t('Dill Mind CRM')}</h1>
           <p>
             {t("Bitimlar, kontaktlar va vazifalar — qo'ng'iroq tahlillari bilan bir joyda. Mijoz qo'ng'iroq qilsa, uning bitimida suhbat va AI bahosi o'zi paydo bo'ladi.")}
           </p>
@@ -198,7 +198,7 @@ function CrmYoqish() {
           </span>
           <span className="ci-tashqi-matn">
             <b>{t('amoCRM yoki Bitrix24 ishlatasizmi?')}</b>
-            <span>{t("Mavjud CRM ni ulang — SotuvAI tahlillarni o'sha yerga yozadi.")}</span>
+            <span>{t("Mavjud CRM ni ulang — Dill Mind tahlillarni o'sha yerga yozadi.")}</span>
           </span>
           <ArrowRight aria-hidden="true" />
         </Link>

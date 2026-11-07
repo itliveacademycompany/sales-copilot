@@ -164,8 +164,8 @@ export function Layout() {
   const banner = billing ? BANNER[billing.status] : undefined;
 
   /**
-   * Logo ham almashtirgich: SotuvAI da bosilsa CRM ga o'tadi, CRM da bosilsa
-   * SotuvAI ga qaytadi (har ilovaning oxirgi ochilgan sahifasiga).
+   * Logo ham almashtirgich: Dill Mind da bosilsa CRM ga o'tadi, CRM da bosilsa
+   * Dill Mind ga qaytadi (har ilovaning oxirgi ochilgan sahifasiga).
    */
   const logoIchi = (
     <>
@@ -173,11 +173,11 @@ export function Layout() {
         <Sparkles />
       </span>
       <span className="logo-matn">
-        Sotuv<em>AI</em>
+        Dill <em>Mind</em>
       </span>
     </>
   );
-  const logoNomi = crmda ? t('SotuvAI ga qaytish') : t("CRM ga o'tish");
+  const logoNomi = crmda ? t('Dill Mind ga qaytish') : t("CRM ga o'tish");
   const logo = crmIlova ? (
     <Link
       to={crmda ? ilovaYollari.sotuvYol : ilovaYollari.crmYol}
@@ -217,7 +217,7 @@ export function Layout() {
         <nav className="nav-royxat" aria-label={t('Asosiy menyu')}>
           {crmda ? (
             <>
-              {/* CRM ilovasi menyusi (Metasell tartibi) — logo bilan SotuvAI ga almashadi */}
+              {/* CRM ilovasi menyusi (Metasell tartibi) — logo bilan Dill Mind ga almashadi */}
               {item('/crm/ish-stoli', <LayoutGrid />, 'Asosiy')}
               {business && (
                 <BitimlarMenyu

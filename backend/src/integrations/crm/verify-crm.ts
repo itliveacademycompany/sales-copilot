@@ -385,7 +385,7 @@ async function main(): Promise<void> {
   check('izoh turi common, matn o\'zgarmagan', iz?.[0]?.note_type === 'common' && iz[0].params.text === 'Salom');
   check('izoh → kontaktga', (await amocrmAdapter.izoh(ctx, yk!, 'K')) === '9002');
   const muddat = new Date('2027-01-02T10:00:00Z');
-  check('vazifa yaratildi', (await amocrmAdapter.vazifa(ctx, y!, { sarlavha: 'SotuvAI: qayta qo\'ng\'iroq', matn: 'narx', muddat })) === '7001');
+  check('vazifa yaratildi', (await amocrmAdapter.vazifa(ctx, y!, { sarlavha: 'Dill Mind: qayta qo\'ng\'iroq', matn: 'narx', muddat })) === '7001');
   const vz = amoYozuvlar.find((w) => w.yol === '/api/v4/tasks')?.tana as Record<string, unknown>[];
   check(
     'vazifa: sdelkaga, mas\'ulga, muddat bilan',
@@ -424,7 +424,7 @@ async function main(): Promise<void> {
   check('izoh → xronologiya', (await bitrix24Adapter.izoh(bctx, by!, 'Salom')) === '555');
   const bi = bxYozuvlar.find((w) => w.usul === 'crm.timeline.comment.add')?.tana as { fields: Record<string, unknown> };
   check('izoh sdelkaga', bi?.fields.ENTITY_TYPE === 'deal' && bi.fields.ENTITY_ID === 1201 && bi.fields.COMMENT === 'Salom');
-  check('vazifa → ish', (await bitrix24Adapter.vazifa(bctx, by!, { sarlavha: 'SotuvAI: X', matn: 'Y', muddat })) === '777');
+  check('vazifa → ish', (await bitrix24Adapter.vazifa(bctx, by!, { sarlavha: 'Dill Mind: X', matn: 'Y', muddat })) === '777');
   const bv = bxYozuvlar.find((w) => w.usul === 'crm.activity.todo.add')?.tana as Record<string, unknown>;
   check('ish: sdelka, mas\'ul, muddat', bv?.ownerTypeId === 2 && bv.ownerId === 1201 && bv.responsibleId === 9 && bv.deadline === muddat.toISOString());
 
@@ -441,7 +441,7 @@ async function main(): Promise<void> {
     keyingi: ['Ertaga qayta qo‘ng‘iroq'],
     havola: 'https://acme.sotuv.uz/suhbatlar/abc',
   });
-  check('sarlavha, sana (Toshkent vaqti), davomiylik', matn.startsWith("SotuvAI · qo'ng'iroq tahlili\n21.10.2026, 14:05 · 3:12 · Menejer: Maktuba"), matn.split('\n')[1]);
+  check('sarlavha, sana (Toshkent vaqti), davomiylik', matn.startsWith("Dill Mind · qo'ng'iroq tahlili\n21.10.2026, 14:05 · 3:12 · Menejer: Maktuba"), matn.split('\n')[1]);
   check('baho yaxlitlangan', matn.includes('Baho: 72/100'));
   check('xulosa, kamchilik, keyingi qadam, havola', ['Xulosa: Mijoz', 'Asosiy kamchilik: Ehtiyoj', 'Keyingi qadam: Ertaga', 'Batafsil: https://acme.sotuv.uz/suhbatlar/abc'].every((s) => matn.includes(s)));
   const ru = izohMatni({ til: 'ru', timezone: 'Asia/Tashkent', boshlandi: new Date(), davomiylikSoniya: null, menejer: null, baho: null, xulosa: null, kamchilik: null, keyingi: [], havola: 'x' });

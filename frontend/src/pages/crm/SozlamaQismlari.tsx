@@ -233,7 +233,7 @@ export function TaqsimotSozlama() {
         </div>
       </section>
       <section className="card ci-blok">
-        <h2>{t("SotuvAI qo'ng'iroqlaridan qabul")}</h2>
+        <h2>{t("Dill Mind qo'ng'iroqlaridan qabul")}</h2>
         <p className="yordam">{t("Ochiq bitimi yo'q mijoz qo'ng'iroq qilsa — u «Saralanmagan»ga o'zi tushadi (CRM yoqilgandan keyingi qo'ng'iroqlar).")}</p>
         {holat.externalSync && (
           <div className="card ci-sinx-qator" role="note">

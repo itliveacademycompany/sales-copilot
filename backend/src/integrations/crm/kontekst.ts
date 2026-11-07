@@ -17,7 +17,7 @@ import { crmConfigniOl } from './index.js';
  * OAUTH NIMA BERADI
  * ─────────────────
  * Mijoz amoCRM da integratsiya yaratib, token nusxalamaydi: «amoCRM bilan
- * ulash» → amoCRM o'zi hisob tanlatadi va ruxsat so'raydi → SotuvAI
+ * ulash» → amoCRM o'zi hisob tanlatadi va ruxsat so'raydi → Dill Mind
  * tokenlarni oladi. Buning uchun platformada BITTA amoCRM integratsiyasi
  * (client_id + secret) kerak — uni super admin bir marta kiritadi.
  *

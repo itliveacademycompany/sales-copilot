@@ -50,7 +50,7 @@ interface Murojaat {
 const HAJM = 30;
 
 /**
- * "Saralanmagan" murojaatlar (LEAD-04). SotuvAI qo'ng'iroqlari (ochiq
+ * "Saralanmagan" murojaatlar (LEAD-04). Dill Mind qo'ng'iroqlari (ochiq
  * bitimi yo'q mijozlar), veb-formalar va qo'lda kiritilganlar. Qabul —
  * bitim (mas'ul navbat bilan) yoki mavjud bitimga bog'lash.
  */
@@ -93,7 +93,7 @@ export function Saralanmagan() {
       <div className="ci-bosh">
         <div>
           <h1>{t('Saralanmagan')}</h1>
-          <p className="yordam">{t("Yangi murojaatlar: SotuvAI qo'ng'iroqlari, veb-formalar va qo'lda kiritilganlar. Qabul qilinsa — bitim bo'ladi.")}</p>
+          <p className="yordam">{t("Yangi murojaatlar: Dill Mind qo'ng'iroqlari, veb-formalar va qo'lda kiritilganlar. Qabul qilinsa — bitim bo'ladi.")}</p>
         </div>
         <div className="ci-bosh-amallar">
           <div className="tab-qator" role="tablist">

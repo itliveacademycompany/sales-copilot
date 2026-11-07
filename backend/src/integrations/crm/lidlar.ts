@@ -8,7 +8,7 @@ import { lidlarniKochir, tashqiOchirilganlarniBelgila, tuzilmaniKochir, type Tas
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CRM LIDLARI — sdelkalarni SotuvAI ga olib kelish (worker tiki)
+ * CRM LIDLARI — sdelkalarni Dill Mind ga olib kelish (worker tiki)
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * OQIM (har ulangan CRM uchun, har daqiqada)
@@ -17,7 +17,7 @@ import { lidlarniKochir, tashqiOchirilganlarniBelgila, tuzilmaniKochir, type Tas
  *      Birinchi marta HAMMASI (bir necha tikda), keyin faqat o'zgarganlari.
  *   2. Voronka/bosqich nomi va turi (ochiq/muvaffaqiyat/yopilgan), mas'ul
  *      ismi — CRM tuzilishidan (10 daqiqa keshlanadi).
- *   3. Mijoz telefoni bo'yicha SotuvAI kontakti topiladi (oxirgi 9 raqam)
+ *   3. Mijoz telefoni bo'yicha Dill Mind kontakti topiladi (oxirgi 9 raqam)
  *      yoki yaratiladi — shu orqali lidning qo'ng'iroqlari va tahlillari
  *      bog'lanadi. Mas'ul → menejer: kartochkadagi "CRM ID" orqali.
  *   4. `crm_lead` ga upsert (`integration_id + crm_id`), kursor saqlanadi.
@@ -54,7 +54,7 @@ export interface CrmLidSozlama {
   oxirgi: string | null;
   xato: string | null;
   /**
-   * Lidlar SotuvAI ichki CRM bitimlariga ham ko'chirilsinmi (bir tomonlama
+   * Lidlar Dill Mind ichki CRM bitimlariga ham ko'chirilsinmi (bir tomonlama
    * sinxron). Standart — ha: ulangan CRM ning hamma lidlari CRM bo'limida.
    */
   ichkiCrm: boolean;

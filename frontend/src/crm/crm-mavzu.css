@@ -1,16 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   CRM MAVZUSI — SotuvAI dizayni (Metasell bloklari bilan)
+   CRM MAVZUSI — Dill Mind dizayni (Metasell bloklari bilan)
    ═══════════════════════════════════════════════════════════════════════════
 
-   Faqat CRM rejimida (`.shell.crm-rejim`) ishlaydi; SotuvAI qismi o'zgarmaydi.
-   Komponentlar (card, btn, input, tab, jadval) SotuvAI'dagidek qoladi;
+   Faqat CRM rejimida (`.shell.crm-rejim`) ishlaydi; Dill Mind qismi o'zgarmaydi.
+   Komponentlar (card, btn, input, tab, jadval) Dill Mind'dagidek qoladi;
    Metasell'dan kelgan bloklar (sarlavha paneli, kanban, KPI qatori, lid
-   kartasi) `ms-*` sinflari bilan, ranglari esa SotuvAI tokenlaridan.
+   kartasi) `ms-*` sinflari bilan, ranglari esa Dill Mind tokenlaridan.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .shell.crm-rejim {
-  /* SotuvAI dizayn tizimi (neumorfizm) — Metasell nomlari SotuvAI tokenlariga
-     ulanadi. Shunda ms-* bloklar SotuvAI'dagi kartalar, tugmalar va ranglar
+  /* Dill Mind dizayn tizimi (neumorfizm) — Metasell nomlari Dill Mind tokenlariga
+     ulanadi. Shunda ms-* bloklar Dill Mind'dagi kartalar, tugmalar va ranglar
      bilan bir xil ko'rinadi; yorug'/qorong'i mavzu o'zi ishlaydi. */
   --ms-sahifa: var(--bg-base);
   --ms-karta: var(--bg-surface);
@@ -32,7 +32,7 @@
 
 /* ─── Sarlavha paneli (MsBosh) ──────────────────────────────────────────── */
 
-/* Sarlavha paneli — SotuvAI kartasi (bo'rtiq soya), sahifa aylanganda tepada qotadi. */
+/* Sarlavha paneli — Dill Mind kartasi (bo'rtiq soya), sahifa aylanganda tepada qotadi. */
 .ms-bosh {
   display: flex;
   align-items: center;

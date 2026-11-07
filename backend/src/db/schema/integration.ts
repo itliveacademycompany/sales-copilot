@@ -104,7 +104,7 @@ export const syncLog = pgTable(
  * CRM ga yozilgan har bir narsa — bitta qator (outbox + jurnal).
  *
  * `entity = conversation` — tahlil qilingan qo'ng'iroq: CRM da topilgan
- * sdelka/kontakt va unga yozilgan izoh. `entity = task` — SotuvAI vazifasi
+ * sdelka/kontakt va unga yozilgan izoh. `entity = task` — Dill Mind vazifasi
  * CRM da vazifa bo'lib yaratilgani.
  *
  * `(integration_id, entity, local_id)` unikal — worker qayta ishga tushsa
@@ -152,12 +152,12 @@ export const crmSyncItem = pgTable(
 /**
  * CRM dagi sdelka (lid) — ulangan CRM dan import qilingan nusxa.
  *
- * Manba — CRM: bu yerda faqat o'qiladi, SotuvAI uni o'zgartirmaydi.
+ * Manba — CRM: bu yerda faqat o'qiladi, Dill Mind uni o'zgartirmaydi.
  * Har sinxronlashda `(integration_id, crm_id)` bo'yicha yangilanadi.
  * Voronka/bosqich NOMI ham saqlanadi — CRM da nom o'zgarsa keyingi
  * sinxronlashda yangilanadi, ro'yxat esa CRM ga so'rovsiz chiqadi.
  *
- * `contact_id` — SotuvAI kontakti (telefon bo'yicha topilgan yoki
+ * `contact_id` — Dill Mind kontakti (telefon bo'yicha topilgan yoki
  * yaratilgan): shu orqali lidning qo'ng'iroqlari va tahlillari ko'rinadi.
  * `seat_id` — CRM dagi mas'ul, menejer kartochkasidagi "CRM ID" orqali.
  */

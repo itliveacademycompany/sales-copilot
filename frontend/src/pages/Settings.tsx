@@ -775,7 +775,7 @@ function Biznes({
       <div className="bz-almash">
         <div>
           <b>{t("Vazifalarni CRM'ga yuborish")}</b>
-          <small>{t("Mos keladigan vazifalarni ulangan CRM'ga yuborish. CRM hali ulanmagan — vazifalar SotuvAI ichida yuritiladi.")}</small>
+          <small>{t("Mos keladigan vazifalarni ulangan CRM'ga yuborish. CRM hali ulanmagan — vazifalar Dill Mind ichida yuritiladi.")}</small>
         </div>
         <label className="vr-almash" title={t('CRM ulanmagan')}>
           <input type="checkbox" role="switch" checked={false} disabled readOnly />

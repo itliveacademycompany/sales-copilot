@@ -67,7 +67,7 @@ export function McpRuxsat() {
     <div className="login-fon">
       <div className="login-card mcp-ruxsat">
         <div className="logo">
-          Sotuv<em>AI</em>
+          Dill <em>Mind</em>
         </div>
 
         {xato && !m ? (
@@ -85,7 +85,7 @@ export function McpRuxsat() {
         ) : (
           <>
             <div className="kirish-izoh">
-              {joyla(t("{ilova} sizning Sotuv Intellekti hisobingizga kirishni so'ramoqda."), { ilova: <b>{m.clientName}</b> })}
+              {joyla(t("{ilova} sizning Dill Mind hisobingizga kirishni so'ramoqda."), { ilova: <b>{m.clientName}</b> })}
             </div>
 
             <div className={`mcp-manba${m.claudeRasmiy ? ' rasmiy' : ''}`}>

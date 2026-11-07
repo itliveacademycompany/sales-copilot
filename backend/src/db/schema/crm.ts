@@ -21,10 +21,10 @@ import { appUser, business, seat } from './tenant.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * ICHKI CRM — SotuvAI ichidagi o'z CRM (amoCRM o'rnini bosadi)
+ * ICHKI CRM — Dill Mind ichidagi o'z CRM (amoCRM o'rnini bosadi)
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * Tashqi CRM ga ega bo'lmagan bizneslar uchun. SotuvAI bilan bog'lanish
+ * Tashqi CRM ga ega bo'lmagan bizneslar uchun. Dill Mind bilan bog'lanish
  * AVTOMATIK — chunki bir xil bazada:
  *   • mijoz = mavjud `contact` (qo'ng'iroq ham, bitim ham shunga bog'lanadi);
  *   • vazifa = mavjud `task` (`deal_id` bilan) — tahlil yaratgan vazifa
@@ -158,7 +158,7 @@ export const deal = pgTable(
     /**
      * Tashqi CRM (amoCRM) dan sinxronlanadigan bitim. Bir tomonlama: asosiy
      * maydonlar (nom, summa, bosqich, mas'ul, qo'shimcha maydonlar) o'sha
-     * yerda o'zgaradi; SotuvAI da izoh, vazifa, teg qo'shiladi.
+     * yerda o'zgaradi; Dill Mind da izoh, vazifa, teg qo'shiladi.
      */
     integrationId: uuid('integration_id').references((): AnyPgColumn => integration.id, { onDelete: 'set null' }),
     externalId: text('external_id'),

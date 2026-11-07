@@ -22,7 +22,7 @@ import { kontaktniTopYokiYarat } from './xizmat.js';
  *   • Lead Ads (Facebook/Instagram target reklama formasi) — Meta webhook
  *     faqat `leadgen_id` yuboradi; ism, telefon va javoblar Graph API'dan olinadi;
  *   • Messenger va Instagram Direct xabarlari;
- *   • Telegram bot xabarlari (kompaniya boti — SotuvAI bildirishnoma botidan alohida).
+ *   • Telegram bot xabarlari (kompaniya boti — Dill Mind bildirishnoma botidan alohida).
  *
  * Hammasi "Saralanmagan"ga (`crm_inbox`) manba belgisi bilan tushadi.
  *
@@ -292,7 +292,7 @@ export async function tarmoqniSaqla(tx: Tx, businessId: string, kanal: Kanal, k:
 }
 
 /**
- * SotuvAI bildirishnoma botini (Sozlamalar → Telegram) shu yerga ulab bo'lmaydi:
+ * Dill Mind bildirishnoma botini (Sozlamalar → Telegram) shu yerga ulab bo'lmaydi:
  * Telegram'da bitta botning bitta webhook manzili bor — ulansa, bildirishnomalar
  * va suhbat tahlili to'xtab qolardi. Bot ID si (token boshidagi raqam) solishtiriladi.
  */
@@ -310,7 +310,7 @@ async function sotuvaiBotiEmasmi(tx: Tx, token: string): Promise<void> {
     return;
   }
   if (boshqa.split(':')[0] === token.split(':')[0]) {
-    throw new CrmXatosi('ziddiyat', "Bu bot SotuvAI bildirishnomalari uchun ulangan. Mijozlar uchun @BotFather'da alohida bot yarating.");
+    throw new CrmXatosi('ziddiyat', "Bu bot Dill Mind bildirishnomalari uchun ulangan. Mijozlar uchun @BotFather'da alohida bot yarating.");
   }
 }
 

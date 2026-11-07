@@ -7,13 +7,13 @@ import type { Lugat } from './index';
 const CRM_PANEL: Lugat = {
   // ─── Sahifa va filtr ───
   'AI yordamchiga savol': { en: 'Ask the AI assistant', ru: 'Вопрос AI-ассистенту' },
-  'Salom, {ism}! Men SotuvAI yordamchisiman. Nimadan boshlaymiz?': {
-    en: 'Hi, {ism}! I am the SotuvAI assistant. Where shall we start?',
-    ru: 'Привет, {ism}! Я ассистент SotuvAI. С чего начнём?',
+  'Salom, {ism}! Men Dill Mind yordamchisiman. Nimadan boshlaymiz?': {
+    en: 'Hi, {ism}! I am the Dill Mind assistant. Where shall we start?',
+    ru: 'Привет, {ism}! Я ассистент Dill Mind. С чего начнём?',
   },
-  'Salom! Men SotuvAI yordamchisiman. Nimadan boshlaymiz?': {
-    en: 'Hi! I am the SotuvAI assistant. Where shall we start?',
-    ru: 'Привет! Я ассистент SotuvAI. С чего начнём?',
+  'Salom! Men Dill Mind yordamchisiman. Nimadan boshlaymiz?': {
+    en: 'Hi! I am the Dill Mind assistant. Where shall we start?',
+    ru: 'Привет! Я ассистент Dill Mind. С чего начнём?',
   },
   'Savolingizni yozing…': { en: 'Type your question…', ru: 'Напишите вопрос…' },
   Hodisalar: { en: 'Events', ru: 'События' },

@@ -21,7 +21,7 @@ function ruxsatSora(reply: FastifyReply) {
   reply
     .status(401)
     .header('WWW-Authenticate', `Bearer resource_metadata="${publicUrl()}/.well-known/oauth-protected-resource/mcp"`)
-    .send({ error: 'invalid_token', error_description: 'Sotuv Intellekti\'ga Claude ulanishi orqali kiring' });
+    .send({ error: 'invalid_token', error_description: 'Dill Mind\'ga Claude ulanishi orqali kiring' });
 }
 
 export function registerMcpRoutes(app: FastifyInstance): void {

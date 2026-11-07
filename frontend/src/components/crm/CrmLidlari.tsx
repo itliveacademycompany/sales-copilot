@@ -12,7 +12,7 @@ import './crmLidlari.css';
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * Ma'lumot `GET /crm-leads` dan: CRM dan har daqiqada import qilinadi.
- * Har lid yonida SotuvAI tomoni — shu mijoz bilan qo'ng'iroqlar soni va
+ * Har lid yonida Dill Mind tomoni — shu mijoz bilan qo'ng'iroqlar soni va
  * oxirgi tahlil bahosi (telefon bo'yicha bog'langan). Sotuvchi faqat o'z
  * lidlarini ko'radi — cheklov serverda.
  */
@@ -256,7 +256,7 @@ export function CrmLidlari({ almash }: { almash: ReactNode }) {
                     <th scope="col">{t('Bosqich')}</th>
                     <th scope="col">{t('Summa')}</th>
                     {rahbar && <th scope="col">{t("Mas'ul")}</th>}
-                    <th scope="col">{t('SotuvAI')}</th>
+                    <th scope="col">{t('Dill Mind')}</th>
                     <th scope="col">{t('Yangilangan')}</th>
                   </tr>
                 </thead>
@@ -285,7 +285,7 @@ export function CrmLidlari({ almash }: { almash: ReactNode }) {
                       {rahbar && (
                         <td>
                           {l.seatName ?? l.responsibleName ?? '—'}
-                          {!l.seatId && l.responsibleName && <div className="crml-kichik" title={t("Menejer kartochkasida CRM ID kiritilmagan")}>{t("SotuvAI ga bog'lanmagan")}</div>}
+                          {!l.seatId && l.responsibleName && <div className="crml-kichik" title={t("Menejer kartochkasida CRM ID kiritilmagan")}>{t("Dill Mind ga bog'lanmagan")}</div>}
                         </td>
                       )}
                       <td>

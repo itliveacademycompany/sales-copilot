@@ -93,7 +93,7 @@ export function CrmOauth() {
         <ol>
           <li>{t('O‘z amoCRM hisobingizda amoМаркет → «⋯» → «Создать интеграцию» → «Внешняя интеграция».')}</li>
           <li>{t('«Ссылка для перенаправления» ga pastdagi manzilni aynan nusxalab qo‘ying.')}</li>
-          <li>{t('«Предоставить доступ: Все» ni belgilang, nom bering (masalan «SotuvAI») va saqlang.')}</li>
+          <li>{t('«Предоставить доступ: Все» ni belgilang, nom bering (masalan «Dill Mind») va saqlang.')}</li>
           <li>{t('«Ключи и доступы» bo‘limidagi «ID интеграции» va «Секретный ключ» ni shu yerga kiriting.')}</li>
         </ol>
         <p className="yordam">

@@ -14,7 +14,7 @@ import { useT } from '../../i18n';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * CRM BOSH SAHIFASI — amoCRM "Рабочий стол" namunasida, SotuvAI dizaynida
+ * CRM BOSH SAHIFASI — amoCRM "Рабочий стол" namunasida, Dill Mind dizaynida
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * Tepada biznes nomi va "Hodisalar"; ostida AI yordamchiga savol; keyin
@@ -215,7 +215,7 @@ export function IshStoli() {
   return (
     <div className={`pn-sahifa${tahrir ? ' tahrirda' : ''}`}>
       <header className="pn-sarlavha">
-        {/* CRM ↔ SotuvAI kaliti (SotuvAI tepa panelidagi bilan bir xil) */}
+        {/* CRM ↔ Dill Mind kaliti (Dill Mind tepa panelidagi bilan bir xil) */}
         <div className="pn-sarlavha-chap">
           <IlovaKaliti />
         </div>
@@ -243,7 +243,7 @@ export function IshStoli() {
             }}
             rows={3}
             maxLength={2000}
-            placeholder={ism ? t('Salom, {ism}! Men SotuvAI yordamchisiman. Nimadan boshlaymiz?', { ism }) : t('Salom! Men SotuvAI yordamchisiman. Nimadan boshlaymiz?')}
+            placeholder={ism ? t('Salom, {ism}! Men Dill Mind yordamchisiman. Nimadan boshlaymiz?', { ism }) : t('Salom! Men Dill Mind yordamchisiman. Nimadan boshlaymiz?')}
             aria-label={t('Savolingizni yozing…')}
           />
           <button type="submit" disabled={!savol.trim()} aria-label={t('Yuborish')} title={t('Yuborish')}>

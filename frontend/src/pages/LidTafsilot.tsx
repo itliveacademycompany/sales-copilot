@@ -17,7 +17,7 @@ import { tafsilotOl } from '../components/tafsilotKesh';
  * rahbar izohlari sana bo'yicha xronologiyaga yig'iladi.
  *
  * CRM bosqichlari (voronka) backendda yo'q — shuning uchun xronologiya
- * SotuvAI ko'rgan voqealardan iborat.
+ * Dill Mind ko'rgan voqealardan iborat.
  */
 
 const LID_NOMI = { hot: 'Issiq lid', warm: 'Iliq lid', cold: 'Sovuq lid' } as const;
@@ -139,7 +139,7 @@ export function LidTafsilot() {
         matn: t.description ?? undefined,
         chiplar: [
           t.dueAt ? tr('Muddat: {sana}', { sana: muddatMatn(t.dueAt) }) : tr('Muddatsiz'),
-          t.source === 'manual' ? tr("Qo'lda") : 'SotuvAI',
+          t.source === 'manual' ? tr("Qo'lda") : 'Dill Mind',
         ],
       });
       if (t.status === 'done' && t.completedAt) {

@@ -26,7 +26,7 @@ import type { TabProps } from './Tablar';
 type Manba = 'hammasi' | 'ai' | 'qolda' | 'crm';
 const MANBA_NOMI: Record<Manba, string> = {
   hammasi: 'Barchasi',
-  ai: 'SotuvAI yaratgan',
+  ai: 'Dill Mind yaratgan',
   qolda: "Qo'lda yaratilgan",
   crm: 'CRM bilan bog\'langan',
 };
@@ -321,7 +321,7 @@ export function VazifalarTahlili({ data, davr, q }: TabProps) {
         <div className="karta-bosh">
           <h2>{t("Vazifalar manbasi bo'yicha")}</h2>
         </div>
-        <p className="vt-izoh vt-izoh-past">{t("CRM bilan bog'langan, SotuvAI yaratgan va qo'lda qo'shilgan vazifalarning joriy hamda tanlangan davrdagi holati.")}</p>
+        <p className="vt-izoh vt-izoh-past">{t("CRM bilan bog'langan, Dill Mind yaratgan va qo'lda qo'shilgan vazifalarning joriy hamda tanlangan davrdagi holati.")}</p>
         <div className="vt-manbalar">
           {manbalar.map(({ m, h: x }) => (
             <div key={m} className={`vt-manba-karta${manba === m ? ' tanlangan' : ''}`}>

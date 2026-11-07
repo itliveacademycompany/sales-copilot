@@ -73,7 +73,7 @@ export function ClaudeUlanishi() {
   if (xato && !info) return <div className="card sz-karta"><div className="yordam bzl-xato">{xato}</div></div>;
   if (!info) return <div className="card skelet" style={{ height: 320 }} aria-busy="true" />;
 
-  const kodBuyruq = `claude mcp add --transport http sotuv-intellekti ${info.mcpUrl}`;
+  const kodBuyruq = `claude mcp add --transport http dill-mind ${info.mcpUrl}`;
 
   return (
     <section className="card sz-karta">
@@ -117,7 +117,7 @@ export function ClaudeUlanishi() {
         <ol className="bn-qadamlar">
           <li>
             {joyla(
-              t('{ilova} Sozlamalar → {connectors} → {add} → nom: «Sotuv Intellekti», URL: yuqoridagi manzil → {qosh} → {ulash}.'),
+              t('{ilova} Sozlamalar → {connectors} → {add} → nom: «Dill Mind», URL: yuqoridagi manzil → {qosh} → {ulash}.'),
               {
                 ilova: <b>{t('claude.ai yoki Claude Desktop:')}</b>,
                 connectors: <b>Connectors</b>,
@@ -135,7 +135,7 @@ export function ClaudeUlanishi() {
                 {nusxa === 'kod' ? <Check /> : <Copy />}
               </button>
             </div>
-            {joyla(t("so'ng {mcp} → sotuv-intellekti → {auth}."), { mcp: <code>/mcp</code>, auth: <b>Authenticate</b> })}
+            {joyla(t("so'ng {mcp} → dill-mind → {auth}."), { mcp: <code>/mcp</code>, auth: <b>Authenticate</b> })}
           </li>
           <li>
             {joyla(t('Brauzerda shu sayt ochiladi — kiring va ruxsat darajasini tanlang: {oqish} (xavfsiz boshlanish) yoki {boshqarish}.'), {

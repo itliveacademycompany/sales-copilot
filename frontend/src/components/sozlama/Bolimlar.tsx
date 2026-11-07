@@ -278,7 +278,7 @@ function MuammoOynasi({ biznes, foydalanuvchi, onYop }: { biznes: string; foydal
           <a
             className={`btn ikkinchi${tayyor ? '' : ' o-chiq'}`}
             aria-disabled={!tayyor}
-            href={tayyor ? `mailto:?subject=${encodeURIComponent(`SotuvAI: ${t(tur)}`)}&body=${encodeURIComponent(toliq)}` : undefined}
+            href={tayyor ? `mailto:?subject=${encodeURIComponent(`Dill Mind: ${t(tur)}`)}&body=${encodeURIComponent(toliq)}` : undefined}
           >
             <Mail /> {t('Email orqali yuborish')}
           </a>

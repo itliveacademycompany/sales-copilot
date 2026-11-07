@@ -313,7 +313,7 @@ textarea:focus {
 }
 textarea::placeholder { color: var(--text-muted); }
 
-/* Logotip matni — flex ichida "Sotuv" va "AI" ajralib qolmasin */
+/* Logotip matni — flex ichida "Dill" va "Mind" ajralib qolmasin */
 .logo-matn { white-space: nowrap; }
 .logo-matn em { font-style: normal; color: var(--brand); }
 ::selection { background: var(--ia-soft); }

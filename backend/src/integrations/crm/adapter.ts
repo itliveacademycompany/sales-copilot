@@ -5,7 +5,7 @@
  *
  * NEGA ADAPTER
  * ────────────
- * SotuvAI ning qolgan qismi (CRM sahifasi, worker, API) aniq CRM ni
+ * Dill Mind ning qolgan qismi (CRM sahifasi, worker, API) aniq CRM ni
  * bilmaydi — faqat shu interfeysni. Yangi CRM qo'shish = bitta fayl
  * (`<crm>.ts`) yozib, uni `index.ts` dagi ro'yxatga qo'shish. Sahifa
  * ulash formasini adapterning `maydonlar` ro'yxatidan o'zi chizadi,
@@ -75,7 +75,7 @@ export interface CrmVoronka {
 }
 
 /**
- * Sdelkaning qo'shimcha maydoni (CRM tomonidagi). `type` — SotuvAI ichki CRM
+ * Sdelkaning qo'shimcha maydoni (CRM tomonidagi). `type` — Dill Mind ichki CRM
  * turlaridan biri (adapter o'giradi); qo'llab-quvvatlanmaydiganlari olinmaydi.
  */
 export interface CrmLidMaydon {
@@ -96,7 +96,7 @@ export interface CrmTuzilish {
 }
 
 /**
- * CRM dagi sdelka (lid) — SotuvAI ga import qilinadigan ko'rinishda.
+ * CRM dagi sdelka (lid) — Dill Mind ga import qilinadigan ko'rinishda.
  * Voronka/bosqich NOMLARI bu yerda yo'q: ular `tuzilish` dan olinadi
  * (bitta sinxronlashda bir marta), har lidda takrorlanmaydi.
  */
@@ -163,7 +163,7 @@ export interface CrmAdapter {
   lidlar(k: CrmKontekst, kursor: string | null): Promise<CrmLidSahifa>;
   /**
    * Berilgan sdelka ID laridan CRM da HALI MAVJUDLARI (o'chirilmaganlari).
-   * O'chirilgan sdelka `lidlar()` da umuman kelmaydi — busiz u SotuvAI da
+   * O'chirilgan sdelka `lidlar()` da umuman kelmaydi — busiz u Dill Mind da
    * abadiy qolib ketardi. So'rov muvaffaqiyatsiz bo'lsa — istisno: hech
    * narsa "o'chirilgan" deb hisoblanmaydi.
    */

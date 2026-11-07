@@ -44,7 +44,7 @@ const HOLAT: Record<TaskRow['status'], string> = {
 const HOLAT_TANLOV = (['pending', 'in_progress', 'blocked', 'done'] as const).map((h) => ({ qiymat: h as string, nom: HOLAT[h] }));
 const OCHIQ = new Set(['pending', 'in_progress', 'blocked']);
 type Manba = 'ai' | 'qolda' | 'crm';
-const MANBA: Record<Manba, string> = { crm: "CRM bilan bog'langan", ai: 'SotuvAI yaratgan', qolda: "Qo'lda yaratilgan" };
+const MANBA: Record<Manba, string> = { crm: "CRM bilan bog'langan", ai: 'Dill Mind yaratgan', qolda: "Qo'lda yaratilgan" };
 const manbasi = (t: TaskRow): Manba => (t.crmTaskId ? 'crm' : t.source === 'manual' ? 'qolda' : 'ai');
 const KUN = 86400_000;
 const SAHIFA = 20;

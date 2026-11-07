@@ -98,7 +98,7 @@ export function SeatCabinet() {
 
   /**
    * Menejerning o'z bosh sahifasida — boshqa sahifalardagi tepa panel
-   * (biznes nomi, SotuvAI ↔ CRM kaliti, qidiruv, til, profil). Rahbar
+   * (biznes nomi, Dill Mind ↔ CRM kaliti, qidiruv, til, profil). Rahbar
    * sotuvchi kabinetini reytingdan ochganda kerak emas — u yerda «orqaga».
    */
   const tepa = oziniki && business && (

@@ -189,7 +189,7 @@ const UZ: LandingMatn = {
     salom: (ism) => `Xush kelibsiz, ${ism}!`,
     sarlavha: ['Sotuvni taxmin emas —', 'isbot boshqaradi.'],
     lead:
-      "SotuvAI sotuv bo'limingizning Telegram yozishmalari va qo'ng'iroqlarini kompaniyangizning o'z skripti bo'yicha baholaydi, har bir ballni suhbatdagi aniq iqtibos bilan tasdiqlaydi va har bir sotuvchiga o'sish uchun aniq tavsiya beradi.",
+      "Dill Mind sotuv bo'limingizning Telegram yozishmalari va qo'ng'iroqlarini kompaniyangizning o'z skripti bo'yicha baholaydi, har bir ballni suhbatdagi aniq iqtibos bilan tasdiqlaydi va har bir sotuvchiga o'sish uchun aniq tavsiya beradi.",
     pastga: 'Pastga aylantiring',
   },
   faktlar: [
@@ -513,7 +513,7 @@ const RU: LandingMatn = {
     salom: (ism) => `Добро пожаловать, ${ism}!`,
     sarlavha: ['Не догадки —', 'а доказательства.'],
     lead:
-      'SotuvAI оценивает переписку в Telegram и звонки вашего отдела продаж по собственному скрипту компании, подтверждает каждый балл точной цитатой из разговора и даёт каждому менеджеру конкретные рекомендации для роста.',
+      'Dill Mind оценивает переписку в Telegram и звонки вашего отдела продаж по собственному скрипту компании, подтверждает каждый балл точной цитатой из разговора и даёт каждому менеджеру конкретные рекомендации для роста.',
     pastga: 'Прокрутите вниз',
   },
   faktlar: [
@@ -837,7 +837,7 @@ const EN: LandingMatn = {
     salom: (ism) => `Welcome, ${ism}!`,
     sarlavha: ['Sales run on proof —', 'not guesswork.'],
     lead:
-      "SotuvAI scores your sales team's Telegram chats and calls against your company's own sales script, backs every score with an exact quote from the conversation, and gives every rep a clear recommendation for growth.",
+      "Dill Mind scores your sales team's Telegram chats and calls against your company's own sales script, backs every score with an exact quote from the conversation, and gives every rep a clear recommendation for growth.",
     pastga: 'Scroll down',
   },
   faktlar: [

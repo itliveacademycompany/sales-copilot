@@ -48,7 +48,7 @@ const sozlamaBody = z.object({
   vazifa: z.boolean().optional(),
   /** Lidlar faqat shu voronkalardan (ID). `null` — hammasi. */
   voronkalar: z.array(z.string().max(64)).max(200).nullable().optional(),
-  /** Lidlar SotuvAI ichki CRM bitimlariga ham ko'chirilsinmi (bir tomonlama). */
+  /** Lidlar Dill Mind ichki CRM bitimlariga ham ko'chirilsinmi (bir tomonlama). */
   ichkiCrm: z.boolean().optional(),
 });
 
@@ -320,7 +320,7 @@ export function registerCrmUlanishRoutes(app: FastifyInstance): void {
     return ADAPTERLAR[kind].tuzilish(ctx).catch(crmXatosi);
   });
 
-  /** SotuvAI CRM ga nima yozsin: izoh, vazifa. */
+  /** Dill Mind CRM ga nima yozsin: izoh, vazifa. */
   app.patch(`${base}/:kind/settings`, guard, async (req) => {
     const kind = turniOl(req);
     const body = sozlamaBody.parse(req.body);

@@ -436,7 +436,7 @@ function TarmoqOyna({
               </>
             ) : (
               <>
-                {sirMaydoni('botToken', t('Bot token'), '123456789:AA…', t("@BotFather → /newbot → bergan tokenni nusxalang. SotuvAI bildirishnoma botidan boshqa bot bo'lsin."))}
+                {sirMaydoni('botToken', t('Bot token'), '123456789:AA…', t("@BotFather → /newbot → bergan tokenni nusxalang. Dill Mind bildirishnoma botidan boshqa bot bo'lsin."))}
                 {h?.webhookUrl && <div className="yordam">{t('Webhook avtomatik o‘rnatiladi: {url}', { url: h.webhookUrl })}</div>}
                 <div className="maydon-blok">
                   <label htmlFor="tm-salom">{t('/start ga javob')}</label>

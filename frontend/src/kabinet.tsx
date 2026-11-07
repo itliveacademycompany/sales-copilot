@@ -49,7 +49,7 @@ export function KabinetProvider({ children }: { children: ReactNode }) {
 
   // Brauzer yorlig'ida mijoz nomi — bir nechta kabinet ochiq bo'lsa adashmaslik uchun
   useEffect(() => {
-    if (kabinet?.tur === 'tenant') document.title = `${kabinet.name} · SotuvAI`;
+    if (kabinet?.tur === 'tenant') document.title = `${kabinet.name} · Dill Mind`;
   }, [kabinet]);
 
   return <Ctx.Provider value={kabinet}>{children}</Ctx.Provider>;

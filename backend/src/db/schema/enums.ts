@@ -104,7 +104,7 @@ export const integrationKind = pgEnum('integration_kind', [
   'generic_webhook',
   /**
    * Ichki CRM "Saralanmagan"ga lid olib keluvchi ijtimoiy tarmoqlar.
-   * `telegram_bot` dan alohida: u SotuvAI bildirishnoma/suhbat boti,
+   * `telegram_bot` dan alohida: u Dill Mind bildirishnoma/suhbat boti,
    * bu esa mijozlar yozadigan kompaniya boti.
    */
   'crm_facebook',

@@ -7,13 +7,13 @@ import type { Lugat } from './index';
 const CRM_ILOVA: Lugat = {
   // ─── Almashtirgich va menyu ───
   "CRM ga o'tish": { en: 'Go to CRM', ru: 'Перейти в CRM' },
-  'SotuvAI ga qaytish': { en: 'Back to SotuvAI', ru: 'Вернуться в SotuvAI' },
+  'Dill Mind ga qaytish': { en: 'Back to Dill Mind', ru: 'Вернуться в Dill Mind' },
   Bitimlar: { en: 'Deals', ru: 'Сделки' },
   Kontaktlar: { en: 'Contacts', ru: 'Контакты' },
   Integratsiya: { en: 'Integration', ru: 'Интеграция' },
 
   // ─── Yoqish ───
-  'SotuvAI CRM': { en: 'SotuvAI CRM', ru: 'SotuvAI CRM' },
+  'Dill Mind CRM': { en: 'Dill Mind CRM', ru: 'Dill Mind CRM' },
   "Bitimlar, kontaktlar va vazifalar — qo'ng'iroq tahlillari bilan bir joyda. Mijoz qo'ng'iroq qilsa, uning bitimida suhbat va AI bahosi o'zi paydo bo'ladi.": {
     en: 'Deals, contacts and tasks — in one place with call analyses. When a client calls, the conversation and its AI score appear on their deal automatically.',
     ru: 'Сделки, контакты и задачи — в одном месте с анализом звонков. Когда клиент звонит, разговор и оценка ИИ сами появляются в его сделке.',
@@ -32,9 +32,9 @@ const CRM_ILOVA: Lugat = {
     ru: 'CRM ещё не включена. Когда руководитель её включит, ваши сделки появятся здесь.',
   },
   'amoCRM yoki Bitrix24 ishlatasizmi?': { en: 'Using amoCRM or Bitrix24?', ru: 'Используете amoCRM или Bitrix24?' },
-  "Mavjud CRM ni ulang — SotuvAI tahlillarni o'sha yerga yozadi.": {
-    en: 'Connect your existing CRM — SotuvAI will write the analyses there.',
-    ru: 'Подключите вашу CRM — SotuvAI будет записывать анализы туда.',
+  "Mavjud CRM ni ulang — Dill Mind tahlillarni o'sha yerga yozadi.": {
+    en: 'Connect your existing CRM — Dill Mind will write the analyses there.',
+    ru: 'Подключите вашу CRM — Dill Mind будет записывать анализы туда.',
   },
   "Bo'sh": { en: 'Blank', ru: 'Пустой' },
   "Ta'lim markazi": { en: 'Education centre', ru: 'Учебный центр' },
@@ -122,9 +122,9 @@ const CRM_ILOVA: Lugat = {
   'Tarix filtri': { en: 'History filter', ru: 'Фильтр истории' },
   Izohlar: { en: 'Notes', ru: 'Примечания' },
   'Izoh yozing…': { en: 'Write a note…', ru: 'Напишите примечание…' },
-  "Bu mijoz bilan SotuvAI orqali qo'ng'iroq hali yo'q. Qo'ng'iroq bo'lsa, tahlili shu yerda o'zi chiqadi.": {
-    en: 'No calls with this client through SotuvAI yet. When there is one, its analysis appears here automatically.',
-    ru: 'Звонков с этим клиентом через SotuvAI пока нет. Когда звонок будет, его анализ появится здесь сам.',
+  "Bu mijoz bilan Dill Mind orqali qo'ng'iroq hali yo'q. Qo'ng'iroq bo'lsa, tahlili shu yerda o'zi chiqadi.": {
+    en: 'No calls with this client through Dill Mind yet. When there is one, its analysis appears here automatically.',
+    ru: 'Звонков с этим клиентом через Dill Mind пока нет. Когда звонок будет, его анализ появится здесь сам.',
   },
   "Chiquvchi qo'ng'iroq": { en: 'Outgoing call', ru: 'Исходящий звонок' },
   "Kiruvchi qo'ng'iroq": { en: 'Incoming call', ru: 'Входящий звонок' },
@@ -138,7 +138,7 @@ const CRM_ILOVA: Lugat = {
   'Ismni kiriting': { en: 'Enter a name', ru: 'Введите имя' },
   'Kontaktni tahrirlash': { en: 'Edit contact', ru: 'Редактировать контакт' },
   "Bu kontaktda bitim yo'q.": { en: 'This contact has no deals.', ru: 'У этого контакта нет сделок.' },
-  "SotuvAI qo'ng'iroqlari": { en: 'SotuvAI calls', ru: 'Звонки SotuvAI' },
+  "Dill Mind qo'ng'iroqlari": { en: 'Dill Mind calls', ru: 'Звонки Dill Mind' },
   "Bu mijoz bilan qo'ng'iroq hali yo'q.": { en: 'No calls with this client yet.', ru: 'Звонков с этим клиентом пока нет.' },
 
   // ─── Vazifalar ───

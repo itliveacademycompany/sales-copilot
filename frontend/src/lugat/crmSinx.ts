@@ -6,15 +6,15 @@ import type { Lugat } from './index';
  */
 const CRM_SINX: Lugat = {
   // ─── Integratsiya sahifasi ───
-  "Sdelkalarni SotuvAI CRM ga ko'chirish": { en: 'Copy deals into SotuvAI CRM', ru: 'Переносить сделки в CRM SotuvAI' },
-  "Har bir sdelka SotuvAI CRM da bitim bo'ladi — o'sha voronka, bosqich, mas'ul, kontakt va qo'shimcha maydonlar bilan. Asosiy manba {crm}: nom, summa, bosqich va mas'ul u yerda o'zgartiriladi, bu yerga har daqiqada keladi.":
+  "Sdelkalarni Dill Mind CRM ga ko'chirish": { en: 'Copy deals into Dill Mind CRM', ru: 'Переносить сделки в CRM Dill Mind' },
+  "Har bir sdelka Dill Mind CRM da bitim bo'ladi — o'sha voronka, bosqich, mas'ul, kontakt va qo'shimcha maydonlar bilan. Asosiy manba {crm}: nom, summa, bosqich va mas'ul u yerda o'zgartiriladi, bu yerga har daqiqada keladi.":
     {
-      en: 'Every deal becomes a deal in SotuvAI CRM — with the same pipeline, stage, responsible user, contact and custom fields. {crm} stays the source of truth: name, amount, stage and responsible user are changed there and arrive here every minute.',
-      ru: 'Каждая сделка станет сделкой в CRM SotuvAI — с той же воронкой, этапом, ответственным, контактом и дополнительными полями. Главный источник — {crm}: название, сумма, этап и ответственный меняются там и приходят сюда каждую минуту.',
+      en: 'Every deal becomes a deal in Dill Mind CRM — with the same pipeline, stage, responsible user, contact and custom fields. {crm} stays the source of truth: name, amount, stage and responsible user are changed there and arrive here every minute.',
+      ru: 'Каждая сделка станет сделкой в CRM Dill Mind — с той же воронкой, этапом, ответственным, контактом и дополнительными полями. Главный источник — {crm}: название, сумма, этап и ответственный меняются там и приходят сюда каждую минуту.',
     },
-  "Yoqildi — barcha sdelkalar SotuvAI CRM ga ko'chirilmoqda, bir necha daqiqa ketadi.": {
-    en: 'Enabled — all deals are being copied into SotuvAI CRM; this takes a few minutes.',
-    ru: 'Включено — все сделки переносятся в CRM SotuvAI, это займёт несколько минут.',
+  "Yoqildi — barcha sdelkalar Dill Mind CRM ga ko'chirilmoqda, bir necha daqiqa ketadi.": {
+    en: 'Enabled — all deals are being copied into Dill Mind CRM; this takes a few minutes.',
+    ru: 'Включено — все сделки переносятся в CRM Dill Mind, это займёт несколько минут.',
   },
   "O'chirildi — ko'chirilgan bitimlar qoladi, lekin endi {crm} dan yangilanmaydi.": {
     en: 'Disabled — copied deals stay, but they will no longer be updated from {crm}.',

@@ -15,7 +15,7 @@ import { bitimniOl, bitimYarat, kontaktniTopYokiYarat, maydonlarniTekshir, tuzil
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * Murojaat manbalari:
- *   • SotuvAI qo'ng'irog'i — ochiq bitimi yo'q mijoz qo'ng'iroq qilsa,
+ *   • Dill Mind qo'ng'irog'i — ochiq bitimi yo'q mijoz qo'ng'iroq qilsa,
  *     worker uni avtomatik shu yerga qo'yadi (sinxronlashsiz integratsiya);
  *   • veb-forma — ochiq sahifa `/f/:slug` yoki saytga embed;
  *   • qo'lda kiritilgan.
@@ -212,7 +212,7 @@ export async function murojaatQosh(tx: Tx, businessId: string, k: z.infer<typeof
   return r!.id;
 }
 
-// ─── SotuvAI qo'ng'iroqlaridan avtomatik qabul ───────────────────────────────
+// ─── Dill Mind qo'ng'iroqlaridan avtomatik qabul ───────────────────────────────
 
 /**
  * Bir biznes uchun: sozlamada belgilangan vaqtdan keyingi qo'ng'iroqlar

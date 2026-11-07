@@ -24,7 +24,7 @@ export function crmTurimi(s: string): s is CrmKind {
 }
 
 /**
- * Har ulanish uchun SotuvAI xulqi (`integration.config.crmSozlama`).
+ * Har ulanish uchun Dill Mind xulqi (`integration.config.crmSozlama`).
  *
  * `boshlanish` — shu paytdan KEYIN tahlil qilingan qo'ng'iroqlargina CRM ga
  * yoziladi. Aks holda ulangan zahoti eski yuzlab qo'ng'iroq bir zumda
