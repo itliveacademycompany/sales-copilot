@@ -5,16 +5,37 @@ import { api, ApiError, ballKlass, fmtQachon, fmtSoniya } from '../../api';
 import { useCrm } from '../../crm/malumot';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
+import { TARMOQ_BELGISI, type Kanal } from './IjtimoiyTarmoqlar';
+
+const TARMOQ_NOMI: Record<Kanal, string> = { facebook: 'Facebook', instagram: 'Instagram', telegram: 'Telegram' };
+const tarmoqmi = (s: string): s is Kanal => s in TARMOQ_NOMI;
+
+function ManbaBelgisi({ source }: { source: Murojaat['source'] }) {
+  if (tarmoqmi(source)) {
+    const B = TARMOQ_BELGISI[source];
+    return <B />;
+  }
+  return source === 'call' ? <PhoneCall aria-hidden="true" /> : source === 'form' ? <FileText aria-hidden="true" /> : <Hand aria-hidden="true" />;
+}
 
 interface Murojaat {
   id: string;
-  source: 'call' | 'form' | 'manual';
+  source: 'call' | 'form' | 'manual' | Kanal;
   status: string;
   name: string | null;
   phone: string | null;
   email: string | null;
   message: string | null;
-  payload: { score?: number | null; durationSeconds?: number | null; seatName?: string | null; direction?: string; values?: Record<string, string> };
+  payload: {
+    score?: number | null;
+    durationSeconds?: number | null;
+    seatName?: string | null;
+    direction?: string;
+    values?: Record<string, string>;
+    /** Ijtimoiy tarmoq: `lead_ad` — reklama formasi, `message` — xabar. */
+    type?: 'lead_ad' | 'message';
+    username?: string | null;
+  };
   contactId: string | null;
   contactName: string | null;
   formName: string | null;
@@ -107,14 +128,20 @@ export function Saralanmagan() {
           <article key={m.id} className="card ci-murojaat">
             <header>
               <span className={`ci-manba ${m.source}`}>
-                {m.source === 'call' ? <PhoneCall aria-hidden="true" /> : m.source === 'form' ? <FileText aria-hidden="true" /> : <Hand aria-hidden="true" />}
-                {m.source === 'call' ? t("Qo'ng'iroq") : m.source === 'form' ? (m.formName ?? t('Veb-forma')) : t("Qo'lda")}
+                <ManbaBelgisi source={m.source} />
+                {tarmoqmi(m.source)
+                  ? TARMOQ_NOMI[m.source] + (m.payload.type === 'lead_ad' ? ` · ${t('reklama formasi')}` : '')
+                  : m.source === 'call'
+                    ? t("Qo'ng'iroq")
+                    : m.source === 'form'
+                      ? (m.formName ?? t('Veb-forma'))
+                      : t("Qo'lda")}
               </span>
               <time className="yordam">{fmtQachon(m.createdAt)}</time>
             </header>
             <div className="ci-murojaat-kim">
               <b>{m.contactName ?? m.name ?? t('Ismsiz')}</b>
-              <span className="yordam">{[m.phone, m.email].filter(Boolean).join(' · ')}</span>
+              <span className="yordam">{[m.phone, m.email, m.payload.username].filter(Boolean).join(' · ')}</span>
             </div>
             {m.source === 'call' && (
               <div className="ci-murojaat-qongiroq">

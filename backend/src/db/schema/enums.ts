@@ -102,6 +102,14 @@ export const integrationKind = pgEnum('integration_kind', [
   'binotel',
   'freepbx',
   'generic_webhook',
+  /**
+   * Ichki CRM "Saralanmagan"ga lid olib keluvchi ijtimoiy tarmoqlar.
+   * `telegram_bot` dan alohida: u SotuvAI bildirishnoma/suhbat boti,
+   * bu esa mijozlar yozadigan kompaniya boti.
+   */
+  'crm_facebook',
+  'crm_instagram',
+  'crm_telegram',
 ]);
 
 export const integrationStatus = pgEnum('integration_status', [

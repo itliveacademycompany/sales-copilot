@@ -163,6 +163,19 @@ const schema = z.object({
 
   /** Bitta qo'llanma videosining eng katta hajmi (MB). */
   QOLLANMA_MAX_MB: z.coerce.number().int().min(10).max(20_000).default(4096),
+
+  // ─── CRM: ijtimoiy tarmoqlar (Facebook / Instagram Lead Ads) ───
+
+  /**
+   * Meta Graph API versiyasi. Meta har versiyani ~2 yil qo'llab-quvvatlaydi;
+   * eskirganda kodni o'zgartirmasdan shu yerda yangilanadi (masalan `v24.0`).
+   */
+  META_GRAPH_VERSION: z
+    .string()
+    .trim()
+    .regex(/^v\d{1,3}\.\d{1,2}$/)
+    .catch('v23.0')
+    .default('v23.0'),
 });
 
 const parsed = schema.safeParse(process.env);

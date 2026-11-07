@@ -204,6 +204,13 @@
       "when": 1793770613451,
       "tag": "0028_crm_dashboard",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1794033388620,
+      "tag": "0029_crm_ijtimoiy_tarmoq",
+      "breakpoints": true
     }
   ]
 }

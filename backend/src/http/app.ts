@@ -27,6 +27,7 @@ import { registerCrmAppRoutes } from './routes/crm-app.js';
 import { registerCrmBoshqaruvRoutes } from './routes/crm-boshqaruv.js';
 import { registerCrmLidRoutes } from './routes/crm-lidlar.js';
 import { registerCrmOauthRoutes } from './routes/crm-oauth.js';
+import { registerCrmTarmoqRoutes } from './routes/crm-tarmoq.js';
 import { registerCrmUlanishRoutes } from './routes/crm-ulanish.js';
 import { registerMoizvonkiRoutes } from './routes/moizvonki.js';
 import { registerMcpRoutes } from './routes/mcp.js';
@@ -166,6 +167,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerCrmLidRoutes(app);
   registerCrmAppRoutes(app);
   registerCrmBoshqaruvRoutes(app);
+  registerCrmTarmoqRoutes(app);
   registerReportRoutes(app);
   registerAppealRoutes(app);
   registerConversationRoutes(app);

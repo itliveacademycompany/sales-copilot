@@ -5,6 +5,7 @@ import { withoutTenantIsolation, withTenant, type Tx } from '../db/index.js';
 import { contact, crmForm, crmInbox, crmPipeline, deal, dealEvent } from '../db/schema/index.js';
 import { navbatdagiMasul, sozlamaniOl, sozlamaniSaqla } from './sozlama.js';
 import { faolTashqiSinxBormi } from './tashqi.js';
+import { TARMOQ_NOMI } from './tarmoq.js';
 import { CrmXatosi } from './xato.js';
 import { bitimniOl, bitimYarat, kontaktniTopYokiYarat, maydonlarniTekshir, tuzilma, yozaOladimi, type CrmDoira } from './xizmat.js';
 
@@ -97,7 +98,7 @@ async function kirishBosqichi(tx: Tx, pipelineId: string | null | undefined): Pr
   return { pipelineId: v.id, stageId: b.id };
 }
 
-const MANBA_NOMI: Record<string, string> = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda" };
+const MANBA_NOMI: Record<string, string> = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda", ...TARMOQ_NOMI };
 
 export const qabulSxemasi = z.object({
   /** Mavjud bitimga bog'lash (yangi bitim yaratilmaydi). */

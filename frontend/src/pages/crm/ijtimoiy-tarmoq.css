@@ -1,0 +1,133 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   IJTIMOIY TARMOQLAR — "Saralanmagan" ustunidagi ikonlar va sozlama oynasi
+   ═══════════════════════════════════════════════════════════════════════════
+   Ulanmagan ikon — kulrang (bosilsa ochiladi), ulangani — brend rangida va
+   yashil nuqta, xatodagisi — to'q sariq nuqta. Brend rangi faqat shu yerda.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.tm-ikonlar { display: flex; justify-content: center; gap: 8px; margin-top: 6px; }
+
+.tm-ikon {
+  --brend: #1877f2;
+  position: relative;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--text-secondary);
+  background: var(--bg-base);
+  box-shadow: var(--neu-out-xs);
+  transition: color 0.15s var(--ease), box-shadow 0.15s var(--ease), transform 0.15s var(--ease);
+}
+.tm-ikon.instagram { --brend: #e1306c; }
+.tm-ikon.telegram { --brend: #229ed9; }
+.tm-ikon svg { width: 15px; height: 15px; }
+.tm-ikon.yoq { opacity: 0.75; }
+.tm-ikon:hover, .tm-ikon:focus-visible { color: var(--brend); opacity: 1; transform: translateY(-1px); }
+.tm-ikon:active { box-shadow: var(--neu-in-xs); transform: none; }
+.tm-ikon.ulangan, .tm-ikon.xato { color: var(--brend); }
+.tm-ikon:focus-visible { outline: 2px solid var(--ia); outline-offset: 2px; }
+
+.tm-nuqta {
+  position: absolute;
+  right: -1px;
+  top: -1px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--yuqori);
+  box-shadow: 0 0 0 2px var(--bg-base);
+}
+.tm-ikon.xato .tm-nuqta { background: var(--orta); }
+
+/* Oynadagi katta ikon */
+.tm-ikon.katta { width: 46px; height: 46px; flex-shrink: 0; cursor: default; }
+.tm-ikon.katta svg { width: 22px; height: 22px; }
+.tm-ikon.katta:hover { transform: none; }
+
+/* ─── Oyna ──────────────────────────────────────────────────────────────── */
+
+.tm-holat { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border-radius: 16px; background: var(--bg-base); box-shadow: var(--neu-in-sm); }
+.tm-holat-matn { min-width: 0; }
+.tm-holat-bosh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tm-holat-bosh b { font-size: 15px; overflow-wrap: anywhere; }
+.tm-holat .yordam { margin-top: 2px; }
+.tm-holat .badge svg { width: 12px; height: 12px; vertical-align: -2px; }
+
+.tm-eslatma { margin-bottom: 0; }
+
+.tm-ogoh {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--orta-soft);
+  color: var(--orta-text);
+  font-size: 13px;
+}
+.tm-ogoh svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; }
+
+.tm-yoriq { border-radius: 14px; padding: 10px 14px; background: var(--bg-base); box-shadow: var(--neu-out-xs); }
+.tm-yoriq summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.tm-yoriq ol { margin: 10px 0 2px; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.5; color: var(--text-primary); }
+
+.tm-blok { display: flex; flex-direction: column; gap: 10px; }
+.tm-blok h4 { margin: 4px 0 0; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: var(--text-secondary); text-transform: uppercase; }
+
+.tm-sir { display: flex; align-items: center; gap: 6px; }
+.tm-sir .input { flex: 1; min-width: 0; font-family: var(--font-mono, ui-monospace, monospace); font-size: 13px; }
+.tm-sir .vr-amal { flex-shrink: 0; }
+
+.tm-nusxa { display: flex; align-items: center; gap: 8px; }
+.tm-nusxa code {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: var(--bg-base);
+  box-shadow: var(--neu-in-xs);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.tm-nusxa .btn { flex-shrink: 0; }
+.tm-nusxa .btn svg { width: 14px; height: 14px; }
+
+.tm-sinov { padding: 10px 14px; border-radius: 12px; background: var(--bg-base); box-shadow: var(--neu-in-xs); font-size: 13px; }
+.tm-sinov > b { display: block; margin-bottom: 6px; }
+.tm-sinov.ok > b { color: var(--yuqori-text); }
+.tm-sinov ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.tm-sinov li { display: flex; gap: 7px; align-items: flex-start; line-height: 1.45; overflow-wrap: anywhere; }
+.tm-sinov li svg { width: 15px; height: 15px; flex-shrink: 0; margin-top: 2px; }
+.tm-sinov li.ok svg { color: var(--yuqori); }
+.tm-sinov li.xato svg { color: var(--past); }
+.tm-sinov li.ogoh svg { color: var(--orta); }
+
+.vr-oyna-past .tm-uz { margin-right: auto; }
+.vr-oyna-past .tm-uz:hover:not(:disabled) { color: var(--past); }
+.vr-oyna-past .btn svg { width: 15px; height: 15px; }
+
+.tm-aylan { animation: tm-aylan 0.9s linear infinite; }
+@keyframes tm-aylan { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .tm-aylan { animation: none; } }
+
+/* Murojaat kartasidagi manba belgisi (kanban va "Saralanmagan" sahifasi) */
+.kb-avatar-belgi.facebook { background: #1877f2; }
+.kb-avatar-belgi.instagram { background: linear-gradient(45deg, #f09433, #dc2743 55%, #bc1888); }
+.kb-avatar-belgi.telegram { background: #229ed9; }
+.ci-manba.facebook { background: rgba(24, 119, 242, 0.12); color: #1464cc; }
+.ci-manba.instagram { background: rgba(225, 48, 108, 0.12); color: #c1245a; }
+.ci-manba.telegram { background: rgba(34, 158, 217, 0.13); color: #1580b3; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .ci-manba.facebook { color: #6ea8ff; }
+  :root:not([data-theme='light']) .ci-manba.instagram { color: #ff7aa6; }
+  :root:not([data-theme='light']) .ci-manba.telegram { color: #6ccaf5; }
+}
+:root[data-theme='dark'] .ci-manba.facebook { color: #6ea8ff; }
+:root[data-theme='dark'] .ci-manba.instagram { color: #ff7aa6; }
+:root[data-theme='dark'] .ci-manba.telegram { color: #6ccaf5; }

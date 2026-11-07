@@ -39,6 +39,7 @@ import {
 import { MsBosh } from '../../crm/MsBosh';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
+import { TARMOQ_BELGISI, TarmoqIkonlari } from './IjtimoiyTarmoqlar';
 import { ImportOyna } from './ImportOyna';
 import './kanban.css';
 
@@ -943,7 +944,7 @@ function KanbanKarta({
 
 interface MurojaatQisqa {
   id: string;
-  source: 'call' | 'form' | 'manual';
+  source: 'call' | 'form' | 'manual' | 'facebook' | 'instagram' | 'telegram';
   name: string | null;
   phone: string | null;
   message: string | null;
@@ -952,8 +953,8 @@ interface MurojaatQisqa {
   createdAt: string;
 }
 
-const MANBA_NOMI = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda kiritilgan" } as const;
-const MANBA_IKON = { call: Phone, form: FileText, manual: PenLine } as const;
+const MANBA_NOMI = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda kiritilgan", facebook: 'Facebook', instagram: 'Instagram', telegram: 'Telegram' } as const;
+const MANBA_IKON = { call: Phone, form: FileText, manual: PenLine, ...TARMOQ_BELGISI } as const;
 
 /**
  * Voronkaning birinchi ustuni — "Saralanmagan" (amoCRM "Неразобранное"):
@@ -999,6 +1000,7 @@ function SaralanmaganUstun({ voronkaId, yangilash, onQabul }: { voronkaId: strin
       <header className="kb-ustun-bosh">
         <h2>{t('Saralanmagan')}</h2>
         <p>{t('Murojaat: {n}', { n: pul(data?.total ?? 0) })}</p>
+        <TarmoqIkonlari yangilash={yangilash} />
       </header>
       <div className="kb-ustun-ichi">
         {xato && (
@@ -1008,7 +1010,7 @@ function SaralanmaganUstun({ voronkaId, yangilash, onQabul }: { voronkaId: strin
         )}
         {!data && <span className="kb-skelet kb-skelet-karta" />}
         {data?.items.map((m) => {
-          const Ikon = MANBA_IKON[m.source];
+          const Ikon = MANBA_IKON[m.source] ?? PenLine;
           const nom = m.contactName ?? m.name ?? m.phone ?? t('Murojaat');
           return (
             <article key={m.id} className="kb-karta kb-murojaat">
@@ -1031,7 +1033,7 @@ function SaralanmaganUstun({ voronkaId, yangilash, onQabul }: { voronkaId: strin
                   {nom}
                 </Link>
                 {m.phone && nom !== m.phone && <div className="kb-karta-izoh">{m.phone}</div>}
-                {m.message && <div className="kb-xabar">{m.message}</div>}
+                {m.message && <div className="kb-xabar">{oxirgiQator(m.message)}</div>}
                 <div className="kb-murojaat-amallar">
                   <button type="button" className="kb-qabul" disabled={band === m.id} onClick={() => void amal(m, 'accept')}>
                     <Check aria-hidden="true" /> {t('Qabul qilish')}
@@ -1053,6 +1055,12 @@ function SaralanmaganUstun({ voronkaId, yangilash, onQabul }: { voronkaId: strin
       </div>
     </section>
   );
+}
+
+/** Xabarlar qo'shilib boradigan murojaatda (Telegram, Direct) kartada oxirgi xabar ko'rinadi. */
+function oxirgiQator(matn: string): string {
+  const q = matn.split('\n').filter((x) => x.trim());
+  return q[q.length - 1] ?? matn;
 }
 
 function boshHarflar(nom: string): string {
