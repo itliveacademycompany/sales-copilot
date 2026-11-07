@@ -289,7 +289,12 @@ function TarmoqOyna({
             id={`tm-${kalit}`}
             className="input"
             type={korsat[kalit] ? 'text' : 'password'}
-            autoComplete="off"
+            // Brauzer saqlangan kirish parolini bu yerga qo'ymasin ("off" ni Chrome e'tiborsiz qoldiradi)
+            autoComplete="new-password"
+            data-1p-ignore=""
+            data-lpignore="true"
+            data-bwignore=""
+            data-form-type="other"
             spellCheck={false}
             value={f[kalit]}
             placeholder={hint ? t('Saqlangan: {h} — almashtirish uchun yangisini kiriting', { h: hint }) : joy}
