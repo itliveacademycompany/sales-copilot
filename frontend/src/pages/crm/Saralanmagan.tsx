@@ -18,7 +18,7 @@ function ManbaBelgisi({ source }: { source: Murojaat['source'] }) {
   return source === 'call' ? <PhoneCall aria-hidden="true" /> : source === 'form' ? <FileText aria-hidden="true" /> : <Hand aria-hidden="true" />;
 }
 
-interface Murojaat {
+export interface Murojaat {
   id: string;
   source: 'call' | 'form' | 'manual' | Kanal;
   status: string;
@@ -140,7 +140,9 @@ export function Saralanmagan() {
               <time className="yordam">{fmtQachon(m.createdAt)}</time>
             </header>
             <div className="ci-murojaat-kim">
-              <b>{m.contactName ?? m.name ?? t('Ismsiz')}</b>
+              <Link to={`/crm/saralanmagan/${m.id}`} className="ci-havola">
+                <b>{m.contactName ?? m.name ?? t('Ismsiz')}</b>
+              </Link>
               <span className="yordam">{[m.phone, m.email, m.payload.username].filter(Boolean).join(' · ')}</span>
             </div>
             {m.source === 'call' && (
@@ -211,12 +213,23 @@ export function Saralanmagan() {
   );
 }
 
-function QabulOyna({ m, onYop, onTugadi }: { m: Murojaat; onYop: () => void; onTugadi: () => void }) {
+/** Qabul: yangi bitim yoki mavjudiga bog'lash. Murojaat oynasida ham ishlatiladi (`boshRejim`). */
+export function QabulOyna({
+  m,
+  onYop,
+  onTugadi,
+  boshRejim,
+}: {
+  m: Murojaat;
+  onYop: () => void;
+  onTugadi: () => void;
+  boshRejim?: 'yangi' | 'boglash';
+}) {
   const { holat, base, seatlar } = useCrm();
   const t = useT();
   const navigate = useNavigate();
   const asosiy = holat.pipelines.find((p) => p.isMain) ?? holat.pipelines[0]!;
-  const [rejim, setRejim] = useState<'yangi' | 'boglash'>(m.openDeals > 0 ? 'boglash' : 'yangi');
+  const [rejim, setRejim] = useState<'yangi' | 'boglash'>(boshRejim ?? (m.openDeals > 0 ? 'boglash' : 'yangi'));
   const [pipelineId, setPipelineId] = useState(asosiy.id);
   const voronka = holat.pipelines.find((p) => p.id === pipelineId)!;
   const [stageId, setStageId] = useState(voronka.stages.find((s) => s.kind === 'open')?.id ?? '');

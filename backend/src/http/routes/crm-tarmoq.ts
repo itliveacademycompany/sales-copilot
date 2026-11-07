@@ -5,6 +5,7 @@ import {
   KANALLAR,
   metaHodisa,
   metaTasdiq,
+  murojaatgaJavob,
   murojaatRasmi,
   tarmoqlarHolati,
   tarmoqniSaqla,
@@ -15,7 +16,7 @@ import {
   telegramHodisa,
 } from '../../crm/tarmoq.js';
 import { requireBusiness, requirePermission } from '../auth-plugin.js';
-import { bajar, BASE, doira } from '../crm-yordam.js';
+import { bajar, BASE, doira, yozishDoirasi } from '../crm-yordam.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -28,6 +29,7 @@ import { bajar, BASE, doira } from '../crm-yordam.js';
  *   POST   /crm-app/social/:kanal/test    — qayta sinash
  *   DELETE /crm-app/social/:kanal         — uzish (kalitlar o'chiriladi)
  *   GET    /crm-app/inbox/:id/avatar      — murojaat yozuvchisining profil rasmi
+ *   POST   /crm-app/inbox/:id/reply       — mijozga o'sha tarmoqda javob yozish
  *
  *   GET/POST /api/v1/webhooks/crm/meta/:id     — Facebook va Instagram
  *   POST     /api/v1/webhooks/crm/telegram/:id — Telegram bot
@@ -98,6 +100,16 @@ export function registerCrmTarmoqRoutes(app: FastifyInstance): void {
       .header('cache-control', 'private, max-age=21600')
       .header('x-content-type-options', 'nosniff')
       .send(rasm.data);
+  });
+
+  /** Menejer javobi: mijozga Telegram / Messenger / Instagram orqali yuboriladi va chatga qo'shiladi. */
+  app.post(`${BASE}/crm-app/inbox/:id/reply`, { ...guard, config: { rateLimit: { max: 60, timeWindow: '1 minute' } } }, async (req) => {
+    yozishDoirasi(req);
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const { text } = z.object({ text: z.string().max(4000, 'Xabar juda uzun') }).parse(req.body);
+    const muallif = req.auth!.user.displayName?.trim() || 'Menejer';
+    const xabar = await bajar(() => murojaatgaJavob(req.business!.businessId, id, text, muallif));
+    return { message: xabar };
   });
 
   // ─── Webhooklar (sessiyasiz — imzo yoki sir bilan) ──────────────────────────

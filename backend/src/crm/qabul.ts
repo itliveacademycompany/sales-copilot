@@ -5,7 +5,7 @@ import { withoutTenantIsolation, withTenant, type Tx } from '../db/index.js';
 import { contact, crmForm, crmInbox, crmPipeline, deal, dealEvent } from '../db/schema/index.js';
 import { navbatdagiMasul, sozlamaniOl, sozlamaniSaqla } from './sozlama.js';
 import { faolTashqiSinxBormi } from './tashqi.js';
-import { hisobNomlari, TARMOQ_NOMI } from './tarmoq.js';
+import { hisobNomlari, javobImkoni, murojaatChati, TARMOQ_NOMI } from './tarmoq.js';
 import { CrmXatosi } from './xato.js';
 import { bitimniOl, bitimYarat, kontaktniTopYokiYarat, maydonlarniTekshir, tuzilma, yozaOladimi, type CrmDoira } from './xizmat.js';
 
@@ -43,28 +43,7 @@ export async function murojaatlar(
   const where = voronkaSharti ? and(eq(crmInbox.status, p.status), voronkaSharti)! : eq(crmInbox.status, p.status);
   const [qatorlar, [jami], sonlar, nomlar] = await Promise.all([
     tx
-      .select({
-        id: crmInbox.id,
-        source: crmInbox.source,
-        status: crmInbox.status,
-        name: crmInbox.name,
-        phone: crmInbox.phone,
-        email: crmInbox.email,
-        message: crmInbox.message,
-        payload: crmInbox.payload,
-        contactId: crmInbox.contactId,
-        contactName: contact.name,
-        formId: crmInbox.formId,
-        formName: crmForm.name,
-        conversationId: crmInbox.conversationId,
-        dealId: crmInbox.dealId,
-        dealName: deal.name,
-        decidedAt: crmInbox.decidedAt,
-        createdAt: crmInbox.createdAt,
-        // Shu kontaktning boshqa ochiq bitimlari — "bog'lash" taklifi uchun
-        openDeals: sql<number>`(select count(*)::int from deal d join crm_stage s on s.id = d.stage_id
-          where d.contact_id = ${crmInbox.contactId} and d.deleted_at is null and s.kind = 'open')`,
-      })
+      .select(MUROJAAT_MAYDONLARI)
       .from(crmInbox)
       .leftJoin(contact, eq(contact.id, crmInbox.contactId))
       .leftJoin(crmForm, eq(crmForm.id, crmInbox.formId))
@@ -80,8 +59,67 @@ export async function murojaatlar(
   return {
     total: Number(jami?.n ?? 0),
     counts: Object.fromEntries(sonlar.map((s) => [s.status, Number(s.n)])) as Record<string, number>,
-    // Tarmoq murojaatlarida — ulangan hisob nomi (sahifa, @instagram, @bot)
-    items: qatorlar.map((q) => ({ ...q, accountName: (nomlar as Record<string, string | undefined>)[q.source] ?? null })),
+    // Tarmoq murojaatlarida — ulangan hisob nomi (sahifa, @instagram, @bot).
+    // Chat ro'yxatda kerak emas (200 tagacha xabar) — u murojaat oynasida olinadi.
+    items: qatorlar.map((q) => ({ ...q, payload: chatsiz(q.payload), accountName: (nomlar as Record<string, string | undefined>)[q.source] ?? null })),
+  };
+}
+
+const MUROJAAT_MAYDONLARI = {
+  id: crmInbox.id,
+  source: crmInbox.source,
+  status: crmInbox.status,
+  name: crmInbox.name,
+  phone: crmInbox.phone,
+  email: crmInbox.email,
+  message: crmInbox.message,
+  payload: crmInbox.payload,
+  contactId: crmInbox.contactId,
+  contactName: contact.name,
+  formId: crmInbox.formId,
+  formName: crmForm.name,
+  conversationId: crmInbox.conversationId,
+  dealId: crmInbox.dealId,
+  dealName: deal.name,
+  decidedAt: crmInbox.decidedAt,
+  createdAt: crmInbox.createdAt,
+  // Shu kontaktning boshqa ochiq bitimlari — "bog'lash" taklifi uchun
+  openDeals: sql<number>`(select count(*)::int from deal d join crm_stage s on s.id = d.stage_id
+    where d.contact_id = ${crmInbox.contactId} and d.deleted_at is null and s.kind = 'open')`,
+};
+
+function chatsiz(payload: unknown): Record<string, unknown> {
+  const pl = { ...((payload ?? {}) as Record<string, unknown>) };
+  delete pl.chat;
+  return pl;
+}
+
+/**
+ * Bitta murojaat — "Saralanmagan"dan bosilganda ochiladigan oyna uchun:
+ * kontakt, manba, voronka, chat tarixi va javob yozish imkoniyati.
+ */
+export async function murojaatTafsiloti(tx: Tx, id: string) {
+  const [m] = await tx
+    .select({ ...MUROJAAT_MAYDONLARI, pipelineId: crmInbox.pipelineId, pipelineName: crmPipeline.name, decidedBy: crmInbox.decidedBy })
+    .from(crmInbox)
+    .leftJoin(contact, eq(contact.id, crmInbox.contactId))
+    .leftJoin(crmForm, eq(crmForm.id, crmInbox.formId))
+    .leftJoin(deal, eq(deal.id, crmInbox.dealId))
+    .leftJoin(crmPipeline, eq(crmPipeline.id, crmInbox.pipelineId))
+    .where(eq(crmInbox.id, id))
+    .limit(1);
+  if (!m) throw new CrmXatosi('topilmadi', 'Murojaat topilmadi');
+  const nomlar = (await hisobNomlari(tx)) as Record<string, string | undefined>;
+  const chat = murojaatChati(m.payload, m.message, m.createdAt);
+  return {
+    ...m,
+    payload: chatsiz(m.payload),
+    accountName: nomlar[m.source] ?? null,
+    contact: m.contactId
+      ? ((await tx.select({ id: contact.id, name: contact.name, phone: contact.phone, email: contact.email }).from(contact).where(eq(contact.id, m.contactId)).limit(1))[0] ?? null)
+      : null,
+    chat,
+    ...javobImkoni(m.source, m.payload, chat),
   };
 }
 

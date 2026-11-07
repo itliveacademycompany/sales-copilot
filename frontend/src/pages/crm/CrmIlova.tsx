@@ -15,6 +15,7 @@ import { CrmAnalitika } from './CrmAnalitika';
 import { IshStoli } from './IshStoli';
 import { KompaniyaKarta, KontaktKarta, Kontaktlar } from './Kontaktlar';
 import { LidXulosalariCrm } from './LidXulosalariCrm';
+import { MurojaatKarta } from './MurojaatKarta';
 import { Saralanmagan } from './Saralanmagan';
 import { VoronkaSozlash } from './VoronkaSozlash';
 import './crm-ilova.css';
@@ -89,6 +90,7 @@ export function CrmIlova() {
             <Route path="ish-stoli" element={<IshStoli />} />
             <Route path="bitimlar" element={<Bitimlar />} />
             <Route path="saralanmagan" element={<Saralanmagan />} />
+            <Route path="saralanmagan/:id" element={<MurojaatKarta />} />
             {/* CRM voronka hisobotlari — "Analitika" endi umumiy (9 tabli) analitika */}
             <Route path="voronka-tahlili" element={<CrmAnalitika />} />
             <Route path="kompaniyalar" element={<Kontaktlar bolim="kompaniya" />} />

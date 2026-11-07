@@ -40,6 +40,7 @@ import { MsBosh } from '../../crm/MsBosh';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
 import { TARMOQ_BELGISI, TarmoqIkonlari } from './IjtimoiyTarmoqlar';
+import { avatarManzili, AvatarRasmi, boshHarflar } from './MurojaatAvatar';
 import { ImportOyna } from './ImportOyna';
 import './kanban.css';
 
@@ -956,30 +957,6 @@ interface MurojaatQisqa {
   payload?: { type?: string } | null;
 }
 
-/**
- * Yozuvchining profil rasmi (Telegram, Messenger, Instagram xabarlarida).
- * Rasm kelguncha va kelmasa (yopiq yoki yo'q) — bosh harflar ko'rinadi.
- */
-function AvatarRasmi({ src, harflar }: { src: string | null; harflar: string }) {
-  const [holat, setHolat] = useState<'kutish' | 'tayyor' | 'yoq'>('kutish');
-  return (
-    <>
-      {holat !== 'tayyor' && harflar}
-      {src && holat !== 'yoq' && (
-        <img
-          className={`kb-avatar-rasm${holat === 'tayyor' ? ' tayyor' : ''}`}
-          src={src}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          onLoad={() => setHolat('tayyor')}
-          onError={() => setHolat('yoq')}
-        />
-      )}
-    </>
-  );
-}
-
 const MANBA_NOMI = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda kiritilgan", facebook: 'Facebook', instagram: 'Instagram', telegram: 'Telegram' } as const;
 const MANBA_IKON = { call: Phone, form: FileText, manual: PenLine, ...TARMOQ_BELGISI } as const;
 
@@ -992,6 +969,7 @@ const MANBA_IKON = { call: Phone, form: FileText, manual: PenLine, ...TARMOQ_BEL
 function SaralanmaganUstun({ voronkaId, yangilash, onQabul }: { voronkaId: string; yangilash: number; onQabul: () => void }) {
   const { base } = useCrm();
   const t = useT();
+  const navigate = useNavigate();
   const [data, setData] = useState<{ total: number; items: MurojaatQisqa[] } | null>(null);
   const [band, setBand] = useState<string | null>(null);
   const [xato, setXato] = useState<string | null>(null);
@@ -1040,12 +1018,16 @@ function SaralanmaganUstun({ voronkaId, yangilash, onQabul }: { voronkaId: strin
           const Ikon = MANBA_IKON[m.source] ?? PenLine;
           const nom = m.contactName ?? m.name ?? m.phone ?? t('Murojaat');
           return (
-            <article key={m.id} className="kb-karta kb-murojaat">
+            <article
+              key={m.id}
+              className="kb-karta kb-murojaat ochiladi"
+              onClick={(e) => {
+                // Karta bosilsa murojaat oynasi ochiladi (tugma va havolalardan tashqari)
+                if (!(e.target as HTMLElement).closest('button, a')) navigate(`/crm/saralanmagan/${m.id}`);
+              }}
+            >
               <span className="kb-avatar" aria-hidden="true">
-                <AvatarRasmi
-                  src={m.source in TARMOQ_BELGISI && m.payload?.type === 'message' ? `${base}/crm-app/inbox/${m.id}/avatar` : null}
-                  harflar={boshHarflar(nom)}
-                />
+                <AvatarRasmi src={avatarManzili(base, m)} harflar={boshHarflar(nom)} />
                 <span className={`kb-avatar-belgi ${m.source}`}>
                   <Ikon />
                 </span>
@@ -1059,7 +1041,7 @@ function SaralanmaganUstun({ voronkaId, yangilash, onQabul }: { voronkaId: strin
                     {kartaVaqti(m.createdAt, t)}
                   </time>
                 </div>
-                <Link className="kb-karta-nom" to="/crm/saralanmagan">
+                <Link className="kb-karta-nom" to={`/crm/saralanmagan/${m.id}`}>
                   {nom}
                 </Link>
                 {m.phone && nom !== m.phone && <div className="kb-karta-izoh">{m.phone}</div>}
@@ -1091,12 +1073,6 @@ function SaralanmaganUstun({ voronkaId, yangilash, onQabul }: { voronkaId: strin
 function oxirgiQator(matn: string): string {
   const q = matn.split('\n').filter((x) => x.trim());
   return q[q.length - 1] ?? matn;
-}
-
-function boshHarflar(nom: string): string {
-  const q = nom.replace(/^[@+]/, '').trim().split(/\s+/).filter(Boolean);
-  const h = ((q[0]?.[0] ?? '') + (q[1]?.[0] ?? '')).toUpperCase();
-  return /\d/.test(h) || !h ? '#' : h;
 }
 
 /**

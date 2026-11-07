@@ -235,18 +235,8 @@
   background: var(--ia);
   box-shadow: 0 0 0 2px var(--bg-surface);
 }
-/* Profil rasmi — yuklanguncha shaffof, tagida bosh harflar turadi */
-.kb-avatar-rasm {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  object-fit: cover;
-  opacity: 0;
-  transition: opacity 0.2s var(--ease);
-}
-.kb-avatar-rasm.tayyor { opacity: 1; }
+/* Karta bosilsa murojaat oynasi ochiladi */
+.kb-murojaat.ochiladi { cursor: pointer; }
 .kb-avatar-belgi.call { background: var(--yuqori); }
 .kb-avatar-belgi.manual { background: var(--data); }
 .kb-avatar-belgi svg { width: 11px; height: 11px; }

@@ -37,6 +37,7 @@ import {
   murojaatniQabul,
   murojaatniRad,
   murojaatQosh,
+  murojaatTafsiloti,
   ochiqForma,
   qabulSxemasi,
   qoldaSxemasi,
@@ -142,6 +143,13 @@ export function registerCrmBoshqaruvRoutes(app: FastifyInstance): void {
       .object({ status: z.enum(['pending', 'accepted', 'rejected']).default('pending'), pipeline: z.string().uuid().optional(), ...sahifa })
       .parse(req.query);
     return withTenant(req.business!.businessId, (tx) => murojaatlar(tx, { ...q, pipelineId: q.pipeline }));
+  });
+
+  /** Bitta murojaat: kontakt, manba, voronka, chat tarixi (murojaat oynasi). */
+  app.get(`${BASE}/crm-app/inbox/:id`, guard, async (req) => {
+    doira(req);
+    const { id } = idParam.parse(req.params);
+    return bajar(() => withTenant(req.business!.businessId, (tx) => murojaatTafsiloti(tx, id)));
   });
 
   app.post(`${BASE}/crm-app/inbox`, guard, async (req) => {

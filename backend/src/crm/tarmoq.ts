@@ -490,7 +490,7 @@ export async function tarmoqniSina(businessId: string, kanal: Kanal): Promise<{ 
       const sahifa = await g<{ id: string; name?: string }>(`/${c.pageId}`, { fields: 'id,name' });
       qadamlar.push({ kalit: 'sahifa', ok: sahifa.ok, xabar: sahifa.ok ? (sahifa.data.name ?? sahifa.data.id) : sahifa.xato, muhim: true });
       if (sahifa.ok) yangilash.accountName = sahifa.data.name ?? null;
-      const obuna = await g<{ success?: boolean }>(`/${c.pageId}/subscribed_apps`, { subscribed_fields: 'leadgen,messages' }, 'POST');
+      const obuna = await g<{ success?: boolean }>(`/${c.pageId}/subscribed_apps`, { subscribed_fields: 'leadgen,messages,message_echoes' }, 'POST');
       qadamlar.push({ kalit: 'obuna', ok: obuna.ok, xabar: obuna.ok ? null : `${obuna.xato}. Sahifa tokeni (Page Access Token) kerak`, muhim: false });
     }
 
@@ -603,6 +603,63 @@ interface XabarKirish {
 type XabarNatijasi = 'yangi' | 'qoshildi' | 'takror';
 
 /**
+ * Murojaat chatidagi bitta xabar (`payload.chat`): kirgan — mijozdan, chiqqan —
+ * bot javobi, sahifadan yozilgan (Meta echo) yoki CRM'dan yuborilgan.
+ */
+export interface ChatXabari {
+  id: string;
+  dir: 'in' | 'out';
+  text: string;
+  at: string;
+  /** Chiqqan xabarni kim yozgan: menejer ismi, "Bot"; null — sahifaning o'zidan. */
+  by?: string | null;
+}
+
+const CHAT_CHEGARASI = 200;
+
+/**
+ * Murojaat chati. Bu imkoniyatdan oldin kelgan murojaatlarda xabarlar faqat
+ * bitta matn bo'lib saqlangan — ular bitta kirgan xabar sifatida ko'rinadi.
+ */
+export function murojaatChati(payload: unknown, message: string | null, createdAt: Date | string): ChatXabari[] {
+  const chat = ((payload ?? {}) as Record<string, unknown>).chat;
+  if (Array.isArray(chat)) return chat as ChatXabari[];
+  return message ? [{ id: 'eski', dir: 'in', text: message, at: new Date(createdAt).toISOString() }] : [];
+}
+
+/** Yangi xabar qo'shilgan chat; shu ID li xabar allaqachon bo'lsa — null. */
+function chatgaQosh(chat: ChatXabari[], x: ChatXabari): ChatXabari[] | null {
+  if (chat.some((c) => c.id === x.id)) return null;
+  return [...chat, x].slice(-CHAT_CHEGARASI);
+}
+
+type ChatQatori = { id: string; message: string | null; payload: unknown; createdAt: Date };
+
+async function chatniYoz(tx: Tx, m: ChatQatori, x: ChatXabari): Promise<void> {
+  const pl = (m.payload ?? {}) as Record<string, unknown>;
+  const chat = chatgaQosh(murojaatChati(pl, m.message, m.createdAt), x);
+  if (chat) await tx.update(crmInbox).set({ payload: { ...pl, chat } }).where(eq(crmInbox.id, m.id));
+}
+
+/**
+ * Chiqqan xabar (bot javobi yoki sahifadan yozilgan) — shu yozuvchining
+ * kutilayotgan murojaatiga. Murojaat bo'lmasa hech narsa yozilmaydi.
+ */
+async function chiqishniYoz(businessId: string, source: Kanal, senderId: string, x: ChatXabari): Promise<void> {
+  await withTenant(businessId, async (tx) => {
+    await qulf(tx, `tarmoq:${businessId}:${source}:${senderId}`);
+    const [m] = await tx
+      .select({ id: crmInbox.id, message: crmInbox.message, payload: crmInbox.payload, createdAt: crmInbox.createdAt })
+      .from(crmInbox)
+      .where(and(eq(crmInbox.source, source), eq(crmInbox.status, 'pending'), sql`${crmInbox.payload}->>'senderId' = ${senderId}`))
+      .orderBy(desc(crmInbox.createdAt))
+      .limit(1)
+      .for('update');
+    if (m) await chatniYoz(tx, m, x);
+  });
+}
+
+/**
  * Bir yozuvchidan bitta kutilayotgan murojaat: birinchi xabar — yangi murojaat,
  * keyingilari unga qo'shiladi (amoCRM "Неразобранное" kabi). Murojaat qabul
  * yoki rad qilingandan keyin yozsa — yangi murojaat.
@@ -612,11 +669,21 @@ async function xabarniYoz(businessId: string, k: XabarKirish, profil?: () => Pro
   const [bor] = await withTenant(businessId, (tx) => tx.select({ id: crmInbox.id }).from(crmInbox).where(shart).limit(1));
   // Ism faqat yangi murojaat uchun so'raladi — tarmoq so'rovi tranzaksiyadan tashqarida
   const p = !bor && profil ? await profil().catch(() => null) : null;
+  const kirish: ChatXabari | null =
+    k.text || k.phone ? { id: k.mid, dir: 'in', text: k.text ?? `📱 ${k.phone}`, at: new Date().toISOString() } : null;
 
   return withTenant(businessId, async (tx) => {
     await qulf(tx, `tarmoq:${businessId}:${k.source}:${k.senderId}`);
     const [m] = await tx
-      .select({ id: crmInbox.id, message: crmInbox.message, payload: crmInbox.payload, phone: crmInbox.phone, name: crmInbox.name, contactId: crmInbox.contactId })
+      .select({
+        id: crmInbox.id,
+        message: crmInbox.message,
+        payload: crmInbox.payload,
+        phone: crmInbox.phone,
+        name: crmInbox.name,
+        contactId: crmInbox.contactId,
+        createdAt: crmInbox.createdAt,
+      })
       .from(crmInbox)
       .where(shart)
       .orderBy(desc(crmInbox.createdAt))
@@ -627,6 +694,8 @@ async function xabarniYoz(businessId: string, k: XabarKirish, profil?: () => Pro
       const mids = Array.isArray(pl.mids) ? (pl.mids as string[]) : [];
       if (mids.includes(k.mid)) return 'takror';
       const yangiTel = !m.phone && k.phone ? k.phone : null;
+      // Eski (chatsiz) murojaatda avvalgi matn birinchi xabar bo'lib qoladi
+      const chat = kirish ? chatgaQosh(murojaatChati(pl, m.message, m.createdAt), kirish) : null;
       await tx
         .update(crmInbox)
         .set({
@@ -635,6 +704,7 @@ async function xabarniYoz(businessId: string, k: XabarKirish, profil?: () => Pro
           payload: {
             ...pl,
             ...k.qoshimcha,
+            ...(chat ? { chat } : {}),
             mids: [...mids, k.mid].slice(-30),
             messageCount: (typeof pl.messageCount === 'number' ? pl.messageCount : 1) + 1,
             lastMessageAt: new Date().toISOString(),
@@ -661,6 +731,7 @@ async function xabarniYoz(businessId: string, k: XabarKirish, profil?: () => Pro
           type: 'message',
           senderId: k.senderId,
           username: k.username ?? p?.username ?? null,
+          chat: kirish ? [kirish] : [],
           mids: [k.mid],
           messageCount: 1,
           lastMessageAt: new Date().toISOString(),
@@ -926,6 +997,7 @@ const metaTanasi = z.object({
 
 type MetaXabar = {
   sender?: { id?: unknown };
+  recipient?: { id?: unknown };
   message?: { mid?: string; text?: string; is_echo?: boolean; is_deleted?: boolean; attachments?: { type?: string }[] };
   postback?: { mid?: string; title?: string };
 };
@@ -935,13 +1007,19 @@ const ILOVA_NOMI: Record<string, string> = { image: '[Rasm]', video: '[Video]', 
 /** Messenger yoki Instagram Direct xabari. */
 async function metaXabari(r: TopilganIntegratsiya, s: Sirlar, obyekt: string, entryId: string | null, ev: MetaXabar): Promise<XabarNatijasi | null> {
   const senderId = idSatr(ev.sender?.id);
-  // O'zimiz yuborgan (echo), o'chirilgan, o'qildi/yetkazildi — murojaat emas
-  if (!senderId || senderId === entryId || ev.message?.is_echo || ev.message?.is_deleted) return null;
   const mid = ev.message?.mid ?? ev.postback?.mid;
-  if (!mid) return null;
+  if (!senderId || !mid || ev.message?.is_deleted) return null;
   const ilova = ev.message?.attachments?.map((a) => ILOVA_NOMI[a.type ?? ''] ?? '[Ilova]').join(' ');
   const text = (ev.message?.text ?? ev.postback?.title ?? ilova ?? '').trim() || null;
   const source: Kanal = obyekt === 'instagram' ? 'instagram' : 'facebook';
+  // Sahifa/hisobning o'zi yozgani (echo): murojaat emas, lekin chatda ko'rinadi —
+  // boshqa servis (masalan, chat-bot) yoki Instagram ilovasidan yozilgan javoblar.
+  // CRM'dan yuborilgani ham shu yerga qaytadi — xabar ID si bo'yicha dubl bo'lmaydi.
+  if (ev.message?.is_echo || senderId === entryId) {
+    const mijoz = idSatr(ev.recipient?.id);
+    if (mijoz && text) await chiqishniYoz(r.businessId, source, mijoz, { id: mid, dir: 'out', text, at: new Date().toISOString(), by: null });
+    return null;
+  }
   const c = configniOl(r.config);
   const token = s.accessToken!;
   const host = source === 'instagram' ? igHost(token) : 'facebook';
@@ -1112,14 +1190,26 @@ export async function telegramHodisa(id: string, sir: unknown, body: unknown): P
   if (natija !== 'takror') {
     const salom = c.greeting ?? STANDART_SALOM;
     const rahmat = c.thanks ?? STANDART_RAHMAT;
-    if (start && salom) {
-      await tg(s.botToken, 'sendMessage', {
+    const salomMi = Boolean(start && salom);
+    const javob = salomMi ? salom : ozTelefoni && rahmat ? rahmat : null;
+    if (javob) {
+      const y = await tg<{ message_id: number }>(s.botToken, 'sendMessage', {
         chat_id: msg.chat.id,
-        text: salom,
-        reply_markup: { keyboard: [[{ text: TELEFON_TUGMASI, request_contact: true }]], resize_keyboard: true, one_time_keyboard: true },
+        text: javob,
+        reply_markup: salomMi
+          ? { keyboard: [[{ text: TELEFON_TUGMASI, request_contact: true }]], resize_keyboard: true, one_time_keyboard: true }
+          : { remove_keyboard: true },
       });
-    } else if (ozTelefoni && rahmat) {
-      await tg(s.botToken, 'sendMessage', { chat_id: msg.chat.id, text: rahmat, reply_markup: { remove_keyboard: true } });
+      // Bot javobi ham murojaat chatida ko'rinsin
+      if (y.ok) {
+        await chiqishniYoz(r.businessId, 'telegram', String(msg.chat.id), {
+          id: `out:${y.result.message_id}`,
+          dir: 'out',
+          text: javob,
+          at: new Date().toISOString(),
+          by: 'Bot',
+        }).catch(() => undefined);
+      }
     }
   }
   await hodisaniQayd(r.businessId, r.id, null);
@@ -1241,4 +1331,94 @@ export async function murojaatRasmi(businessId: string, inboxId: string): Promis
   }
   rasmKeshi.set(kalit, { rasm, muddat: Date.now() + (rasm ? RASM_BOR_MUDDATI : RASM_YOQ_MUDDATI) });
   return rasm;
+}
+
+// ─── Murojaatga CRM'dan javob ────────────────────────────────────────────────
+
+/** Bir xabar uzunligi: Telegram 4096, Messenger 2000, Instagram 1000 belgigacha. */
+const JAVOB_CHEGARASI: Record<Kanal, number> = { telegram: 4000, facebook: 2000, instagram: 1000 };
+/** Meta: mijoz oxirgi marta yozganidan 24 soat o'tgach oddiy javob yuborib bo'lmaydi. */
+const META_OYNASI_MS = 24 * 60 * 60 * 1000;
+const OYNA_YOPIQ = "Mijoz oxirgi marta 24 soatdan oldin yozgan — Meta qoidasiga ko'ra mijoz qayta yozmaguncha javob yuborib bo'lmaydi.";
+
+/** Murojaat oynasida yozish maydoni: faqat tarmoq xabarlarida va (Meta'da) 24 soat ichida. */
+export function javobImkoni(source: string, payload: unknown, chat: ChatXabari[]): { canReply: boolean; replyNote: string | null } {
+  const kanal = KANALLAR.find((k) => k === source);
+  const pl = (payload ?? {}) as Record<string, unknown>;
+  if (!kanal || pl.type !== 'message' || !idSatr(pl.senderId)) return { canReply: false, replyNote: null };
+  if (kanal !== 'telegram') {
+    const oxirgi = typeof pl.lastMessageAt === 'string' ? pl.lastMessageAt : [...chat].reverse().find((c) => c.dir === 'in')?.at;
+    const vaqt = oxirgi ? Date.parse(oxirgi) : NaN;
+    if (Number.isFinite(vaqt) && Date.now() - vaqt > META_OYNASI_MS) return { canReply: false, replyNote: OYNA_YOPIQ };
+  }
+  return { canReply: true, replyNote: null };
+}
+
+/**
+ * Menejer CRM'dan yozgan javob — mijozga o'sha tarmoqda yuboriladi va
+ * murojaat chatiga qo'shiladi. Yuborilmasa (bloklagan, 24 soat o'tgan,
+ * kalit eskirgan) — sababi bilan xato.
+ */
+export async function murojaatgaJavob(businessId: string, inboxId: string, matn: string, muallif: string): Promise<ChatXabari> {
+  const text = matn.trim();
+  if (!text) throw new CrmXatosi('yaroqsiz', 'Xabar matnini kiriting');
+  const [m] = await withTenant(businessId, (tx) =>
+    tx
+      .select({ id: crmInbox.id, source: crmInbox.source, message: crmInbox.message, payload: crmInbox.payload, createdAt: crmInbox.createdAt })
+      .from(crmInbox)
+      .where(eq(crmInbox.id, inboxId))
+      .limit(1),
+  );
+  if (!m) throw new CrmXatosi('topilmadi', 'Murojaat topilmadi');
+  const imkon = javobImkoni(m.source, m.payload, murojaatChati(m.payload, m.message, m.createdAt));
+  if (!imkon.canReply) throw new CrmXatosi('ziddiyat', imkon.replyNote ?? "Bu murojaatga javob yozib bo'lmaydi");
+  const kanal = m.source as Kanal;
+  const senderId = idSatr(((m.payload ?? {}) as Record<string, unknown>).senderId)!;
+  if (text.length > JAVOB_CHEGARASI[kanal]) throw new CrmXatosi('yaroqsiz', `Xabar juda uzun — ${JAVOB_CHEGARASI[kanal]} belgidan oshmasin`);
+
+  const [r] = await withTenant(businessId, (tx) =>
+    tx.select({ creds: integration.credentialsEncrypted }).from(integration).where(eq(integration.kind, TUR[kanal])).limit(1),
+  );
+  const s = sirlarniOch(r?.creds);
+  let id: string;
+  if (kanal === 'telegram') {
+    if (!s.botToken) throw new CrmXatosi('ziddiyat', 'Telegram ulanmagan');
+    const y = await tg<{ message_id: number }>(s.botToken, 'sendMessage', { chat_id: senderId, text });
+    if (!y.ok) throw new CrmXatosi('ziddiyat', /blocked|deactivated|chat not found/i.test(y.xato) ? 'Mijoz botni bloklagan — xabar yetkazilmadi' : `Telegram: ${y.xato}`);
+    id = `out:${y.result.message_id}`;
+  } else {
+    if (!s.accessToken) throw new CrmXatosi('ziddiyat', `${TARMOQ_NOMI[kanal]} ulanmagan`);
+    const y = await graph<{ message_id?: string }>({
+      yol: '/me/messages',
+      token: s.accessToken,
+      appSecret: s.appSecret,
+      host: kanal === 'instagram' ? igHost(s.accessToken) : 'facebook',
+      usul: 'POST',
+      params: { recipient: JSON.stringify({ id: senderId }), messaging_type: 'RESPONSE', message: JSON.stringify({ text }) },
+    });
+    if (!y.ok) throw new CrmXatosi('ziddiyat', /allowed window/i.test(y.xato) ? OYNA_YOPIQ : `${TARMOQ_NOMI[kanal]}: ${y.xato}`);
+    id = y.data.message_id ?? `out:${randomBytes(6).toString('hex')}`;
+  }
+
+  const x: ChatXabari = { id, dir: 'out', text, at: new Date().toISOString(), by: muallif };
+  // Meta echo ba'zan javobdan oldin keladi — u holda yozuv bor, faqat muallif ismi qo'shiladi
+  await withTenant(businessId, async (tx) => {
+    const [q] = await tx
+      .select({ id: crmInbox.id, message: crmInbox.message, payload: crmInbox.payload, createdAt: crmInbox.createdAt })
+      .from(crmInbox)
+      .where(eq(crmInbox.id, inboxId))
+      .limit(1)
+      .for('update');
+    if (!q) return;
+    const pl = (q.payload ?? {}) as Record<string, unknown>;
+    const chat = murojaatChati(pl, q.message, q.createdAt);
+    const bor = chat.findIndex((c) => c.id === x.id);
+    if (bor >= 0) {
+      chat[bor] = { ...chat[bor]!, by: muallif };
+      await tx.update(crmInbox).set({ payload: { ...pl, chat } }).where(eq(crmInbox.id, q.id));
+    } else {
+      await chatniYoz(tx, q, x);
+    }
+  });
+  return x;
 }
