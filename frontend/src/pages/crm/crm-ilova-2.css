@@ -196,18 +196,10 @@ button.ci-gustun-qator:focus-visible { outline: 2px solid var(--focus); }
 .ci-kalendar-vazifa time { font-weight: 700; font-variant-numeric: tabular-nums; }
 
 /* Saralanmagan */
-.ci-murojaatlar { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
-.ci-murojaat { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
-.ci-murojaat header, .ci-murojaat footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ci-murojaat footer { justify-content: flex-start; margin-top: auto; font-size: 13px; }
 .ci-manba { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: var(--bg-sunken); color: var(--text-secondary); }
 .ci-manba svg { width: 13px; height: 13px; }
 .ci-manba.call { background: var(--yuqori-soft); color: var(--yuqori-text); }
 .ci-manba.form { background: var(--info-soft); color: var(--info-text); }
-.ci-murojaat-kim { display: flex; flex-direction: column; gap: 2px; }
-.ci-murojaat-kim b { font-size: 15px; }
-.ci-murojaat-qongiroq { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ci-murojaat-matn { margin: 0; font-size: 13px; line-height: 1.5; color: var(--text-secondary); white-space: pre-wrap; max-height: 120px; overflow: auto; }
 .ci-bosh-ikon { width: 36px; height: 36px; color: var(--text-muted); }
 
 /* Voronka hisoboti */

@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { and, asc, count, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, isNull, or, sql, type SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { withoutTenantIsolation, withTenant, type Tx } from '../db/index.js';
 import { contact, crmForm, crmInbox, crmPipeline, deal, dealEvent } from '../db/schema/index.js';
@@ -26,7 +26,16 @@ const TIZIM: CrmDoira = { korish: 'all', yozish: 'all', seatId: null };
 
 export async function murojaatlar(
   tx: Tx,
-  p: { status: 'pending' | 'accepted' | 'rejected'; limit: number; offset: number; pipelineId?: string | undefined },
+  p: {
+    status: 'pending' | 'accepted' | 'rejected';
+    limit: number;
+    offset: number;
+    pipelineId?: string | undefined;
+    /** Manba: call | form | manual | facebook | instagram | telegram. */
+    source?: string | undefined;
+    /** Qidiruv: ism, telefon (raqamlari), @username, kontakt nomi, xabar matni. */
+    q?: string | undefined;
+  },
 ) {
   /**
    * Voronka bo'yicha (amoCRM'dagidek har voronkaning o'z "Saralanmagan" ustuni):
@@ -40,8 +49,28 @@ export async function murojaatlar(
       ? or(eq(crmInbox.pipelineId, p.pipelineId), isNull(crmInbox.pipelineId))
       : eq(crmInbox.pipelineId, p.pipelineId);
   }
-  const where = voronkaSharti ? and(eq(crmInbox.status, p.status), voronkaSharti)! : eq(crmInbox.status, p.status);
-  const [qatorlar, [jami], sonlar, nomlar] = await Promise.all([
+  const shartlar: SQL[] = [eq(crmInbox.status, p.status)];
+  if (voronkaSharti) shartlar.push(voronkaSharti);
+  const q = p.q?.trim();
+  if (q) {
+    const naqsh = `%${q.replace(/[\\%_]/g, (b) => `\\${b}`)}%`;
+    const raqam = q.replace(/\D/g, '');
+    shartlar.push(
+      or(
+        ilike(crmInbox.name, naqsh),
+        ilike(crmInbox.phone, naqsh),
+        ilike(crmInbox.message, naqsh),
+        sql`${crmInbox.payload}->>'username' ilike ${naqsh}`,
+        inArray(crmInbox.contactId, tx.select({ id: contact.id }).from(contact).where(ilike(contact.name, naqsh))),
+        // "99 123 45 67" ham, "+998991234567" ham topilsin
+        ...(raqam.length >= 3 ? [sql`regexp_replace(coalesce(${crmInbox.phone}, ''), '[^0-9]', '', 'g') like ${`%${raqam}%`}`] : []),
+      )!,
+    );
+  }
+  // Manba sonlari (filtr tugmalaridagi raqam) — manba filtrisiz, qolgan shartlar bilan
+  const asosiy = and(...shartlar)!;
+  const where = p.source ? and(asosiy, eq(crmInbox.source, p.source))! : asosiy;
+  const [qatorlar, [jami], sonlar, nomlar, manbalar] = await Promise.all([
     tx
       .select(MUROJAAT_MAYDONLARI)
       .from(crmInbox)
@@ -55,10 +84,12 @@ export async function murojaatlar(
     tx.select({ n: count() }).from(crmInbox).where(where),
     tx.select({ status: crmInbox.status, n: count() }).from(crmInbox).groupBy(crmInbox.status),
     hisobNomlari(tx),
+    tx.select({ source: crmInbox.source, n: count() }).from(crmInbox).where(asosiy).groupBy(crmInbox.source),
   ]);
   return {
     total: Number(jami?.n ?? 0),
     counts: Object.fromEntries(sonlar.map((s) => [s.status, Number(s.n)])) as Record<string, number>,
+    sources: Object.fromEntries(manbalar.map((s) => [s.source, Number(s.n)])) as Record<string, number>,
     // Tarmoq murojaatlarida — ulangan hisob nomi (sahifa, @instagram, @bot).
     // Chat ro'yxatda kerak emas (200 tagacha xabar) — u murojaat oynasida olinadi.
     items: qatorlar.map((q) => ({ ...q, payload: chatsiz(q.payload), accountName: (nomlar as Record<string, string | undefined>)[q.source] ?? null })),

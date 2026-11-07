@@ -18,6 +18,14 @@ const CRM_MUROJAAT: Lugat = {
   'Javob matni': { en: 'Reply text', ru: 'Текст ответа' },
   'Xabar yuborilmadi': { en: 'Message was not sent', ru: 'Сообщение не отправлено' },
   'Bitim maydonlari': { en: 'Deal fields', ru: 'Поля сделки' },
+
+  // ─── "Saralanmagan" ro'yxati ───
+  "Qo'ng'iroqlar, ijtimoiy tarmoqlar, veb-formalar va qo'lda kiritilgan murojaatlar. Qabul qilinsa — bitim bo'ladi.": {
+    en: 'Calls, social networks, web forms and manual entries. Once accepted, a request becomes a deal.',
+    ru: 'Звонки, соцсети, веб-формы и заявки, введённые вручную. После принятия заявка становится сделкой.',
+  },
+  "Ism, telefon yoki xabar bo'yicha qidirish": { en: 'Search by name, phone or message', ru: 'Поиск по имени, телефону или сообщению' },
+  '{a}–{b} / {n}': { en: '{a}–{b} of {n}', ru: '{a}–{b} из {n}' },
   'Tahrirlanmoqda — maydondan chiqqach saqlanadi': { en: 'Editing — saved when you leave the field', ru: 'Редактирование — сохранится, когда выйдете из поля' },
   "Mas'ulni faqat rahbar tanlaydi": { en: 'Only a manager can choose the responsible user', ru: 'Ответственного выбирает только руководитель' },
 

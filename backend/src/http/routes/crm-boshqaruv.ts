@@ -142,7 +142,13 @@ export function registerCrmBoshqaruvRoutes(app: FastifyInstance): void {
   app.get(`${BASE}/crm-app/inbox`, guard, async (req) => {
     doira(req);
     const q = z
-      .object({ status: z.enum(['pending', 'accepted', 'rejected']).default('pending'), pipeline: z.string().uuid().optional(), ...sahifa })
+      .object({
+        status: z.enum(['pending', 'accepted', 'rejected']).default('pending'),
+        pipeline: z.string().uuid().optional(),
+        source: z.enum(['call', 'form', 'manual', 'facebook', 'instagram', 'telegram']).optional(),
+        q: z.string().trim().max(100).optional(),
+        ...sahifa,
+      })
       .parse(req.query);
     return withTenant(req.business!.businessId, (tx) => murojaatlar(tx, { ...q, pipelineId: q.pipeline }));
   });
