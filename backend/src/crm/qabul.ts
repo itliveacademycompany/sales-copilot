@@ -5,7 +5,7 @@ import { withoutTenantIsolation, withTenant, type Tx } from '../db/index.js';
 import { contact, crmForm, crmInbox, crmPipeline, deal, dealEvent } from '../db/schema/index.js';
 import { navbatdagiMasul, sozlamaniOl, sozlamaniSaqla } from './sozlama.js';
 import { faolTashqiSinxBormi } from './tashqi.js';
-import { TARMOQ_NOMI } from './tarmoq.js';
+import { hisobNomlari, TARMOQ_NOMI } from './tarmoq.js';
 import { CrmXatosi } from './xato.js';
 import { bitimniOl, bitimYarat, kontaktniTopYokiYarat, maydonlarniTekshir, tuzilma, yozaOladimi, type CrmDoira } from './xizmat.js';
 
@@ -41,7 +41,7 @@ export async function murojaatlar(
       : eq(crmInbox.pipelineId, p.pipelineId);
   }
   const where = voronkaSharti ? and(eq(crmInbox.status, p.status), voronkaSharti)! : eq(crmInbox.status, p.status);
-  const [qatorlar, [jami], sonlar] = await Promise.all([
+  const [qatorlar, [jami], sonlar, nomlar] = await Promise.all([
     tx
       .select({
         id: crmInbox.id,
@@ -75,11 +75,13 @@ export async function murojaatlar(
       .offset(p.offset),
     tx.select({ n: count() }).from(crmInbox).where(where),
     tx.select({ status: crmInbox.status, n: count() }).from(crmInbox).groupBy(crmInbox.status),
+    hisobNomlari(tx),
   ]);
   return {
     total: Number(jami?.n ?? 0),
     counts: Object.fromEntries(sonlar.map((s) => [s.status, Number(s.n)])) as Record<string, number>,
-    items: qatorlar,
+    // Tarmoq murojaatlarida — ulangan hisob nomi (sahifa, @instagram, @bot)
+    items: qatorlar.map((q) => ({ ...q, accountName: (nomlar as Record<string, string | undefined>)[q.source] ?? null })),
   };
 }
 

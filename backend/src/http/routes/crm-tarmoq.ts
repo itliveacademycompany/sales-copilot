@@ -5,6 +5,7 @@ import {
   KANALLAR,
   metaHodisa,
   metaTasdiq,
+  murojaatRasmi,
   tarmoqlarHolati,
   tarmoqniSaqla,
   tarmoqniSina,
@@ -26,6 +27,7 @@ import { bajar, BASE, doira } from '../crm-yordam.js';
  *   PUT    /crm-app/social/:kanal         — kalit va sozlamalarni saqlash + sinash
  *   POST   /crm-app/social/:kanal/test    — qayta sinash
  *   DELETE /crm-app/social/:kanal         — uzish (kalitlar o'chiriladi)
+ *   GET    /crm-app/inbox/:id/avatar      — murojaat yozuvchisining profil rasmi
  *
  *   GET/POST /api/v1/webhooks/crm/meta/:id     — Facebook va Instagram
  *   POST     /api/v1/webhooks/crm/telegram/:id — Telegram bot
@@ -80,6 +82,22 @@ export function registerCrmTarmoqRoutes(app: FastifyInstance): void {
     await tarmoqniUz(businessId, kanal);
     const kanallar = await withTenant(businessId, (tx) => tarmoqlarHolati(tx, true));
     return { channel: kanallar.find((k) => k.kanal === kanal) };
+  });
+
+  /**
+   * Murojaat kartasidagi profil rasmi (Telegram, Messenger, Instagram).
+   * Rasm yo'q yoki yopiq bo'lsa 404 — kartada bosh harflar qoladi.
+   */
+  app.get(`${BASE}/crm-app/inbox/:id/avatar`, guard, async (req, reply) => {
+    doira(req);
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+    const rasm = await murojaatRasmi(req.business!.businessId, id);
+    if (!rasm) return reply.status(404).header('cache-control', 'private, max-age=3600').send({ ok: false });
+    return reply
+      .type(rasm.turi)
+      .header('cache-control', 'private, max-age=21600')
+      .header('x-content-type-options', 'nosniff')
+      .send(rasm.data);
   });
 
   // ─── Webhooklar (sessiyasiz — imzo yoki sir bilan) ──────────────────────────

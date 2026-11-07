@@ -951,6 +951,33 @@ interface MurojaatQisqa {
   formName: string | null;
   contactName: string | null;
   createdAt: string;
+  /** Tarmoq murojaatlarida — ulangan hisob nomi (sahifa, @instagram, @bot). */
+  accountName?: string | null;
+  payload?: { type?: string } | null;
+}
+
+/**
+ * Yozuvchining profil rasmi (Telegram, Messenger, Instagram xabarlarida).
+ * Rasm kelguncha va kelmasa (yopiq yoki yo'q) — bosh harflar ko'rinadi.
+ */
+function AvatarRasmi({ src, harflar }: { src: string | null; harflar: string }) {
+  const [holat, setHolat] = useState<'kutish' | 'tayyor' | 'yoq'>('kutish');
+  return (
+    <>
+      {holat !== 'tayyor' && harflar}
+      {src && holat !== 'yoq' && (
+        <img
+          className={`kb-avatar-rasm${holat === 'tayyor' ? ' tayyor' : ''}`}
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setHolat('tayyor')}
+          onError={() => setHolat('yoq')}
+        />
+      )}
+    </>
+  );
 }
 
 const MANBA_NOMI = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda kiritilgan", facebook: 'Facebook', instagram: 'Instagram', telegram: 'Telegram' } as const;
@@ -1015,7 +1042,10 @@ function SaralanmaganUstun({ voronkaId, yangilash, onQabul }: { voronkaId: strin
           return (
             <article key={m.id} className="kb-karta kb-murojaat">
               <span className="kb-avatar" aria-hidden="true">
-                {boshHarflar(nom)}
+                <AvatarRasmi
+                  src={m.source in TARMOQ_BELGISI && m.payload?.type === 'message' ? `${base}/crm-app/inbox/${m.id}/avatar` : null}
+                  harflar={boshHarflar(nom)}
+                />
                 <span className={`kb-avatar-belgi ${m.source}`}>
                   <Ikon />
                 </span>
@@ -1023,7 +1053,7 @@ function SaralanmaganUstun({ voronkaId, yangilash, onQabul }: { voronkaId: strin
               <div className="kb-murojaat-asos">
                 <div className="kb-karta-tepa">
                   <span className="kb-karta-kim">
-                    {t('dan:')} <b>{m.formName ?? t(MANBA_NOMI[m.source])}</b>
+                    {t('dan:')} <b>{m.formName ?? m.accountName ?? t(MANBA_NOMI[m.source])}</b>
                   </span>
                   <time dateTime={m.createdAt} title={sanaVaqt(m.createdAt)}>
                     {kartaVaqti(m.createdAt, t)}

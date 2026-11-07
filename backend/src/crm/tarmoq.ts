@@ -1125,3 +1125,120 @@ export async function telegramHodisa(id: string, sir: unknown, body: unknown): P
   await hodisaniQayd(r.businessId, r.id, null);
   return { kod: 200, natija: { ok: true, natija } };
 }
+
+// ─── Murojaat kartasi: hisob nomi va yozuvchining profil rasmi ──────────────
+
+/**
+ * Har kanalning ulangan hisob nomi (sahifa nomi, @instagram, @bot) — kartada
+ * "dan:" yonida ko'rinadi. Nom ulanish sinovida aniqlanadi.
+ */
+export async function hisobNomlari(tx: Tx): Promise<Partial<Record<Kanal, string>>> {
+  const qatorlar = await tx.select({ kind: integration.kind, config: integration.config }).from(integration).where(inArray(integration.kind, TURLAR));
+  const natija: Partial<Record<Kanal, string>> = {};
+  for (const q of qatorlar) {
+    const nom = configniOl(q.config).accountName;
+    if (nom) natija[kanalTuri(q.kind)] = nom;
+  }
+  return natija;
+}
+
+type Rasm = { turi: string; data: Buffer };
+
+const RASM_CHEGARASI = 1024 * 1024;
+const RASM_KESH_HAJMI = 500;
+const RASM_BOR_MUDDATI = 6 * 60 * 60 * 1000;
+const RASM_YOQ_MUDDATI = 60 * 60 * 1000;
+/**
+ * Kesh: kanban har ochilganda Telegram/Meta'ga qayta so'rov ketmasin.
+ * Rasm yo'qligi ham eslab qolinadi (qisqaroq muddatga).
+ */
+const rasmKeshi = new Map<string, { rasm: Rasm | null; muddat: number }>();
+
+/** Meta profil rasmlari faqat shu CDN lardan keladi — boshqa manzilga so'rov yuborilmaydi. */
+const META_RASM_HOSTI = /(^|\.)(fbcdn\.net|fbsbx\.com|cdninstagram\.com|facebook\.com|instagram\.com)$/;
+
+/** Faqat haqiqiy rasm baytlari qaytariladi (sarlavhaga ishonilmaydi). */
+function rasmTuri(b: Buffer): string | null {
+  if (b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b.length > 8 && b.toString('latin1', 1, 4) === 'PNG') return 'image/png';
+  if (b.length > 12 && b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP') return 'image/webp';
+  if (b.length > 6 && b.toString('latin1', 0, 4) === 'GIF8') return 'image/gif';
+  return null;
+}
+
+async function rasmniYukla(url: string): Promise<Rasm | null> {
+  const ctrl = new AbortController();
+  const taymer = setTimeout(() => ctrl.abort(), 6000);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok || Number(res.headers.get('content-length') ?? 0) > RASM_CHEGARASI) return null;
+    const data = Buffer.from(await res.arrayBuffer());
+    const turi = data.length <= RASM_CHEGARASI ? rasmTuri(data) : null;
+    return turi ? { turi, data } : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(taymer);
+  }
+}
+
+/** Telegram: foydalanuvchi rasmini maxfiy qilgan bo'lsa ro'yxat bo'sh keladi. */
+async function telegramRasmi(s: Sirlar, senderId: string): Promise<Rasm | null> {
+  if (!s.botToken || !/^\d+$/.test(senderId)) return null;
+  const r = await tg<{ photos?: { file_id: string; width: number }[][] }>(s.botToken, 'getUserProfilePhotos', { user_id: Number(senderId), limit: 1 }, 5000);
+  const olchamlar = r.ok ? (r.result.photos?.[0] ?? []) : [];
+  if (!olchamlar.length) return null;
+  // Kartada 42px — eng kichik (odatda 160px) o'lcham yetarli
+  const tanlov = [...olchamlar].sort((a, b) => a.width - b.width).find((p) => p.width >= 120) ?? olchamlar[olchamlar.length - 1]!;
+  const f = await tg<{ file_path?: string }>(s.botToken, 'getFile', { file_id: tanlov.file_id }, 5000);
+  if (!f.ok || !f.result.file_path) return null;
+  return rasmniYukla(`${process.env.TELEGRAM_API_BASE || 'https://api.telegram.org'}/file/bot${s.botToken}/${f.result.file_path}`);
+}
+
+/** Messenger (PSID) va Instagram (IGSID) — `profile_pic` vaqtinchalik CDN havolasi. */
+async function metaRasmi(s: Sirlar, source: 'facebook' | 'instagram', senderId: string): Promise<Rasm | null> {
+  if (!s.accessToken || !/^\d+$/.test(senderId)) return null;
+  const host = source === 'instagram' ? igHost(s.accessToken) : 'facebook';
+  const p = await graph<{ profile_pic?: string }>({ yol: `/${senderId}`, token: s.accessToken, appSecret: s.appSecret, host, params: { fields: 'profile_pic' }, timeoutMs: 5000 });
+  if (!p.ok || !p.data.profile_pic) return null;
+  let manzil: URL;
+  try {
+    manzil = new URL(p.data.profile_pic);
+  } catch {
+    return null;
+  }
+  if (manzil.protocol !== 'https:' || !META_RASM_HOSTI.test(manzil.hostname)) return null;
+  return rasmniYukla(manzil.toString());
+}
+
+/**
+ * Murojaat yozuvchisining profil rasmi. Kalitlar serverda qoladi (Telegram fayl
+ * havolasida bot token bor), Meta havolalari esa eskiradi — shuning uchun
+ * brauzer rasmni shu yerdan oladi. Rasm yo'q bo'lsa null (kartada bosh harflar).
+ */
+export async function murojaatRasmi(businessId: string, inboxId: string): Promise<Rasm | null> {
+  const kalit = `${businessId}:${inboxId}`;
+  const bor = rasmKeshi.get(kalit);
+  if (bor && bor.muddat > Date.now()) return bor.rasm;
+
+  const [m] = await withTenant(businessId, (tx) =>
+    tx.select({ source: crmInbox.source, payload: crmInbox.payload }).from(crmInbox).where(eq(crmInbox.id, inboxId)).limit(1),
+  );
+  if (!m) return null;
+  const source = KANALLAR.find((k) => k === m.source);
+  const senderId = idSatr(((m.payload ?? {}) as Record<string, unknown>).senderId);
+  let rasm: Rasm | null = null;
+  if (source && senderId) {
+    const [r] = await withTenant(businessId, (tx) =>
+      tx.select({ creds: integration.credentialsEncrypted }).from(integration).where(eq(integration.kind, TUR[source])).limit(1),
+    );
+    const s = sirlarniOch(r?.creds);
+    rasm = await (source === 'telegram' ? telegramRasmi(s, senderId) : metaRasmi(s, source, senderId)).catch(() => null);
+  }
+  if (rasmKeshi.size >= RASM_KESH_HAJMI) {
+    const eng = rasmKeshi.keys().next().value;
+    if (eng !== undefined) rasmKeshi.delete(eng);
+  }
+  rasmKeshi.set(kalit, { rasm, muddat: Date.now() + (rasm ? RASM_BOR_MUDDATI : RASM_YOQ_MUDDATI) });
+  return rasm;
+}
