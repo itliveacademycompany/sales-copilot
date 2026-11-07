@@ -7,11 +7,13 @@ import {
   ballRang,
   fmtSana,
   fmtSoniya,
+  type AlertRow,
   type ConversationRow,
   type SeatDashboard,
   type TaskRow,
 } from '../api';
 import { useAuth } from '../auth';
+import { TepaPanel } from '../components/bosh/TepaPanel';
 import { YuklashXatosi } from '../components/YuklashXatosi';
 import { useT } from '../i18n';
 
@@ -41,7 +43,7 @@ const DAVRLAR = [
 ] as const;
 
 export function SeatCabinet() {
-  const { business } = useAuth();
+  const { business, user } = useAuth();
   const navigate = useNavigate();
   const tr = useT();
   const params = useParams<{ seatId?: string }>();
@@ -57,6 +59,16 @@ export function SeatCabinet() {
   const [loading, setLoading] = useState(true);
   const [xato, setXato] = useState<unknown>(null);
   const [qayta, setQayta] = useState(0);
+  const [ogohSoni, setOgohSoni] = useState(0);
+
+  // Tepa panel qo'ng'irog'i — boshqa sahifalardagi kabi, faqat ruxsat bo'lsa.
+  useEffect(() => {
+    if (!business || !oziniki || !business.permissions.includes('alert:read')) return;
+    void api
+      .get<{ alerts: AlertRow[]; unseenCount: number }>(`/api/v1/businesses/${business.businessId}/alerts?limit=1`)
+      .then((r) => setOgohSoni(r.unseenCount))
+      .catch(() => undefined);
+  }, [business, oziniki]);
 
   useEffect(() => {
     if (!business || !seatId) return;
@@ -84,6 +96,23 @@ export function SeatCabinet() {
       .finally(() => setLoading(false));
   }, [business, seatId, days, qayta]);
 
+  /**
+   * Menejerning o'z bosh sahifasida — boshqa sahifalardagi tepa panel
+   * (biznes nomi, SotuvAI ↔ CRM kaliti, qidiruv, til, profil). Rahbar
+   * sotuvchi kabinetini reytingdan ochganda kerak emas — u yerda «orqaga».
+   */
+  const tepa = oziniki && business && (
+    <div className="kabinet-tepa">
+      <TepaPanel
+        biznesNomi={business.name}
+        foydalanuvchi={user?.displayName ?? ''}
+        ogohSoni={ogohSoni}
+        ogohKoradi={business.permissions.includes('alert:read')}
+        suhbatlar={convs}
+      />
+    </div>
+  );
+
   if (!seatId) {
     return (
       <div className="card">
@@ -93,8 +122,22 @@ export function SeatCabinet() {
       </div>
     );
   }
-  if (loading && !d) return <div className="yuklanmoqda">{tr('Yuklanmoqda…')}</div>;
-  if (xato) return <YuklashXatosi xato={xato} onQayta={() => setQayta((n) => n + 1)} />;
+  if (loading && !d) {
+    return (
+      <>
+        {tepa}
+        <div className="yuklanmoqda">{tr('Yuklanmoqda…')}</div>
+      </>
+    );
+  }
+  if (xato) {
+    return (
+      <>
+        {tepa}
+        <YuklashXatosi xato={xato} onQayta={() => setQayta((n) => n + 1)} />
+      </>
+    );
+  }
 
   const c = d?.current;
   const p = d?.previous;
@@ -115,6 +158,7 @@ export function SeatCabinet() {
 
   return (
     <>
+      {tepa}
       <div className="sahifa-bosh">
         <div>
           {!oziniki && (

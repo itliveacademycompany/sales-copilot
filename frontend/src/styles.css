@@ -502,6 +502,8 @@ select.input,
   margin-bottom: 22px;
 }
 .sahifa-bosh .izoh { color: var(--kul-dark); font-size: 14px; margin-top: 4px; }
+/* Menejer kabineti (SeatCabinet) tepasidagi panel — Dashboard'dagi oraliq bilan bir xil */
+.kabinet-tepa { margin-bottom: 22px; }
 
 /* ─── Kartalar ─────────────────────────────────────────────────────────────── */
 
