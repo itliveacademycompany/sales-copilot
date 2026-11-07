@@ -1,6 +1,6 @@
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import type { Tx } from '../db/index.js';
-import { appUser, businessMember, seat } from '../db/schema/index.js';
+import { appUser, business, businessMember, seat } from '../db/schema/index.js';
 import { isUniqueViolation } from '../db/errors.js';
 import { AppError } from './errors.js';
 
@@ -31,39 +31,72 @@ import { AppError } from './errors.js';
  * ulanishda ham boshqa tenantga tegib bo'lmasin).
  */
 
-const UMUMIY_HISOB =
-  "Bu menejerning hisobi boshqa joyda ham ishlatiladi (rahbar yoki boshqa kabinet) — " +
-  "parol va loginni hisob egasi o'zi «Profil» bo'limida o'zgartiradi";
+const OZI_OZGARTIRADI = "parolni hisob egasi o'zi «Sozlamalar → Profil» bo'limida o'zgartiradi";
 const LOGIN_BAND = 'Bu login band — boshqasini tanlang';
 
 /**
- * Hisob faqat shu biznesdagi menejer o'rinlariga tegishlimi?
+ * Hisob faqat shu biznesdagi menejer o'rinlariga tegishlimi? Tegishli
+ * bo'lsa — `null`, aks holda rahbarga ko'rsatiladigan ANIQ sabab.
  *
- * Email bor yoki tizim roli `user` emas — bu odamning shaxsiy hisobi
- * (ega, platforma admini). Rahbarlik a'zoligi yoki boshqa biznesdagi
- * o'rin — hisob umumiy. Uchala holatda ham parolga tegilmaydi.
+ * Sabab aniq aytiladi: umumiy «boshqa joyda ishlatiladi» degan gap rahbarga
+ * nima qilishni ko'rsatmaydi. Faqat boshqa kabinet NOMI aytilmaydi — u
+ * begona tenant haqidagi ma'lumot.
+ *
+ * Qachon hisob «umumiy»:
+ * - email bor yoki tizim roli `user` emas → shaxsiy hisob (ega, admin);
+ * - biror kabinetda rahbarlik a'zoligi bor (o'chirilgan a'zolik qatori
+ *   bazadan o'chadi, ya'ni bu yerdagisi haqiqiy — `isActive=false` ham
+ *   qayta yoqilishi mumkin, shuning uchun hisobga olinadi);
+ * - boshqa kabinetda FAOL o'rni bor. O'chirilgan kabinet yoki nofaol
+ *   o'rin hisobga olinmaydi — ular orqali hech kim kira olmaydi.
  */
-async function faqatShuBiznesniki(tx: Tx, userId: string, businessId: string): Promise<boolean> {
+async function umumiylikSababi(tx: Tx, userId: string, businessId: string): Promise<string | null> {
   const [user] = await tx
     .select({ email: appUser.email, systemRole: appUser.systemRole })
     .from(appUser)
     .where(eq(appUser.id, userId))
     .limit(1);
-  if (!user || user.email || user.systemRole !== 'user') return false;
+  if (!user) return "Menejerga bog'langan hisob topilmadi";
+  if (user.email) {
+    return `Bu menejer hisobiga email (${user.email}) bilan ham kiriladi — bu shaxsiy hisob, ${OZI_OZGARTIRADI}`;
+  }
+  if (user.systemRole !== 'user') {
+    return `Bu hisob platformada ega yoki administrator sifatida ham ishlatiladi — ${OZI_OZGARTIRADI}`;
+  }
 
-  const [rahbar] = await tx
-    .select({ id: businessMember.id })
+  const rahbarlik = await tx
+    .select({ businessId: businessMember.businessId })
     .from(businessMember)
-    .where(eq(businessMember.userId, userId))
-    .limit(1);
-  if (rahbar) return false;
+    .where(eq(businessMember.userId, userId));
+  if (rahbarlik.some((r) => r.businessId === businessId)) {
+    return `Bu hisob shu kabinetda rahbar sifatida ham ishlatiladi («Jamoa» bo'limi) — ${OZI_OZGARTIRADI}`;
+  }
+  if (rahbarlik.length > 0) {
+    return `Bu hisob boshqa kabinetda rahbar sifatida ham ishlatiladi — ${OZI_OZGARTIRADI}`;
+  }
 
   const [begonaOrin] = await tx
     .select({ id: seat.id })
     .from(seat)
-    .where(and(eq(seat.userId, userId), ne(seat.businessId, businessId)))
+    .innerJoin(business, eq(business.id, seat.businessId))
+    .where(
+      and(
+        eq(seat.userId, userId),
+        ne(seat.businessId, businessId),
+        eq(seat.isActive, true),
+        isNull(business.deletedAt),
+      ),
+    )
     .limit(1);
-  return !begonaOrin;
+  if (begonaOrin) {
+    return `Bu hisob boshqa kabinetda ham menejer sifatida ishlatiladi — ${OZI_OZGARTIRADI}`;
+  }
+  return null;
+}
+
+async function faqatShuBiznesnikiniTalabQil(tx: Tx, userId: string, businessId: string): Promise<void> {
+  const sabab = await umumiylikSababi(tx, userId, businessId);
+  if (sabab) throw AppError.conflict(sabab);
 }
 
 /**
@@ -119,7 +152,7 @@ export async function orinGaParolBer(
   const avvaldanBor = !!userId;
 
   if (userId) {
-    if (!(await faqatShuBiznesniki(tx, userId, p.businessId))) throw AppError.conflict(UMUMIY_HISOB);
+    await faqatShuBiznesnikiniTalabQil(tx, userId, p.businessId);
     if (await loginBand(tx, p.login, userId)) throw AppError.conflict(LOGIN_BAND);
     const id = userId;
     await loginBilanYoz(() =>
@@ -164,7 +197,7 @@ export async function hisobLogininiYangila(
   tx: Tx,
   p: { businessId: string; userId: string; login: string },
 ): Promise<void> {
-  if (!(await faqatShuBiznesniki(tx, p.userId, p.businessId))) throw AppError.conflict(UMUMIY_HISOB);
+  await faqatShuBiznesnikiniTalabQil(tx, p.userId, p.businessId);
   if (await loginBand(tx, p.login, p.userId)) throw AppError.conflict(LOGIN_BAND);
   await loginBilanYoz(() =>
     tx.update(appUser).set({ login: p.login, updatedAt: new Date() }).where(eq(appUser.id, p.userId)),
