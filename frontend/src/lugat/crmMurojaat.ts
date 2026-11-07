@@ -17,6 +17,9 @@ const CRM_MUROJAAT: Lugat = {
   'Javob yozing — mijozga {t} orqali boradi': { en: 'Write a reply — it goes to the client via {t}', ru: 'Напишите ответ — он уйдёт клиенту в {t}' },
   'Javob matni': { en: 'Reply text', ru: 'Текст ответа' },
   'Xabar yuborilmadi': { en: 'Message was not sent', ru: 'Сообщение не отправлено' },
+  'Bitim maydonlari': { en: 'Deal fields', ru: 'Поля сделки' },
+  'Tahrirlanmoqda — maydondan chiqqach saqlanadi': { en: 'Editing — saved when you leave the field', ru: 'Редактирование — сохранится, когда выйдете из поля' },
+  "Mas'ulni faqat rahbar tanlaydi": { en: 'Only a manager can choose the responsible user', ru: 'Ответственного выбирает только руководитель' },
 
   // ─── Server xabarlari ───
   'Xabar matnini kiriting': { en: 'Enter the message text', ru: 'Введите текст сообщения' },

@@ -7,7 +7,7 @@ import { navbatdagiMasul, sozlamaniOl, sozlamaniSaqla } from './sozlama.js';
 import { faolTashqiSinxBormi } from './tashqi.js';
 import { hisobNomlari, javobImkoni, murojaatChati, TARMOQ_NOMI } from './tarmoq.js';
 import { CrmXatosi } from './xato.js';
-import { bitimniOl, bitimYarat, kontaktniTopYokiYarat, maydonlarniTekshir, tuzilma, yozaOladimi, type CrmDoira } from './xizmat.js';
+import { bitimniOl, bitimYarat, kontaktniTopYokiYarat, maydonlarniTekshir, seatniTekshir, tuzilma, yozaOladimi, type CrmDoira } from './xizmat.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -150,6 +150,49 @@ export const qabulSxemasi = z.object({
 });
 
 /**
+ * Murojaat oynasida to'ldirilgan bitim maydonlari (amoCRM "Неразобранное"
+ * kartasidagidek): qo'shimcha maydonlar `payload.fields` ga (veb-forma
+ * javoblari bilan bir joyga), summa va mas'ul `payload.draft` ga yoziladi.
+ * Qabul qilinganda hammasi yangi bitimga o'tadi.
+ */
+export const murojaatQoralamaSxemasi = z.object({
+  amount: z.coerce.number({ message: "Summa raqam bo'lishi kerak" }).min(0, "Summa manfiy bo'lmasin").max(1e13, 'Summa juda katta').nullable().optional(),
+  responsibleSeatId: z.string().uuid().nullable().optional(),
+  fields: z.record(z.string(), z.unknown()).optional(),
+});
+
+interface MurojaatQoralamasi {
+  amount?: number | null;
+  responsibleSeatId?: string | null;
+}
+
+export async function murojaatQoralamasiniSaqla(
+  tx: Tx,
+  p: { id: string; doira: CrmDoira; kirish: z.infer<typeof murojaatQoralamaSxemasi> },
+): Promise<void> {
+  const [m] = await tx.select({ status: crmInbox.status, payload: crmInbox.payload }).from(crmInbox).where(eq(crmInbox.id, p.id)).for('update').limit(1);
+  if (!m) throw new CrmXatosi('topilmadi', 'Murojaat topilmadi');
+  if (m.status !== 'pending') throw new CrmXatosi('ziddiyat', 'Murojaat allaqachon ko‘rib chiqilgan');
+  const k = p.kirish;
+  const pl = { ...((m.payload ?? {}) as Record<string, unknown>) };
+  if (k.fields && Object.keys(k.fields).length) {
+    const { fields: maydonlar } = await tuzilma(tx);
+    const yangi = maydonlarniTekshir(k.fields, maydonlar);
+    // null — maydon tozalandi
+    pl.fields = Object.fromEntries(Object.entries({ ...((pl.fields ?? {}) as Record<string, unknown>), ...yangi }).filter(([, v]) => v !== null));
+  }
+  const qoralama: MurojaatQoralamasi = { ...((pl.draft ?? {}) as MurojaatQoralamasi) };
+  if (k.amount !== undefined) qoralama.amount = k.amount;
+  if (k.responsibleSeatId !== undefined) {
+    if (p.doira.yozish !== 'all') throw new CrmXatosi('ruxsat', "Mas'ulni faqat rahbar tanlaydi");
+    await seatniTekshir(tx, k.responsibleSeatId);
+    qoralama.responsibleSeatId = k.responsibleSeatId;
+  }
+  pl.draft = qoralama;
+  await tx.update(crmInbox).set({ payload: pl }).where(eq(crmInbox.id, p.id));
+}
+
+/**
  * Qabul. Murojaat qulflanadi — ikki kishi bir vaqtda bossa ham bitta bitim
  * yaratiladi; qabul qilingani qayta qabul qilinmaydi (LEAD-04).
  */
@@ -176,16 +219,18 @@ export async function murojaatniQabul(
     });
   } else {
     const kirish = k.stageId && k.pipelineId ? { pipelineId: k.pipelineId, stageId: k.stageId } : await kirishBosqichi(tx, k.pipelineId ?? m.pipelineId);
-    // Mas'ul: sotuvchi — o'zi; rahbar tanlagan; aks holda navbat bilan (round-robin)
+    const payload = (m.payload ?? {}) as { fields?: Record<string, unknown>; tags?: string[]; formName?: string; draft?: MurojaatQoralamasi };
+    // Mas'ul: sotuvchi — o'zi; rahbar tanlagan (qabul oynasida yoki murojaat
+    // kartasida); aks holda navbat bilan (round-robin)
     let masul: string | null = null;
     if (p.doira.yozish === 'own') {
       // Seat'siz (auditor) mas'ulsiz bitim yarata olmasin.
       if (!p.doira.seatId) throw new CrmXatosi('ruxsat', "CRM da sizda faqat ko'rish huquqi bor");
       masul = p.doira.seatId;
     } else if (k.seatId !== undefined && k.seatId !== null) masul = k.seatId;
+    else if (payload.draft?.responsibleSeatId) masul = payload.draft.responsibleSeatId;
     else masul = await navbatdagiMasul(tx, p.businessId);
 
-    const payload = (m.payload ?? {}) as { fields?: Record<string, unknown>; tags?: string[]; formName?: string };
     let fields: Record<string, unknown> = {};
     if (payload.fields) {
       // Forma maydonlari — yaroqsizi jimgina tashlanadi (murojaat yo'qolmasin)
@@ -208,6 +253,7 @@ export async function murojaatniQabul(
         name: nom,
         pipelineId: kirish.pipelineId,
         stageId: kirish.stageId,
+        amount: payload.draft?.amount ?? null,
         responsibleSeatId: masul,
         contactId: m.contactId,
         contact: m.contactId ? undefined : { name: m.name, phone: m.phone, email: m.email || null },

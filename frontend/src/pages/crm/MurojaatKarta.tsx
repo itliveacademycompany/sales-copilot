@@ -2,10 +2,11 @@ import { ArrowLeft, Check, FileText, Hand, Link2, Phone, Send, X } from 'lucide-
 import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError, ballKlass, fmtSoniya } from '../../api';
-import { useCrm } from '../../crm/malumot';
+import { qiymatniTayyorla, useCrm } from '../../crm/malumot';
 import { useT } from '../../i18n';
 import { sanaVaqt } from './Bitimlar';
 import { TARMOQ_BELGISI, type Kanal } from './IjtimoiyTarmoqlar';
+import { KartaMaydonlari } from './KartaMaydonlari';
 import { avatarManzili, AvatarRasmi, boshHarflar } from './MurojaatAvatar';
 import { QabulOyna, type Murojaat } from './Saralanmagan';
 import './murojaat-karta.css';
@@ -24,6 +25,9 @@ type MurojaatTafsil = Omit<Murojaat, 'payload'> & {
     leadForm?: string | null;
     adName?: string | null;
     campaignName?: string | null;
+    /** Kartada to'ldirilgan qo'shimcha maydonlar (veb-forma javoblari ham shu yerda). */
+    fields?: Record<string, unknown>;
+    draft?: { amount?: number | null; responsibleSeatId?: string | null };
   };
   pipelineId: string | null;
   pipelineName: string | null;
@@ -33,6 +37,21 @@ type MurojaatTafsil = Omit<Murojaat, 'payload'> & {
   canReply: boolean;
   replyNote: string | null;
 };
+
+/** Bitim maydonlari qoralamasi — `KartaMaydonlari` shaklida (qabulda bitimga o'tadi). */
+interface MaydonQoralama {
+  amount: string;
+  responsibleSeatId: string;
+  fields: Record<string, unknown>;
+}
+
+const qoralamaniYasa = (m: MurojaatTafsil): MaydonQoralama => ({
+  amount: m.payload.draft?.amount === null || m.payload.draft?.amount === undefined ? '' : String(m.payload.draft.amount),
+  responsibleSeatId: m.payload.draft?.responsibleSeatId ?? '',
+  fields: { ...(m.payload.fields ?? {}) },
+});
+
+const summa = (s: string): number | null => (s.trim() === '' ? null : Number(s.replace(/\s/g, '').replace(',', '.')));
 
 const TARMOQ_NOMI: Record<Kanal, string> = { facebook: 'Facebook', instagram: 'Instagram', telegram: 'Telegram' };
 const tarmoqmi = (s: string): s is Kanal => s in TARMOQ_NOMI;
@@ -58,17 +77,28 @@ function ManbaIkoni({ source }: { source: string }) {
  */
 export function MurojaatKarta() {
   const { id } = useParams<{ id: string }>();
-  const { base, yangila } = useCrm();
+  const { base, yangila, holat, seatlar } = useCrm();
   const t = useT();
   const navigate = useNavigate();
   const [m, setM] = useState<MurojaatTafsil | null>(null);
   const [xato, setXato] = useState<string | null>(null);
   const [qabul, setQabul] = useState<'yangi' | 'boglash' | null>(null);
   const [band, setBand] = useState(false);
+  // Bitim maydonlari: qoralama faqat birinchi yuklashda olinadi — har 10 soniyalik
+  // yangilanish menejer yozayotgan qiymatni bosib ketmaydi
+  const [qoralama, setQoralama] = useState<MaydonQoralama | null>(null);
+  const saqlangan = useRef<MaydonQoralama | null>(null);
+  const saqlanmoqda = useRef(false);
+  const [saqlashHolati, setSaqlashHolati] = useState<'saqlanmoqda' | 'saqlandi' | null>(null);
 
   const yukla = useCallback(async () => {
     try {
-      setM(await api.get<MurojaatTafsil>(`${base}/crm-app/inbox/${id}`));
+      const r = await api.get<MurojaatTafsil>(`${base}/crm-app/inbox/${id}`);
+      setM(r);
+      if (!saqlangan.current) {
+        saqlangan.current = qoralamaniYasa(r);
+        setQoralama(qoralamaniYasa(r));
+      }
       setXato(null);
     } catch (e) {
       setXato(e instanceof ApiError ? t(e.message) : t("Ma'lumotni yuklab bo'lmadi"));
@@ -77,8 +107,80 @@ export function MurojaatKarta() {
 
   useEffect(() => {
     setM(null);
+    setQoralama(null);
+    saqlangan.current = null;
     void yukla();
   }, [yukla]);
+
+  const kutilmoqda = m?.status === 'pending';
+  const yozaOladi = kutilmoqda && (holat.canManageAll || Boolean(holat.seatId));
+
+  /** Serverdagidan farq — PATCH tanasi; farq yo'q bo'lsa null. */
+  const farq = useCallback(
+    (q: MaydonQoralama) => {
+      const s = saqlangan.current;
+      if (!s) return null;
+      const tana: { amount?: number | null; responsibleSeatId?: string | null; fields?: Record<string, unknown> } = {};
+      const a = summa(q.amount);
+      if (a !== summa(s.amount) && (a === null || Number.isFinite(a))) tana.amount = a;
+      if (holat.canManageAll && q.responsibleSeatId !== s.responsibleSeatId) tana.responsibleSeatId = q.responsibleSeatId || null;
+      const fields: Record<string, unknown> = {};
+      for (const md of holat.fields) {
+        const yangi = qiymatniTayyorla(md, q.fields[md.id]) ?? null;
+        if (JSON.stringify(yangi) !== JSON.stringify(qiymatniTayyorla(md, s.fields[md.id]) ?? null)) fields[md.id] = yangi;
+      }
+      if (Object.keys(fields).length) tana.fields = fields;
+      return Object.keys(tana).length ? tana : null;
+    },
+    [holat.canManageAll, holat.fields],
+  );
+
+  const qoralamaniSaqla = useCallback(
+    async (q: MaydonQoralama): Promise<boolean> => {
+      const tana = farq(q);
+      if (!tana || !m) return true;
+      saqlanmoqda.current = true;
+      setSaqlashHolati('saqlanmoqda');
+      try {
+        await api.patch(`${base}/crm-app/inbox/${m.id}`, tana);
+        saqlangan.current = q;
+        setSaqlashHolati('saqlandi');
+        return true;
+      } catch (e) {
+        setSaqlashHolati(null);
+        setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
+        return false;
+      } finally {
+        saqlanmoqda.current = false;
+      }
+    },
+    [base, farq, m, t],
+  );
+
+  // Avtomatik saqlash (bitim kartasidagidek): matn yozib turganda kutadi
+  const ozgargan = Boolean(qoralama && farq(qoralama));
+  useEffect(() => {
+    if (!qoralama || !ozgargan || !yozaOladi) return;
+    let taymer = 0;
+    const tekshir = () => {
+      const a = document.activeElement as HTMLElement | null;
+      const yozmoqda =
+        a?.closest('.mrj-maydonlar') && (a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !['checkbox', 'radio'].includes((a as HTMLInputElement).type)));
+      if (yozmoqda || saqlanmoqda.current) {
+        taymer = window.setTimeout(tekshir, 700);
+        return;
+      }
+      void qoralamaniSaqla(qoralama);
+    };
+    taymer = window.setTimeout(tekshir, 500);
+    return () => window.clearTimeout(taymer);
+  }, [qoralama, ozgargan, yozaOladi, qoralamaniSaqla]);
+
+  /** Qabul oynasini ochishdan oldin saqlanmagan maydonlar yuboriladi — bitimga to'liq o'tsin. */
+  const qabulgaOt = async (rejim: 'yangi' | 'boglash') => {
+    if (qoralama && rejim === 'yangi' && !(await qoralamaniSaqla(qoralama))) return;
+    setQabul(rejim);
+  };
 
   // Mijoz yangi yozsa, oyna o'zi yangilanadi
   const kuzatish = Boolean(m && tarmoqmi(m.source) && m.payload.type === 'message');
@@ -112,7 +214,7 @@ export function MurojaatKarta() {
   const nom = m.contactName ?? m.name ?? m.payload.username ?? m.phone ?? t('Murojaat');
   const avatar = avatarManzili(base, m);
   const manba = tarmoqmi(m.source) ? TARMOQ_NOMI[m.source] : t(MANBA_NOMI[m.source] ?? m.source);
-  const kutilmoqda = m.status === 'pending';
+  const masulSeat = qoralama ? seatlar.find((s) => s.id === qoralama.responsibleSeatId) : undefined;
   const tel = m.contact?.phone ?? m.phone;
   const email = m.contact?.email ?? m.email;
   const formaJavoblari = Object.entries(m.payload.values ?? {});
@@ -142,6 +244,32 @@ export function MurojaatKarta() {
       <div className="mrj-ish">
         <aside className="mrj-chap">
           <div className="mrj-chap-ichi">
+            {qoralama && (kutilmoqda || holat.fields.length > 0) && (
+              <section className="mrj-blok mrj-maydonlar" aria-label={t('Bitim maydonlari')}>
+                <KartaMaydonlari
+                  qoralama={qoralama}
+                  setQoralama={setQoralama}
+                  yozaOladi={yozaOladi}
+                  sinx={null}
+                  tovarli={false}
+                  masul={masulSeat ? { id: masulSeat.id, name: masulSeat.displayName } : null}
+                />
+                {yozaOladi && (ozgargan || saqlashHolati) && (
+                  <div className={`ms-avto-holat${saqlashHolati === 'saqlandi' && !ozgargan ? ' ok' : ''}`} role="status">
+                    {saqlashHolati === 'saqlanmoqda' ? (
+                      t('Saqlanmoqda…')
+                    ) : ozgargan ? (
+                      t('Tahrirlanmoqda — maydondan chiqqach saqlanadi')
+                    ) : (
+                      <>
+                        <Check aria-hidden="true" /> {t('Saqlandi')}
+                      </>
+                    )}
+                  </div>
+                )}
+              </section>
+            )}
+
             <section className="mrj-blok mrj-kontakt">
               <div className="mrj-kontakt-bosh">
                 <span className="mrj-avatar" aria-hidden="true">
@@ -239,11 +367,11 @@ export function MurojaatKarta() {
           <footer className="mrj-amallar">
             {kutilmoqda ? (
               <>
-                <button type="button" className="mrj-amal qabul" disabled={band} onClick={() => setQabul('yangi')}>
+                <button type="button" className="mrj-amal qabul" disabled={band || saqlashHolati === 'saqlanmoqda'} onClick={() => void qabulgaOt('yangi')}>
                   <Check aria-hidden="true" /> {t('Qabul qilish')}
                 </button>
                 {m.openDeals > 0 && (
-                  <button type="button" className="mrj-amal" disabled={band} onClick={() => setQabul('boglash')}>
+                  <button type="button" className="mrj-amal" disabled={band} onClick={() => void qabulgaOt('boglash')}>
                     <Link2 aria-hidden="true" /> {t('Bog‘lash')}
                   </button>
                 )}

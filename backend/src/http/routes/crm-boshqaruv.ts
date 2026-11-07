@@ -36,6 +36,8 @@ import {
   murojaatlar,
   murojaatniQabul,
   murojaatniRad,
+  murojaatQoralamaSxemasi,
+  murojaatQoralamasiniSaqla,
   murojaatQosh,
   murojaatTafsiloti,
   ochiqForma,
@@ -150,6 +152,15 @@ export function registerCrmBoshqaruvRoutes(app: FastifyInstance): void {
     doira(req);
     const { id } = idParam.parse(req.params);
     return bajar(() => withTenant(req.business!.businessId, (tx) => murojaatTafsiloti(tx, id)));
+  });
+
+  /** Murojaat oynasidagi bitim maydonlari (summa, mas'ul, qo'shimcha maydonlar) — qabulda bitimga o'tadi. */
+  app.patch(`${BASE}/crm-app/inbox/:id`, guard, async (req) => {
+    const { id } = idParam.parse(req.params);
+    const d = yozishDoirasi(req);
+    const kirish = murojaatQoralamaSxemasi.parse(req.body ?? {});
+    await bajar(() => withTenant(req.business!.businessId, (tx) => murojaatQoralamasiniSaqla(tx, { id, doira: d, kirish })));
+    return { ok: true };
   });
 
   app.post(`${BASE}/crm-app/inbox`, guard, async (req) => {
