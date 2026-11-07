@@ -5,6 +5,10 @@ import { api, ApiError, type SeatFull } from '../../api';
 import { avatarRang, boshHarf } from '../bosh/malumot';
 import { useTashqiBosish } from '../qongiroq/Filtrlar';
 import { joyla, useT } from '../../i18n';
+import { ParolMaydon } from './Mijozlar';
+
+/** Server bilan bir xil: `MIN_PASSWORD_LENGTH` (backend/src/auth/password.ts). */
+const PAROL_MIN = 10;
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -259,9 +263,17 @@ export function Menejerlar({ businessId }: { businessId: string }) {
           base={base}
           seat={oyna.seat}
           onYop={() => setOyna(null)}
-          onSaqlandi={(nom, yangi) => {
+          onSaqlandi={(nom, yangi, parolBerildi) => {
             setOyna(null);
-            xabar(yangi ? t("{ism} qo'shildi — endi aktivatsiya havolasini oling", { ism: nom }) : t('Saqlandi'));
+            xabar(
+              yangi
+                ? parolBerildi
+                  ? t("{ism} qo'shildi — endi login va parol bilan kira oladi", { ism: nom })
+                  : t("{ism} qo'shildi — endi aktivatsiya havolasini oling", { ism: nom })
+                : parolBerildi
+                  ? t('Saqlandi — yangi parol kuchga kirdi')
+                  : t('Saqlandi'),
+            );
             yukla();
           }}
         />
@@ -397,10 +409,22 @@ function HavolaOynasi({ seat, nom, havola, kod, izoh, onYop }: { seat: SeatFull;
 
 // ─── Yangi menejer / Almashtirish ───────────────────────────────────────────
 
-function TahrirOynasi({ base, seat, onYop, onSaqlandi }: { base: string; seat: SeatFull | null; onYop: () => void; onSaqlandi: (nom: string, yangi: boolean) => void }) {
+function TahrirOynasi({
+  base,
+  seat,
+  onYop,
+  onSaqlandi,
+}: {
+  base: string;
+  seat: SeatFull | null;
+  onYop: () => void;
+  onSaqlandi: (nom: string, yangi: boolean, parolBerildi: boolean) => void;
+}) {
   const t = useT();
   const [ism, setIsm] = useState(seat?.displayName ?? '');
   const [login, setLogin] = useState(seat?.login ?? '');
+  /** Bo'sh — parol o'zgarmaydi (yangi menejerda: aktivatsiya havolasi orqali). */
+  const [parol, setParol] = useState('');
   const [tel, setTel] = useState(seat?.phoneNumbers.join(', ') ?? '');
   const [crm, setCrm] = useState(seat?.externalIds?.[CRM_KALIT] ?? '');
   const [band, setBand] = useState(false);
@@ -417,6 +441,8 @@ function TahrirOynasi({ base, seat, onYop, onSaqlandi }: { base: string; seat: S
     e.preventDefault();
     if (ism.trim().length < 2) return setXato(t("Ism kamida 2 ta belgidan iborat bo'lsin"));
     if (loginXato) return setXato(t('Login faqat lotin harfi, raqam va . _ - dan iborat, 3–40 belgi'));
+    if (parol && !login.trim()) return setXato(t('Parol berish uchun login ham kiriting — menejer shu login bilan kiradi'));
+    if (parol && parol.length < PAROL_MIN) return setXato(t("Parol kamida {n} belgi bo'lishi kerak", { n: PAROL_MIN }));
     if (telXato) return setXato(t("Telefon raqami noto'g'ri: {tel}", { tel: telXato }));
     setBand(true);
     setXato(null);
@@ -426,13 +452,14 @@ function TahrirOynasi({ base, seat, onYop, onSaqlandi }: { base: string; seat: S
     const body = {
       displayName: ism.trim(),
       ...(login.trim() ? { login: login.trim().toLowerCase() } : {}),
+      ...(parol ? { password: parol } : {}),
       phoneNumbers: telefonlar,
       externalIds,
     };
     try {
       if (seat) await api.patch(`${base}/${seat.id}`, body);
       else await api.post(base, body);
-      onSaqlandi(ism.trim(), !seat);
+      onSaqlandi(ism.trim(), !seat, !!parol);
     } catch (err) {
       setXato(err instanceof ApiError ? err.message : t("Saqlanmadi — qayta urinib ko'ring"));
       setBand(false);
@@ -454,6 +481,20 @@ function TahrirOynasi({ base, seat, onYop, onSaqlandi }: { base: string; seat: S
           <label htmlFor="mj-crm">CRM ID</label>
           <input id="mj-crm" value={crm} onChange={(e) => setCrm(e.target.value)} placeholder={t('Masalan: 10245')} spellCheck={false} autoComplete="off" />
         </div>
+      </div>
+      <div className="maydon-blok">
+        <label htmlFor="mj-parol">{seat?.userId ? t('Yangi parol') : t('Parol')}</label>
+        {/* `new-password` — brauzer rahbarning O'Z saqlangan parolini bu yerga to'ldirib qo'ymasin */}
+        <ParolMaydon
+          id="mj-parol"
+          value={parol}
+          onChange={setParol}
+          izoh={
+            seat?.userId
+              ? t("O'zgartirmaslik uchun bo'sh qoldiring. Yangi parol saqlansa, eskisi bekor bo'ladi va menejer barcha qurilmalardan chiqariladi.")
+              : t("Menejer shu login va parol bilan kiradi. Bo'sh qoldirsangiz — parolni aktivatsiya havolasi orqali o'zi o'rnatadi.")
+          }
+        />
       </div>
       <div className="maydon-blok">
         <label htmlFor="mj-tel">{t('Telefon raqamlari')}</label>

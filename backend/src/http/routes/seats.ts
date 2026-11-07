@@ -2,12 +2,15 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { generateToken, hashToken } from '../../auth/tokens.js';
+import { hashPassword, MIN_PASSWORD_LENGTH } from '../../auth/password.js';
 import { hasPermission } from '../../auth/permissions.js';
+import { revokeAllForUser } from '../../auth/session.js';
 import { isForeignKeyViolation, isUniqueViolation } from '../../db/errors.js';
-import { withTenant } from '../../db/index.js';
+import { withoutTenantIsolation, withTenant } from '../../db/index.js';
 import { seat } from '../../db/schema/index.js';
 import { requireBusiness } from '../auth-plugin.js';
 import { AppError } from '../errors.js';
+import { hisobLogininiYangila, orinGaParolBer } from '../menejer-hisobi.js';
 import { seatWorkHoursSchema } from '../../business/settings.js';
 
 /**
@@ -38,7 +41,30 @@ const createSeat = z.object({
   /** FR-84 uchun kritik: speaker rolini deterministik aniqlash shunga tayanadi. */
   phoneNumbers: z.array(phone).max(10).default([]),
   externalIds: z.record(z.string()).default({}),
+  /**
+   * Kirish paroli — rahbar o'zi beradi (aktivatsiya havolasiga muqobil).
+   * Bazaga faqat argon2 xeshi yoziladi (`app_user.password_hash`), `seat`
+   * jadvaliga tushmaydi va hech qaysi javobda qaytmaydi.
+   */
+  password: z
+    .string()
+    .min(MIN_PASSWORD_LENGTH, `Parol kamida ${MIN_PASSWORD_LENGTH} belgi bo'lishi kerak`)
+    .max(200)
+    .optional(),
 });
+
+const PAROL_LOGINSIZ = 'Parol berish uchun login ham kiriting — menejer shu login bilan kiradi';
+
+/** O'rin loginini band bo'lsa — tushunarli 409, 500 emas. */
+function orinXatosi(err: unknown): never {
+  if (isUniqueViolation(err, 'seat_login_uq')) {
+    throw AppError.conflict('Bu login allaqachon band');
+  }
+  if (isForeignKeyViolation(err)) {
+    throw AppError.badRequest('Ko\'rsatilgan bo\'lim topilmadi');
+  }
+  throw err;
+}
 
 const patchSeat = createSeat.partial().extend({
   isActive: z.boolean().optional(),
@@ -163,35 +189,38 @@ export function registerSeatRoutes(app: FastifyInstance): void {
     '/api/v1/businesses/:businessId/seats',
     { preHandler: requireBusiness },
     async (req, reply) => {
-      const body = createSeat.parse(req.body);
+      const { password, ...body } = createSeat.parse(req.body);
       assertSeatScope(req, body.departmentId ?? null);
+      if (password && !body.login) throw AppError.badRequest(PAROL_LOGINSIZ);
 
       const businessId = req.business!.businessId;
+      const values = {
+        businessId,
+        displayName: body.displayName,
+        login: body.login ?? null,
+        departmentId: body.departmentId ?? null,
+        phoneNumbers: body.phoneNumbers,
+        externalIds: body.externalIds,
+      };
+
+      // Xesh tranzaksiyadan OLDIN — argon2 ataylab sekin, ulanishni band qilmasin.
+      const passwordHash = password ? await hashPassword(password) : null;
 
       try {
-        const [row] = await withTenant(businessId, (tx) =>
-          tx
-            .insert(seat)
-            .values({
-              businessId,
-              displayName: body.displayName,
-              login: body.login ?? null,
-              departmentId: body.departmentId ?? null,
-              phoneNumbers: body.phoneNumbers,
-              externalIds: body.externalIds,
+        const row = passwordHash
+          ? // O'rin va kirish hisobi bitta tranzaksiyada: login band bo'lsa,
+            // «parolsiz yarim menejer» qolib ketmaydi — hammasi bekor bo'ladi.
+            await withoutTenantIsolation("menejer: o'rin va kirish hisobi birga yaratiladi", async (tx) => {
+              const [yangi] = await tx.insert(seat).values(values).returning({ id: seat.id });
+              await orinGaParolBer(tx, { businessId, seatId: yangi!.id, login: body.login!, passwordHash });
+              const [r] = await tx.select(publicColumns).from(seat).where(eq(seat.id, yangi!.id)).limit(1);
+              return r;
             })
-            .returning(publicColumns),
-        );
+          : (await withTenant(businessId, (tx) => tx.insert(seat).values(values).returning(publicColumns)))[0];
         reply.status(201);
         return row;
       } catch (err) {
-        if (isUniqueViolation(err, 'seat_login_uq')) {
-          throw AppError.conflict('Bu login allaqachon band');
-        }
-        if (isForeignKeyViolation(err)) {
-          throw AppError.badRequest('Ko\'rsatilgan bo\'lim topilmadi');
-        }
-        throw err;
+        orinXatosi(err);
       }
     },
   );
@@ -201,12 +230,12 @@ export function registerSeatRoutes(app: FastifyInstance): void {
     { preHandler: requireBusiness },
     async (req) => {
       const { seatId } = seatParams.parse(req.params);
-      const patch = patchSeat.parse(req.body);
+      const { password, ...patch } = patchSeat.parse(req.body);
       const businessId = req.business!.businessId;
 
       const [existing] = await withTenant(businessId, (tx) =>
         tx
-          .select({ departmentId: seat.departmentId })
+          .select({ departmentId: seat.departmentId, userId: seat.userId, login: seat.login })
           .from(seat)
           .where(eq(seat.id, seatId))
           .limit(1),
@@ -220,14 +249,49 @@ export function registerSeatRoutes(app: FastifyInstance): void {
         assertSeatScope(req, patch.departmentId ?? null);
       }
 
-      const [row] = await withTenant(businessId, (tx) =>
-        tx
-          .update(seat)
-          .set({ ...patch, updatedAt: new Date() })
-          .where(eq(seat.id, seatId))
-          .returning(publicColumns),
-      );
-      return row;
+      const login = patch.login ?? existing.login;
+      // Hisobi bor o'rinda login o'zgarsa, kirish logini ham birga o'zgarishi shart.
+      const hisobLoginiOzgaradi = !!existing.userId && login !== existing.login;
+
+      try {
+        if (!password && !hisobLoginiOzgaradi) {
+          const [row] = await withTenant(businessId, (tx) =>
+            tx
+              .update(seat)
+              .set({ ...patch, updatedAt: new Date() })
+              .where(eq(seat.id, seatId))
+              .returning(publicColumns),
+          );
+          return row;
+        }
+
+        if (password && !login) throw AppError.badRequest(PAROL_LOGINSIZ);
+        const passwordHash = password ? await hashPassword(password) : null;
+
+        const natija = await withoutTenantIsolation("menejer: o'rin va kirish hisobi birga yangilanadi", async (tx) => {
+          const qayerda = and(eq(seat.id, seatId), eq(seat.businessId, businessId));
+          await tx.update(seat).set({ ...patch, updatedAt: new Date() }).where(qayerda);
+
+          let sessiyalarniYop: string | null = null;
+          if (passwordHash) {
+            const h = await orinGaParolBer(tx, { businessId, seatId, login: login!, passwordHash });
+            if (h.avvaldanBor) sessiyalarniYop = h.userId;
+          } else {
+            await hisobLogininiYangila(tx, { businessId, userId: existing.userId!, login: login! });
+          }
+
+          const [row] = await tx.select(publicColumns).from(seat).where(qayerda).limit(1);
+          return { row, sessiyalarniYop };
+        });
+
+        // Rahbar parolni almashtirdi — eski parol bilan ochilgan sessiyalar
+        // yopiladi (parol tiklashdagi kabi). Tranzaksiyadan keyin: parol
+        // yozilmay qolsa, menejer bekorga tizimdan chiqarilmasin.
+        if (natija.sessiyalarniYop) await revokeAllForUser(natija.sessiyalarniYop);
+        return natija.row;
+      } catch (err) {
+        orinXatosi(err);
+      }
     },
   );
 

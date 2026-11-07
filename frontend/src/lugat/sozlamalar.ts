@@ -596,6 +596,26 @@ const SOZLAMALAR: Lugat = {
     en: '{ism} added — now get the activation link',
     ru: '{ism} добавлен(а) — теперь получите ссылку активации',
   },
+  "{ism} qo'shildi — endi login va parol bilan kira oladi": {
+    en: '{ism} added — they can now sign in with this login and password',
+    ru: '{ism} добавлен(а) — теперь может войти с этим логином и паролем',
+  },
+  'Saqlandi — yangi parol kuchga kirdi': {
+    en: 'Saved — the new password is now in effect',
+    ru: 'Сохранено — новый пароль вступил в силу',
+  },
+  'Parol berish uchun login ham kiriting — menejer shu login bilan kiradi': {
+    en: 'Enter a login too — the sales rep signs in with it',
+    ru: 'Укажите и логин — менеджер будет входить по нему',
+  },
+  "O'zgartirmaslik uchun bo'sh qoldiring. Yangi parol saqlansa, eskisi bekor bo'ladi va menejer barcha qurilmalardan chiqariladi.": {
+    en: 'Leave empty to keep the current password. Saving a new one cancels the old password and signs the sales rep out on all devices.',
+    ru: 'Оставьте пустым, чтобы не менять. После сохранения нового пароля старый перестанет действовать, а менеджер выйдет со всех устройств.',
+  },
+  "Menejer shu login va parol bilan kiradi. Bo'sh qoldirsangiz — parolni aktivatsiya havolasi orqali o'zi o'rnatadi.": {
+    en: 'The sales rep signs in with this login and password. Leave empty and they will set a password via the activation link.',
+    ru: 'Менеджер входит по этому логину и паролю. Если оставить пустым, он задаст пароль сам по ссылке активации.',
+  },
   '{ism} — amallar': { en: '{ism} — actions', ru: '{ism} — действия' },
   'Telegram (ulangan)': { en: 'Telegram (connected)', ru: 'Telegram (подключён)' },
   'Telegram ulash': { en: 'Connect Telegram', ru: 'Подключить Telegram' },

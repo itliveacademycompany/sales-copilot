@@ -269,8 +269,8 @@ function EmailMaydon({
   );
 }
 
-/** Parol maydoni + «Yaratish» (kuchli parol taklifi). */
-function ParolMaydon({
+/** Parol maydoni + «Yaratish» (kuchli parol taklifi). Menejerlar oynasida ham ishlatiladi. */
+export function ParolMaydon({
   id,
   value,
   onChange,

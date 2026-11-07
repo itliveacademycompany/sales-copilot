@@ -161,6 +161,79 @@ async function main(): Promise<void> {
     await app.inject({ method: 'PATCH', url: `/api/v1/businesses/${A.businessId}/seats/${s4}`, cookies: A.cookies, payload: { isActive: false } });
     const ochirilgan = await faollashtir({ token: t5, password: MENEJER_PAROL });
     check("o'chirilgan o'rin uchun ishlamaydi", ochirilgan.statusCode === 400);
+
+    // ═══ RAHBAR PAROLNI O'ZI BERADI ═══
+    console.log('\n— rahbar bergan parol —');
+    const seatsUrl = `/api/v1/businesses/${A.businessId}/seats`;
+    const kirish = (l: string, p: string) => app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: l, password: p } });
+
+    const loginsizParol = await app.inject({ method: 'POST', url: seatsUrl, cookies: A.cookies, payload: { displayName: 'Loginsiz Parol', password: MENEJER_PAROL } });
+    check('parol loginsiz berilmaydi (400)', loginsizParol.statusCode === 400, `kod: ${loginsizParol.statusCode}`);
+    const qisqaParol = await app.inject({ method: 'POST', url: seatsUrl, cookies: A.cookies, payload: { displayName: 'Qisqa Parol', login: `qisqa-${tag}`, password: '123' } });
+    check('qisqa parol rad etiladi (422)', qisqaParol.statusCode === 422, `kod: ${qisqaParol.statusCode}`);
+
+    const pLogin = `parolli-${tag}`;
+    const yarat = await app.inject({ method: 'POST', url: seatsUrl, cookies: A.cookies, payload: { displayName: 'Parolli Menejer', login: pLogin, password: MENEJER_PAROL } });
+    const yj = yarat.json() as { id: string; activation: string; userId: string | null; isOccupied: boolean };
+    check('login + parol bilan menejer yaratiladi', yarat.statusCode === 201 && yj.activation === 'active' && !!yj.userId && yj.isOccupied, `kod: ${yarat.statusCode} ${yarat.body.slice(0, 160)}`);
+    check('javobda parol yoki xesh yo\'q', !/password/i.test(yarat.body));
+
+    const pKir = await kirish(pLogin, MENEJER_PAROL);
+    const pCtx = pKir.json() as { businesses: { businessId: string; seatId: string | null; role: string }[] };
+    check('menejer shu login/parol bilan kiradi', pKir.statusCode === 200, `kod: ${pKir.statusCode}`);
+    check(
+      "kirgan menejer faqat o'z biznesini va o'rnini ko'radi",
+      pCtx.businesses?.length === 1 && pCtx.businesses[0]!.businessId === A.businessId && pCtx.businesses[0]!.seatId === yj.id && pCtx.businesses[0]!.role === 'manager',
+      JSON.stringify(pCtx.businesses),
+    );
+    const eskiSid = { sid: pKir.cookies.find((c) => c.name === 'sid')?.value ?? '' };
+
+    const bandYarat = await app.inject({ method: 'POST', url: seatsUrl, cookies: A.cookies, payload: { displayName: 'Band Login', login, password: MENEJER_PAROL } });
+    check('boshqa hisobdagi login bilan yaratilmaydi (409)', bandYarat.statusCode === 409, `kod: ${bandYarat.statusCode}`);
+    const yarim = await withoutTenantIsolation('test: yarim o\'rin qolmaganini tekshirish', (tx) =>
+      tx.select({ id: seat.id }).from(seat).where(eq(seat.displayName, 'Band Login')),
+    );
+    check("409 dan keyin «yarim» o'rin qolmaydi (tranzaksiya)", yarim.length === 0, `${yarim.length} ta`);
+
+    const begonaPatch = await app.inject({ method: 'PATCH', url: `/api/v1/businesses/${B.businessId}/seats/${yj.id}`, cookies: B.cookies, payload: { password: 'begona-parol-12345' } });
+    check('begona biznes rahbari parol bera olmaydi', begonaPatch.statusCode === 404 || begonaPatch.statusCode === 403, `kod: ${begonaPatch.statusCode}`);
+
+    // Parolni almashtirish: eski parol va eski sessiya ishlamaydi
+    const YANGI = 'yangi-menejer-parol-789';
+    const almash = await app.inject({ method: 'PATCH', url: `${seatsUrl}/${yj.id}`, cookies: A.cookies, payload: { password: YANGI } });
+    check('rahbar parolni almashtiradi', almash.statusCode === 200, `kod: ${almash.statusCode} ${almash.body.slice(0, 160)}`);
+    check('eski parol endi ishlamaydi', (await kirish(pLogin, MENEJER_PAROL)).statusCode === 401);
+    check('yangi parol ishlaydi', (await kirish(pLogin, YANGI)).statusCode === 200);
+    const eskiSessiya = await app.inject({ method: 'GET', url: '/api/v1/auth/context', cookies: eskiSid });
+    check('parol almashgach eski sessiya yopiladi', eskiSessiya.statusCode === 401, `kod: ${eskiSessiya.statusCode}`);
+
+    // Login o'zgarsa kirish logini ham o'zgaradi
+    const yangiLogin = `qayta-${tag}`;
+    const loginAlmash = await app.inject({ method: 'PATCH', url: `${seatsUrl}/${yj.id}`, cookies: A.cookies, payload: { login: yangiLogin } });
+    check('login almashadi', loginAlmash.statusCode === 200 && (loginAlmash.json() as { login: string }).login === yangiLogin, `kod: ${loginAlmash.statusCode}`);
+    check('yangi login bilan kiradi', (await kirish(yangiLogin, YANGI)).statusCode === 200);
+    check('eski login bilan kira olmaydi', (await kirish(pLogin, YANGI)).statusCode === 401);
+    const bandPatch = await app.inject({ method: 'PATCH', url: `${seatsUrl}/${yj.id}`, cookies: A.cookies, payload: { login } });
+    check('band loginga almashtirib bo\'lmaydi (409)', bandPatch.statusCode === 409, `kod: ${bandPatch.statusCode}`);
+
+    // Aktivatsiya kutilayotgan o'ringa parol berish — eski havola bekor bo'ladi
+    const s5 = await orin(A, 'Kutilayotgan Orin', `kutish-${tag}`);
+    const t6 = ((await havola(A, s5)).json() as { activationToken: string }).activationToken;
+    const s5Parol = await app.inject({ method: 'PATCH', url: `${seatsUrl}/${s5}`, cookies: A.cookies, payload: { password: MENEJER_PAROL } });
+    check("kutilayotgan o'ringa parol beriladi", s5Parol.statusCode === 200 && (s5Parol.json() as { activation: string }).activation === 'active');
+    check('parol berilgach eski aktivatsiya havolasi ishlamaydi', (await faollashtir({ token: t6, password: 'boshqa-parol-0000' })).statusCode === 400);
+
+    // Egasi ham o'rinda bo'lsa — uning parolini bu yerdan o'zgartirib bo'lmaydi
+    const egaId = (
+      (await app.inject({ method: 'GET', url: '/api/v1/auth/context', cookies: A.cookies })).json() as { user: { id: string } }
+    ).user.id;
+    const s6 = await orin(A, 'Ega Orni', `ega-${tag}`);
+    await withoutTenantIsolation('test: egani o\'ringa biriktirish', (tx) =>
+      tx.update(seat).set({ userId: egaId, activation: 'active' }).where(eq(seat.id, s6)),
+    );
+    const egaParol = await app.inject({ method: 'PATCH', url: `${seatsUrl}/${s6}`, cookies: A.cookies, payload: { password: 'egani-egallash-123' } });
+    check('umumiy (ega) hisobning paroli bu yerdan o\'zgarmaydi (409)', egaParol.statusCode === 409, `kod: ${egaParol.statusCode}`);
+    check('ega avvalgi paroli bilan kiradi', (await kirish(`a-${tag}@test.local`, PAROL)).statusCode === 200);
   } finally {
     await app.close();
     await withoutTenantIsolation('test: login bilan yaratilgan hisoblarni tozalash', (tx) =>
