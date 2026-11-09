@@ -1,7 +1,8 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { generatePlaybookDraft, standartQoralama } from '../../ai/playbook-builder.js';
+import { generatePlaybookDraft, generatePlaybookFromScript, standartQoralama } from '../../ai/playbook-builder.js';
+import { SKRIPT_MAX, SKRIPT_MIN } from '../../ai/prompts.js';
 import { getActiveLlm, LlmSozlanmaganError } from '../../ai/llm.js';
 import { profileSchema } from '../../business/profile.js';
 import { withTenant } from '../../db/index.js';
@@ -217,6 +218,53 @@ export function registerPlaybookRoutes(app: FastifyInstance): void {
           throw new AppError(503, 'ai-unavailable', 'AI provayder sozlanmagan — administrator admin paneldan provayder ulashi kerak');
         }
         throw new AppError(502, 'ai-failed', 'AI javob bermadi — birozdan keyin qayta urinib ko\'ring');
+      }
+    },
+  );
+
+  /**
+   * Kompaniyaning o'z sotuv skripti asosida qoralama — AI qoralamasi
+   * yoqmasa, onboarding 2-qadamida mijoz skriptini yuklaydi.
+   *
+   * `/generate` kabi hech narsa SAQLAMAYDI: natija formada ko'rib chiqiladi,
+   * keyin oddiy `POST /playbook` bilan saqlanadi. Bu yerda standart shablonga
+   * qaytish YO'Q — skriptni mezonlarga faqat AI aylantira oladi; AI ishlamasa
+   * aniq xato qaytadi va mijoz oldingi qoralamasi bilan davom etadi.
+   */
+  app.post(
+    '/api/v1/businesses/:businessId/playbook/from-script',
+    { preHandler: [requireBusiness, requirePermission('playbook:write')] },
+    async (req) => {
+      const businessId = req.business!.businessId;
+      const parsed = z
+        .object({ skript: z.string().trim().min(SKRIPT_MIN).max(SKRIPT_MAX) })
+        .safeParse(req.body);
+      if (!parsed.success) {
+        // Matn doimiy — frontend lug'ati uni aynan shu kalit bilan tarjima qiladi.
+        throw AppError.badRequest('Skript matni 50 dan 60000 belgigacha bo\'lishi kerak');
+      }
+
+      // Profil — faqat kontekst (soha, mahsulotlar, atamalar); asosiy manba skript.
+      const profile = await withTenant(businessId, async (tx) => {
+        const [row] = await tx
+          .select({ profile: business.profile })
+          .from(business)
+          .where(eq(business.id, businessId))
+          .limit(1);
+        return profileSchema.parse(row?.profile ?? {});
+      });
+
+      try {
+        const llm = await getActiveLlm();
+        const draft = await generatePlaybookFromScript(llm, profile, parsed.data.skript);
+        return { draft, manba: 'skript' as const };
+      } catch (err) {
+        const sozlanmagan = err instanceof LlmSozlanmaganError;
+        req.log.warn({ err: err instanceof Error ? err.message : String(err), sozlanmagan }, 'playbook: skriptdan generatsiya bajarilmadi');
+        if (sozlanmagan) {
+          throw new AppError(503, 'ai-unavailable', 'AI provayder sozlanmagan — skriptni mezonlarga aylantirib bo\'lmaydi. Hozircha qoralamani qo\'lda tahrirlang');
+        }
+        throw new AppError(502, 'ai-failed', 'AI skriptni qayta ishlay olmadi — birozdan keyin qayta urinib ko\'ring');
       }
     },
   );

@@ -1859,7 +1859,68 @@ const SOZLAMALAR: Lugat = {
     ru: 'критерии адаптированы под данные вашего бизнеса. Отредактируйте и примите; после подключения AI их можно пересоздать в Настройки → Критерии оценки.',
   },
   'AI bilan qayta urinish': { en: 'Try again with AI', ru: 'Повторить с AI' },
-  "Saqlab bo'lmadi. Qayta urinib ko'ring.": { en: "Couldn't save. Please try again.", ru: 'Не удалось сохранить. Попробуйте ещё раз.' },
+  // ─── Onboarding 2-qadam: kompaniyaning o'z skripti ───
+  "O'z skriptimni yuklash": { en: 'Upload my own script', ru: 'Загрузить свой скрипт' },
+  'Boshqa skript yuklash': { en: 'Upload another script', ru: 'Загрузить другой скрипт' },
+  'AI qoralamasiga qaytish': { en: 'Back to the AI draft', ru: 'Вернуться к черновику AI' },
+  'Skriptingiz asosida qoralama tayyor.': { en: 'A draft based on your script is ready.', ru: 'Черновик на основе вашего скрипта готов.' },
+  'Mezonlar «{fayl}» bosqichlaridan tuzildi.': {
+    en: 'The criteria were built from the stages of «{fayl}».',
+    ru: 'Критерии составлены по этапам «{fayl}».',
+  },
+  'Mezonlar skriptingiz bosqichlaridan tuzildi.': {
+    en: 'The criteria were built from the stages of your script.',
+    ru: 'Критерии составлены по этапам вашего скрипта.',
+  },
+  "O'z sotuv skriptingizni yuklang": { en: 'Upload your own sales script', ru: 'Загрузите свой скрипт продаж' },
+  "AI skriptingiz bosqichlarini baholash mezonlariga aylantiradi — keyin har bir suhbat aynan shu skript bo'yicha baholanadi. Natijani qabul qilishdan oldin ko'rib chiqasiz.": {
+    en: 'AI turns the stages of your script into scoring criteria — every conversation is then scored against this exact script. You review the result before accepting it.',
+    ru: 'AI превратит этапы вашего скрипта в критерии оценки — затем каждый разговор будет оцениваться именно по этому скрипту. Перед принятием вы проверите результат.',
+  },
+  'Faylni shu yerga tashlang yoki tanlang': { en: 'Drop a file here or choose one', ru: 'Перетащите файл сюда или выберите' },
+  'Word (.docx), .txt yoki .md — 5 MB gacha': { en: 'Word (.docx), .txt or .md — up to 5 MB', ru: 'Word (.docx), .txt или .md — до 5 МБ' },
+  "O'qilmoqda…": { en: 'Reading…', ru: 'Чтение…' },
+  'Boshqa fayl': { en: 'Another file', ru: 'Другой файл' },
+  'Fayl tanlash': { en: 'Choose file', ru: 'Выбрать файл' },
+  "Yoki skript matnini shu yerga qo'ying": { en: 'Or paste the script text here', ru: 'Или вставьте текст скрипта сюда' },
+  "Masalan: 1. Salomlashing, o'zingizni va kompaniyani tanishtiring. 2. Mijozning ehtiyojini aniqlang…": {
+    en: "For example: 1. Greet the client, introduce yourself and the company. 2. Find out the client's needs…",
+    ru: 'Например: 1. Поздоровайтесь, представьте себя и компанию. 2. Выясните потребность клиента…',
+  },
+  'Kamida {n} belgi kerak': { en: 'At least {n} characters required', ru: 'Нужно минимум {n} символов' },
+  'Juda uzun — {n} belgigacha': { en: 'Too long — up to {n} characters', ru: 'Слишком длинно — до {n} символов' },
+  '{n} belgi': { en: '{n} characters', ru: 'Символов: {n}' },
+  'AI skriptni tahlil qilmoqda… 20-40 soniya': { en: 'AI is analysing the script… 20–40 seconds', ru: 'AI анализирует скрипт… 20–40 секунд' },
+  'Skript asosida mezonlar tuzish': { en: 'Build criteria from the script', ru: 'Составить критерии по скрипту' },
+  "Faylni o'qib bo'lmadi.": { en: "Couldn't read the file.", ru: 'Не удалось прочитать файл.' },
+  "Skriptni qayta ishlab bo'lmadi. Qayta urinib ko'ring.": {
+    en: "Couldn't process the script. Please try again.",
+    ru: 'Не удалось обработать скрипт. Попробуйте ещё раз.',
+  },
+  "Word faylini o'qib bo'lmadi. Faylni .docx sifatida qayta saqlang yoki matnni nusxalab qo'ying.": {
+    en: "Couldn't read the Word file. Save it again as .docx or paste the text.",
+    ru: 'Не удалось прочитать файл Word. Сохраните его заново как .docx или вставьте текст.',
+  },
+  "Fayl juda katta — 5 MB gacha bo'lishi kerak.": { en: 'The file is too large — it must be up to 5 MB.', ru: 'Файл слишком большой — допустимо до 5 МБ.' },
+  "PDF va eski .doc fayllar qo'llab-quvvatlanmaydi. Faylni .docx sifatida saqlang yoki matnini nusxalab qo'ying.": {
+    en: 'PDF and old .doc files are not supported. Save the file as .docx or paste its text.',
+    ru: 'PDF и старые файлы .doc не поддерживаются. Сохраните файл как .docx или вставьте его текст.',
+  },
+  'Faqat .docx, .txt yoki .md fayl yuklash mumkin.': { en: 'Only .docx, .txt or .md files can be uploaded.', ru: 'Можно загрузить только файлы .docx, .txt или .md.' },
+  'Faylda matn topilmadi.': { en: 'No text was found in the file.', ru: 'В файле не найден текст.' },
+  "AI provayder sozlanmagan — skriptni mezonlarga aylantirib bo'lmaydi. Hozircha qoralamani qo'lda tahrirlang": {
+    en: "The AI provider is not configured — the script can't be turned into criteria. For now, edit the draft manually",
+    ru: 'AI-провайдер не настроен — скрипт нельзя превратить в критерии. Пока отредактируйте черновик вручную',
+  },
+  "AI skriptni qayta ishlay olmadi — birozdan keyin qayta urinib ko'ring": {
+    en: "The AI couldn't process the script — please try again a bit later",
+    ru: 'AI не смог обработать скрипт — повторите чуть позже',
+  },
+  "Skript matni 50 dan 60000 belgigacha bo'lishi kerak": {
+    en: 'The script text must be between 50 and 60000 characters',
+    ru: 'Текст скрипта должен быть от 50 до 60000 символов',
+  },
+  "Saqlab bo'lmadi. Qayta urinib ko'ring.":{ en: "Couldn't save. Please try again.", ru: 'Не удалось сохранить. Попробуйте ещё раз.' },
   // Server xatolari (playbook / namunalar)
   'AI provayder sozlanmagan — administrator admin paneldan provayder ulashi kerak': {
     en: 'The AI provider is not configured — an administrator needs to connect one in the admin panel',

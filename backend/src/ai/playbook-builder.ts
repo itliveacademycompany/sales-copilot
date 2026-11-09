@@ -1,6 +1,13 @@
 import type { BusinessProfile } from '../business/profile.js';
 import { playbookBodySchema, type PlaybookBody } from '../playbook/schema.js';
-import { buildPlaybookDraftPrompt, playbookDraftResult, playbookDraftSchema } from './prompts.js';
+import {
+  buildPlaybookDraftPrompt,
+  buildPlaybookFromScriptPrompt,
+  playbookDraftResult,
+  playbookDraftSchema,
+  playbookScriptResult,
+  playbookScriptSchema,
+} from './prompts.js';
 import type { LlmClient } from './llm.js';
 
 /**
@@ -262,4 +269,35 @@ export async function generatePlaybookDraft(
   });
   const draft = playbookDraftResult.parse(res.json);
   return draftToPlaybookBody(draft, profile);
+}
+
+/**
+ * Kompaniyaning o'z sotuv skripti asosida qoralama. Anketa qoralamasi bilan
+ * bir xil yo'ldan (`draftToPlaybookBody`) o'tadi — kodlar, vaznlar va sxema
+ * kafolatlangan. Skriptning asosiy qoidalari 3-bosqich (baholash) ko'rsatmasiga
+ * yoziladi, shunda har bir suhbat aynan shu skriptga nisbatan baholanadi.
+ */
+export async function generatePlaybookFromScript(
+  llm: LlmClient,
+  profile: BusinessProfile,
+  skript: string,
+): Promise<PlaybookBody> {
+  const prompt = await buildPlaybookFromScriptPrompt(profile, skript);
+  const res = await llm.completeJson({
+    stage: 'playbookBuilder',
+    system: prompt.system,
+    user: prompt.user,
+    schema: playbookScriptSchema,
+    maxTokens: 8192,
+  });
+  const { scoringGuidance, ...draft } = playbookScriptResult.parse(res.json);
+  const body = draftToPlaybookBody(draft, profile);
+  return playbookBodySchema.parse({
+    ...body,
+    promptNotes: {
+      ...body.promptNotes,
+      stage3: { ...body.promptNotes.stage3, scoringGuidance: scoringGuidance.trim().slice(0, 3000) },
+    },
+    changeNote: 'Kompaniya skripti asosida tuzilgan qoralama',
+  });
 }

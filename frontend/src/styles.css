@@ -2244,6 +2244,34 @@ label.maydon {
   .qadam .ulagich { width: 14px; }
 }
 
+/* ─── Onboarding 2-qadam: kompaniyaning o'z skriptini yuklash ─────────────── */
+
+.skript-bosh { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.skript-bosh h3 { margin: 0 0 4px; font-size: 16px; }
+.skript-bosh .yordam { font-size: 13px; margin: 0; max-width: 560px; }
+.skript-zona {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1.5px dashed var(--border-strong);
+  background: var(--bg-sunken);
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.skript-zona.ustida { border-color: var(--ia); background: var(--ia-soft); }
+.skript-zona > svg { width: 26px; height: 26px; color: var(--ia); flex-shrink: 0; }
+.skript-zona-matn { flex: 1 1 200px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.skript-zona-matn b { font-size: 14px; overflow-wrap: anywhere; }
+.skript-zona-matn span { font-size: 12px; color: var(--text-secondary); }
+.skript-yorliq { display: block; margin: 16px 0 6px; font-size: 12px; font-weight: 500; color: var(--kul-dark); }
+.skript-panel textarea { width: 100%; resize: vertical; min-height: 160px; line-height: 1.5; }
+.skript-hisob { margin-top: 6px; font-size: 12px; color: var(--text-secondary); text-align: right; }
+.skript-hisob.xato { color: var(--qizil-dark); }
+.skript-tugmalar { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.pb-manba-tugmalar { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+
 /* ─── FR-16: onboardingda namunaviy suhbat natijasi ───────────────────────── */
 
 .namuna-taklif {

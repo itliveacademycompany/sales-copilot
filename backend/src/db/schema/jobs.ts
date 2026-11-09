@@ -94,7 +94,7 @@ export const promptTemplate = pgTable(
   'prompt_template',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    /** stage2_extract | stage3_score | playbook_builder | daily_summary */
+    /** stage2_extract | stage3_score | playbook_builder | playbook_from_script | daily_summary */
     key: text('key').notNull(),
     version: integer('version').notNull(),
     content: text('content').notNull(),

@@ -1,4 +1,15 @@
-import { ArrowUpRight, Check, ChevronLeft, ChevronRight, LayoutTemplate, PartyPopper, RotateCw, Sparkles } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  LayoutTemplate,
+  PartyPopper,
+  RotateCw,
+  Sparkles,
+  Upload,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -12,6 +23,7 @@ import {
 } from '../api';
 import { useAuth } from '../auth';
 import { PlaybookForm, TagList, tegQosh } from '../components/PlaybookForm';
+import { SkriptYuklash } from '../components/SkriptYuklash';
 import { tarjima, useT } from '../i18n';
 
 /**
@@ -266,7 +278,11 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
    * shablon qaytaradi (`?shablon=1`) — onboarding to'xtab qolmaydi, lekin
    * bu foydalanuvchiga ochiq aytiladi.
    */
-  const [manba, setManba] = useState<{ tur: 'ai' | 'shablon'; sabab?: 'sozlanmagan' | 'xato' } | null>(null);
+  const [manba, setManba] = useState<
+    { tur: 'ai' | 'shablon' | 'skript'; sabab?: 'sozlanmagan' | 'xato'; fayl?: string | null } | null
+  >(null);
+  /** AI qoralamasi yoqmasa — kompaniya o'z skriptini yuklaydigan panel. */
+  const [skriptOchiq, setSkriptOchiq] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -276,6 +292,7 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
   async function generate() {
     setGenerating(true);
     setError('');
+    setSkriptOchiq(false);
     try {
       const res = await api.post<{ draft: PlaybookBody; manba: 'ai' | 'shablon'; sabab?: 'sozlanmagan' | 'xato' }>(
         `${base}/playbook/generate?shablon=1`,
@@ -305,7 +322,12 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
     try {
       await api.post(`${base}/playbook`, {
         ...draft,
-        changeNote: manba?.tur === 'shablon' ? 'Standart shablon — onboarding' : 'AI Playbook Builder — onboarding',
+        changeNote:
+          manba?.tur === 'shablon'
+            ? 'Standart shablon — onboarding'
+            : manba?.tur === 'skript'
+              ? 'Kompaniya skripti asosida — onboarding'
+              : 'AI Playbook Builder — onboarding',
       });
       onNext();
     } catch (e) {
@@ -347,9 +369,15 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
     <>
       <div className="card" style={{ marginBottom: 14, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ fontSize: 24, color: manba?.tur === 'shablon' ? 'var(--orta-text)' : 'var(--ia)', display: 'flex' }}>
-          {manba?.tur === 'shablon' ? <LayoutTemplate /> : <Sparkles />}
+          {manba?.tur === 'shablon' ? <LayoutTemplate /> : manba?.tur === 'skript' ? <FileText /> : <Sparkles />}
         </div>
-        {manba?.tur === 'shablon' ? (
+        {manba?.tur === 'skript' ? (
+          <div style={{ flex: '1 1 320px', minWidth: 0 }}>
+            <b>{t('Skriptingiz asosida qoralama tayyor.')}</b>{' '}
+            {manba.fayl ? t('Mezonlar «{fayl}» bosqichlaridan tuzildi.', { fayl: manba.fayl }) : t('Mezonlar skriptingiz bosqichlaridan tuzildi.')}{' '}
+            {t("Ko'rib chiqing, kerak bo'lsa tahrirlang — keyin qabul qiling.")}
+          </div>
+        ) : manba?.tur === 'shablon' ? (
           <div style={{ flex: '1 1 320px', minWidth: 0 }}>
             <b>{t('Standart shablon asosida qoralama tayyor.')}</b>{' '}
             {manba.sabab === 'sozlanmagan' ? t('AI provayder hali ulanmagan') : t('AI hozir javob bermadi')}
@@ -361,10 +389,37 @@ function PlaybookStep({ onNext, onBack }: { onNext: () => void; onBack: () => vo
             <b>{t('AI qoralamasi tayyor.')}</b> {t("Ko'rib chiqing, kerak bo'lsa tahrirlang — keyin qabul qiling.")}
           </div>
         )}
-        <button className="btn ikkinchi kichik" style={{ marginLeft: 'auto' }} onClick={() => void generate()}>
-          <RotateCw /> {manba?.tur === 'shablon' ? t('AI bilan qayta urinish') : t('Qayta generatsiya')}
-        </button>
+        <div className="pb-manba-tugmalar">
+          <button className="btn ikkinchi kichik" onClick={() => void generate()}>
+            <RotateCw />{' '}
+            {manba?.tur === 'shablon'
+              ? t('AI bilan qayta urinish')
+              : manba?.tur === 'skript'
+                ? t('AI qoralamasiga qaytish')
+                : t('Qayta generatsiya')}
+          </button>
+          <button
+            className="btn ikkinchi kichik"
+            aria-expanded={skriptOchiq}
+            onClick={() => setSkriptOchiq((o) => !o)}
+          >
+            <Upload /> {manba?.tur === 'skript' ? t('Boshqa skript yuklash') : t("O'z skriptimni yuklash")}
+          </button>
+        </div>
       </div>
+
+      {skriptOchiq && (
+        <SkriptYuklash
+          base={base}
+          onYop={() => setSkriptOchiq(false)}
+          onTayyor={(yangi, fayl) => {
+            setDraft(yangi);
+            setManba({ tur: 'skript', fayl });
+            setSkriptOchiq(false);
+            setSaqlashXato('');
+          }}
+        />
+      )}
 
       <PlaybookForm value={draft} onChange={setDraft} />
 

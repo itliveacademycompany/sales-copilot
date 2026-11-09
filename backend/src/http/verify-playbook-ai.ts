@@ -1,6 +1,6 @@
 import { eq, inArray } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
-import { draftToPlaybookBody } from '../ai/playbook-builder.js';
+import { draftToPlaybookBody, generatePlaybookFromScript } from '../ai/playbook-builder.js';
 import type { LlmClient, LlmJsonRequest, LlmJsonResponse } from '../ai/llm.js';
 import type { PlaybookDraftResult } from '../ai/prompts.js';
 import type { BusinessProfile } from '../business/profile.js';
@@ -134,6 +134,35 @@ async function main(): Promise<void> {
     body.classificationPolicy.callFamilies.find((f) => f.key === 'spam')?.scored === false,
   );
 
+  // ═══ 1b: Kompaniya skripti asosida — xuddi shu kafolatlar + baholash ko'rsatmasi ═══
+  console.log('\n— kompaniya skripti asosida —');
+  const skriptMatni = '1. Salomlashing va ismingizni ayting.\n2. Mijoz ehtiyojini so\'rang.\n3. Kursni taqdim eting.\n4. Sinov darsiga yozing.';
+  let soralgan: LlmJsonRequest | null = null;
+  const skriptLlm: LlmClient = {
+    completeJson(req) {
+      soralgan = req;
+      return Promise.resolve({
+        json: { ...messyDraft, scoringGuidance: `Bosqichlar tartibi majburiy. ${'x'.repeat(4000)}` },
+        model: 'mock-skript',
+        tokensIn: 1,
+        tokensOut: 1,
+        costUsd: 0,
+      });
+    },
+  };
+  const skriptBody = await generatePlaybookFromScript(skriptLlm, profile, skriptMatni);
+  const sorov = soralgan as LlmJsonRequest | null;
+  check('skript LLM\'ga foydalanuvchi matni sifatida, chegaralangan holda boriladi', !!sorov && sorov.user.includes(skriptMatni) && !sorov.system.includes(skriptMatni));
+  const sxemaKat = (sorov?.schema as { properties?: { categories?: { minItems?: number; maxItems?: number } } } | undefined)?.properties?.categories;
+  check('skript sxemasi skript bosqichlariga moslashadi (2-10 kategoriya)', sxemaKat?.minItems === 2 && sxemaKat?.maxItems === 10);
+  check('skript qoralamasi playbook sxemasidan o\'tadi', playbookBodySchema.safeParse(skriptBody).success);
+  check(
+    'skript qoidalari 3-bosqich baholash ko\'rsatmasiga yozildi (3000 belgigacha qisqartirilgan)',
+    skriptBody.promptNotes.stage3.scoringGuidance.startsWith('Bosqichlar tartibi majburiy.') &&
+      skriptBody.promptNotes.stage3.scoringGuidance.length === 3000,
+  );
+  check('skript qoralamasi vaznlari aynan 100%', Math.abs(skriptBody.criteria.categories.reduce((s, c) => s + c.weightPct, 0) - 100) < 0.01);
+
   // ═══ 2: API orqali — generatsiya qilinadi, SAQLANMAYDI ═══
   console.log('\n— API: generate endpoint —');
   const app: FastifyInstance = await buildApp();
@@ -221,6 +250,23 @@ async function main(): Promise<void> {
         check('shablon vaznlari aynan 100%, anketa savollari profildan', Math.abs(vazn - 100) < 0.01 && sBody.data.questionnaire.questions.length === 2);
       }
 
+      // Skriptdan qoralama: AI yo'q bo'lsa shablonga qaytmaydi — aniq 503
+      const skriptAiSiz = await app.inject({
+        method: 'POST',
+        url: `${base}/playbook/from-script`,
+        cookies: auth,
+        payload: { skript: skriptMatni },
+      });
+      check('skriptdan qoralama AI\'siz — aniq 503 (shablon emas)', skriptAiSiz.statusCode === 503, `kod: ${skriptAiSiz.statusCode}`);
+
+      const skriptQisqa = await app.inject({
+        method: 'POST',
+        url: `${base}/playbook/from-script`,
+        cookies: auth,
+        payload: { skript: 'juda qisqa' },
+      });
+      check('juda qisqa skript 400 bilan rad etiladi', skriptQisqa.statusCode === 400, `kod: ${skriptQisqa.statusCode}`);
+
       // 5-qadam: namunalar AI'siz baholanmaydi — oldindan aniq rad, suhbat yaratilmaydi
       const namuna = await app.inject({ method: 'POST', url: `${base}/onboarding/samples`, cookies: auth, payload: {} });
       const suhbatlar = (await app.inject({ method: 'GET', url: `${base}/conversations`, cookies: auth })).json() as { conversations: unknown[] };
@@ -238,6 +284,8 @@ async function main(): Promise<void> {
 
     const noAuth = await app.inject({ method: 'POST', url: `${base}/playbook/generate` });
     check('autentifikatsiyasiz 401', noAuth.statusCode === 401);
+    const skriptNoAuth = await app.inject({ method: 'POST', url: `${base}/playbook/from-script`, payload: { skript: skriptMatni } });
+    check('skript endpointi autentifikatsiyasiz 401', skriptNoAuth.statusCode === 401);
 
     // ═══ 3: eski/to'liqsiz yozuv ham to'liq shaklda qaytadi ═══
     // Real xato: skript orqali `promptNotes: {}` bilan yozilgan qator
