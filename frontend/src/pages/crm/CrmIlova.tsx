@@ -17,6 +17,8 @@ import { KompaniyaKarta, KontaktKarta, Kontaktlar } from './Kontaktlar';
 import { LidXulosalariCrm } from './LidXulosalariCrm';
 import { MurojaatKarta } from './MurojaatKarta';
 import { Saralanmagan } from './Saralanmagan';
+import { Simulyator } from './Simulyator';
+import { SimulyatorNatija } from './SimulyatorNatija';
 import { VoronkaSozlash } from './VoronkaSozlash';
 import './crm-ilova.css';
 import './crm-ilova-2.css';
@@ -103,6 +105,8 @@ export function CrmIlova() {
             <Route path="qongiroqlar" element={<SAHIFA.qongiroqlar />} />
             <Route path="suhbatlar/:id" element={<SAHIFA.conversationDetail />} />
             <Route path="ai-chat" element={<SAHIFA.aiChat />} />
+            <Route path="simulyator" element={<Simulyator />} />
+            <Route path="simulyator/mashq/:id" element={<SimulyatorNatija />} />
             {/* Metasell'dagi Lid xulosalari: yo'qotilgan lidlar AI tahlili va qayta tiriltirish */}
             <Route path="lid-xulosalari" element={<LidXulosalariCrm />} />
             {ogohKoradi && <Route path="ogohlantirishlar" element={<SAHIFA.alerts />} />}

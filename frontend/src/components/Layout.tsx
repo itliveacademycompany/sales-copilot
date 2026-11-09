@@ -8,6 +8,7 @@ import {
   ChevronsRight,
   ContactRound,
   FileText,
+  Headset,
   ListChecks,
   PlugZap,
   LayoutGrid,
@@ -230,6 +231,7 @@ export function Layout() {
               )}
               {item('/crm/vazifalar', <ListChecks />, 'Vazifalar')}
               {item('/crm/ai-chat', <MessagesSquare />, 'AI Chat')}
+              {item('/crm/simulyator', <Headset />, 'Simulyator')}
               {item('/crm/kontaktlar', <ContactRound />, 'Kontaktlar')}
               {item('/crm/kompaniyalar', <Building2 />, 'Kompaniyalar')}
               {item('/crm/qongiroqlar', <Phone />, "Qo'ng'iroqlar")}

@@ -18,7 +18,7 @@ import { aiProvider } from '../db/schema/index.js';
 
 export interface LlmJsonRequest {
   /** Qaysi bosqich — model tanlash va kuzatuv uchun. */
-  stage: 'stage2' | 'stage3' | 'playbookBuilder';
+  stage: 'stage2' | 'stage3' | 'playbookBuilder' | 'simulyator';
   system: string;
   user: string;
   /** Javob majburan shu JSON sxemaga tushadi (structured outputs). */
