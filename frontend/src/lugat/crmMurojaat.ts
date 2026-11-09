@@ -37,6 +37,42 @@ const CRM_MUROJAAT: Lugat = {
   },
   Aloqa: { en: 'Contact info', ru: 'Связь' },
   'Ism kiritilmagan': { en: 'No name', ru: 'Имя не указано' },
+
+  // ─── Kompaniyalar ro'yxati ───
+  'Tashkilotlar — ularning xodimlari (kontaktlar) va bitimlari bir joyda.': {
+    en: 'Organizations — their people (contacts) and deals in one place.',
+    ru: 'Организации — их сотрудники (контакты) и сделки в одном месте.',
+  },
+  'Kontaktlarda {n} ta kompaniya nomi yozilgan': { en: 'Contacts mention {n} company names', ru: 'В контактах указано {n} названий компаний' },
+  "{k} ta kontakt hali kompaniyaga bog'lanmagan. Ularni kompaniya qilib, kontakt va bitimlarini bog'lash mumkin.": {
+    en: '{k} contacts are not linked to a company yet. You can turn them into companies and link the contacts and their deals.',
+    ru: '{k} контактов ещё не привязаны к компании. Их можно превратить в компании и привязать контакты и их сделки.',
+  },
+  "Nomi bo'yicha": { en: 'By name', ru: 'По названию' },
+  'Ochiq bitimlar summasi': { en: 'Open deals amount', ru: 'Сумма открытых сделок' },
+  "Hali kompaniya yo'q": { en: 'No companies yet', ru: 'Компаний пока нет' },
+  "Kompaniya bir tashkilotning kontaktlari va bitimlarini bir joyga yig'adi — masalan, bitta maktab yoki firma xodimlari va ular bilan bitimlar.": {
+    en: 'A company groups the contacts and deals of one organization — for example, the staff of a school or firm and the deals with them.',
+    ru: 'Компания объединяет контакты и сделки одной организации — например, сотрудников школы или фирмы и сделки с ними.',
+  },
+  'Kontaktlardan yaratish ({n})': { en: 'Create from contacts ({n})', ru: 'Создать из контактов ({n})' },
+  "Sayt ko'rsatilmagan": { en: 'No website', ru: 'Сайт не указан' },
+  'Ochiq: {o} · Jami: {j}': { en: 'Open: {o} · Total: {j}', ru: 'Открытых: {o} · Всего: {j}' },
+  "{c} ta kompaniya yaratildi, {k} ta kontakt va {b} ta bitim bog'landi.": {
+    en: '{c} companies created, {k} contacts and {b} deals linked.',
+    ru: 'Создано компаний: {c}, привязано контактов: {k} и сделок: {b}.',
+  },
+  'Kamida bitta nom tanlang': { en: 'Select at least one name', ru: 'Выберите хотя бы одно название' },
+  'Kontaktlardan kompaniya yaratish': { en: 'Create companies from contacts', ru: 'Создать компании из контактов' },
+  'Yaratish va bog‘lash ({n})': { en: 'Create and link ({n})', ru: 'Создать и привязать ({n})' },
+  "Kontaktlarning «Kompaniya» maydoniga yozilgan nomlar. Tanlanganlari kompaniya bo'ladi, shu nomdagi kontaktlar va ularning bitimlari unga bog'lanadi.": {
+    en: 'Names written in the contacts’ “Company” field. Selected ones become companies; contacts with that name and their deals get linked.',
+    ru: 'Названия из поля «Компания» в контактах. Выбранные станут компаниями, к ним привяжутся контакты с этим названием и их сделки.',
+  },
+  'Nom bo‘yicha qidirish': { en: 'Search by name', ru: 'Поиск по названию' },
+  'Hammasini belgilash': { en: 'Select all', ru: 'Выбрать все' },
+  'Kompaniya bor — bog‘lanadi': { en: 'Exists — will be linked', ru: 'Уже есть — привяжется' },
+  '{n} ta kontakt': { en: '{n} contacts', ru: 'контактов: {n}' },
   'Tahrirlanmoqda — maydondan chiqqach saqlanadi': { en: 'Editing — saved when you leave the field', ru: 'Редактирование — сохранится, когда выйдете из поля' },
   "Mas'ulni faqat rahbar tanlaydi": { en: 'Only a manager can choose the responsible user', ru: 'Ответственного выбирает только руководитель' },
 

@@ -313,9 +313,40 @@ export const kompaniyaKirish = z.object({
   note: z.string().trim().max(5000).nullable().optional(),
 });
 
-export async function kompaniyalar(tx: Tx, p: { q?: string; limit: number; offset: number }) {
-  const where = p.q ? or(ilike(company.name, `%${p.q}%`), ilike(company.phone, `%${p.q}%`), ilike(company.website, `%${p.q}%`)) : undefined;
-  const [qatorlar, [jami]] = await Promise.all([
+export const kompaniyaFiltrlari = ['bitimli', 'bitimsiz', 'kontaktsiz'] as const;
+export const kompaniyaTartiblari = ['nom', 'faollik', 'summa'] as const;
+
+/**
+ * Kompaniyalar ro'yxati: qidiruv (nom, telefon, sayt, email, manzil),
+ * tezkor filtr (soni bilan) va saralash. Har qatorda — kontaktlar, bitimlar,
+ * ochiq bitimlar summasi va oxirgi faollik (kompaniya yoki bitimi o'zgargan vaqt).
+ */
+export async function kompaniyalar(
+  tx: Tx,
+  p: {
+    q?: string;
+    filtr?: (typeof kompaniyaFiltrlari)[number];
+    tartib?: (typeof kompaniyaTartiblari)[number];
+    limit: number;
+    offset: number;
+  },
+) {
+  const naqsh = p.q ? `%${p.q}%` : null;
+  const qidiruv = naqsh
+    ? or(ilike(company.name, naqsh), ilike(company.phone, naqsh), ilike(company.website, naqsh), ilike(company.email, naqsh), ilike(company.address, naqsh))
+    : undefined;
+  const bitimiBor = sql`exists (select 1 from deal d where d.company_id = "company"."id" and d.deleted_at is null)`;
+  const kontaktiBor = sql`exists (select 1 from contact c where c.company_id = "company"."id")`;
+  const filtrSharti =
+    p.filtr === 'bitimli' ? bitimiBor : p.filtr === 'bitimsiz' ? sql`not ${bitimiBor}` : p.filtr === 'kontaktsiz' ? sql`not ${kontaktiBor}` : undefined;
+  const where = qidiruv && filtrSharti ? and(qidiruv, filtrSharti) : (qidiruv ?? filtrSharti);
+
+  const ochiqSumma = sql<number>`(select coalesce(sum(d.amount), 0)::float8 from deal d join crm_stage s on s.id = d.stage_id
+    where d.company_id = "company"."id" and d.deleted_at is null and s.kind = 'open')`;
+  const faollik = sql<Date>`greatest(${company.updatedAt}, (select max(d.updated_at) from deal d where d.company_id = "company"."id" and d.deleted_at is null))`;
+  const tartib = p.tartib === 'faollik' ? [desc(faollik), asc(company.name)] : p.tartib === 'summa' ? [desc(ochiqSumma), asc(company.name)] : [asc(company.name)];
+
+  const [qatorlar, [jami], [sonlar]] = await Promise.all([
     tx
       .select({
         id: company.id,
@@ -327,15 +358,103 @@ export async function kompaniyalar(tx: Tx, p: { q?: string; limit: number; offse
         updatedAt: company.updatedAt,
         contacts: sql<number>`(select count(*)::int from contact c where c.company_id = "company"."id")`,
         deals: sql<number>`(select count(*)::int from deal d where d.company_id = "company"."id" and d.deleted_at is null)`,
+        openDeals: sql<number>`(select count(*)::int from deal d join crm_stage s on s.id = d.stage_id
+          where d.company_id = "company"."id" and d.deleted_at is null and s.kind = 'open')`,
+        openAmount: ochiqSumma,
+        lastActivity: faollik,
       })
       .from(company)
       .where(where)
-      .orderBy(asc(company.name))
+      .orderBy(...tartib)
       .limit(p.limit)
       .offset(p.offset),
     tx.select({ n: count() }).from(company).where(where),
+    // Filtr tugmalaridagi sonlar — filtrsiz, qidiruv bilan
+    tx
+      .select({
+        hammasi: count(),
+        bitimli: sql<number>`count(*) filter (where ${bitimiBor})::int`,
+        kontaktsiz: sql<number>`count(*) filter (where not ${kontaktiBor})::int`,
+      })
+      .from(company)
+      .where(qidiruv),
   ]);
-  return { total: Number(jami?.n ?? 0), items: qatorlar };
+  const hammasi = Number(sonlar?.hammasi ?? 0);
+  const bitimli = Number(sonlar?.bitimli ?? 0);
+  return {
+    total: Number(jami?.n ?? 0),
+    counts: { hammasi, bitimli, bitimsiz: hammasi - bitimli, kontaktsiz: Number(sonlar?.kontaktsiz ?? 0) },
+    items: qatorlar.map((q) => ({
+      ...q,
+      openAmount: Number(q.openAmount ?? 0),
+      lastActivity: q.lastActivity ? new Date(q.lastActivity).toISOString() : q.updatedAt.toISOString(),
+    })),
+  };
+}
+
+/**
+ * Kontaktlarga matn bo'lib yozilgan, lekin kompaniyaga bog'lanmagan nomlar
+ * ("kompaniya" maydoni). "Kontaktlardan yaratish" oynasida ro'yxat bo'lib
+ * chiqadi; `exists` — shu nomli kompaniya allaqachon bor (faqat bog'lanadi).
+ */
+export async function kompaniyaTakliflari(tx: Tx): Promise<{ name: string; contacts: number; exists: boolean }[]> {
+  const kalit = sql`lower(trim(${contact.company}))`;
+  const r = await tx
+    .select({
+      name: sql<string>`min(trim(${contact.company}))`,
+      contacts: sql<number>`count(*)::int`,
+      exists: sql<boolean>`exists (select 1 from company k where lower(trim(k.name)) = ${kalit})`,
+    })
+    .from(contact)
+    .where(and(isNull(contact.companyId), sql`nullif(trim(${contact.company}), '') is not null`))
+    .groupBy(kalit)
+    .orderBy(desc(sql`count(*)`), asc(sql`min(trim(${contact.company}))`))
+    .limit(300);
+  return r;
+}
+
+export const kontaktlardanKirish = z.object({
+  names: z.array(z.string().trim().min(1).max(200)).min(1, 'Kamida bitta nom tanlang').max(300),
+});
+
+/**
+ * Tanlangan nomlar bo'yicha kompaniya yaratadi (bor bo'lsa — o'shasi) va shu
+ * nom yozilgan bog'lanmagan kontaktlarni, ularning kompaniyasiz bitimlarini
+ * unga bog'laydi. Kontaktdagi matn o'zgarmaydi.
+ */
+export async function kontaktlardanKompaniya(
+  tx: Tx,
+  businessId: string,
+  names: string[],
+): Promise<{ created: number; contacts: number; deals: number }> {
+  const natija = { created: 0, contacts: 0, deals: 0 };
+  const korilgan = new Set<string>();
+  for (const xom of names) {
+    const nom = xom.trim();
+    const kalit = nom.toLowerCase();
+    if (!nom || korilgan.has(kalit)) continue;
+    korilgan.add(kalit);
+    let [c] = await tx.select({ id: company.id }).from(company).where(sql`lower(trim(${company.name})) = ${kalit}`).limit(1);
+    if (!c) {
+      [c] = await tx.insert(company).values({ businessId, name: nom }).returning({ id: company.id });
+      natija.created++;
+    }
+    const kontaktlar = await tx
+      .update(contact)
+      .set({ companyId: c!.id })
+      .where(and(isNull(contact.companyId), sql`lower(trim(${contact.company})) = ${kalit}`))
+      .returning({ id: contact.id });
+    natija.contacts += kontaktlar.length;
+    if (kontaktlar.length) {
+      const bitimlar = await tx
+        .update(deal)
+        .set({ companyId: c!.id })
+        .where(and(isNull(deal.companyId), inArray(deal.contactId, kontaktlar.map((k) => k.id))))
+        .returning({ id: deal.id });
+      natija.deals += bitimlar.length;
+    }
+  }
+  return natija;
 }
 
 export async function kompaniyaYarat(tx: Tx, businessId: string, k: z.infer<typeof kompaniyaKirish>): Promise<string> {

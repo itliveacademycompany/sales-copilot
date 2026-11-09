@@ -6,14 +6,19 @@ import { csvYasa, bitimlarniImportla, importSxemasi } from '../../crm/importlash
 import { qatorKirish, qatorniOchir, qatorniYangila, qatorQosh } from '../../crm/katalog.js';
 import {
   dublikatlar,
+  kompaniyaFiltrlari,
   kompaniyaKartochkasi,
   kompaniyaKirish,
   kompaniyalar,
   kompaniyaniOchir,
   kompaniyaniYangila,
+  kompaniyaTakliflari,
+  kompaniyaTartiblari,
   kompaniyaYarat,
   kontaktKartochkasi,
   kontaktKirish,
+  kontaktlardanKirish,
+  kontaktlardanKompaniya,
   kontaktlarniBirlashtir,
   kontaktlarRoyxati,
   kontaktniYangila,
@@ -589,9 +594,30 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   // ─── Kompaniyalar ──────────────────────────────────────────────────────────
 
   app.get(`${BASE}/companies`, guard, async (req) => {
-    const q = z.object({ q: z.string().trim().max(100).optional(), ...sahifa }).parse(req.query);
+    const q = z
+      .object({
+        q: z.string().trim().max(100).optional(),
+        filtr: z.enum(kompaniyaFiltrlari).optional(),
+        tartib: z.enum(kompaniyaTartiblari).optional(),
+        ...sahifa,
+      })
+      .parse(req.query);
     doira(req);
-    return withTenant(req.business!.businessId, (tx) => kompaniyalar(tx, { q: q.q || undefined, limit: q.limit, offset: q.offset }));
+    return withTenant(req.business!.businessId, (tx) =>
+      kompaniyalar(tx, { q: q.q || undefined, filtr: q.filtr, tartib: q.tartib, limit: q.limit, offset: q.offset }),
+    );
+  });
+
+  /** Kontaktlarga yozilgan, kompaniyaga bog'lanmagan nomlar (rahbar). */
+  app.get(`${BASE}/companies/suggestions`, sozlama, async (req) => {
+    return { items: await withTenant(req.business!.businessId, (tx) => kompaniyaTakliflari(tx)) };
+  });
+
+  /** Tanlangan nomlardan kompaniya yaratish va kontakt/bitimlarni bog'lash (rahbar). */
+  app.post(`${BASE}/companies/from-contacts`, sozlama, async (req) => {
+    const k = kontaktlardanKirish.parse(req.body);
+    const businessId = req.business!.businessId;
+    return bajar(() => withTenant(businessId, (tx) => kontaktlardanKompaniya(tx, businessId, k.names)));
   });
 
   app.post(`${BASE}/companies`, guard, async (req) => {

@@ -1,9 +1,10 @@
-import { ArrowLeft, Building2, CalendarClock, Merge, PhoneCall, Plus, Search, Sparkles, Trash2, User } from 'lucide-react';
+import { ArrowLeft, Building2, CalendarClock, ExternalLink, Merge, PhoneCall, Plus, Search, Sparkles, Trash2, User, Users } from 'lucide-react';
+import { TanlovMenyu } from '../../components/analitika/Ochiluvchi';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api, ApiError, ballKlass, fmtSana, fmtSoniya } from '../../api';
 import { VazifaOyna } from '../../crm/komponentlar';
-import { MsBosh, MsSahifalash } from '../../crm/MsBosh';
+import { MsSahifalash } from '../../crm/MsBosh';
 import { muddatHolati, pul, useCrm } from '../../crm/malumot';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
@@ -36,7 +37,32 @@ interface KompaniyaQator {
   address: string | null;
   contacts: number;
   deals: number;
+  openDeals: number;
+  openAmount: number;
+  lastActivity: string;
 }
+
+type KompaniyaFiltr = 'hammasi' | 'bitimli' | 'bitimsiz' | 'kontaktsiz';
+type KompaniyaTartib = 'nom' | 'faollik' | 'summa';
+const KOMPANIYA_FILTRLARI: [KompaniyaFiltr, string][] = [
+  ['hammasi', 'Hammasi'],
+  ['bitimli', 'Bitimi bor'],
+  ['bitimsiz', 'Bitimsiz'],
+  ['kontaktsiz', 'Kontaktsiz'],
+];
+
+interface KompaniyaTaklifi {
+  name: string;
+  contacts: number;
+  /** Shu nomli kompaniya allaqachon bor — faqat bog'lanadi. */
+  exists: boolean;
+}
+
+/** "https://www.itlive.uz/kurslar" → "itlive.uz" */
+function saytNomi(sayt: string): string {
+  return sayt.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/.*$/, '');
+}
+const saytHavolasi = (sayt: string) => (/^https?:\/\//i.test(sayt) ? sayt : `https://${sayt}`);
 
 const HAJM = 50;
 
@@ -649,17 +675,31 @@ export function KontaktKarta() {
 
 // ─── Kompaniyalar ────────────────────────────────────────────────────────────
 
+/**
+ * Kompaniyalar ro'yxati — Kontaktlar bilan bir uslubda (kt- sinflari):
+ * tezkor filtrlar (soni bilan), saralash, qidiruv va jadval — logotip,
+ * sayt, aloqa, manzil, kontaktlar, bitimlar, ochiq bitimlar summasi,
+ * oxirgi faollik. Rahbarga — kontaktlarda yozilgan kompaniya nomlaridan
+ * kompaniya yaratish (kontakt va bitimlar avtomatik bog'lanadi).
+ */
 function KompaniyaRoyxati() {
-  const { base } = useCrm();
+  const { base, holat } = useCrm();
   const t = useT();
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const [sorov, setSorov] = useState('');
+  const [filtr, setFiltr] = useState<KompaniyaFiltr>('hammasi');
+  const [tartib, setTartib] = useState<KompaniyaTartib>('nom');
   const [sahifa, setSahifa] = useState(0);
-  const [hajm, setHajm] = useState(25);
-  const [data, setData] = useState<{ total: number; items: KompaniyaQator[] } | null>(null);
+  const [hajm, setHajm] = useState(HAJM);
+  const [data, setData] = useState<{ total: number; counts?: Record<KompaniyaFiltr, number>; items: KompaniyaQator[] } | null>(null);
+  const [yuklanmoqda, setYuklanmoqda] = useState(true);
   const [xato, setXato] = useState<string | null>(null);
   const [yangi, setYangi] = useState(false);
+  const [takliflar, setTakliflar] = useState<KompaniyaTaklifi[]>([]);
+  const [importOyna, setImportOyna] = useState(false);
+  const [xabar, setXabar] = useState<string | null>(null);
+  const [qayta, setQayta] = useState(0);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -671,82 +711,410 @@ function KompaniyaRoyxati() {
 
   useEffect(() => {
     let tirik = true;
-    const p = new URLSearchParams({ limit: String(hajm), offset: String(sahifa * hajm) });
+    const p = new URLSearchParams({ limit: String(hajm), offset: String(sahifa * hajm), tartib });
     if (sorov) p.set('q', sorov);
+    if (filtr !== 'hammasi') p.set('filtr', filtr);
+    setYuklanmoqda(true);
     api
-      .get<{ total: number; items: KompaniyaQator[] }>(`${base}/companies?${p}`)
+      .get<{ total: number; counts?: Record<KompaniyaFiltr, number>; items: KompaniyaQator[] }>(`${base}/companies?${p}`)
       .then((r) => tirik && (setData(r), setXato(null)))
-      .catch((e) => tirik && setXato(e instanceof ApiError ? t(e.message) : t("Ma'lumotni yuklab bo'lmadi")));
+      .catch((e) => tirik && setXato(e instanceof ApiError ? t(e.message) : t("Ma'lumotni yuklab bo'lmadi")))
+      .finally(() => tirik && setYuklanmoqda(false));
     return () => {
       tirik = false;
     };
-  }, [base, sorov, sahifa, hajm, t]);
+  }, [base, sorov, filtr, tartib, sahifa, hajm, qayta, t]);
+
+  // Kontaktlarda yozilgan, bog'lanmagan kompaniya nomlari (faqat rahbar)
+  useEffect(() => {
+    if (!holat.canConfigure) return;
+    let tirik = true;
+    api
+      .get<{ items: KompaniyaTaklifi[] }>(`${base}/companies/suggestions`)
+      .then((r) => tirik && setTakliflar(r.items))
+      .catch(() => undefined);
+    return () => {
+      tirik = false;
+    };
+  }, [base, holat.canConfigure, qayta]);
 
   const sahifalar = data ? Math.max(1, Math.ceil(data.total / hajm)) : 1;
+  const boshi = data && data.total ? sahifa * hajm + 1 : 0;
+  const oxiri = data ? Math.min(data.total, (sahifa + 1) * hajm) : 0;
+  const filtrlangan = Boolean(sorov || filtr !== 'hammasi');
+  const umumanYoq = data?.counts?.hammasi === 0 && !sorov;
+  const taklifKontaktlari = takliflar.reduce((a, b) => a + b.contacts, 0);
+  const tozala = () => {
+    setQ('');
+    setSorov('');
+    setFiltr('hammasi');
+    setSahifa(0);
+  };
+
   return (
-    <>
-      <MsBosh
-        sarlavha={t('Kompaniyalar')}
-        qidiruv={{ qiymat: q, onChange: setQ, placeholder: t('Kompaniya nomi, telefon yoki sayt'), nom: t('Kompaniyalarni qidirish') }}
-        jami={data ? pul(data.total) : undefined}
-      >
-        <button className="btn" onClick={() => setYangi(true)}>
-          <Plus /> {t('Yangi kompaniya')}
-        </button>
-      </MsBosh>
-      <div className="card ci-jadval-karta">
-        {xato && <div className="xato-qator">{xato}</div>}
-        {!data && !xato && <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>}
-        {data && data.items.length === 0 && <div className="ci-bosh-holat">{t('Kompaniyalar topilmadi')}</div>}
+    <div className="kt">
+      <header className="kt-bosh">
+        <div className="kt-sarlavha">
+          <h1>
+            {t('Kompaniyalar')}
+            {data?.counts ? <span className="kt-jami">{pul(data.counts.hammasi)}</span> : null}
+          </h1>
+          <p>{t("Tashkilotlar — ularning xodimlari (kontaktlar) va bitimlari bir joyda.")}</p>
+        </div>
+        <div className="kt-bosh-amallar">
+          <Link to="/crm/ai-chat" className="ms-ai-tugma">
+            <Sparkles aria-hidden="true" /> {t('AI yordamchi')}
+          </Link>
+          <button type="button" className="btn" onClick={() => setYangi(true)}>
+            <Plus aria-hidden="true" /> {t('Yangi kompaniya')}
+          </button>
+        </div>
+      </header>
+
+      {xabar && (
+        <div className="card ok-qator" role="status">
+          {xabar}
+        </div>
+      )}
+
+      {/* Kontaktlardagi kompaniya nomlari — bir bosishda kompaniyaga aylantirish */}
+      {holat.canConfigure && takliflar.length > 0 && !umumanYoq && (
+        <div className="kp-taklif">
+          <span className="kp-taklif-belgi" aria-hidden="true">
+            <Users />
+          </span>
+          <div>
+            <b>{t('Kontaktlarda {n} ta kompaniya nomi yozilgan', { n: pul(takliflar.length) })}</b>
+            <p>{t("{k} ta kontakt hali kompaniyaga bog'lanmagan. Ularni kompaniya qilib, kontakt va bitimlarini bog'lash mumkin.", { k: pul(taklifKontaktlari) })}</p>
+          </div>
+          <button type="button" className="btn ikkinchi kichik" onClick={() => setImportOyna(true)}>
+            {t("Ko'rib chiqish")}
+          </button>
+        </div>
+      )}
+
+      <section className="kt-panel" aria-busy={yuklanmoqda}>
+        {!umumanYoq && (
+          <div className="kt-asboblar">
+            <div className="kt-filtrlar" role="group" aria-label={t('Filtr')}>
+              {KOMPANIYA_FILTRLARI.map(([f, nom]) => (
+                <button
+                  key={f}
+                  type="button"
+                  aria-pressed={filtr === f}
+                  className={filtr === f ? 'faol' : undefined}
+                  onClick={() => {
+                    setFiltr(f);
+                    setSahifa(0);
+                  }}
+                >
+                  {t(nom)}
+                  {data?.counts && <span>{pul(data.counts[f])}</span>}
+                </button>
+              ))}
+            </div>
+            <div className="kp-ong-asboblar">
+              <TanlovMenyu
+                qiymat={tartib}
+                variantlar={[
+                  { qiymat: 'nom', nom: t("Nomi bo'yicha") },
+                  { qiymat: 'faollik', nom: t('Oxirgi faollik') },
+                  { qiymat: 'summa', nom: t('Ochiq bitimlar summasi') },
+                ]}
+                onOzgar={(v) => {
+                  setTartib(v as KompaniyaTartib);
+                  setSahifa(0);
+                }}
+                aria={t('Saralash')}
+                kenglik={220}
+              />
+              <label className="kt-qidiruv">
+                <Search aria-hidden="true" />
+                <input
+                  type="search"
+                  value={q}
+                  maxLength={100}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder={t('Kompaniya nomi, telefon yoki sayt')}
+                  aria-label={t('Kompaniyalarni qidirish')}
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
+        {xato && (
+          <div className="xato-qator kt-xato" role="alert">
+            {xato}
+          </div>
+        )}
+
+        {!data && !xato && (
+          <div className="kt-skelet" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i}>
+                <span />
+                <i />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Umuman kompaniya yo'q — nima ekanini tushuntirib, keyingi qadamni ko'rsatamiz */}
+        {data && umumanYoq && (
+          <div className="kp-bosh">
+            <span className="kp-bosh-belgi" aria-hidden="true">
+              <Building2 />
+            </span>
+            <h2>{t("Hali kompaniya yo'q")}</h2>
+            <p>
+              {t("Kompaniya bir tashkilotning kontaktlari va bitimlarini bir joyga yig'adi — masalan, bitta maktab yoki firma xodimlari va ular bilan bitimlar.")}
+            </p>
+            <div className="kp-bosh-amallar">
+              <button type="button" className="btn" onClick={() => setYangi(true)}>
+                <Plus aria-hidden="true" /> {t('Yangi kompaniya')}
+              </button>
+              {holat.canConfigure && takliflar.length > 0 && (
+                <button type="button" className="btn ikkinchi" onClick={() => setImportOyna(true)}>
+                  <Users aria-hidden="true" /> {t('Kontaktlardan yaratish ({n})', { n: pul(takliflar.length) })}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {data && !umumanYoq && data.items.length === 0 && (
+          <div className="kt-bosh-holat">
+            <Building2 aria-hidden="true" />
+            <p>{t('Kompaniyalar topilmadi')}</p>
+            {filtrlangan && (
+              <button type="button" className="btn ikkinchi kichik" onClick={tozala}>
+                {t('Filtrni tozalash')}
+              </button>
+            )}
+          </div>
+        )}
+
         {data && data.items.length > 0 && (
-          <div className="ci-jadval-qobiq">
-            <table className="jadval ms-jadval">
+          <div className={`kt-jadval-qobiq${yuklanmoqda ? ' yangilanmoqda' : ''}`}>
+            <table className="kt-jadval kp-jadval">
               <thead>
                 <tr>
-                  <th>{t('Kompaniya nomi')}</th>
-                  <th>{t('Telefon raqami')}</th>
-                  <th>{t('Veb-sayt')}</th>
-                  <th>{t('Email')}</th>
+                  <th>{t('Kompaniya')}</th>
+                  <th>{t('Aloqa')}</th>
                   <th>{t('Manzil')}</th>
-                  <th className="ci-ong">{t('Kontaktlar')}</th>
-                  <th className="ci-ong">{t('Lidlar')}</th>
+                  <th className="kt-son">{t('Kontaktlar')}</th>
+                  <th className="kt-son">{t('Bitimlar')}</th>
+                  <th className="kp-summa">{t('Ochiq bitimlar')}</th>
+                  <th className="kt-vaqt">{t('Oxirgi faollik')}</th>
                 </tr>
               </thead>
               <tbody>
                 {data.items.map((c) => (
-                  <tr key={c.id} className="bosiladigan" onClick={() => navigate(`/crm/kompaniyalar/${c.id}`)}>
+                  <tr key={c.id} onClick={(e) => !(e.target as HTMLElement).closest('a') && navigate(`/crm/kompaniyalar/${c.id}`)}>
                     <td>
-                      <Link to={`/crm/kompaniyalar/${c.id}`} className="ms-jadval-nom" onClick={(e) => e.stopPropagation()}>
-                        {c.name}
-                      </Link>
+                      <div className="kt-kontakt">
+                        <span className={`kt-avatar kp-logo ${avatarRangi(c.id)}`} aria-hidden="true">
+                          {boshHarflar(c.name)}
+                        </span>
+                        <div className="kt-kontakt-matn">
+                          <Link to={`/crm/kompaniyalar/${c.id}`} className="kt-nom">
+                            {c.name}
+                          </Link>
+                          {c.website ? (
+                            <a href={saytHavolasi(c.website)} target="_blank" rel="noopener noreferrer" className="kp-sayt">
+                              {saytNomi(c.website)} <ExternalLink aria-hidden="true" />
+                            </a>
+                          ) : (
+                            <span className="kt-lavozim sust">{t("Sayt ko'rsatilmagan")}</span>
+                          )}
+                        </div>
+                      </div>
                     </td>
-                    <td className="ci-raqam">{c.phone ?? '—'}</td>
-                    <td>{c.website ?? '—'}</td>
-                    <td>{c.email ?? '—'}</td>
-                    <td>{c.address ?? '—'}</td>
-                    <td className="ci-ong ci-raqam">{c.contacts}</td>
-                    <td className="ci-ong ci-raqam">{c.deals}</td>
+                    <td>
+                      <div className="kt-aloqa">
+                        {c.phone ? (
+                          <a href={`tel:${c.phone}`} className="kt-tel">
+                            {telefonKorinishi(c.phone)}
+                          </a>
+                        ) : (
+                          !c.email && <span className="kt-bosh">—</span>
+                        )}
+                        {c.email && (
+                          <a href={`mailto:${c.email}`} className="kt-email">
+                            {c.email}
+                          </a>
+                        )}
+                      </div>
+                    </td>
+                    <td>{c.address ? <span className="kp-manzil" title={c.address}>{c.address}</span> : <span className="kt-bosh">—</span>}</td>
+                    <td className="kt-son">
+                      <span className={`kt-hisob${c.contacts ? ' bor' : ''}`}>{c.contacts}</span>
+                    </td>
+                    <td className="kt-son">
+                      <span
+                        className={`kt-hisob qongiroq${c.openDeals ? ' bor' : ''}`}
+                        title={t('Ochiq: {o} · Jami: {j}', { o: c.openDeals, j: c.deals })}
+                      >
+                        {c.openDeals}
+                        {c.deals > c.openDeals && <small className="kp-jami-bitim">/{c.deals}</small>}
+                      </span>
+                    </td>
+                    <td className="kp-summa">{c.openAmount > 0 ? <b>{pul(c.openAmount)}</b> : <span className="kt-bosh">—</span>}</td>
+                    <td className="kt-vaqt">
+                      <time dateTime={c.lastActivity} title={sanaVaqt(c.lastActivity)}>
+                        {qisqaVaqt(c.lastActivity, t)}
+                      </time>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         )}
-        {data && (
-          <MsSahifalash
-            sahifa={sahifa}
-            sahifalar={sahifalar}
-            onSahifa={setSahifa}
-            hajm={hajm}
-            onHajm={(h) => {
-              setHajm(h);
-              setSahifa(0);
-            }}
-          />
+
+        {data && data.total > 0 && (
+          <footer className="kt-past">
+            <span className="kt-oraliq">{t('{a}–{b} / {n}', { a: pul(boshi), b: pul(oxiri), n: pul(data.total) })}</span>
+            <MsSahifalash
+              sahifa={sahifa}
+              sahifalar={sahifalar}
+              onSahifa={setSahifa}
+              hajm={hajm}
+              onHajm={(h) => {
+                setHajm(h);
+                setSahifa(0);
+              }}
+            />
+          </footer>
         )}
-      </div>
+      </section>
+
       {yangi && <KompaniyaOyna onYop={() => setYangi(false)} onSaqlandi={(id) => navigate(`/crm/kompaniyalar/${id}`)} />}
-    </>
+      {importOyna && (
+        <KontaktlardanOyna
+          takliflar={takliflar}
+          onYop={() => setImportOyna(false)}
+          onTugadi={(n) => {
+            setImportOyna(false);
+            setXabar(
+              t("{c} ta kompaniya yaratildi, {k} ta kontakt va {b} ta bitim bog'landi.", { c: pul(n.created), k: pul(n.contacts), b: pul(n.deals) }),
+            );
+            setQayta((x) => x + 1);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Kontaktlardagi kompaniya nomlaridan kompaniya yaratish: rahbar nomlarni
+ * belgilaydi (ko'p kontaktlisi tepada). Bor kompaniya — faqat bog'lanadi.
+ */
+function KontaktlardanOyna({
+  takliflar,
+  onYop,
+  onTugadi,
+}: {
+  takliflar: KompaniyaTaklifi[];
+  onYop: () => void;
+  onTugadi: (n: { created: number; contacts: number; deals: number }) => void;
+}) {
+  const { base } = useCrm();
+  const t = useT();
+  const [tanlangan, setTanlangan] = useState<Set<string>>(() => new Set(takliflar.map((x) => x.name)));
+  const [izla, setIzla] = useState('');
+  const [band, setBand] = useState(false);
+  const [xato, setXato] = useState<string | null>(null);
+  const korinadi = takliflar.filter((x) => x.name.toLowerCase().includes(izla.trim().toLowerCase()));
+  const hammasi = korinadi.length > 0 && korinadi.every((x) => tanlangan.has(x.name));
+
+  const almashtir = (nom: string) =>
+    setTanlangan((s) => {
+      const n = new Set(s);
+      if (n.has(nom)) n.delete(nom);
+      else n.add(nom);
+      return n;
+    });
+
+  const yubor = async () => {
+    if (!tanlangan.size) return setXato(t('Kamida bitta nom tanlang'));
+    setBand(true);
+    setXato(null);
+    try {
+      onTugadi(await api.post(`${base}/companies/from-contacts`, { names: [...tanlangan] }));
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
+      setBand(false);
+    }
+  };
+
+  return (
+    <Oyna
+      sarlavha={t('Kontaktlardan kompaniya yaratish')}
+      onYop={onYop}
+      onSubmit={() => void yubor()}
+      keng
+      past={
+        <>
+          <button type="button" className="btn ikkinchi" onClick={onYop}>
+            {t('Bekor')}
+          </button>
+          <button type="submit" className="btn" disabled={band || tanlangan.size === 0}>
+            {band ? t('Bajarilmoqda…') : t('Yaratish va bog‘lash ({n})', { n: tanlangan.size })}
+          </button>
+        </>
+      }
+    >
+      <p className="yordam">
+        {t("Kontaktlarning «Kompaniya» maydoniga yozilgan nomlar. Tanlanganlari kompaniya bo'ladi, shu nomdagi kontaktlar va ularning bitimlari unga bog'lanadi.")}
+      </p>
+      <div className="kp-import-asbob">
+        <label className="kt-qidiruv">
+          <Search aria-hidden="true" />
+          <input type="search" value={izla} onChange={(e) => setIzla(e.target.value)} placeholder={t('Nom bo‘yicha qidirish')} aria-label={t('Qidirish')} />
+        </label>
+        <label className="kp-hammasi">
+          <input
+            type="checkbox"
+            checked={hammasi}
+            onChange={() =>
+              setTanlangan((s) => {
+                const n = new Set(s);
+                for (const x of korinadi) {
+                  if (hammasi) n.delete(x.name);
+                  else n.add(x.name);
+                }
+                return n;
+              })
+            }
+          />
+          {t('Hammasini belgilash')}
+        </label>
+      </div>
+      <ul className="kp-import-royxat">
+        {korinadi.map((x) => (
+          <li key={x.name}>
+            <label>
+              <input type="checkbox" checked={tanlangan.has(x.name)} onChange={() => almashtir(x.name)} />
+              <span className={`kt-avatar kp-logo kichik ${avatarRangi(x.name)}`} aria-hidden="true">
+                {boshHarflar(x.name)}
+              </span>
+              <span className="kp-import-nom">{x.name}</span>
+              {x.exists && <span className="kp-bor">{t('Kompaniya bor — bog‘lanadi')}</span>}
+              <span className="kp-import-soni">{t('{n} ta kontakt', { n: x.contacts })}</span>
+            </label>
+          </li>
+        ))}
+        {korinadi.length === 0 && <li className="kp-import-bosh">{t('Hech narsa topilmadi')}</li>}
+      </ul>
+      {xato && (
+        <div className="xato-qator" role="alert">
+          {xato}
+        </div>
+      )}
+    </Oyna>
   );
 }
 
@@ -850,7 +1218,7 @@ export function KompaniyaKarta() {
     if (!confirm(t('Kompaniya o‘chiriladi. Kontakt va bitimlar saqlanadi. Davom etasizmi?'))) return;
     try {
       await api.del(`${base}/companies/${id}`);
-      navigate('/crm/kontaktlar?tab=kompaniya', { replace: true });
+      navigate('/crm/kompaniyalar', { replace: true });
     } catch (e) {
       setXato(e instanceof ApiError ? t(e.message) : t("O'chirib bo'lmadi"));
     }
@@ -858,7 +1226,7 @@ export function KompaniyaKarta() {
 
   return (
     <div className="ci-sahifa">
-      <Link to="/crm/kontaktlar?tab=kompaniya" className="ci-orqaga">
+      <Link to="/crm/kompaniyalar" className="ci-orqaga">
         <ArrowLeft /> {t('Kompaniyalar')}
       </Link>
       {xato && <div className="card xato-qator">{xato}</div>}
