@@ -14,7 +14,7 @@ export function IlkYuklanish({ izoh = 'Yuklanmoqda' }: { izoh?: string }) {
           <Sparkles />
         </span>
         <span>
-          Dill <em>Mind</em>
+          Deal <em>Mind</em>
         </span>
       </div>
       <div className="ilk-chiziq" />

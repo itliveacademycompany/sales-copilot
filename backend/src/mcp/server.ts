@@ -107,7 +107,7 @@ const toshkentSana = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ta
 const bizArg = z.string().optional().describe('Biznes nomi yoki ID. Foydalanuvchida bitta biznes bo\'lsa, bermasa ham bo\'ladi.');
 const kunArg = (standart: number) => z.number().int().min(1).max(365).default(standart).describe(`Necha kunlik davr (standart ${standart})`);
 
-const KO_RSATMA = `Bu — «Dill Mind» platformasi: sotuv bo'limining qo'ng'iroq va yozishmalarini kompaniya playbook'i bo'yicha baholaydi.
+const KO_RSATMA = `Bu — «Deal Mind» platformasi: sotuv bo'limining qo'ng'iroq va yozishmalarini kompaniya playbook'i bo'yicha baholaydi.
 
 Asosiy tamoyil — ISBOT: har ball suhbatdagi aniq iqtibos (evidenceQuote) bilan tasdiqlanadi; iqtibos topilmagan ball bekor qilinadi (score = null, isFlagged). Foydalanuvchiga xulosa berganda ballarni iqtiboslar bilan asoslang, ballsiz mezonni «0» deb talqin qilmang — u «aniqlanmadi».
 
@@ -117,7 +117,7 @@ O'zgartiruvchi vositalar (create_task, update_alert va h.k.) faqat foydalanuvchi
 
 export function mcpServerYasa(k: McpKontekst): McpServer {
   const server = new McpServer(
-    { name: 'dill-mind', title: 'Dill Mind', version: '1.0.0' },
+    { name: 'deal-mind', title: 'Deal Mind', version: '1.0.0' },
     { instructions: KO_RSATMA },
   );
   const yozaOladi = k.oauth.scope.includes('write');

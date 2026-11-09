@@ -429,7 +429,7 @@ const ANALITIKA: Lugat = {
 
   // ─── Vazifalar tahlili ───
   Barchasi: { en: 'All', ru: 'Все' },
-  'Dill Mind yaratgan': { en: 'Created by Dill Mind', ru: 'Созданы Dill Mind' },
+  'Deal Mind yaratgan': { en: 'Created by Deal Mind', ru: 'Созданы Deal Mind' },
   "Qo'lda yaratilgan": { en: 'Created manually', ru: 'Созданы вручную' },
   "CRM bilan bog'langan": { en: 'Linked to CRM', ru: 'Связаны с CRM' },
   '{n} daq': { en: '{n} min', ru: '{n} мин' },
@@ -485,9 +485,9 @@ const ANALITIKA: Lugat = {
     ru: 'Среднее время от создания до выполнения (выполненные за период)',
   },
   "Vazifalar manbasi bo'yicha": { en: 'Tasks by source', ru: 'Задачи по источникам' },
-  "CRM bilan bog'langan, Dill Mind yaratgan va qo'lda qo'shilgan vazifalarning joriy hamda tanlangan davrdagi holati.": {
-    en: 'Current and selected-period status of CRM-linked, Dill Mind-created and manually added tasks.',
-    ru: 'Текущее состояние и итоги за период по задачам из CRM, созданным Dill Mind и добавленным вручную.',
+  "CRM bilan bog'langan, Deal Mind yaratgan va qo'lda qo'shilgan vazifalarning joriy hamda tanlangan davrdagi holati.": {
+    en: 'Current and selected-period status of CRM-linked, Deal Mind-created and manually added tasks.',
+    ru: 'Текущее состояние и итоги за период по задачам из CRM, созданным Deal Mind и добавленным вручную.',
   },
   'Vazifalar yaratilishi va bajarilishi': { en: 'Tasks created and completed', ru: 'Создание и выполнение задач' },
   "Har bo'lakda yaratilgan va bajarilgan vazifalar soni": {

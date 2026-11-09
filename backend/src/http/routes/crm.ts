@@ -188,7 +188,7 @@ export function registerCrmRoutes(app: FastifyInstance): void {
 
       const tana = JSON.stringify({
         event: 'test',
-        message: 'Dill Mind: sinov so\'rovi. Bu vazifa emas.',
+        message: 'Deal Mind: sinov so\'rovi. Bu vazifa emas.',
         sentAt: new Date().toISOString(),
       });
 

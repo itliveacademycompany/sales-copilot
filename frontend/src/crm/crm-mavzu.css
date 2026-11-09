@@ -1,16 +1,16 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   CRM MAVZUSI — Dill Mind dizayni (Metasell bloklari bilan)
+   CRM MAVZUSI — Deal Mind dizayni (Metasell bloklari bilan)
    ═══════════════════════════════════════════════════════════════════════════
 
-   Faqat CRM rejimida (`.shell.crm-rejim`) ishlaydi; Dill Mind qismi o'zgarmaydi.
-   Komponentlar (card, btn, input, tab, jadval) Dill Mind'dagidek qoladi;
+   Faqat CRM rejimida (`.shell.crm-rejim`) ishlaydi; Deal Mind qismi o'zgarmaydi.
+   Komponentlar (card, btn, input, tab, jadval) Deal Mind'dagidek qoladi;
    Metasell'dan kelgan bloklar (sarlavha paneli, kanban, KPI qatori, lid
-   kartasi) `ms-*` sinflari bilan, ranglari esa Dill Mind tokenlaridan.
+   kartasi) `ms-*` sinflari bilan, ranglari esa Deal Mind tokenlaridan.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .shell.crm-rejim {
-  /* Dill Mind dizayn tizimi (neumorfizm) — Metasell nomlari Dill Mind tokenlariga
-     ulanadi. Shunda ms-* bloklar Dill Mind'dagi kartalar, tugmalar va ranglar
+  /* Deal Mind dizayn tizimi (neumorfizm) — Metasell nomlari Deal Mind tokenlariga
+     ulanadi. Shunda ms-* bloklar Deal Mind'dagi kartalar, tugmalar va ranglar
      bilan bir xil ko'rinadi; yorug'/qorong'i mavzu o'zi ishlaydi. */
   --ms-sahifa: var(--bg-base);
   --ms-karta: var(--bg-surface);
@@ -32,7 +32,7 @@
 
 /* ─── Sarlavha paneli (MsBosh) ──────────────────────────────────────────── */
 
-/* Sarlavha paneli — Dill Mind kartasi (bo'rtiq soya), sahifa aylanganda tepada qotadi. */
+/* Sarlavha paneli — Deal Mind kartasi (bo'rtiq soya), sahifa aylanganda tepada qotadi. */
 .ms-bosh {
   display: flex;
   align-items: center;

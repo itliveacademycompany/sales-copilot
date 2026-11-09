@@ -100,7 +100,7 @@ export function registerOauthRoutes(app: FastifyInstance): void {
     authorization_servers: [publicUrl()],
     scopes_supported: [...SCOPES],
     bearer_methods_supported: ['header'],
-    resource_name: 'Dill Mind',
+    resource_name: 'Deal Mind',
   });
   app.get('/.well-known/oauth-protected-resource', async () => resursMeta());
   app.get('/.well-known/oauth-protected-resource/mcp', async () => resursMeta());

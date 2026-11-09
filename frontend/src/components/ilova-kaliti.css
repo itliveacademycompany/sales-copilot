@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Dill Mind ↔ CRM KALITI (prefiks ik-)
+   Deal Mind ↔ CRM KALITI (prefiks ik-)
    Kapsula 112×44: chapda tugma, o'ngda chuqur, o'rtada odamcha yo'li.
    Kapsula ikkala ilovada ham bir xil (oq) — faqat tugmadagi belgi almashadi.
    Bosqichlar: bosildi → yurish → tushish (vaqtlari TSX dagi VAQT), so'ng
@@ -124,7 +124,7 @@
 }
 
 /* ─── Joylashuv ─── */
-/* Dill Mind tepa paneli: biznes nomi chapda, kalit qidiruvga yaqin (o'ngda) */
+/* Deal Mind tepa paneli: biznes nomi chapda, kalit qidiruvga yaqin (o'ngda) */
 .tepa-chap { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .tepa-chap .tepa-biznes { flex: 1; min-width: 0; }
 /* CRM bosh sahifasi sarlavhasining chap ustuni */

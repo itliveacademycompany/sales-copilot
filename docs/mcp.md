@@ -60,10 +60,10 @@ Yangi vosita qo'shish — `server.ts` da bitta `registerTool` va bitta `api(...)
 **Lokal (Claude Code):**
 
 ```bash
-claude mcp add --transport http dill-mind http://localhost:3001/mcp
+claude mcp add --transport http deal-mind http://localhost:3001/mcp
 ```
 
-so'ng Claude Code'da `/mcp` → dill-mind → Authenticate → brauzerda kirish va ruxsat.
+so'ng Claude Code'da `/mcp` → deal-mind → Authenticate → brauzerda kirish va ruxsat.
 
 **claude.ai / Claude Desktop:** Settings → Connectors → Add custom connector → URL: `${PUBLIC_URL}/mcp`.
 

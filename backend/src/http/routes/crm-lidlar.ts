@@ -17,7 +17,7 @@ import { AppError } from '../errors.js';
  * faqat mas'uli o'zi bo'lgan lidlar (menejer kartochkasidagi "CRM ID"
  * orqali). Boshqalar — 403.
  *
- * Har lid uchun Dill Mind ma'lumoti ham: shu mijoz bilan nechta qo'ng'iroq
+ * Har lid uchun Deal Mind ma'lumoti ham: shu mijoz bilan nechta qo'ng'iroq
  * bo'lgan va oxirgisining bahosi — telefon bo'yicha bog'langan kontakt orqali.
  */
 
@@ -134,7 +134,7 @@ export async function crmLidlarSorovi(tx: Tx, f: z.infer<typeof royxatQuery>, do
       .orderBy(asc(crmLead.pipelineName)),
   ]);
 
-  // Dill Mind tomoni: shu mijoz bilan qo'ng'iroqlar va oxirgi tahlil
+  // Deal Mind tomoni: shu mijoz bilan qo'ng'iroqlar va oxirgi tahlil
   const kontaktlar = [...new Set(qatorlar.map((q) => q.contactId).filter((x): x is string => Boolean(x)))];
   const qongiroqlar = new Map<string, { n: number; oxirgi: Date | null }>();
   const tahlillar = new Map<string, { conversationId: string; score: string | null; quality: string | null }>();

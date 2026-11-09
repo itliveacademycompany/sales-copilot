@@ -272,9 +272,9 @@ const CRM_ILOVA_2: Lugat = {
   Manzil: { en: 'Address', ru: 'Адрес' },
 
   // ─── Saralanmagan ───
-  "Yangi murojaatlar: Dill Mind qo'ng'iroqlari, veb-formalar va qo'lda kiritilganlar. Qabul qilinsa — bitim bo'ladi.": {
-    en: 'New requests: Dill Mind calls, web forms and manual entries. Once accepted, they become deals.',
-    ru: 'Новые заявки: звонки Dill Mind, веб-формы и введённые вручную. После принятия становятся сделками.',
+  "Yangi murojaatlar: Deal Mind qo'ng'iroqlari, veb-formalar va qo'lda kiritilganlar. Qabul qilinsa — bitim bo'ladi.": {
+    en: 'New requests: Deal Mind calls, web forms and manual entries. Once accepted, they become deals.',
+    ru: 'Новые заявки: звонки Deal Mind, веб-формы и введённые вручную. После принятия становятся сделками.',
   },
   'Hamma murojaatlar ko‘rib chiqilgan': { en: 'All requests have been processed', ru: 'Все заявки разобраны' },
   'Bu yerda hali hech narsa yo‘q': { en: 'Nothing here yet', ru: 'Здесь пока ничего нет' },
@@ -308,7 +308,7 @@ const CRM_ILOVA_2: Lugat = {
     ru: 'При принятии новой заявки без ответственного — по очереди выбранным сотрудникам. Неактивные пропускаются.',
   },
   'Navbat bilan taqsimlash yoqilgan': { en: 'Round-robin distribution is on', ru: 'Распределение по очереди включено' },
-  "Dill Mind qo'ng'iroqlaridan qabul": { en: 'Intake from Dill Mind calls', ru: 'Приём из звонков Dill Mind' },
+  "Deal Mind qo'ng'iroqlaridan qabul": { en: 'Intake from Deal Mind calls', ru: 'Приём из звонков Deal Mind' },
   "Ochiq bitimi yo'q mijoz qo'ng'iroq qilsa — u «Saralanmagan»ga o'zi tushadi (CRM yoqilgandan keyingi qo'ng'iroqlar).": {
     en: 'When a client without an open deal calls, they land in “Unsorted” automatically (calls after the CRM was enabled).',
     ru: 'Если звонит клиент без открытой сделки, он сам попадает в «Неразобранное» (звонки после включения CRM).',

@@ -114,9 +114,9 @@ const SOZLAMALAR: Lugat = {
   },
   'Logotip havolasi': { en: 'Logo link', ru: 'Ссылка на логотип' },
   "Vazifalarni CRM'ga yuborish": { en: 'Send tasks to CRM', ru: 'Отправлять задачи в CRM' },
-  "Mos keladigan vazifalarni ulangan CRM'ga yuborish. CRM hali ulanmagan — vazifalar Dill Mind ichida yuritiladi.": {
-    en: 'Send matching tasks to the connected CRM. No CRM is connected yet — tasks are managed inside Dill Mind.',
-    ru: 'Отправлять подходящие задачи в подключённую CRM. CRM пока не подключена — задачи ведутся внутри Dill Mind.',
+  "Mos keladigan vazifalarni ulangan CRM'ga yuborish. CRM hali ulanmagan — vazifalar Deal Mind ichida yuritiladi.": {
+    en: 'Send matching tasks to the connected CRM. No CRM is connected yet — tasks are managed inside Deal Mind.',
+    ru: 'Отправлять подходящие задачи в подключённую CRM. CRM пока не подключена — задачи ведутся внутри Deal Mind.',
   },
   'CRM ulanmagan': { en: 'CRM not connected', ru: 'CRM не подключена' },
   'Suhbatlardan AI vazifalar yaratish': { en: 'Create AI tasks from conversations', ru: 'Создавать AI-задачи из разговоров' },
@@ -268,13 +268,13 @@ const SOZLAMALAR: Lugat = {
     ru: 'Пока этот адрес работает только на этом компьютере — этого достаточно для {code} и {desktop}. Для {web} (браузер и телефон) сайт должен быть на публичном HTTPS-адресе (на сервере).',
   },
   'Qanday ulanadi': { en: 'How to connect', ru: 'Как подключить' },
-  '{ilova} Sozlamalar → {connectors} → {add} → nom: «Dill Mind», URL: yuqoridagi manzil → {qosh} → {ulash}.': {
-    en: '{ilova} Settings → {connectors} → {add} → name: “Dill Mind”, URL: the address above → {qosh} → {ulash}.',
-    ru: '{ilova} Настройки → {connectors} → {add} → название: «Dill Mind», URL: адрес выше → {qosh} → {ulash}.',
+  '{ilova} Sozlamalar → {connectors} → {add} → nom: «Deal Mind», URL: yuqoridagi manzil → {qosh} → {ulash}.': {
+    en: '{ilova} Settings → {connectors} → {add} → name: “Deal Mind”, URL: the address above → {qosh} → {ulash}.',
+    ru: '{ilova} Настройки → {connectors} → {add} → название: «Deal Mind», URL: адрес выше → {qosh} → {ulash}.',
   },
   'claude.ai yoki Claude Desktop:': { en: 'claude.ai or Claude Desktop:', ru: 'claude.ai или Claude Desktop:' },
   'terminalda:': { en: 'in the terminal:', ru: 'в терминале:' },
-  "so'ng {mcp} → dill-mind → {auth}.": { en: 'then {mcp} → dill-mind → {auth}.', ru: 'затем {mcp} → dill-mind → {auth}.' },
+  "so'ng {mcp} → deal-mind → {auth}.": { en: 'then {mcp} → deal-mind → {auth}.', ru: 'затем {mcp} → deal-mind → {auth}.' },
   'Brauzerda shu sayt ochiladi — kiring va ruxsat darajasini tanlang: {oqish} (xavfsiz boshlanish) yoki {boshqarish}.': {
     en: 'This site opens in the browser — sign in and choose the access level: {oqish} (a safe start) or {boshqarish}.',
     ru: 'В браузере откроется этот сайт — войдите и выберите уровень доступа: {oqish} (безопасный старт) или {boshqarish}.',
@@ -1769,9 +1769,9 @@ const SOZLAMALAR: Lugat = {
   "Ulanib bo'lmadi": { en: "Couldn't connect", ru: 'Не удалось подключиться' },
   "Claude'da ulanishni qaytadan boshlang.": { en: 'Start the connection again in Claude.', ru: 'Начните подключение в Claude заново.' },
   "So'rov tekshirilmoqda…": { en: 'Checking the request…', ru: 'Проверка запроса…' },
-  "{ilova} sizning Dill Mind hisobingizga kirishni so'ramoqda.": {
-    en: '{ilova} is requesting access to your Dill Mind account.',
-    ru: '{ilova} запрашивает доступ к вашему аккаунту Dill Mind.',
+  "{ilova} sizning Deal Mind hisobingizga kirishni so'ramoqda.": {
+    en: '{ilova} is requesting access to your Deal Mind account.',
+    ru: '{ilova} запрашивает доступ к вашему аккаунту Deal Mind.',
   },
   "Javob {host} ga qaytariladi — Claude'ning rasmiy manzili.": {
     en: "The response will be returned to {host} — Claude's official address.",

@@ -6,9 +6,9 @@ import type { Lugat } from './index';
  */
 const CRM: Lugat = {
   CRM: { en: 'CRM', ru: 'CRM' },
-  "CRM tizimingizni ulang — Dill Mind har qo'ng'iroq tahlilini mijozning sdelkasiga yozadi va menejerga vazifa qo'yadi.": {
-    en: 'Connect your CRM — Dill Mind writes every call analysis to the client’s deal and sets a task for the manager.',
-    ru: 'Подключите CRM — Dill Mind запишет анализ каждого звонка в сделку клиента и поставит задачу менеджеру.',
+  "CRM tizimingizni ulang — Deal Mind har qo'ng'iroq tahlilini mijozning sdelkasiga yozadi va menejerga vazifa qo'yadi.": {
+    en: 'Connect your CRM — Deal Mind writes every call analysis to the client’s deal and sets a task for the manager.',
+    ru: 'Подключите CRM — Deal Mind запишет анализ каждого звонка в сделку клиента и поставит задачу менеджеру.',
   },
   'Boshqa CRM': { en: 'Other CRM', ru: 'Другая CRM' },
   "Ro'yxatda yo'q CRM ga vazifalarni imzolangan webhook orqali yuborish mumkin (n8n, Make yoki CRM ning o'z webhooki).": {
@@ -18,9 +18,9 @@ const CRM: Lugat = {
   'Webhook orqali': { en: 'Via webhook', ru: 'Через webhook' },
   'Qanday ishlaydi': { en: 'How it works', ru: 'Как это работает' },
   'CRM ni ulang': { en: 'Connect your CRM', ru: 'Подключите CRM' },
-  'Kalitni bir marta kiriting — Dill Mind uni CRM da tekshiradi va shifrlab saqlaydi.': {
-    en: 'Enter the key once — Dill Mind checks it in the CRM and stores it encrypted.',
-    ru: 'Введите ключ один раз — Dill Mind проверит его в CRM и сохранит в зашифрованном виде.',
+  'Kalitni bir marta kiriting — Deal Mind uni CRM da tekshiradi va shifrlab saqlaydi.': {
+    en: 'Enter the key once — Deal Mind checks it in the CRM and stores it encrypted.',
+    ru: 'Введите ключ один раз — Deal Mind проверит его в CRM и сохранит в зашифрованном виде.',
   },
   "Qo'ng'iroq tahlil qilinadi": { en: 'The call is analysed', ru: 'Звонок анализируется' },
   "Har qo'ng'iroq mijoz telefoni bo'yicha CRM dagi ochiq sdelkaga bog'lanadi.": {
@@ -92,9 +92,9 @@ const CRM: Lugat = {
   // ─── Tahlildan keyin CRM ga ───
   'Tahlildan keyin CRM ga': { en: 'After analysis, to the CRM', ru: 'После анализа — в CRM' },
   'Sdelkaga izoh yozish': { en: 'Add a note to the deal', ru: 'Добавлять примечание в сделку' },
-  'Baho, qisqa xulosa, asosiy kamchilik, keyingi qadam va Dill Mind dagi havola.': {
-    en: 'Score, short summary, main gap, next step and a link to Dill Mind.',
-    ru: 'Оценка, краткий итог, главная ошибка, следующий шаг и ссылка на Dill Mind.',
+  'Baho, qisqa xulosa, asosiy kamchilik, keyingi qadam va Deal Mind dagi havola.': {
+    en: 'Score, short summary, main gap, next step and a link to Deal Mind.',
+    ru: 'Оценка, краткий итог, главная ошибка, следующий шаг и ссылка на Deal Mind.',
   },
   'Menejerga vazifa yaratish': { en: 'Create a task for the manager', ru: 'Создавать задачу менеджеру' },
   "Tahlil vazifa topsa (qayta qo'ng'iroq, va'da), u sdelkaning mas'uliga CRM da vazifa bo'lib tushadi.": {
@@ -151,9 +151,9 @@ const CRM: Lugat = {
     en: 'In amoCRM, open amoМаркет → «⋯» in the top-right corner → «Создать интеграцию» → choose «Внешняя интеграция» (external integration).',
     ru: 'В amoCRM откройте amoМаркет → «⋯» в правом верхнем углу → «Создать интеграцию» → выберите «Внешняя интеграция».',
   },
-  '«Ссылка для перенаправления» ga istalgan https manzil yozing (masalan amoCRM hisobingiz manzili), «Предоставить доступ: Все» ni belgilang, «Название интеграции» ga «Dill Mind» deb yozing va «Сохранить» ni bosing.': {
-    en: 'In «Ссылка для перенаправления» enter any https address (e.g. your amoCRM account address), tick «Предоставить доступ: Все», name it «Dill Mind» in «Название интеграции» and click «Сохранить».',
-    ru: 'В «Ссылка для перенаправления» укажите любой https-адрес (например, адрес вашего аккаунта amoCRM), отметьте «Предоставить доступ: Все», в «Название интеграции» напишите «Dill Mind» и нажмите «Сохранить».',
+  '«Ссылка для перенаправления» ga istalgan https manzil yozing (masalan amoCRM hisobingiz manzili), «Предоставить доступ: Все» ni belgilang, «Название интеграции» ga «Deal Mind» deb yozing va «Сохранить» ni bosing.': {
+    en: 'In «Ссылка для перенаправления» enter any https address (e.g. your amoCRM account address), tick «Предоставить доступ: Все», name it «Deal Mind» in «Название интеграции» and click «Сохранить».',
+    ru: 'В «Ссылка для перенаправления» укажите любой https-адрес (например, адрес вашего аккаунта amoCRM), отметьте «Предоставить доступ: Все», в «Название интеграции» напишите «Deal Mind» и нажмите «Сохранить».',
   },
   'Ochilgan integratsiya oynasida «Ключи и доступы» bo‘limiga o‘ting va «Долгосрочный токен» yarating.': {
     en: 'In the integration window that opens, go to the «Ключи и доступы» tab and create a «Долгосрочный токен» (long-lived token).',
@@ -293,7 +293,7 @@ const CRM: Lugat = {
 
   // ─── Lidlar (CRM sahifasi) ───
   Lidlar: { en: 'Leads', ru: 'Лиды' },
-  'Dill Mind dagi lidlar': { en: 'Leads in Dill Mind', ru: 'Лидов в Dill Mind' },
+  'Deal Mind dagi lidlar': { en: 'Leads in Deal Mind', ru: 'Лидов в Deal Mind' },
   'Birinchi import davom etmoqda — sdelkalar sahifama-sahifa olinmoqda.': {
     en: 'The first import is in progress — deals are being fetched page by page.',
     ru: 'Идёт первый импорт — сделки загружаются постранично.',
@@ -347,12 +347,12 @@ const CRM: Lugat = {
   Lid: { en: 'Lead', ru: 'Лид' },
   Summa: { en: 'Amount', ru: 'Сумма' },
   "Mas'ul": { en: 'Owner', ru: 'Ответственный' },
-  'Dill Mind': { en: 'Dill Mind', ru: 'Dill Mind' },
+  'Deal Mind': { en: 'Deal Mind', ru: 'Deal Mind' },
   Yangilangan: { en: 'Updated', ru: 'Обновлено' },
   'CRM da ochish': { en: 'Open in CRM', ru: 'Открыть в CRM' },
   'Nomsiz sdelka': { en: 'Untitled deal', ru: 'Сделка без названия' },
   'Menejer kartochkasida CRM ID kiritilmagan': { en: 'CRM ID is not set on the manager card', ru: 'В карточке менеджера не указан CRM ID' },
-  "Dill Mind ga bog'lanmagan": { en: 'Not linked to Dill Mind', ru: 'Не связан с Dill Mind' },
+  "Deal Mind ga bog'lanmagan": { en: 'Not linked to Deal Mind', ru: 'Не связан с Deal Mind' },
   'Oxirgi tahlil': { en: 'Latest analysis', ru: 'Последний анализ' },
   "{n} ta qo'ng'iroq": { en: '{n} calls', ru: 'Звонков: {n}' },
   "Qo'ng'iroq yo'q": { en: 'No calls', ru: 'Нет звонков' },
@@ -377,9 +377,9 @@ const CRM: Lugat = {
     en: 'Paste the address below exactly into «Ссылка для перенаправления».',
     ru: 'Вставьте адрес ниже в «Ссылка для перенаправления» без изменений.',
   },
-  '«Предоставить доступ: Все» ni belgilang, nom bering (masalan «Dill Mind») va saqlang.': {
-    en: 'Tick «Предоставить доступ: Все», give it a name (e.g. «Dill Mind») and save.',
-    ru: 'Отметьте «Предоставить доступ: Все», задайте название (например, «Dill Mind») и сохраните.',
+  '«Предоставить доступ: Все» ni belgilang, nom bering (masalan «Deal Mind») va saqlang.': {
+    en: 'Tick «Предоставить доступ: Все», give it a name (e.g. «Deal Mind») and save.',
+    ru: 'Отметьте «Предоставить доступ: Все», задайте название (например, «Deal Mind») и сохраните.',
   },
   '«Ключи и доступы» bo‘limidagi «ID интеграции» va «Секретный ключ» ni shu yerga kiriting.': {
     en: 'Enter the «ID интеграции» and «Секретный ключ» from the «Ключи и доступы» tab here.',

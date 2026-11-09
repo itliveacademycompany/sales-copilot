@@ -135,7 +135,7 @@ export function Simulyator() {
                   <h3>{s.nom}</h3>
                   <div className="sim-meta">
                     <Clock size={14} aria-hidden="true" />
-                    {t('{n} daqiqa', { n: s.davomiylikDaq })} · {s.tayyor ? 'Dill Mind AI' : s.muallif ?? t('Kompaniya')}
+                    {t('{n} daqiqa', { n: s.davomiylikDaq })} · {s.tayyor ? 'Deal Mind AI' : s.muallif ?? t('Kompaniya')}
                   </div>
                   <p className="sim-vaziyat">{s.vaziyat}</p>
                   <div className="sim-karta-past">

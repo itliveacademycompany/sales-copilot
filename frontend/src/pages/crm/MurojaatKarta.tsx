@@ -68,7 +68,7 @@ function ManbaIkoni({ source }: { source: string }) {
 }
 
 /**
- * MUROJAAT OYNASI — amoCRM "Неразобранное" kartasi namunasida (Dill Mind dizayni).
+ * MUROJAAT OYNASI — amoCRM "Неразобранное" kartasi namunasida (Deal Mind dizayni).
  * "Saralanmagan"dagi murojaat bosilganda ochiladi:
  *   • chapda — manba, voronka, kontakt (profil rasmi, hisob nomi), pastda
  *     "Qabul qilish", "Bog'lash", "Rad etish";

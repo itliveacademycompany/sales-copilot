@@ -68,7 +68,7 @@ const HAJM = 50;
 
 /**
  * Kontaktlar va Kompaniyalar — Metasell'dagidek menyuda alohida bo'limlar.
- * Kontaktlar: Dill Mind qo'ng'iroqlaridagi mijozlar ham, CRM da qo'shilganlar
+ * Kontaktlar: Deal Mind qo'ng'iroqlaridagi mijozlar ham, CRM da qo'shilganlar
  * ham — bitta ro'yxat; rahbarda "Dublikatlar" tabi ham bor.
  */
 export function Kontaktlar({ bolim }: { bolim: 'kontakt' | 'kompaniya' }) {
@@ -129,7 +129,7 @@ function avatarRangi(kalit: string): (typeof AVATAR_RANGLARI)[number] {
 }
 
 /**
- * Kontaktlar ro'yxati — amoCRM "Контакты" namunasida, Dill Mind dizayni:
+ * Kontaktlar ro'yxati — amoCRM "Контакты" namunasida, Deal Mind dizayni:
  * sarlavha (jami, AI yordamchi, yangi kontakt), tezkor filtrlar (soni bilan),
  * qidiruv va ixcham jadval — avatar, aloqa (telefon + email), kompaniya,
  * lidlar, qo'ng'iroqlar, oxirgi faollik. Qator bosilsa — kontakt kartasi.
@@ -528,7 +528,7 @@ interface KontaktKartochka {
   tasks: { id: string; title: string; status: string; dueAt: string | null; taskType: string | null; dealId: string | null; seatName: string | null }[];
 }
 
-/** Kontakt kartochkasi: ma'lumot, bitimlari, vazifalari va Dill Mind qo'ng'iroqlari. */
+/** Kontakt kartochkasi: ma'lumot, bitimlari, vazifalari va Deal Mind qo'ng'iroqlari. */
 export function KontaktKarta() {
   const { id } = useParams<{ id: string }>();
   const { base } = useCrm();
@@ -639,7 +639,7 @@ export function KontaktKarta() {
 
             <section className="card ci-blok" aria-labelledby="kk-qongiroq">
               <h2 id="kk-qongiroq">
-                <PhoneCall aria-hidden="true" /> {t("Dill Mind qo'ng'iroqlari")}
+                <PhoneCall aria-hidden="true" /> {t("Deal Mind qo'ng'iroqlari")}
               </h2>
               {k.calls.length === 0 && <p className="yordam">{t("Bu mijoz bilan qo'ng'iroq hali yo'q.")}</p>}
               <ol className="ci-lenta">

@@ -122,7 +122,7 @@ export function Login() {
                   <Sparkles />
                 </span>
                 <span className="logo-matn">
-                  Dill <em>Mind</em>
+                  Deal <em>Mind</em>
                 </span>
               </>,
             )}
@@ -153,7 +153,7 @@ export function Login() {
                   <Sparkles />
                 </span>
                 <span className="logo">
-                  Dill <em>Mind</em>
+                  Deal <em>Mind</em>
                 </span>
               </>,
             )}

@@ -183,7 +183,7 @@ export function startWorkerLoop(log: {
          */
         /**
          * Ichki CRM — har 30 soniyada, fonda: avtomatika qoidalari (bosqichda
-         * N daqiqa qolganda vazifa, navbat bilan mas'ul…) va yangi Dill Mind
+         * N daqiqa qolganda vazifa, navbat bilan mas'ul…) va yangi Deal Mind
          * qo'ng'iroqlaridan "Saralanmagan" murojaatlar. Bitta biznes xatosi
          * qolganlarini to'xtatmaydi.
          */

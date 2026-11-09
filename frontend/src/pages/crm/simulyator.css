@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    SIMULYATOR — AI mijoz bilan mashq qo'ng'irog'i (prefiks sim-)
    Sahifa: ssenariy kartalari + o'ng panel; qo'ng'iroq: to'liq ekran (to'q ko'k);
-   natija: markazdagi karta. Dill Mind tokenlari.
+   natija: markazdagi karta. Deal Mind tokenlari.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .sim { display: flex; flex-direction: column; gap: 18px; min-width: 0; }

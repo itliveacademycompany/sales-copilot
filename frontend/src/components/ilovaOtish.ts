@@ -3,7 +3,7 @@ import { crmdami } from './IlovaAlmashtirgich';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * Dill Mind ↔ CRM O'TISHI — yangi bo'lim kalit chuqurchasidan aylana bo'lib yoyiladi
+ * Deal Mind ↔ CRM O'TISHI — yangi bo'lim kalit chuqurchasidan aylana bo'lib yoyiladi
  * ═══════════════════════════════════════════════════════════════════════════
  *
  * View Transitions API: brauzer eski ekranni "suratga" oladi, biz yangi

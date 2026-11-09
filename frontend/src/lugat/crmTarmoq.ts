@@ -65,9 +65,9 @@ const CRM_TARMOQ: Lugat = {
     en: 'Instagram ad leads arrive through the Facebook Page — enter the Page ID. If the account ID is empty, it is detected from the Page.',
     ru: 'Лиды из рекламы Instagram приходят через страницу Facebook — укажите ID страницы. Если ID аккаунта пуст, он определится по странице.',
   },
-  "@BotFather → /newbot → bergan tokenni nusxalang. Dill Mind bildirishnoma botidan boshqa bot bo'lsin.": {
-    en: '@BotFather → /newbot → copy the token it gives. Use a different bot from the Dill Mind notification bot.',
-    ru: '@BotFather → /newbot → скопируйте выданный токен. Это должен быть другой бот, не бот уведомлений Dill Mind.',
+  "@BotFather → /newbot → bergan tokenni nusxalang. Deal Mind bildirishnoma botidan boshqa bot bo'lsin.": {
+    en: '@BotFather → /newbot → copy the token it gives. Use a different bot from the Deal Mind notification bot.',
+    ru: '@BotFather → /newbot → скопируйте выданный токен. Это должен быть другой бот, не бот уведомлений Deal Mind.',
   },
   'Webhook avtomatik o‘rnatiladi: {url}': { en: 'The webhook is set automatically: {url}', ru: 'Webhook устанавливается автоматически: {url}' },
   '/start ga javob': { en: 'Reply to /start', ru: 'Ответ на /start' },
@@ -165,9 +165,9 @@ const CRM_TARMOQ: Lugat = {
   'Facebook sahifa ID sini kiriting': { en: 'Enter the Facebook Page ID', ru: 'Введите ID страницы Facebook' },
   "ID faqat raqamlardan iborat bo'ladi": { en: 'The ID consists of digits only', ru: 'ID состоит только из цифр' },
   'Avval kalitlarni kiriting': { en: 'Enter the keys first', ru: 'Сначала введите ключи' },
-  "Bu bot Dill Mind bildirishnomalari uchun ulangan. Mijozlar uchun @BotFather'da alohida bot yarating.": {
-    en: 'This bot is connected for Dill Mind notifications. Create a separate bot for customers in @BotFather.',
-    ru: 'Этот бот подключён для уведомлений Dill Mind. Создайте для клиентов отдельного бота в @BotFather.',
+  "Bu bot Deal Mind bildirishnomalari uchun ulangan. Mijozlar uchun @BotFather'da alohida bot yarating.": {
+    en: 'This bot is connected for Deal Mind notifications. Create a separate bot for customers in @BotFather.',
+    ru: 'Этот бот подключён для уведомлений Deal Mind. Создайте для клиентов отдельного бота в @BotFather.',
   },
 };
 

@@ -38,7 +38,7 @@ export const sozlamaSxemasi = z.object({
       cursor: z.number().int().min(-1).default(-1),
     })
     .default({ enabled: false, seatIds: [], cursor: -1 }),
-  /** Dill Mind qo'ng'iroqlaridan avtomatik "Saralanmagan"ga qabul (LEAD-04). */
+  /** Deal Mind qo'ng'iroqlaridan avtomatik "Saralanmagan"ga qabul (LEAD-04). */
   callIntake: z
     .object({
       enabled: z.boolean().default(true),

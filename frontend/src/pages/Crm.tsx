@@ -32,7 +32,7 @@ import './crm.css';
  * backenddagi adapterlardan keladi (`GET /crm`). Yangi CRM qo'shilsa,
  * sahifa o'zgarmaydi — faqat logotip rangi (`LOGO`) ixtiyoriy.
  *
- * Ulangandan keyin Dill Mind har tahlil qilingan qo'ng'iroqni mijoz telefoni
+ * Ulangandan keyin Deal Mind har tahlil qilingan qo'ng'iroqni mijoz telefoni
  * bo'yicha CRM dagi sdelkaga bog'laydi va (sozlamaga ko'ra) izoh hamda
  * menejerga vazifa yozadi.
  *
@@ -169,7 +169,7 @@ export function Crm() {
     <div className="crm-sahifa">
       <div className="crm-bosh">
         <h1>{t('CRM')}</h1>
-        <p>{t("CRM tizimingizni ulang — Dill Mind har qo'ng'iroq tahlilini mijozning sdelkasiga yozadi va menejerga vazifa qo'yadi.")}</p>
+        <p>{t("CRM tizimingizni ulang — Deal Mind har qo'ng'iroq tahlilini mijozning sdelkasiga yozadi va menejerga vazifa qo'yadi.")}</p>
       </div>
 
       {qaytish && (
@@ -229,7 +229,7 @@ function QandayIshlaydi() {
     {
       ikon: <PlugZap />,
       sarlavha: 'CRM ni ulang',
-      matn: "Kalitni bir marta kiriting — Dill Mind uni CRM da tekshiradi va shifrlab saqlaydi.",
+      matn: "Kalitni bir marta kiriting — Deal Mind uni CRM da tekshiradi va shifrlab saqlaydi.",
     },
     {
       ikon: <PhoneCall />,
@@ -261,7 +261,7 @@ function QandayIshlaydi() {
   );
 }
 
-/** Ulanmagan karta tagidagi qisqa tavsif — Dill Mind shu CRM bilan nima qiladi. */
+/** Ulanmagan karta tagidagi qisqa tavsif — Deal Mind shu CRM bilan nima qiladi. */
 const IMKONIYAT = "Har qo'ng'iroq tahlili sdelkaga izoh bo'lib yoziladi, vazifalar menejerga tushadi.";
 
 // ─── Bitta CRM kartasi ───────────────────────────────────────────────────────
@@ -699,7 +699,7 @@ function LidlarBolimi({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi:
       await api.patch(`${base}/settings`, { ichkiCrm: v });
       setXabar(
         v
-          ? t("Yoqildi — barcha sdelkalar Dill Mind CRM ga ko'chirilmoqda, bir necha daqiqa ketadi.")
+          ? t("Yoqildi — barcha sdelkalar Deal Mind CRM ga ko'chirilmoqda, bir necha daqiqa ketadi.")
           : t("O'chirildi — ko'chirilgan bitimlar qoladi, lekin endi {crm} dan yangilanmaydi.", { crm: c.name }),
       );
       await onOzgardi();
@@ -764,7 +764,7 @@ function LidlarBolimi({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi:
       <div className="crm-lid-holat">
         <div className="crm-raqam">
           <b>{l.count}</b>
-          <span>{t('Dill Mind dagi lidlar')}</span>
+          <span>{t('Deal Mind dagi lidlar')}</span>
         </div>
         {ichki && (
           <div className="crm-raqam">
@@ -792,10 +792,10 @@ function LidlarBolimi({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi:
       <div className="ogoh-sozlama">
         <label className="sozlama-satr">
           <span className="matn">
-            <b>{t("Sdelkalarni Dill Mind CRM ga ko'chirish")}</b>
+            <b>{t("Sdelkalarni Deal Mind CRM ga ko'chirish")}</b>
             <span className="izoh">
               {t(
-                "Har bir sdelka Dill Mind CRM da bitim bo'ladi — o'sha voronka, bosqich, mas'ul, kontakt va qo'shimcha maydonlar bilan. Asosiy manba {crm}: nom, summa, bosqich va mas'ul u yerda o'zgartiriladi, bu yerga har daqiqada keladi.",
+                "Har bir sdelka Deal Mind CRM da bitim bo'ladi — o'sha voronka, bosqich, mas'ul, kontakt va qo'shimcha maydonlar bilan. Asosiy manba {crm}: nom, summa, bosqich va mas'ul u yerda o'zgartiriladi, bu yerga har daqiqada keladi.",
                 { crm: c.name },
               )}
             </span>
@@ -862,7 +862,7 @@ function LidlarBolimi({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi:
   );
 }
 
-// ─── Dill Mind CRM ga nima yozsin ──────────────────────────────────────────────
+// ─── Deal Mind CRM ga nima yozsin ──────────────────────────────────────────────
 
 function Sozlama({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi: () => Promise<void> }) {
   const t = useT();
@@ -889,7 +889,7 @@ function Sozlama({ c, base, onOzgardi }: { c: Crm; base: string; onOzgardi: () =
         <label className="sozlama-satr">
           <span className="matn">
             <b>{t('Sdelkaga izoh yozish')}</b>
-            <span className="izoh">{t('Baho, qisqa xulosa, asosiy kamchilik, keyingi qadam va Dill Mind dagi havola.')}</span>
+            <span className="izoh">{t('Baho, qisqa xulosa, asosiy kamchilik, keyingi qadam va Deal Mind dagi havola.')}</span>
           </span>
           <input type="checkbox" className="kalit" role="switch" checked={s.izoh} onChange={(e) => void ozgartir('izoh', e.target.checked)} />
         </label>

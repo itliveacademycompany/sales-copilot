@@ -661,7 +661,7 @@ export const amocrmAdapter: CrmAdapter = {
   tavsif: "Sdelkalar, kontaktlar va qo'ng'iroqlar",
   qollanma: [
     'amoCRM da amoМаркет → yuqori o‘ng burchakdagi «⋯» → «Создать интеграцию» → «Внешняя интеграция» ni tanlang.',
-    '«Ссылка для перенаправления» ga istalgan https manzil yozing (masalan amoCRM hisobingiz manzili), «Предоставить доступ: Все» ni belgilang, «Название интеграции» ga «Dill Mind» deb yozing va «Сохранить» ni bosing.',
+    '«Ссылка для перенаправления» ga istalgan https manzil yozing (masalan amoCRM hisobingiz manzili), «Предоставить доступ: Все» ni belgilang, «Название интеграции» ga «Deal Mind» deb yozing va «Сохранить» ni bosing.',
     'Ochilgan integratsiya oynasida «Ключи и доступы» bo‘limiga o‘ting va «Долгосрочный токен» yarating.',
     'Muddatini tanlang (uzoqroq — qulayroq), «eyJ…» bilan boshlanadigan tokenni to‘liq nusxalab shu yerga qo‘ying.',
   ],

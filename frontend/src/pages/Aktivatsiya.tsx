@@ -77,7 +77,7 @@ export function Aktivatsiya() {
     <div className="login-fon">
       <form className="login-card" onSubmit={(e) => void yubor(e)}>
         <div className="logo">
-          Dill <em>Mind</em>
+          Deal <em>Mind</em>
         </div>
 
         {yuklashXato ? (

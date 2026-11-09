@@ -8,7 +8,7 @@ import type { BitimVidjetNatija, PanelJavob, Vidjet } from './turlar';
  * Bosh sahifa vidjetlarining ichki qismi. Har vidjet faqat ma'lumotni
  * chizadi; ramka (sarlavha, sozlash tugmalari) — `IshStoli.tsx` da.
  *
- * Rang qoidasi (Dill Mind): holat raqami — indigo (`--info`), davr raqami —
+ * Rang qoidasi (Deal Mind): holat raqami — indigo (`--info`), davr raqami —
  * yashil (`--yuqori`), o'sish/kamayish — yashil/qizil, ma'lumot ustunlari —
  * neytral (`--data`). Kategoriya ranglari (manbalar, kanallar) — `--pn-k1..8`
  * qat'iy tartibda.

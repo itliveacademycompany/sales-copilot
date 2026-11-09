@@ -22,7 +22,7 @@ export function App() {
    * "Рабочий стол"). Bir marta — sahifa ochilganda yoki login qilingandan
    * keyin, agar odam bosh sahifaga ("/", "/kirish") kelayotgan bo'lsa.
    * Aniq havola (masalan /qongiroqlar/…) o'z joyida qoladi; keyin logo
-   * orqali "/" ga qaytilsa — Dill Mind bosh sahifasi ochiladi.
+   * orqali "/" ga qaytilsa — Deal Mind bosh sahifasi ochiladi.
    */
   const kirishTekshirildi = useRef(false);
   useLayoutEffect(() => {

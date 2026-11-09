@@ -52,7 +52,7 @@ export interface MatnQator {
 export interface SsenariyKorinish extends Omit<SsenariyMalumot, 'mijozHaqida'> {
   id: string;
   tayyor: boolean;
-  /** Kartadagi muallif: tayyorlarda "Dill Mind AI", o'zinikida yaratgan odam. */
+  /** Kartadagi muallif: tayyorlarda "Deal Mind AI", o'zinikida yaratgan odam. */
   muallif: string | null;
   /** Faqat sozlay oladiganlarga — mijozning yashirin xulqi menejerga oshkor bo'lmasin. */
   mijozHaqida?: string;

@@ -104,7 +104,7 @@ export const MANZIL_SAHIFA: Record<string, { oldindanYukla: () => void }> = {
   '/crm/voronka-tahlili': SAHIFA.crmIlova,
   '/crm/kontaktlar': SAHIFA.crmIlova,
   '/crm/kompaniyalar': SAHIFA.crmIlova,
-  // CRM menyusidagi Dill Mind bo'limlari — o'z bo'laklari oldindan yuklanadi
+  // CRM menyusidagi Deal Mind bo'limlari — o'z bo'laklari oldindan yuklanadi
   '/crm/qongiroqlar': SAHIFA.qongiroqlar,
   '/crm/ai-chat': SAHIFA.aiChat,
   '/crm/analitika': SAHIFA.analitika,

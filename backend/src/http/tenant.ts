@@ -53,7 +53,7 @@ const ZAXIRA = new Set([
   'dashboard', 'panel', 'console', 'billing', 'pay', 'payment', 'payments', 'checkout',
   'help', 'support', 'yordam', 'status', 'docs', 'doc', 'blog', 'news', 'about', 'contact',
   'dev', 'test', 'testing', 'stage', 'staging', 'prod', 'production', 'demo-admin', 'internal',
-  'sotuvai', 'sotuv', 'dillmind', 'dill-mind',
+  'sotuvai', 'sotuv', 'dillmind', 'dill-mind', 'dealmind', 'deal-mind',
 ]);
 
 /** 3–40 belgi: lotin kichik harflari, raqam va chiziqcha (boshi/oxirida emas, ketma-ket emas). */

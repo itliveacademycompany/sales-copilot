@@ -10,7 +10,7 @@ import { maydonlarniTekshir, type MaydonTavsifi } from './xizmat.js';
  * TASHQI CRM → ICHKI CRM (bir tomonlama sinxron)
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * amoCRM (yoki Bitrix24) dagi sdelkalar Dill Mind ichki CRM bitimlariga
+ * amoCRM (yoki Bitrix24) dagi sdelkalar Deal Mind ichki CRM bitimlariga
  * aylanadi: voronka, bosqich, qo'shimcha maydonlar, kontakt va mas'ul bilan.
  * Lid sinxroni (`integrations/crm/lidlar.ts`) har sahifadan keyin shu yerga
  * uzatadi — alohida so'rov yoki tik kerak emas.
@@ -18,8 +18,8 @@ import { maydonlarniTekshir, type MaydonTavsifi } from './xizmat.js';
  * Qoidalar:
  *   • Kalit — `integration_id + external_id`: qayta kelsa yangilanadi, dubl yo'q.
  *   • Tashqi CRM asosiy manba: nom, summa, bosqich, mas'ul, qo'shimcha
- *     maydonlar o'sha yerdan; Dill Mind da ular faqat o'qiladi (xizmat
- *     tekshiradi). Izoh, vazifa, teg, kompaniya — Dill Mind da erkin.
+ *     maydonlar o'sha yerdan; Deal Mind da ular faqat o'qiladi (xizmat
+ *     tekshiradi). Izoh, vazifa, teg, kompaniya — Deal Mind da erkin.
  *   • O'zgarishlar bitim tarixiga `sync` belgisi bilan yoziladi.
  *   • Ichki CRM yoqilmagan bo'lsa — tashqi tuzilma bilan o'zi yoqiladi;
  *     birinchi marta bitimsiz shablon voronkalari arxivlanadi (chalkashmasin).
@@ -260,7 +260,7 @@ export async function lidlarniKochir(
     xarita: TashqiXarita;
     /** CRM foydalanuvchi ID → menejer (seat). */
     seatlar: Map<string, string>;
-    /** CRM lid ID → Dill Mind kontakt ID. */
+    /** CRM lid ID → Deal Mind kontakt ID. */
     kontaktlar: Map<string, string>;
   },
 ): Promise<{ yangi: number; yangilandi: number }> {
@@ -361,7 +361,7 @@ export async function lidlarniKochir(
       hodisalar.push({ type: 'responsible', data: { before: bor.responsibleSeatId, after: masul, sync: p.manba } });
     }
     if (!bor.contactId && kontakt) ozg.contactId = kontakt;
-    // Qo'shimcha maydonlar: tashqilari to'liq almashadi, Dill Mind niki saqlanadi
+    // Qo'shimcha maydonlar: tashqilari to'liq almashadi, Deal Mind niki saqlanadi
     const eski = (bor.fields ?? {}) as Record<string, unknown>;
     const yangiMaydonlar: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(eski)) if (!tashqiMaydonIdlar.has(k)) yangiMaydonlar[k] = v;
@@ -378,7 +378,7 @@ export async function lidlarniKochir(
     if (maydonOzgardi) ozg.fields = yangiMaydonlar;
 
     // CRM da o'chirilib, keyin savatdan tiklangan sdelka — bitim ham qaytadi.
-    // Foydalanuvchi Dill Mind da O'ZI o'chirgan bitimga tegilmaydi.
+    // Foydalanuvchi Deal Mind da O'ZI o'chirgan bitimga tegilmaydi.
     if (bor.deletedAt && (await sinxronOchirganmi(tx, bor.id))) {
       ozg.deletedAt = null;
       hodisalar.push({ type: 'restored', data: { sync: p.manba } });
@@ -411,7 +411,7 @@ async function sinxronOchirganmi(tx: Tx, dealId: string): Promise<boolean> {
 /**
  * Tashqi CRM da o'chirilgan sdelkalar — ichki CRM bitimi savatga (30 kun
  * tiklasa bo'ladi), tarixga `sync` belgisi bilan. Butunlay o'chirilmaydi:
- * izoh, vazifa va teglar Dill Mind da yozilgan bo'lishi mumkin. Sdelka CRM da
+ * izoh, vazifa va teglar Deal Mind da yozilgan bo'lishi mumkin. Sdelka CRM da
  * tiklansa, keyingi sinxron bitimni ham qaytaradi (`lidlarniKochir`).
  */
 export async function tashqiOchirilganlarniBelgila(
@@ -435,7 +435,7 @@ export async function tashqiOchirilganlarniBelgila(
 
 /**
  * Bitim tashqi CRM dan sinxronlanayaptimi (ulanish faol va ko'chirish yoqiq).
- * Shunday bo'lsa asosiy maydonlari Dill Mind da o'zgartirilmaydi.
+ * Shunday bo'lsa asosiy maydonlari Deal Mind da o'zgartirilmaydi.
  */
 export async function tashqiSinxronmi(tx: Tx, integrationId: string | null): Promise<string | null> {
   if (!integrationId) return null;

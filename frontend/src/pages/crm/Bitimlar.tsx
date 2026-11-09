@@ -617,7 +617,7 @@ export function sanaVaqt(iso: string | null | undefined): string {
   return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-// ─── Kanban (amoCRM "Сделки" namunasi, Dill Mind dizayni) ─────────────────────
+// ─── Kanban (amoCRM "Сделки" namunasi, Deal Mind dizayni) ─────────────────────
 
 /**
  * Voronka kanbani — amoCRM'dagidek:

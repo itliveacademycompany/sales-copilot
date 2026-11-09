@@ -261,7 +261,7 @@ export function teglarniTozala(teglar: string[] | undefined | null): string[] {
 }
 
 /**
- * Telefon bo'yicha mavjud kontakt (oxirgi 9 raqam) yoki yangisi. Dill Mind
+ * Telefon bo'yicha mavjud kontakt (oxirgi 9 raqam) yoki yangisi. Deal Mind
  * qo'ng'iroqlari ham shu kontaktga bog'langan — bitim kartochkasida ular
  * avtomatik ko'rinadi.
  */
@@ -1020,10 +1020,10 @@ export async function filtrIdlari(tx: Tx, p: { pipelineId?: string; doira: CrmDo
 // ─── Bitim kartochkasi ───────────────────────────────────────────────────────
 
 /**
- * Kartochka: bitim + kontakt + tarix + vazifalar + Dill Mind qo'ng'iroqlari.
+ * Kartochka: bitim + kontakt + tarix + vazifalar + Deal Mind qo'ng'iroqlari.
  * Qo'ng'iroq va tahlil kontakt orqali — sinxronlashsiz, avtomatik.
  * Vazifalar: bitimga biriktirilgani VA shu mijoz qo'ng'iroqlaridan tahlil
- * yaratganlari (Dill Mind vazifalari ham shu yerda ko'rinadi).
+ * yaratganlari (Deal Mind vazifalari ham shu yerda ko'rinadi).
  */
 export async function bitimKartochkasi(tx: Tx, p: { id: string; doira: CrmDoira }) {
   const d = await bitimniOl(tx, p.id, p.doira);
@@ -1106,7 +1106,7 @@ export async function bitimKartochkasi(tx: Tx, p: { id: string; doira: CrmDoira 
       .where(
         or(
           eq(task.dealId, d.id),
-          // Shu mijozning bitimsiz vazifalari: Dill Mind tahlilidan yoki kontaktga qo'yilgan
+          // Shu mijozning bitimsiz vazifalari: Deal Mind tahlilidan yoki kontaktga qo'yilgan
           d.contactId
             ? and(isNull(task.dealId), or(eq(conversation.contactId, d.contactId), eq(task.contactId, d.contactId)))
             : sql`false`,

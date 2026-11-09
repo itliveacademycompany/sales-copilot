@@ -124,7 +124,7 @@ export function TepaPanel({
 
   return (
     <header className="tepa-panel">
-      {/* Biznes nomi va qidiruv orasida — Dill Mind ↔ CRM kaliti */}
+      {/* Biznes nomi va qidiruv orasida — Deal Mind ↔ CRM kaliti */}
       <div className="tepa-chap">
         <div className="tepa-biznes">{biznesNomi}</div>
         <IlovaKaliti />

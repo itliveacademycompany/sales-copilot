@@ -28,7 +28,7 @@ import './voronka-sozlash.css';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * VORONKANI SOZLASH — amoCRM "Настроить" ekrani namunasida (Dill Mind dizayni)
+ * VORONKANI SOZLASH — amoCRM "Настроить" ekrani namunasida (Deal Mind dizayni)
  * ═══════════════════════════════════════════════════════════════════════════
  *
  *   • Tepada: voronka nomi (almashtirish ro'yxati, nomini o'zgartirish),

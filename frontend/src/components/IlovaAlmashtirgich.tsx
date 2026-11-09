@@ -20,7 +20,7 @@ function oxirgi(ilova: 'sotuv' | 'crm'): string | null {
 /**
  * Ikki ilova orasidagi yo'llar: hozir qaysi birida turibmiz va ikkinchisiga
  * qayerga o'tiladi (o'sha ilovada oxirgi ochilgan sahifa). Layout'dagi
- * logo shu orqali Dill Mind ↔ CRM almashtiradi.
+ * logo shu orqali Deal Mind ↔ CRM almashtiradi.
  */
 export function useIlovaYollari() {
   const loc = useLocation();

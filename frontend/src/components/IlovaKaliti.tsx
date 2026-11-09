@@ -9,14 +9,14 @@ import './ilova-kaliti.css';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
- * Dill Mind ↔ CRM KALITI — "odamcha chuqurga tushadi" animatsiyasi bilan
+ * Deal Mind ↔ CRM KALITI — "odamcha chuqurga tushadi" animatsiyasi bilan
  * ═══════════════════════════════════════════════════════════════════════════
  *
- * Neumorfik kapsula: chapda tugma (✨ Dill Mind / 💼 CRM), o'ngda chuqur.
+ * Neumorfik kapsula: chapda tugma (✨ Deal Mind / 💼 CRM), o'ngda chuqur.
  * Bosilganda tugma botadi, yonidan odamcha chiqadi, chuqurgacha yuradi,
  * sakrab unga tushadi — chuqur ochiladi va ikkinchi ilova (oxirgi ochilgan
  * sahifasi) aynan shu chuqurdan aylana bo'lib butun ekranga yoyiladi.
- * Kapsula ikkala ilovada ham oq; tugmadagi belgi ✨ Dill Mind / 💼 CRM.
+ * Kapsula ikkala ilovada ham oq; tugmadagi belgi ✨ Deal Mind / 💼 CRM.
  *
  * "Harakatni kamaytirish" yoqilgan bo'lsa — animatsiyasiz, darhol o'tadi.
  */
@@ -44,7 +44,7 @@ export function IlovaKaliti() {
 
   const crmda = yollar.crm;
   const manzil = crmda ? yollar.sotuvYol : yollar.crmYol;
-  const nomi = crmda ? t('Dill Mind ga qaytish') : t("CRM ga o'tish");
+  const nomi = crmda ? t('Deal Mind ga qaytish') : t("CRM ga o'tish");
 
   const bos = () => {
     if (bosqich !== 'tinch') return;

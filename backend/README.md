@@ -1,6 +1,6 @@
 # Backend
 
-Dill Mind — AI sotuv tahlili platformasi, server qismi.
+Deal Mind — AI sotuv tahlili platformasi, server qismi.
 
 Quyida arxitektura qarorlari va **ularning sabablari** yozilgan. Matndagi
 `FR-XX` va `TZ 3.5` kabi belgilar ichki spetsifikatsiya bandlariga ishora —
@@ -713,13 +713,13 @@ qaytaradi — birinchi marta hammasi (tikma-tik, kursor har sahifadan keyin
 saqlanadi), keyin faqat o'zgarganlari. `crm_lead` jadvaliga upsert
 (`integration_id + crm_id`); voronka/bosqich nomi va turi, mas'ul
 (menejer kartochkasidagi "CRM ID" → `seat_id`), mijoz telefoni bo'yicha
-Dill Mind kontakti (oxirgi 9 raqam; yo'q bo'lsa yaratiladi). CRM sahifasida
+Deal Mind kontakti (oxirgi 9 raqam; yo'q bo'lsa yaratiladi). CRM sahifasida
 voronkalar tanlanadi; ro'yxat — Lid xulosalari → «CRM lidlari»
 (`GET /businesses/:id/crm-leads`, sotuvchi faqat o'zinikini ko'radi).
 
 **Tahlildan keyin** (worker, har 20 s): mijoz telefoni bo'yicha CRM dagi
 eng so'nggi OCHIQ sdelka (bo'lmasa kontakt) topiladi va unga izoh yoziladi
-(baho, xulosa, kamchilik, keyingi qadam, Dill Mind havolasi); shu qo'ng'iroq
+(baho, xulosa, kamchilik, keyingi qadam, Deal Mind havolasi); shu qo'ng'iroq
 vazifalari sdelka mas'uliga CRM vazifasi bo'lib tushadi. Ikkalasi CRM
 sahifasida o'chiriladi.
 

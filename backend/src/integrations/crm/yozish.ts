@@ -25,8 +25,8 @@ import { kontekstQur } from './kontekst.js';
  *   1. Tahlil qilingan, hali CRM ga yozilmagan qo'ng'iroqlar olinadi.
  *   2. Mijoz telefoni bo'yicha CRM dan ochiq sdelka (bo'lmasa kontakt)
  *      topiladi va unga izoh yoziladi: baho, xulosa, kamchilik, keyingi
- *      qadam va Dill Mind dagi havola.
- *   3. Shu qo'ng'iroqdan chiqqan Dill Mind vazifalari CRM da vazifa bo'lib
+ *      qadam va Deal Mind dagi havola.
+ *   3. Shu qo'ng'iroqdan chiqqan Deal Mind vazifalari CRM da vazifa bo'lib
  *      yaratiladi — mas'ul sdelkaning mas'uli.
  *
  * KAFOLATLAR
@@ -57,7 +57,7 @@ type Til = 'uz' | 'ru' | 'en';
 
 const SOZ: Record<Til, Record<string, string>> = {
   uz: {
-    sarlavha: "Dill Mind · qo'ng'iroq tahlili",
+    sarlavha: "Deal Mind · qo'ng'iroq tahlili",
     menejer: 'Menejer',
     baho: 'Baho',
     xulosa: 'Xulosa',
@@ -67,7 +67,7 @@ const SOZ: Record<Til, Record<string, string>> = {
     baholanmadi: 'baholanmadi',
   },
   ru: {
-    sarlavha: 'Dill Mind · анализ звонка',
+    sarlavha: 'Deal Mind · анализ звонка',
     menejer: 'Менеджер',
     baho: 'Оценка',
     xulosa: 'Итог',
@@ -77,7 +77,7 @@ const SOZ: Record<Til, Record<string, string>> = {
     baholanmadi: 'не оценивался',
   },
   en: {
-    sarlavha: 'Dill Mind · call analysis',
+    sarlavha: 'Deal Mind · call analysis',
     menejer: 'Manager',
     baho: 'Score',
     xulosa: 'Summary',
@@ -309,7 +309,7 @@ export function suhbatlarSorovi(tx: Tx, integrationId: string, boshlanish: Date)
     .limit(TIK_LIMITI);
 }
 
-/** CRM da hali yaratilmagan Dill Mind vazifalari — qo'ng'iroqi CRM yozuviga bog'langanlari. */
+/** CRM da hali yaratilmagan Deal Mind vazifalari — qo'ng'iroqi CRM yozuviga bog'langanlari. */
 export function vazifalarSorovi(tx: Tx, integrationId: string, boshlanish: Date) {
   // Qo'ng'iroq qaydi (sdelka) — vazifaning CRM dagi joyi
   const suhbatQaydi = sql`(
@@ -471,7 +471,7 @@ async function vazifalarniYoz(
     const muddat = v.dueAt && v.dueAt.getTime() > hozir + 15 * 60_000 ? v.dueAt : new Date(hozir + 86_400_000);
     try {
       const id = await adapter.vazifa(ctx, yozuv, {
-        sarlavha: `Dill Mind: ${v.title}`,
+        sarlavha: `Deal Mind: ${v.title}`,
         matn: v.description ?? '',
         muddat,
       });

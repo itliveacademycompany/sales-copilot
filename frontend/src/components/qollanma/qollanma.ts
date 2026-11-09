@@ -59,7 +59,7 @@ export const PROVAYDER_NOMI: Record<string, string> = {
   facebook: 'Facebook',
   telegram: 'Telegram',
   fayl: 'Video fayl',
-  yuklangan: 'Dill Mind',
+  yuklangan: 'Deal Mind',
   boshqa: 'Tashqi sayt',
 };
 

@@ -166,7 +166,7 @@ export function LoyihaHaqida() {
               <Sparkles />
             </span>
             <span className="logo-matn">
-              Dill <em>Mind</em>
+              Deal <em>Mind</em>
             </span>
           </a>
 
@@ -438,7 +438,7 @@ export function LoyihaHaqida() {
 
       <footer className="ly-pastki">
         <span className="logo-matn">
-          Dill <em>Mind</em>
+          Deal <em>Mind</em>
         </span>
         <span>{m.pastki}</span>
       </footer>
