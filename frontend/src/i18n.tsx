@@ -1,8 +1,31 @@
 import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api } from './api';
 import { useAuth } from './auth';
+import { IlkYuklanish } from './components/IlkYuklanish';
 import { useKabinet } from './kabinet';
-import { LUGAT } from './lugat';
+import type { Lugat } from './lugat';
+
+/**
+ * LUG'AT ALOHIDA BO'LAK. Unda barcha sahifalarning inglizcha va ruscha
+ * tarjimalari bor (asosiy JS faylning yarmiga yaqin). O'zbek tilida u
+ * umuman yuklanmaydi — kalitlarning o'zi o'zbekcha matn. Boshqa til
+ * tanlanganda bir marta yuklanadi; birinchi ochilishda shu vaqt ichida
+ * yuklanish ekrani turadi (o'zbekcha matn chaqnab o'tmasin).
+ */
+let LUGAT: Lugat | null = null;
+let lugatVaedasi: Promise<void> | null = null;
+
+export function lugatniYukla(): Promise<void> {
+  lugatVaedasi ??= import('./lugat')
+    .then((m) => {
+      LUGAT = m.LUGAT;
+    })
+    .catch((e: unknown) => {
+      lugatVaedasi = null; // keyingi urinishda qayta so'ralsin
+      throw e;
+    });
+  return lugatVaedasi;
+}
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -51,7 +74,7 @@ const normal = (l: string | null | undefined): Til => (l === 'en' ? 'en' : l ===
  */
 function tarjimaQil(til: Til, s: string): string {
   if (til !== 'uz') {
-    const t = LUGAT[s]?.[til];
+    const t = LUGAT?.[s]?.[til];
     if (t !== undefined) return t;
   }
   const chegara = s.indexOf('##');
@@ -174,11 +197,34 @@ export function TilProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = til;
   }, [til]);
 
+  // Lug'at (inglizcha/ruscha) — faqat o'zbek tilidan boshqasi tanlanganda
+  const [lugatTayyor, setLugatTayyor] = useState(() => LUGAT !== null);
+  useEffect(() => {
+    if (til === 'uz' || LUGAT) return;
+    let tirik = true;
+    // Yuklanmasa ham ilova to'xtab qolmaydi — matnlar o'zbekcha ko'rinadi
+    lugatniYukla()
+      .catch(() => undefined)
+      .finally(() => tirik && setLugatTayyor(true));
+    return () => {
+      tirik = false;
+    };
+  }, [til]);
+
   const t = useCallback(
     (s: string, qiymatlar?: Qiymatlar) => qoy(tarjimaQil(til, s), qiymatlar),
-    [til],
+    // lugatTayyor — lug'at kelgach hamma matn qayta tarjima qilinsin
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [til, lugatTayyor],
   );
   const v = useMemo(() => ({ til, setTil, t }), [til, setTil, t]);
+
+  // Birinchi ochilishda lug'at kelguncha yuklanish ekrani. Ilova ichida til
+  // almashtirilganda ekran almashmaydi (holat yo'qolmasin) — bir lahza
+  // o'zbekcha turib, lug'at kelgach tarjima bo'ladi.
+  const chizildi = useRef(false);
+  if (til !== 'uz' && !lugatTayyor && !chizildi.current) return <IlkYuklanish />;
+  chizildi.current = true;
   return <TilCtx.Provider value={v}>{children}</TilCtx.Provider>;
 }
 

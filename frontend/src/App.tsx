@@ -4,6 +4,7 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { useAuth } from './auth';
 import { useT } from './i18n';
 import { useKabinet } from './kabinet';
+import { IlkYuklanish } from './components/IlkYuklanish';
 import { Layout } from './components/Layout';
 import { SAHIFA } from './sahifalar';
 import { KabinetHolati } from './pages/KabinetHolati';
@@ -46,7 +47,8 @@ export function App() {
     );
   }
 
-  if (loading || !kabinet) return <div className="yuklanmoqda">{t('Yuklanmoqda…')}</div>;
+  // Kirish tekshirilguncha — index.html dagi yuklanish ekrani davom etadi (oraliqda bo'sh ekran yo'q)
+  if (loading || !kabinet) return <IlkYuklanish izoh={t('Yuklanmoqda…')} />;
 
   // SaaS: mavjud bo'lmagan subdomen — hech qanday kirish yoki landing ko'rsatilmaydi
   if (kabinet.tur === 'topilmadi') return <KabinetHolati tur="topilmadi" kabinet={kabinet} />;

@@ -5,7 +5,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { birMartaYangila, XatoChegarasi } from './components/XatoChegarasi';
 import { AuthProvider } from './auth';
-import { TilProvider } from './i18n';
+import { lugatniYukla, TilProvider } from './i18n';
 import { KabinetProvider } from './kabinet';
 import './styles.css';
 
@@ -23,6 +23,17 @@ if (saqlanganMavzu !== 'system') {
     'data-theme',
     saqlanganMavzu === 'dark' ? 'dark' : 'light',
   );
+}
+
+/**
+ * Til lug'ati alohida bo'lak (i18n.tsx). Oldin ruscha yoki inglizcha
+ * tanlangan bo'lsa — kirish tekshiruvi bilan PARALLEL yuklana boshlaydi.
+ */
+try {
+  const til = localStorage.getItem('sotuvai-til');
+  if (til === 'ru' || til === 'en') void lugatniYukla().catch(() => undefined);
+} catch {
+  /* xotira yopiq — lug'at TilProvider'da yuklanadi */
 }
 
 /**
