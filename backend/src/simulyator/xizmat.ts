@@ -357,7 +357,10 @@ export async function javobBer(
       system: mijozPrompti(tayyor.s, tayyor.profil, qolgan),
       user: `SUHBAT MATNI:\n${matnniYoz(tayyor.yangi)}\n\nMijozning keyingi javobi:`,
       schema: javobSxemasi,
-      maxTokens: 400,
+      // Jonli suhbat: tez javob muhim. Fikrlovchi modellar (GLM) fikrlash
+      // tokenlarini shu limitdan sarflaydi — shuning uchun zaxira bilan.
+      maxTokens: 2000,
+      reasoningEffort: 'low',
     });
     j = z.object({ javob: z.string(), tugatish: z.boolean().default(false) }).parse(res.json);
   } catch (e) {
@@ -486,7 +489,8 @@ export async function baholash(
       system: baholashPrompti(s),
       user: `MASHQ MATNI (${m.davomiylikSek} soniya):\n${matnniYoz(m.matn as MatnQator[])}`,
       schema: natijaJsonSxema,
-      maxTokens: 2000,
+      maxTokens: 4000,
+      reasoningEffort: 'high',
     });
     const xom = res.json as Record<string, unknown>;
     // Model chegaradan chiqsa ham natija yo'qolmasin — sonlarni qisib olamiz

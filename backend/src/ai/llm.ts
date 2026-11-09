@@ -77,6 +77,21 @@ export function computeCostUsd(model: string, tokensIn: number, tokensOut: numbe
 
 const DEFAULT_MODEL = 'claude-opus-5';
 
+/**
+ * Bosqich uchun model. Provayder sozlamasida faqat eski bosqichlar
+ * (stage2/stage3/playbookBuilder) bo'lishi mumkin — yangi bosqich
+ * (simulyator) uchun model berilmagan bo'lsa, umumiy tahlil modeli olinadi.
+ * Aks holda klientning standart nomi (masalan Groq'niki) boshqa provayderga
+ * yuborilib, so'rov rad etiladi.
+ */
+function bosqichModeli(
+  models: Partial<Record<LlmJsonRequest['stage'], string>>,
+  stage: LlmJsonRequest['stage'],
+  standart: string,
+): string {
+  return models[stage] ?? (stage === 'simulyator' ? (models.stage3 ?? models.stage2) : undefined) ?? standart;
+}
+
 export class AnthropicLlm implements LlmClient {
   private client: Anthropic;
 
@@ -92,7 +107,7 @@ export class AnthropicLlm implements LlmClient {
   }
 
   async completeJson(req: LlmJsonRequest): Promise<LlmJsonResponse> {
-    const model = this.models[req.stage] ?? DEFAULT_MODEL;
+    const model = bosqichModeli(this.models, req.stage, DEFAULT_MODEL);
 
     const response = await this.client.messages.create({
       model,
@@ -223,7 +238,7 @@ export class OpenAiCompatLlm implements LlmClient {
   ) {}
 
   async completeJson(req: LlmJsonRequest): Promise<LlmJsonResponse> {
-    const model = this.models[req.stage] ?? this.defaultModel;
+    const model = bosqichModeli(this.models, req.stage, this.defaultModel);
 
     /**
      * Z.ai (GLM) hujjatida (guides/capabilities/struct-output) faqat
