@@ -5,6 +5,7 @@ import { api, ApiError, fmtSana } from '../../api';
 import { BajarishOyna, VazifaOyna } from '../../crm/komponentlar';
 import { mahalliyVaqt, muddatHolati, useCrm, vazifaTuri } from '../../crm/malumot';
 import { MsBosh } from '../../crm/MsBosh';
+import { TanlovMenyu } from '../../components/analitika/Ochiluvchi';
 import { useT } from '../../i18n';
 
 interface VazifaQator {
@@ -79,23 +80,24 @@ export function CrmVazifalar() {
         </button>
       </MsBosh>
       <div className="ci-filtrlar">
-        <select className="input ci-tor" value={tur} onChange={(e) => ozgartir({ type: e.target.value || null })} aria-label={t('Vazifa turi')}>
-          <option value="">{t('Barcha turlar')}</option>
-          {holat.taskTypes.map((x) => (
-            <option key={x.id} value={x.id}>
-              {t(x.name)}
-            </option>
-          ))}
-        </select>
+        {/* Brauzerning tizim ro'yxati o'rniga dizaynga mos ochiluvchi ro'yxat */}
+        <TanlovMenyu
+          qiymat={tur}
+          variantlar={[{ qiymat: '', nom: t('Barcha turlar') }, ...holat.taskTypes.map((x) => ({ qiymat: x.id, nom: t(x.name) }))]}
+          onOzgar={(v) => ozgartir({ type: v || null })}
+          aria={t('Vazifa turi')}
+          ton={tur ? 'ci-filtr-tanlangan' : undefined}
+          kenglik={200}
+        />
         {holat.scope === 'all' && (
-          <select className="input ci-tor" value={seat} onChange={(e) => ozgartir({ seat: e.target.value || null })} aria-label={t("Mas'ul")}>
-            <option value="">{t('Barcha xodimlar')}</option>
-            {seatlar.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.displayName}
-              </option>
-            ))}
-          </select>
+          <TanlovMenyu
+            qiymat={seat}
+            variantlar={[{ qiymat: '', nom: t('Barcha xodimlar') }, ...seatlar.map((s) => ({ qiymat: s.id, nom: s.displayName }))]}
+            onOzgar={(v) => ozgartir({ seat: v || null })}
+            aria={t("Mas'ul")}
+            ton={seat ? 'ci-filtr-tanlangan' : undefined}
+            kenglik={200}
+          />
         )}
       </div>
       {korinish === 'royxat' ? (

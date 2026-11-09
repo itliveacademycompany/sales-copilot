@@ -11,6 +11,9 @@
 .ci-bosh .tab svg, .ci-filtrlar .tab svg { width: 15px; height: 15px; vertical-align: -3px; margin-right: 4px; }
 
 .ci-filtrlar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+/* Filtr ochiluvchi ro'yxatlari (TanlovMenyu): tanlangani ko'k rangda ajralib turadi */
+.ci-filtrlar .tm .tm-tugma { padding: 10px 14px; font-size: 14px; font-weight: 500; }
+.ci-filtrlar .tm .tm-tugma.ci-filtr-tanlangan { color: var(--ia-text); font-weight: 600; }
 .ci-qidiruv { flex: 1 1 240px; max-width: 360px; }
 .input.ci-tor { width: auto; min-width: 170px; padding-top: 9px; padding-bottom: 9px; }
 .ci-voronkalar { overflow-x: auto; flex-wrap: nowrap; max-width: 100%; }
