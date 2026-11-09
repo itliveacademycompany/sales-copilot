@@ -117,7 +117,14 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
             round(max(a.overall_score), 1)::float             as best_score,
             count(*) filter (where a.is_flagged)::int         as flagged,
             percentile_cont(0.5) within group (order by ${firstResponseExpr})::float
-                                                              as median_first_response_seconds
+                                                              as median_first_response_seconds,
+            -- kpiFor bilan bir xil shart. Ilgari bosh sahifa shu son uchun
+            -- har sotuvchiga alohida kabinet so'rovini yuborardi (12 tagacha,
+            -- har biri 5 ta SQL) — endi reyting bilan bitta so'rovda keladi.
+            count(*) filter (
+              where (a.dynamics #>> '{replyMetrics,unansweredTurns}')::int > 0
+                and coalesce(a.dynamics #>> '{needsReply}', 'true') <> 'false'
+            )::int                                            as unanswered_sessions
           from seat s
           left join conversation c
             on c.seat_id = s.id
@@ -141,6 +148,7 @@ export function registerDashboardRoutes(app: FastifyInstance): void {
           bestScore: r.best_score,
           flagged: r.flagged,
           medianFirstResponseSeconds: r.median_first_response_seconds,
+          unansweredSessions: r.unanswered_sessions,
         })),
       };
     },

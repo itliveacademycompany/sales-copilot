@@ -538,9 +538,14 @@ async function main(): Promise<void> {
       cookies: auth,
     });
     const lbBody = lb.json() as {
-      leaderboard: { seatId: string; displayName: string; conversations: number; avgScore: number | null }[];
+      leaderboard: { seatId: string; displayName: string; conversations: number; avgScore: number | null; unansweredSessions: number }[];
     };
     check('reyting: 2 sotuvchi (FR-103)', lbBody.leaderboard.length === 2, `soni: ${lbBody.leaderboard.length}`);
+    check(
+      'reyting: javobsiz sessiyalar KPI bilan bir xil (kabinet so\'rovisiz)',
+      lbBody.leaderboard.reduce((s, r) => s + r.unansweredSessions, 0) === kpiBody.current.unansweredSessions,
+      JSON.stringify(lbBody.leaderboard.map((r) => r.unansweredSessions)),
+    );
     check(
       'reyting tartibi: Malika birinchi (83.4 vs 20)',
       lbBody.leaderboard[0]?.seatId === malika && lbBody.leaderboard[1]?.seatId === sardor,

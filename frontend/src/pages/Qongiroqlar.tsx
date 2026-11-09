@@ -207,7 +207,8 @@ export function Qongiroqlar() {
     let bekor = false;
     setLoading(true);
     setXato(null);
-    void suhbatlarniYukla(biz, new Date(fromMs), 20)
+    // Faqat telefon kanali serverda filtrlanadi — Telegram suhbatlari umuman kelmaydi
+    void suhbatlarniYukla(biz, new Date(fromMs), 10, 'phone')
       .then((hammasi) => {
         if (bekor) return;
         setRows(

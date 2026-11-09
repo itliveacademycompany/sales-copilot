@@ -236,13 +236,14 @@ export function SonggiTahlillar({ data }: { data: BoshMalumot }) {
       ) : (
         <ol className="vaqt-chizigi">
           {royxat.map((r) => {
-            const t = data.tafsilotlar[r.id];
-            const a = t?.analysis;
+            // Suhbat turi, yo'nalish, xizmat va davomiylik ro'yxat qatorida keladi —
+            // alohida (transkriptli) tafsilot so'rovi shart emas.
+            const a = r;
             const b = ball(r);
             const lid = lidTuri(r.leadQuality);
-            const oila = a?.callFamily ? oilalar.get(a.callFamily) ?? a.callFamily : null;
-            const dav = t?.conversation.durationSeconds ?? davomiylik(r);
-            const yon = t?.conversation.direction ? YONALISH[t.conversation.direction] : undefined;
+            const oila = a.callFamily ? oilalar.get(a.callFamily) ?? a.callFamily : null;
+            const dav = r.durationSeconds ?? davomiylik(r);
+            const yon = r.direction ? YONALISH[r.direction] : undefined;
             return (
               <li key={r.id}>
                 <span className={`vc-nuqta ${ballKlass(b)}`} aria-hidden="true" />

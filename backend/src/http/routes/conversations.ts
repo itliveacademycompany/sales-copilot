@@ -5,6 +5,7 @@ import { withTenant, withoutTenantIsolation, type Tx } from '../../db/index.js';
 import {
   analysis,
   appUser,
+  channel as channelEnum,
   commitment,
   contact,
   conversation,
@@ -66,9 +67,18 @@ const listQuery = z.object({
    * kesib qo'yardi. 500 talik sahifa + `since` — eski qatorlar umuman
    * o'qilmaydi.
    */
-  limit: z.coerce.number().int().min(1).max(500).default(30),
+  limit: z.coerce.number().int().min(1).max(2000).default(30),
   before: cursorSchema.optional(),
   since: z.coerce.date().optional(),
+  /** Faqat shu kanal (masalan Qo'ng'iroqlar sahifasi — `phone`). */
+  channel: z.enum(channelEnum.enumValues).optional(),
+  /**
+   * Analitika uchun yengil rejim: har qator uchun transkript bo'laklarini
+   * sanash (bog'langan subso'rov) o'tkazib yuboriladi, `segmentCount` = 0.
+   * Bosh sahifa va Qo'ng'iroqlar bu sonni ishlatmaydi, 2000 qatorda esa
+   * u so'rovning eng qimmat qismi edi.
+   */
+  lite: z.enum(['0', '1']).optional(),
 });
 
 /** Paket tafsiloti: bir so'rovda ko'pi bilan shuncha suhbat. */
@@ -241,6 +251,7 @@ export function registerConversationRoutes(app: FastifyInstance): void {
           .select({
             id: conversation.id,
             channel: conversation.channel,
+            direction: conversation.direction,
             seatId: conversation.seatId,
             externalThreadId: conversation.externalThreadId,
             startedAt: conversation.startedAt,
@@ -268,7 +279,10 @@ export function registerConversationRoutes(app: FastifyInstance): void {
             phoneTo: conversation.phoneTo,
             durationSeconds: conversation.durationSeconds,
             contactName: contact.name,
-            segmentCount: sql<number>`(
+            segmentCount:
+              q.lite === '1'
+                ? sql<number>`0`
+                : sql<number>`(
               select count(*)::int from transcript_segment ts
               where ts.conversation_id = ${conversation.id}
             )`,
@@ -279,6 +293,7 @@ export function registerConversationRoutes(app: FastifyInstance): void {
           .where(
             and(
               q.status ? eq(conversation.status, q.status) : undefined,
+              q.channel ? eq(conversation.channel, q.channel) : undefined,
               onlySeat ? eq(conversation.seatId, onlySeat) : undefined,
               q.since ? gte(conversation.startedAt, q.since) : undefined,
               q.before

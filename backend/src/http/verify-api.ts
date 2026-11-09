@@ -658,8 +658,24 @@ async function main(): Promise<void> {
         !sinceIds.includes(fx.oldingi),
       `kod: ${sinceRes.statusCode}`,
     );
-    const ortiqLimit = await app.inject({ method: 'GET', url: `${base}/conversations?limit=501`, cookies: auth });
-    check('limit 501 — 422', ortiqLimit.statusCode === 422, `kod: ${ortiqLimit.statusCode}`);
+    const ortiqLimit = await app.inject({ method: 'GET', url: `${base}/conversations?limit=2001`, cookies: auth });
+    check('limit 2001 — 422 (2000 gacha ruxsat)', ortiqLimit.statusCode === 422, `kod: ${ortiqLimit.statusCode}`);
+
+    // Yengil rejim va kanal filtri — Bosh sahifa / Qo'ng'iroqlar uchun
+    const yengil = await app.inject({
+      method: 'GET',
+      url: `${base}/conversations?limit=2000&lite=1&channel=phone&since=${encodeURIComponent(since)}`,
+      cookies: auth,
+    });
+    const yRows = (yengil.json() as { conversations?: { id: string; channel: string; direction: string; segmentCount: number }[] }).conversations ?? [];
+    check(
+      'lite=1&channel=phone — faqat telefon, yo\'nalish bor, bo\'laklar sanalmaydi',
+      yengil.statusCode === 200 && yRows.length > 0 && yRows.every((r) => r.channel === 'phone' && typeof r.direction === 'string' && r.segmentCount === 0),
+      `kod: ${yengil.statusCode}, ${yRows.length} qator`,
+    );
+    const telegramdan = await app.inject({ method: 'GET', url: `${base}/conversations?channel=telegram&since=${encodeURIComponent(since)}`, cookies: auth });
+    const tRows = (telegramdan.json() as { conversations?: { id: string }[] }).conversations ?? [];
+    check('channel=telegram telefon suhbatlarini chiqarmaydi', telegramdan.statusCode === 200 && !tRows.some((r) => r.id === fx.asosiy));
 
     // Vazifa: o'zinikining HOLATINI o'zgartira oladi, muddatini emas.
     const [mgrTask] = await withoutTenantIsolation('test: sotuvchiga vazifa berish', (tx) =>

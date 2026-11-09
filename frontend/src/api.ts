@@ -188,6 +188,8 @@ export interface DailyReportRow {
 export interface ConversationRow {
   id: string;
   channel: string;
+  /** 'inbound' | 'outbound' | 'na' */
+  direction: string;
   seatId: string | null;
   startedAt: string;
   endedAt: string | null;
@@ -207,6 +209,7 @@ export interface ConversationRow {
   phoneTo: string | null;
   durationSeconds: number | null;
   contactName: string | null;
+  /** `lite=1` bilan so'ralganda (analitika ro'yxatlari) sanalmaydi — 0. */
   segmentCount: number;
 }
 
@@ -395,6 +398,8 @@ export interface LeaderboardRow {
   bestScore: number | null;
   flagged: number;
   medianFirstResponseSeconds: number | null;
+  /** Davrdagi javobsiz qolgan sessiyalar (KPI bilan bir xil shart). */
+  unansweredSessions: number;
 }
 
 export interface CriterionAgg {

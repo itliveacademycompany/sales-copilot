@@ -4,18 +4,15 @@ import {
   lidTuri,
   type AlertRow,
   type BusinessAccess,
-  type ConversationDetail,
   type ConversationRow,
   type CriterionAgg,
   type Kpi,
   type LeaderboardRow,
   type PlaybookBody,
-  type SeatDashboard,
   type SeatRow,
   type TrendPoint,
 } from '../../api';
 import { tarjima } from '../../i18n';
-import { tafsilotOl } from '../tafsilotKesh';
 
 /**
  * BOSH SAHIFA MA'LUMOT QATLAMI
@@ -76,17 +73,27 @@ export function qs(from: Date, to: Date): string {
 }
 
 /**
- * Suhbatlarni `since` gacha sahifalab yuklaydi (ko'pi bilan `maxSahifa` * 500).
+ * Suhbatlarni `since` gacha sahifalab yuklaydi (ko'pi bilan `maxSahifa` * 2000).
  * `since` serverga ham beriladi — davrdan eski qatorlar umuman kelmaydi.
- * Ilgari 100 talik sahifa × 10 = 1000 qator chegarasi oyiga ~1500
- * qo'ng'iroqda davrning bir qismini jimgina kesib qo'yardi.
+ *
+ * Tezlik: sahifalar kursor bilan KETMA-KET keladi, har biri serverga bitta
+ * aylanma yo'l. Ilgari 500 talik sahifa 60 kunlik davrda 6+ so'rov bo'lardi
+ * va har qatorda transkript bo'laklari sanalardi — bosh sahifa shuni kutib
+ * qolardi. Endi 2000 talik sahifa va `lite=1` (bo'laklar sanalmaydi —
+ * bu sahifalar `segmentCount` ishlatmaydi). `kanal` berilsa, boshqa kanal
+ * qatorlari serverdan umuman kelmaydi.
  */
-export async function suhbatlarniYukla(biz: string, since: Date, maxSahifa = 20): Promise<ConversationRow[]> {
+export async function suhbatlarniYukla(
+  biz: string,
+  since: Date,
+  maxSahifa = 10,
+  kanal?: 'phone' | 'telegram',
+): Promise<ConversationRow[]> {
   const hammasi: ConversationRow[] = [];
   let before: string | null = null;
-  const dan = `&since=${encodeURIComponent(since.toISOString())}`;
+  const dan = `&lite=1&since=${encodeURIComponent(since.toISOString())}${kanal ? `&channel=${kanal}` : ''}`;
   for (let i = 0; i < maxSahifa; i++) {
-    const url: string = `${biz}/conversations?limit=500${dan}${before ? `&before=${encodeURIComponent(before)}` : ''}`;
+    const url: string = `${biz}/conversations?limit=2000${dan}${before ? `&before=${encodeURIComponent(before)}` : ''}`;
     const r: { conversations: ConversationRow[]; nextCursor: string | null } = await api.get(url);
     hammasi.push(...r.conversations);
     const oxirgi = r.conversations[r.conversations.length - 1];
@@ -109,12 +116,8 @@ export interface BoshMalumot {
   ogohSoni: number;
   seats: SeatRow[];
   playbook: PlaybookBody | null;
-  /** Oxirgi tahlillar tafsiloti — suhbat turi, yo'nalish, xizmat. */
-  tafsilotlar: Record<string, ConversationDetail>;
-  /** Har sotuvchi bo'yicha davrdagi javobsiz sessiyalar (kabinet API'si). */
+  /** Har sotuvchi bo'yicha davrdagi javobsiz sessiyalar (reyting API'sidan). */
   javobsizSeat: Record<string, number>;
-  /** Har sotuvchi kabineti (zaif mezon, mezonlar jamoaga nisbatan) — Analitika uchun. */
-  seatKabinet: Record<string, SeatDashboard>;
 }
 
 export function useBoshMalumot(business: BusinessAccess | null, davr: Davr) {
@@ -169,30 +172,13 @@ export function useBoshMalumot(business: BusinessAccess | null, davr: Davr) {
             api.get<PlaybookBody>(`${biz}/playbook`).catch(() => null),
           ]);
 
-        // Oxirgi 5 ta tahlil tafsiloti (suhbat turi, yo'nalish, davomiylik)
-        const songgi = suhbatlar.filter((s) => s.status === 'done').slice(0, 5);
-        const tafsilotRoyxat = await Promise.all(
-          songgi.map((s) => tafsilotOl(biz, s.id).catch(() => null)),
-        );
-        const tafsilotlar: Record<string, ConversationDetail> = {};
-        tafsilotRoyxat.forEach((t, i) => {
-          if (t) tafsilotlar[songgi[i]!.id] = t;
-        });
-
-        // Har sotuvchi bo'yicha javobsiz sessiyalar — kabinet API'si (kichik jamoa uchun)
+        // Ilgari bu yerda ikkinchi to'lqin bor edi: 5 ta to'liq suhbat
+        // tafsiloti (transkript bilan) va 12 tagacha sotuvchi kabineti —
+        // hammasi suhbatlar ro'yxatini kutib, keyin boshlanardi. Kerakli
+        // maydonlar (suhbat turi, yo'nalish, xizmat, javobsizlar) endi ro'yxat
+        // va reyting javobida keladi.
         const javobsizSeat: Record<string, number> = {};
-        const seatKabinet: Record<string, SeatDashboard> = {};
-        await Promise.all(
-          board.leaderboard.slice(0, 12).map(async (r) => {
-            const d = await api
-              .get<SeatDashboard>(`${biz}/dashboard/seats/${r.seatId}${q}`)
-              .catch(() => null);
-            if (d) {
-              javobsizSeat[r.seatId] = d.current.unansweredSessions;
-              seatKabinet[r.seatId] = d;
-            }
-          }),
-        );
+        for (const r of board.leaderboard) javobsizSeat[r.seatId] = r.unansweredSessions ?? 0;
 
         if (bekor) return;
         setData({
@@ -207,9 +193,7 @@ export function useBoshMalumot(business: BusinessAccess | null, davr: Davr) {
           ogohSoni: ogoh.unseenCount,
           seats,
           playbook,
-          tafsilotlar,
           javobsizSeat,
-          seatKabinet,
         });
       } catch {
         if (!bekor) setXato(tarjima("Ma'lumotni yuklab bo'lmadi. Sahifani yangilab ko'ring."));
