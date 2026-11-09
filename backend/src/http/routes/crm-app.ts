@@ -530,10 +530,17 @@ export function registerCrmAppRoutes(app: FastifyInstance): void {
   // ─── Kontaktlar ────────────────────────────────────────────────────────────
 
   app.get(`${BASE}/contacts`, guard, async (req) => {
-    const q = z.object({ q: z.string().trim().max(100).optional(), companyId: z.string().uuid().optional(), ...sahifa }).parse(req.query);
+    const q = z
+      .object({
+        q: z.string().trim().max(100).optional(),
+        companyId: z.string().uuid().optional(),
+        filtr: z.enum(['bitimli', 'bitimsiz', 'qongiroqli']).optional(),
+        ...sahifa,
+      })
+      .parse(req.query);
     const d = doira(req);
     return withTenant(req.business!.businessId, (tx) =>
-      kontaktlarRoyxati(tx, { q: q.q || undefined, companyId: q.companyId, limit: q.limit, offset: q.offset, doira: d }),
+      kontaktlarRoyxati(tx, { q: q.q || undefined, companyId: q.companyId, filtr: q.filtr, limit: q.limit, offset: q.offset, doira: d }),
     );
   });
 

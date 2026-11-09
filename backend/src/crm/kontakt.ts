@@ -47,7 +47,15 @@ function kontaktDoirasi(doira: CrmDoira): SQL | undefined {
 
 export async function kontaktlarRoyxati(
   tx: Tx,
-  p: { q?: string; companyId?: string; limit: number; offset: number; doira: CrmDoira },
+  p: {
+    q?: string;
+    companyId?: string;
+    /** Tezkor filtr: bitimi bor, bitimsiz yoki qo'ng'iroq qilgan kontaktlar. */
+    filtr?: 'bitimli' | 'bitimsiz' | 'qongiroqli';
+    limit: number;
+    offset: number;
+    doira: CrmDoira;
+  },
 ) {
   const sh: SQL[] = [];
   if (p.q) {
@@ -63,8 +71,13 @@ export async function kontaktlarRoyxati(
   if (p.companyId) sh.push(eq(contact.companyId, p.companyId));
   const d = kontaktDoirasi(p.doira);
   if (d) sh.push(d);
-  const where = sh.length ? and(...sh) : undefined;
-  const [qatorlar, [jami]] = await Promise.all([
+  // Tezkor filtr sonlari (tugmalardagi raqam) — filtrsiz, qolgan shartlar bilan
+  const asosiy = sh.length ? and(...sh) : undefined;
+  const bitimiBor = sql`exists (select 1 from deal d where d.contact_id = "contact"."id" and d.deleted_at is null)`;
+  const qongiroqBor = sql`exists (select 1 from conversation cv where cv.contact_id = "contact"."id")`;
+  const filtrSharti = p.filtr === 'bitimli' ? bitimiBor : p.filtr === 'bitimsiz' ? sql`not ${bitimiBor}` : p.filtr === 'qongiroqli' ? qongiroqBor : undefined;
+  const where = filtrSharti ? (asosiy ? and(asosiy, filtrSharti) : filtrSharti) : asosiy;
+  const [qatorlar, [jami], [sonlar]] = await Promise.all([
     tx
       .select({
         id: contact.id,
@@ -88,8 +101,22 @@ export async function kontaktlarRoyxati(
       .limit(p.limit)
       .offset(p.offset),
     tx.select({ n: count() }).from(contact).where(where),
+    tx
+      .select({
+        hammasi: count(),
+        bitimli: sql<number>`count(*) filter (where ${bitimiBor})::int`,
+        qongiroqli: sql<number>`count(*) filter (where ${qongiroqBor})::int`,
+      })
+      .from(contact)
+      .where(asosiy),
   ]);
-  return { total: Number(jami?.n ?? 0), items: qatorlar };
+  const hammasi = Number(sonlar?.hammasi ?? 0);
+  const bitimli = Number(sonlar?.bitimli ?? 0);
+  return {
+    total: Number(jami?.n ?? 0),
+    counts: { hammasi, bitimli, bitimsiz: hammasi - bitimli, qongiroqli: Number(sonlar?.qongiroqli ?? 0) },
+    items: qatorlar,
+  };
 }
 
 const telefonlar = z.array(z.string().trim().max(40)).max(10);

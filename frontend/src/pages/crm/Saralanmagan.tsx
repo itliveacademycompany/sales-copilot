@@ -73,7 +73,7 @@ const MANBALAR: [Manba, string][] = [
 const MANBA_NOMI = Object.fromEntries(MANBALAR) as Record<Manba, string>;
 
 /** Bugun — "14:05", kecha — "Kecha, 14:05", qolganlari — "03.11.2026". */
-function qisqaVaqt(iso: string, t: (s: string) => string): string {
+export function qisqaVaqt(iso: string, t: (s: string) => string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   const p = (n: number) => String(n).padStart(2, '0');

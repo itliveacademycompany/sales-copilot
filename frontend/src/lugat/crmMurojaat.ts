@@ -26,6 +26,17 @@ const CRM_MUROJAAT: Lugat = {
   },
   "Ism, telefon yoki xabar bo'yicha qidirish": { en: 'Search by name, phone or message', ru: 'Поиск по имени, телефону или сообщению' },
   '{a}–{b} / {n}': { en: '{a}–{b} of {n}', ru: '{a}–{b} из {n}' },
+
+  // ─── Kontaktlar ro'yxati ───
+  'Bitimi bor': { en: 'With deals', ru: 'Со сделками' },
+  Bitimsiz: { en: 'Without deals', ru: 'Без сделок' },
+  "Qo'ng'iroq qilgan": { en: 'Called', ru: 'Звонили' },
+  "Mijozlar, ularning bitimlari va qo'ng'iroqlari — bitta ro'yxatda.": {
+    en: 'Clients, their deals and calls — in one list.',
+    ru: 'Клиенты, их сделки и звонки — в одном списке.',
+  },
+  Aloqa: { en: 'Contact info', ru: 'Связь' },
+  'Ism kiritilmagan': { en: 'No name', ru: 'Имя не указано' },
   'Tahrirlanmoqda — maydondan chiqqach saqlanadi': { en: 'Editing — saved when you leave the field', ru: 'Редактирование — сохранится, когда выйдете из поля' },
   "Mas'ulni faqat rahbar tanlaydi": { en: 'Only a manager can choose the responsible user', ru: 'Ответственного выбирает только руководитель' },
 
