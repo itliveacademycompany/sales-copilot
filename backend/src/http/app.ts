@@ -40,6 +40,7 @@ import { registerReportRoutes } from './routes/reports.js';
 import { registerSeatRoutes } from './routes/seats.js';
 import { registerTelegramRoutes } from './routes/telegram.js';
 import { registerTenantRoutes } from './routes/tenants.js';
+import { registerSalomatlikRoutes } from './routes/salomatlik.js';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -150,6 +151,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   registerErrorHandler(app);
+  // Auth'dan OLDIN: auth bosqichida osilgan so'rovlar ham kuzatuvga tushsin
+  registerSalomatlikRoutes(app);
   registerAuth(app);
   registerAuthRoutes(app);
   registerOauthRoutes(app);
