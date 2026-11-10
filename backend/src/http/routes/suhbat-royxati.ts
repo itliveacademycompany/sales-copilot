@@ -112,7 +112,9 @@ export function registerSuhbatRoyxatiRoutes(app: FastifyInstance): void {
       const to = q.to ?? new Date();
 
       const { asosiy, matnlar } = await withTenant(businessId, async (tx) => {
-        const shart = sql`c.started_at >= ${q.since} and c.started_at < ${to}
+        // Sana ISO satr + ::timestamptz: drizzle postgres-js'da sana serializeri
+        // o'chirilgan — Date obyekti xom SQL'da 500 xato beradi (analytics.ts ham shunday).
+        const shart = sql`c.started_at >= ${q.since.toISOString()}::timestamptz and c.started_at < ${to.toISOString()}::timestamptz
           ${onlySeat ? sql`and c.seat_id = ${onlySeat}` : sql``}
           ${q.channel ? sql`and c.channel = ${q.channel}` : sql``}`;
         const asosiy = qatorlar<{
@@ -214,7 +216,8 @@ export function registerSuhbatRoyxatiRoutes(app: FastifyInstance): void {
 
       // Davr + ko'rish doirasi — filtr sonlari shu asosda (boshqa filtrlarsiz),
       // xuddi avvalgi brauzer hisobidagidek.
-      const asos = sql`c.channel = 'phone' and c.started_at >= ${q.from} and c.started_at < ${q.to}
+      // Sana ISO satr + ::timestamptz (Date obyekti xom SQL'da ishlamaydi — yuqoriga qarang)
+      const asos = sql`c.channel = 'phone' and c.started_at >= ${q.from.toISOString()}::timestamptz and c.started_at < ${q.to.toISOString()}::timestamptz
         ${onlySeat ? sql`and c.seat_id = ${onlySeat}` : sql``}`;
 
       const holat = yoki(q.holat.filter((h) => HOLAT_SHARTI[h]).map((h) => HOLAT_SHARTI[h]!));
