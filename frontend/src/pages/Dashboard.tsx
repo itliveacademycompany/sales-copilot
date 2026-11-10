@@ -39,7 +39,8 @@ export function Dashboard() {
   const navigate = useNavigate();
   const t = useT();
   const [davr, setDavr] = useState<Davr>(boshlangichDavr);
-  const { data, loading, xato, qaytaYukla } = useBoshMalumot(business, davr);
+  // Ixcham rejim: hisob-kitobga kerakli maydonlar bitta yengil so'rovda (~10× kam ma'lumot)
+  const { data, loading, xato, qaytaYukla } = useBoshMalumot(business, davr, { ixcham: true });
 
   if (!business) return null;
 

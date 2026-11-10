@@ -103,6 +103,62 @@ export async function suhbatlarniYukla(
   return hammasi;
 }
 
+/** `GET …/conversations/compact` javobi (backend `http/routes/suhbat-royxati.ts`). */
+interface IxchamJavob {
+  v: number;
+  kesildi: boolean;
+  lugat: Record<'seat' | 'status' | 'lead' | 'oila' | 'xizmat' | 'soha' | 'yonalish' | 'kanal', string[]>;
+  /** [id, boshlanish(s), tugash(s)|null, seat, holat, lid, ball|null, davomiylik|null, oila, xizmat, soha, yo'nalish, kanal, bayroq] */
+  rows: [string, number, number | null, number, number, number, number | null, number | null, number, number, number, number, number, 0 | 1][];
+  /** id → [xulosa, eng zaif joy] — faqat oxirgi tahlillar uchun. */
+  matnlar: Record<string, [string | null, string | null]>;
+}
+
+/**
+ * Bosh sahifa uchun suhbatlar — BITTA so'rovda, ixcham shaklda.
+ *
+ * Ilgari 60 kunlik barcha suhbatlar to'liq qatorlar bilan (har birida xulosa
+ * matni) 2000 talik sahifalab ketma-ket yuklanardi: ~3 MB va 2+ so'rov. Bosh
+ * sahifa hisob-kitobiga matn kerak emas — u faqat "So'nggi tahlillar" va
+ * tepa qidiruvda, shuning uchun server matnni oxirgi 100 ta tahlilga beradi.
+ * Natija odatdagi `ConversationRow` — bo'limlar kodi o'zgarmaydi.
+ */
+export async function ixchamYukla(biz: string, since: Date): Promise<{ rows: ConversationRow[]; kesildi: boolean }> {
+  const j = await api.get<IxchamJavob>(`${biz}/conversations/compact?since=${encodeURIComponent(since.toISOString())}`);
+  const L = j.lugat;
+  const ol = (lug: string[], i: number) => (i < 0 ? null : (lug[i] ?? null));
+  const iso = (s: number | null) => (s === null ? null : new Date(s * 1000).toISOString());
+  const rows = j.rows.map(([id, s, e, seat, holat, lid, ball, davom, oila, xizmat, soha, yonalish, kanal, bayroq]): ConversationRow => {
+    const matn = j.matnlar[id];
+    return {
+      id,
+      channel: ol(L.kanal, kanal) ?? 'telegram',
+      direction: ol(L.yonalish, yonalish) ?? 'na',
+      seatId: ol(L.seat, seat),
+      startedAt: iso(s)!,
+      endedAt: iso(e),
+      status: ol(L.status, holat) ?? 'received',
+      excludedReason: null,
+      language: null,
+      overallScore: ball === null ? null : String(ball),
+      leadQuality: ol(L.lead, lid),
+      primaryGap: matn?.[1] ?? null,
+      summary: matn?.[0] ?? null,
+      isFlagged: bayroq === 1,
+      scoringMode: null,
+      callFamily: ol(L.oila, oila),
+      serviceLine: ol(L.xizmat, xizmat),
+      businessRelevance: ol(L.soha, soha),
+      phoneFrom: null,
+      phoneTo: null,
+      durationSeconds: davom,
+      contactName: null,
+      segmentCount: 0,
+    };
+  });
+  return { rows, kesildi: j.kesildi };
+}
+
 export interface BoshMalumot {
   kpi: { current: Kpi; previous: Kpi };
   trend: TrendPoint[];
@@ -120,7 +176,13 @@ export interface BoshMalumot {
   javobsizSeat: Record<string, number>;
 }
 
-export function useBoshMalumot(business: BusinessAccess | null, davr: Davr) {
+/**
+ * `ixcham` — Bosh sahifa: suhbatlar `ixchamYukla` orqali (bitta yengil so'rov).
+ * Analitika va kunlik hisobot matn/telefon maydonlarini ham ishlatadi —
+ * ular hozircha to'liq ro'yxat bilan qoladi.
+ */
+export function useBoshMalumot(business: BusinessAccess | null, davr: Davr, opts: { ixcham?: boolean } = {}) {
+  const ixcham = opts.ixcham ?? false;
   const [data, setData] = useState<BoshMalumot | null>(null);
   const [loading, setLoading] = useState(true);
   const [xato, setXato] = useState<string | null>(null);
@@ -166,7 +228,7 @@ export function useBoshMalumot(business: BusinessAccess | null, davr: Davr) {
             // bo'sh issiqlik xaritasi kabi NOTO'G'RI raqamlarni chizardi (serverda 269 ta
             // bo'lganda ham). Pulsdan so'nggi tahlillargacha hammasi shu ro'yxatdan
             // hisoblanadi — u bo'lmasa, xato va "Qayta urinish" ko'rsatilgani to'g'ri.
-            suhbatlarniYukla(biz, eng),
+            ixcham ? ixchamYukla(biz, eng).then((r) => r.rows) : suhbatlarniYukla(biz, eng),
             ogohKoradi
               ? api
                   .get<{ alerts: AlertRow[]; unseenCount: number }>(`${biz}/alerts?limit=20`)
@@ -212,7 +274,7 @@ export function useBoshMalumot(business: BusinessAccess | null, davr: Davr) {
     // Biznes ID'siga bog'langan: auth konteksti biznes obyektini yangi nusxa
     // bilan almashtirganda ma'lumot qayta yuklanmasin (ortiqcha so'rovlar).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [business?.businessId, fromMs, toMs, yangilash]);
+  }, [business?.businessId, fromMs, toMs, yangilash, ixcham]);
 
   return { data, loading, xato, qaytaYukla: () => setYangilash((n) => n + 1) };
 }

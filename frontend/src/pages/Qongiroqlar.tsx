@@ -32,7 +32,7 @@ import {
 } from '../api';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
-import { avatarRang, boshHarf, davomiylik, davomiylikMatn, qachon, suhbatlarniYukla } from '../components/bosh/malumot';
+import { avatarRang, boshHarf, davomiylik, davomiylikMatn, qachon } from '../components/bosh/malumot';
 import { TepaPanel } from '../components/bosh/TepaPanel';
 import { csvYukla, xlsxYukla, type Katak } from '../components/qongiroq/eksport';
 import {
@@ -95,6 +95,24 @@ const MAXSUS_YAQIN = 'maxsus:yopilishga-yaqin';
 const BIRIKTIRILMAGAN = 'biriktirilmagan';
 
 type Saralash = { ustun: 'vaqt' | 'ball' | 'davom'; yon: 'kamayish' | 'osish' };
+
+/** `GET …/calls` (backend `http/routes/suhbat-royxati.ts`) — davr bo'yicha filtr variantlari sonlari. */
+interface CallsSonlar {
+  holat: Record<string, number>;
+  maxsus: Record<string, number>;
+  oila: Record<string, number>;
+  xizmat: Record<string, number>;
+  menejer: Record<string, number>;
+}
+
+interface CallsJavob {
+  /** Filtrga mos jami. */
+  jami: number;
+  /** Davrdagi jami (filtrlarsiz). */
+  davrdaJami: number;
+  sonlar: CallsSonlar;
+  rows: ConversationRow[];
+}
 
 interface TarixBandi {
   id: string;
@@ -177,14 +195,28 @@ export function Qongiroqlar() {
   }, [qidiruvMatn, qidiruv, yangila]);
 
   // ─── Ma'lumot ───
+  /**
+   * SERVER TOMONDA FILTR VA SAHIFALASH (`GET …/calls`).
+   *
+   * Ilgari 30 kunlik barcha qo'ng'iroqlar (1200+ qator, ~1.5 MB, har birida
+   * xulosa matni) brauzerga yuklanib, filtr/qidiruv/saralash shu yerda
+   * qilinardi; 20 000 dan oshgani jimgina kesilardi. Endi brauzer faqat
+   * ko'rinadigan sahifani (25 ta) va filtr variantlari sonlarini oladi.
+   * "Yana ko'rsatish" keyingi sahifani so'raydi.
+   */
   const [rows, setRows] = useState<ConversationRow[]>([]);
+  const [jami, setJami] = useState(0);
+  const [davrdaJami, setDavrdaJami] = useState(0);
+  const [sonlar, setSonlar] = useState<CallsSonlar | null>(null);
   const [loading, setLoading] = useState(true);
+  const [yanaYuklanmoqda, setYanaYuklanmoqda] = useState(false);
   const [xato, setXato] = useState<string | null>(null);
   const [seats, setSeats] = useState<SeatRow[]>([]);
   const [playbook, setPlaybook] = useState<PlaybookBody | null>(null);
   const [profilXizmat, setProfilXizmat] = useState<string[]>([]);
   const [ogohSoni, setOgohSoni] = useState(0);
   const [yangilash, setYangilash] = useState(0);
+  const [saralash, setSaralash] = useState<Saralash>({ ustun: 'vaqt', yon: 'kamayish' });
 
   const biz = business ? `/api/v1/businesses/${business.businessId}` : '';
   const fromMs = from.getTime();
@@ -206,136 +238,112 @@ export function Qongiroqlar() {
     }
   }, [business, biz]);
 
+  /** Joriy filtrlar → so'rov satri (sahifa va hajmsiz). */
+  const filtrSatri = useMemo(() => {
+    const p = new URLSearchParams({
+      from: new Date(fromMs).toISOString(),
+      to: new Date(toMs).toISOString(),
+      sort: saralash.ustun,
+      dir: saralash.yon === 'kamayish' ? 'desc' : 'asc',
+    });
+    if (holat.length) p.set('holat', holat.join(','));
+    if (oila.length) p.set('oila', oila.join(','));
+    if (xizmat.length) p.set('xizmat', xizmat.join(','));
+    if (menejer.length) p.set('menejer', menejer.join(','));
+    if (qidiruv.trim()) p.set('q', qidiruv.trim());
+    return p.toString();
+    // `holat` va boshqalar har renderda yangi massiv — kalit sifatida params satri olinadi
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromMs, toMs, saralash, params.toString()]);
+
+  /** Eskirgan javob yangisini bosib ketmasin (tez filtr almashtirilganda). */
+  const sorovRaqami = useRef(0);
+
   useEffect(() => {
     if (!business) return;
-    let bekor = false;
+    const raqam = ++sorovRaqami.current;
     setLoading(true);
     setXato(null);
-    // Faqat telefon kanali serverda filtrlanadi — Telegram suhbatlari umuman kelmaydi
-    void suhbatlarniYukla(biz, new Date(fromMs), 10, 'phone')
-      .then((hammasi) => {
-        if (bekor) return;
-        setRows(
-          hammasi.filter((r) => {
-            const t = new Date(r.startedAt).getTime();
-            return r.channel === 'phone' && t >= fromMs && t < toMs;
-          }),
-        );
+    void api
+      .get<CallsJavob>(`${biz}/calls?${filtrSatri}&limit=${SAHIFA}&offset=0`)
+      .then((r) => {
+        if (raqam !== sorovRaqami.current) return;
+        setRows(r.rows);
+        setJami(r.jami);
+        setDavrdaJami(r.davrdaJami);
+        setSonlar(r.sonlar);
       })
-      .catch(() => !bekor && setXato(tr("Qo'ng'iroqlarni yuklab bo'lmadi. Qayta urinib ko'ring.")))
-      .finally(() => !bekor && setLoading(false));
-    return () => {
-      bekor = true;
-    };
-  }, [business, biz, fromMs, toMs, yangilash]);
+      .catch(() => raqam === sorovRaqami.current && setXato(tr("Qo'ng'iroqlarni yuklab bo'lmadi. Qayta urinib ko'ring.")))
+      .finally(() => raqam === sorovRaqami.current && setLoading(false));
+  }, [business, biz, filtrSatri, yangilash, tr]);
 
-  // ─── Filtrlash ───
+  const yanaYukla = () => {
+    if (yanaYuklanmoqda) return;
+    const raqam = sorovRaqami.current;
+    setYanaYuklanmoqda(true);
+    void api
+      .get<CallsJavob>(`${biz}/calls?${filtrSatri}&limit=${SAHIFA}&offset=${rows.length}`)
+      .then((r) => {
+        if (raqam !== sorovRaqami.current) return;
+        setRows((eski) => [...eski, ...r.rows.filter((x) => !eski.some((e) => e.id === x.id))]);
+        setJami(r.jami);
+      })
+      .catch(() => undefined)
+      .finally(() => setYanaYuklanmoqda(false));
+  };
+
+  // ─── Nomlar ───
   const seatNom = useMemo(() => new Map(seats.map((s) => [s.id, s.displayName])), [seats]);
   const oilaNom = useMemo(
     () => new Map((playbook?.classificationPolicy.callFamilies ?? []).map((f) => [f.key, f.name])),
     [playbook],
   );
 
-  const mosHolat = (r: ConversationRow) =>
-    holat.length === 0 || HOLATLAR.some((h) => holat.includes(h.qiymat) && h.mos(r));
-  const mosOila = (r: ConversationRow) => {
-    if (oila.length === 0) return true;
-    return oila.some((o) => {
-      if (o === MAXSUS_YAQIN) return lidTuri(r.leadQuality) === 'hot';
-      if (o === MAXSUS_BIZNES) return !!r.businessRelevance && r.businessRelevance !== 'sales';
-      return r.callFamily === o;
-    });
-  };
-  const mosXizmat = (r: ConversationRow) => {
-    if (xizmat.length === 0) return true;
-    const s = r.serviceLine?.toLowerCase();
-    return !!s && xizmat.some((x) => x.toLowerCase() === s);
-  };
-  const mosMenejer = (r: ConversationRow) =>
-    menejer.length === 0 || menejer.includes(r.seatId ?? BIRIKTIRILMAGAN);
-  const mosQidiruv = (r: ConversationRow) => {
-    const q = qidiruv.trim().toLowerCase();
-    if (!q) return true;
-    const qismlar = [
-      r.summary,
-      r.primaryGap,
-      r.seatId ? seatNom.get(r.seatId) : null,
-      r.phoneFrom,
-      r.phoneTo,
-      r.contactName,
-      r.callFamily ? oilaNom.get(r.callFamily) : null,
-    ];
-    return qismlar.some((s) => s?.toLowerCase().includes(q));
-  };
-
-  const [saralash, setSaralash] = useState<Saralash>({ ustun: 'vaqt', yon: 'kamayish' });
-  const filtrlangan = useMemo(() => {
-    const r = rows.filter((x) => mosHolat(x) && mosOila(x) && mosXizmat(x) && mosMenejer(x) && mosQidiruv(x));
-    const qiymat = (x: ConversationRow): number => {
-      if (saralash.ustun === 'ball') return x.overallScore === null ? -1 : Number(x.overallScore);
-      if (saralash.ustun === 'davom') return x.durationSeconds ?? davomiylik(x) ?? -1;
-      return new Date(x.startedAt).getTime();
-    };
-    return r.sort((a, b) => (saralash.yon === 'kamayish' ? qiymat(b) - qiymat(a) : qiymat(a) - qiymat(b)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, params, saralash, seatNom, oilaNom]);
-
-  const [korsatish, setKorsatish] = useState(SAHIFA);
-  useEffect(() => setKorsatish(SAHIFA), [params]);
-
   const filtrBor =
     holat.length + oila.length + xizmat.length + menejer.length > 0 || !!qidiruv || sanaTuri !== '30kun';
 
-  // ─── Tanlovlar (sonlar bilan) ───
-  const sanoq = (f: (r: ConversationRow) => boolean) => rows.filter(f).length;
-  const holatTanlov: Tanlov[] = HOLATLAR.map((h) => ({ qiymat: h.qiymat, nom: tr(h.nom), soni: sanoq(h.mos) }));
+  // ─── Tanlovlar (sonlar serverdan — davr bo'yicha, boshqa filtrlarsiz) ───
+  const holatTanlov: Tanlov[] = HOLATLAR.map((h) => ({
+    qiymat: h.qiymat,
+    nom: tr(h.nom),
+    soni: sonlar?.holat[h.qiymat] ?? 0,
+  }));
   /**
    * Variantlar ikki manbadan: baholash mezonlarida e'lon qilinganlar VA
-   * real tahlillarda uchraganlar. Faqat sozlamaga tayansak, mezonlarda
-   * kiritilmagan (lekin AI aniqlagan) qiymat bo'yicha filtrlab bo'lmasdi
-   * va ro'yxat bo'sh qolib "ishlamayapti" taassurotini berardi.
+   * real tahlillarda uchraganlar (server sonlari kalitlari). Faqat sozlamaga
+   * tayansak, mezonlarda kiritilmagan (lekin AI aniqlagan) qiymat bo'yicha
+   * filtrlab bo'lmasdi.
    */
-  const uchragan = (olish: (r: ConversationRow) => string | null | undefined) =>
-    [...new Set(rows.map(olish).filter((v): v is string => !!v))];
   const oilaKalitlar = [
     ...(playbook?.classificationPolicy.callFamilies ?? []).map((f) => f.key),
-    ...uchragan((r) => r.callFamily),
+    ...Object.keys(sonlar?.oila ?? {}),
   ];
   const oilaTanlov: Tanlov[] = [...new Set(oilaKalitlar)].map((k) => ({
     qiymat: k,
     nom: oilaNom.get(k) ?? k,
-    soni: sanoq((r) => r.callFamily === k),
+    soni: sonlar?.oila[k] ?? 0,
   }));
   const maxsusTanlov: Tanlov[] = [
-    {
-      qiymat: MAXSUS_BIZNES,
-      nom: tr('Biznesga oid emas'),
-      soni: sanoq((r) => {
-        const b = r.businessRelevance;
-        return !!b && b !== 'sales';
-      }),
-    },
-    { qiymat: MAXSUS_YAQIN, nom: tr('Yopilishga yaqin lidlar'), soni: sanoq((r) => lidTuri(r.leadQuality) === 'hot') },
+    { qiymat: MAXSUS_BIZNES, nom: tr('Biznesga oid emas'), soni: sonlar?.maxsus[MAXSUS_BIZNES] ?? 0 },
+    { qiymat: MAXSUS_YAQIN, nom: tr('Yopilishga yaqin lidlar'), soni: sonlar?.maxsus[MAXSUS_YAQIN] ?? 0 },
   ];
   // Xizmat yo'nalishlari: mezonlar + biznes profilidagi xizmatlar + AI aniqlaganlari
-  // (katta-kichik harf farqi bilan takrorlanmaydi).
+  // (katta-kichik harf farqi bilan takrorlanmaydi, sonlar ham shunday qo'shiladi).
   const xizmatKalitlar = new Map<string, string>();
   for (const s of [
     ...(playbook?.classificationPolicy.serviceLines ?? []),
     ...profilXizmat,
-    ...uchragan((r) => r.serviceLine),
+    ...Object.keys(sonlar?.xizmat ?? {}),
   ]) {
     const t = s.trim();
     if (t && !xizmatKalitlar.has(t.toLowerCase())) xizmatKalitlar.set(t.toLowerCase(), t);
   }
-  const xizmatTanlov: Tanlov[] = [...xizmatKalitlar.values()].map((s) => ({
-    qiymat: s,
-    nom: s,
-    soni: sanoq((r) => r.serviceLine?.toLowerCase() === s.toLowerCase()),
-  }));
+  const xizmatSoni = (s: string) =>
+    Object.entries(sonlar?.xizmat ?? {}).reduce((jam, [k, n]) => jam + (k.toLowerCase() === s.toLowerCase() ? n : 0), 0);
+  const xizmatTanlov: Tanlov[] = [...xizmatKalitlar.values()].map((s) => ({ qiymat: s, nom: s, soni: xizmatSoni(s) }));
   const menejerTanlov: Tanlov[] = [
-    ...seats.map((s) => ({ qiymat: s.id, nom: s.displayName, soni: sanoq((r) => r.seatId === s.id) })),
-    { qiymat: BIRIKTIRILMAGAN, nom: tr('Biriktirilmagan'), soni: sanoq((r) => !r.seatId) },
+    ...seats.map((s) => ({ qiymat: s.id, nom: s.displayName, soni: sonlar?.menejer[s.id] ?? 0 })),
+    { qiymat: BIRIKTIRILMAGAN, nom: tr('Biriktirilmagan'), soni: sonlar?.menejer[BIRIKTIRILMAGAN] ?? 0 },
   ];
 
   // ─── Yaqinda ochilganlar ───
@@ -353,12 +361,27 @@ export function Qongiroqlar() {
   };
 
   // ─── Eksport ───
-  const eksport = (tur: 'xlsx' | 'csv') => {
+  /**
+   * Eksport filtrga mos BARCHA qo'ng'iroqlarni serverdan bir martada oladi
+   * (ekrandagi 25 tasini emas). Chegara — 5000 qator.
+   */
+  const [eksportBand, setEksportBand] = useState(false);
+  const eksport = async (tur: 'xlsx' | 'csv') => {
+    if (eksportBand) return;
+    setEksportBand(true);
+    let hammasi: ConversationRow[];
+    try {
+      hammasi = (await api.get<CallsJavob>(`${biz}/calls?${filtrSatri}&limit=5000&offset=0`)).rows;
+    } catch {
+      return;
+    } finally {
+      setEksportBand(false);
+    }
     const sarlavha = [
       'Sana', 'Menejer', 'Mijoz telefoni', 'Holat', 'Ball (%)', 'Lid', 'Suhbat turi',
       'Xizmat', 'Davomiylik', 'Xulosa', 'Eng zaif joy', 'Havola',
     ].map((s) => tr(s));
-    const qatorlar: Katak[][] = filtrlangan.map((r) => {
+    const qatorlar: Katak[][] = hammasi.map((r) => {
       const lid = lidTuri(r.leadQuality);
       return [
         fmtSana(r.startedAt),
@@ -556,7 +579,7 @@ export function Qongiroqlar() {
         </div>
 
         <div className="filtr-ong">
-          <EksportMenyu soni={filtrlangan.length} onEksport={eksport} />
+          <EksportMenyu soni={jami} onEksport={(t) => void eksport(t)} />
           <TarixMenyu
             tarix={tarix}
             onOch={(id) => navigate(`${suhbatYoli}/${id}`)}
@@ -574,16 +597,17 @@ export function Qongiroqlar() {
 
       {/* ─── Natija ─── */}
       <div className="qongiroq-holat-qator" aria-live="polite">
-        {!loading && !xato && (
+        {!xato && sonlar && (
           <span>
-            {tr("{n} ta qo'ng'iroq", { n: filtrlangan.length })}
-            {filtrlangan.length !== rows.length && ` ${tr('(jami {n})', { n: rows.length })}`} · {sanaMatn(from, to)}
+            {tr("{n} ta qo'ng'iroq", { n: jami })}
+            {jami !== davrdaJami && ` ${tr('(jami {n})', { n: davrdaJami })}`} · {sanaMatn(from, to)}
           </span>
         )}
       </div>
 
       <div className="card qongiroq-jadval-karta">
-        {loading ? (
+        {/* Filtr almashganda jadval o'rnida qoladi — har safar "Yuklanmoqda" bilan sakramasin */}
+        {loading && rows.length === 0 ? (
           <div className="yuklanmoqda">{tr('Yuklanmoqda…')}</div>
         ) : xato ? (
           <div className="hech-narsa">
@@ -594,12 +618,12 @@ export function Qongiroqlar() {
               </button>
             </div>
           </div>
-        ) : filtrlangan.length === 0 ? (
+        ) : !loading && jami === 0 ? (
           <div className="hech-narsa">
-            <div className="katta-ikon">{rows.length === 0 ? <Search /> : <SearchX />}</div>
+            <div className="katta-ikon">{davrdaJami === 0 ? <Search /> : <SearchX />}</div>
             <b style={{ color: 'var(--text-primary)' }}>{tr("Ma'lumot topilmadi")}</b>
             <div style={{ maxWidth: 440, margin: '6px auto 0' }}>
-              {rows.length === 0
+              {davrdaJami === 0
                 ? tr("Tanlangan davrda qo'ng'iroq yo'q. Davrni kengaytiring yoki qo'ng'iroq yozuvini yuklang.")
                 : tr("Filtrlarga mos qo'ng'iroq yo'q. Filtrlarni yumshatib ko'ring.")}
             </div>
@@ -618,7 +642,11 @@ export function Qongiroqlar() {
           </div>
         ) : (
           <>
-            <table className="jadval qongiroq-jadval">
+            <table
+              className="jadval qongiroq-jadval"
+              aria-busy={loading}
+              style={loading ? { opacity: 0.55, transition: 'opacity .15s' } : undefined}
+            >
               <thead>
                 <tr>
                   <th>{saralashTugma('vaqt', tr('Vaqt'))}</th>
@@ -630,7 +658,7 @@ export function Qongiroqlar() {
                 </tr>
               </thead>
               <tbody>
-                {filtrlangan.slice(0, korsatish).map((r) => {
+                {rows.map((r) => {
                   const b = r.overallScore === null ? null : Number(r.overallScore);
                   const hb = HOLAT_BELGI[r.status];
                   const h = hb ? { nom: tr(hb.nom), klass: hb.klass } : { nom: r.status, klass: 'kul' };
@@ -688,13 +716,15 @@ export function Qongiroqlar() {
                 })}
               </tbody>
             </table>
-            {filtrlangan.length > korsatish && (
+            {rows.length < jami && (
               <div className="qongiroq-yana">
-                <button className="btn ikkinchi" onClick={() => setKorsatish((v) => v + SAHIFA)}>
-                  {tr("Yana {n} ta ko'rsatish", { n: Math.min(SAHIFA, filtrlangan.length - korsatish) })}
+                <button className="btn ikkinchi" onClick={yanaYukla} disabled={yanaYuklanmoqda}>
+                  {yanaYuklanmoqda
+                    ? tr('Yuklanmoqda…')
+                    : tr("Yana {n} ta ko'rsatish", { n: Math.min(SAHIFA, jami - rows.length) })}
                 </button>
                 <span>
-                  {korsatish} / {filtrlangan.length}
+                  {rows.length} / {jami}
                 </span>
               </div>
             )}
