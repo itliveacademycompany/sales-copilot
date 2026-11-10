@@ -13,6 +13,7 @@ import type { SpeakerRole } from '../ai/transcript-refine.js';
 import { config } from '../config.js';
 import { withTenant, type Tx } from '../db/index.js';
 import { gigaamXizmatida } from './gigaam-xizmat.js';
+import { pastUstuvorlikda } from './ustuvorlik.js';
 import { business, conversation, playbook, transcriptSegment } from '../db/schema/index.js';
 import { playbookBodySchema, type PlaybookBody } from '../playbook/schema.js';
 
@@ -74,7 +75,8 @@ export async function transcribeWithLocalStt(
       // Doimiy xizmat: model xotirada, har qo'ng'iroqda qayta yuklanmaydi.
       await gigaamXizmatida(input, output);
     } else {
-      await execFileAsync(python, [script, input, '--engine', model, '--out', output, '--latin'], {
+      const [buyruq, args] = pastUstuvorlikda(python, [script, input, '--engine', model, '--out', output, '--latin']);
+      await execFileAsync(buyruq, args, {
         timeout: 10 * 60_000,
         maxBuffer: 5 * 1024 * 1024,
         env: process.env,

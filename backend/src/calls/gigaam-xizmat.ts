@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { join } from 'node:path';
 import { createInterface } from 'node:readline';
 import { config } from '../config.js';
+import { pastUstuvorlikda } from './ustuvorlik.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -43,7 +44,8 @@ class Ishchi {
     python: string,
     script: string,
   ) {
-    this.proc = spawn(python, [script, '--serve', '--engine', 'gigaam', '--latin'], {
+    const [buyruq, args] = pastUstuvorlikda(python, [script, '--serve', '--engine', 'gigaam', '--latin']);
+    this.proc = spawn(buyruq, args, {
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
     });

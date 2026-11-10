@@ -19,6 +19,23 @@ export const queryClient = postgres(config.DATABASE_URL, {
   idle_timeout: 20,
   connect_timeout: 10,
   transform: undefined,
+  /**
+   * Vaqt chegaralari — ulanish pulini osilib qolishdan himoya.
+   * Ilgari chegara yo'q edi: bitta sekin so'rov yoki ochiq qolgan
+   * tranzaksiya ulanishni cheksiz ushlardi, pul (20 ta) to'lganda esa
+   * kirgan foydalanuvchining HAR so'rovi (hatto `auth/context`) daqiqalab
+   * kutib qolardi — sahifalar "yuklanmoqda"da turib qolardi.
+   *   statement_timeout — bitta so'rovning eng uzun vaqti;
+   *   lock_timeout — qator/advisory qulfni kutish chegarasi;
+   *   idle_in_transaction_session_timeout — tranzaksiya ochiq turib,
+   *     hech narsa qilmayotgan ulanish (masalan tranzaksiya ichida tarmoq
+   *     kutilsa) baza tomonidan uziladi.
+   */
+  connection: {
+    statement_timeout: config.DB_STATEMENT_TIMEOUT_MS,
+    lock_timeout: 10_000,
+    idle_in_transaction_session_timeout: 60_000,
+  },
 });
 
 export const db = drizzle(queryClient, { schema, logger: logSql });
@@ -31,10 +48,21 @@ export const db = drizzle(queryClient, { schema, logger: logSql });
  * ulanishdan foydalanmoqda.
  */
 const adminClient = postgres(config.DATABASE_URL_ADMIN, {
-  max: 2,
+  /**
+   * 4 ta: bu pulni fon ishlari (navbat, Moi Zvonki, cron) bilan birga
+   * auth yuklanishi ham ishlatadi (`auth/context.ts`, har foydalanuvchiga
+   * 30 soniyada bir). 2 ta bo'lganda ikkita fon ishi pulni egallasa,
+   * kirish tekshiruvi ham navbatda turib qolardi.
+   */
+  max: 4,
   idle_timeout: 20,
   connect_timeout: 10,
   transform: undefined,
+  // Cron hisobotlari uzunroq bo'lishi mumkin — chegara kengroq, lekin cheksiz emas.
+  connection: {
+    statement_timeout: 120_000,
+    idle_in_transaction_session_timeout: 120_000,
+  },
 });
 
 const adminDb = drizzle(adminClient, { schema, logger: logSql });

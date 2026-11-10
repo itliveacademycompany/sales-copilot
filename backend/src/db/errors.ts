@@ -47,6 +47,17 @@ export function isCheckViolation(err: unknown, constraint?: string): boolean {
   return constraint ? pg.constraint_name === constraint : true;
 }
 
+/**
+ * Vaqt chegarasi xatolari (`db/index.ts` dagi chegaralar):
+ * 57014 — statement_timeout, 55P03 — lock_timeout,
+ * 25P03 — idle_in_transaction_session_timeout.
+ * Bu "server band" holati — dastur xatosi emas, qayta urinsa o'tadi.
+ */
+export function isDbTimeout(err: unknown): boolean {
+  const code = findPgError(err)?.code;
+  return code === '57014' || code === '55P03' || code === '25P03';
+}
+
 /** Nosozlikni tekshirishda foydali — qaysi cheklov buzilgani. */
 export function violatedConstraint(err: unknown): string | null {
   return findPgError(err)?.constraint_name ?? null;

@@ -39,7 +39,7 @@ export function Dashboard() {
   const navigate = useNavigate();
   const t = useT();
   const [davr, setDavr] = useState<Davr>(boshlangichDavr);
-  const { data, loading, xato } = useBoshMalumot(business, davr);
+  const { data, loading, xato, qaytaYukla } = useBoshMalumot(business, davr);
 
   if (!business) return null;
 
@@ -77,7 +77,9 @@ export function Dashboard() {
           </div>
           {xato}
           <div style={{ marginTop: 14 }}>
-            <button className="btn" onClick={() => setDavr({ ...davr })}>
+            {/* Ilgari `setDavr({ ...davr })` edi — sana o'zgarmagani uchun effekt
+                qayta ishlamas, tugma hech narsa qilmasdi. */}
+            <button className="btn" onClick={qaytaYukla}>
               {t('Qayta urinish')}
             </button>
           </div>

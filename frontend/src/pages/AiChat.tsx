@@ -214,10 +214,13 @@ export function AiChat() {
       }
     } catch (e) {
       const status = e instanceof ApiError ? e.status : 0;
+      // 503 ikki xil: AI yordamchi ulanmagan YOKI server vaqtincha band (baza vaqt chegarasi)
+      const serverBand = e instanceof ApiError && (e.status === 504 || e.message.startsWith('Server hozir band'));
       xabarQosh(sid, {
         rol: 'yordamchi',
-        matn:
-          status === 503
+        matn: serverBand
+          ? tr("Server hozir band. Bir necha soniyadan keyin qayta urinib ko'ring.")
+          : status === 503
             ? tr(
                 "Bu savolga hozircha javob bera olmayman — erkin savollarga javob beruvchi AI yordamchi server tomonda hali ulanmagan.\nQuyidagi mavzular bo'yicha so'rang — ularga sizning ma'lumotlaringizdan aniq javob beraman: ko'rsatkichlar, eng yaxshi menejer, zaif bosqich, lidlar holati, javobsiz mijozlar, kechikkan vazifalar.",
               )

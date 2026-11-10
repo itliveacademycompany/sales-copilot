@@ -14,13 +14,35 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * O'qish (GET) so'rovining eng uzun kutish vaqti. Ilgari chegara yo'q edi:
+ * server tiqilib qolsa sahifa skeleti daqiqalab, hatto abadiy turardi va
+ * "Qayta urinish" tugmasi ham chiqmasdi. Chegaradan keyin so'rov bekor
+ * qilinadi va sahifa odatdagi xato holatini ko'rsatadi. Yozish so'rovlari
+ * (POST/PATCH…) bekor qilinmaydi — server baribir bajarib qo'yishi mumkin.
+ */
+const GET_TIMEOUT_MS = 45_000;
+
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
-  const res = await fetch(url, {
-    method,
-    credentials: 'include',
-    headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
+  const boshqaruv = method === 'GET' ? new AbortController() : null;
+  const taymer = boshqaruv ? setTimeout(() => boshqaruv.abort(), GET_TIMEOUT_MS) : undefined;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      credentials: 'include',
+      headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: boshqaruv?.signal,
+    });
+  } catch (e) {
+    if (boshqaruv?.signal.aborted) {
+      throw new ApiError(504, "Server javob bermadi. Birozdan keyin qayta urinib ko'ring.");
+    }
+    throw e;
+  } finally {
+    clearTimeout(taymer);
+  }
 
   if (!res.ok) {
     let detail = res.statusText;

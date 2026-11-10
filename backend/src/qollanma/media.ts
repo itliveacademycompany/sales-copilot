@@ -6,6 +6,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { config } from '../config.js';
 import { withoutTenantIsolation } from '../db/index.js';
 import { guideVideo } from '../db/schema/index.js';
+import { pastUstuvorlikda } from '../calls/ustuvorlik.js';
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -74,7 +75,9 @@ class DasturYoq extends Error {}
 
 function ishgaTushir(dastur: string, args: string[], maxMs: number): Promise<string> {
   return new Promise((ok, rad) => {
-    const p = spawn(dastur, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    // Video qayta kodlash ham barcha yadrolarni oladi — sayt so'rovlaridan past ustuvorlikda.
+    const [buyruq, buyruqArgs] = pastUstuvorlikda(dastur, args);
+    const p = spawn(buyruq, buyruqArgs, { stdio: ['ignore', 'pipe', 'pipe'] });
     let chiqish = '';
     let xato = '';
     p.stdout.on('data', (b: Buffer) => {
@@ -92,6 +95,8 @@ function ishgaTushir(dastur: string, args: string[], maxMs: number): Promise<str
     p.on('close', (kod) => {
       clearTimeout(taymer);
       if (kod === 0) ok(chiqish);
+      // `nice` orqali ishga tushganda dastur topilmasa — ENOENT o'rniga 127 kodi
+      else if (kod === 127 && buyruq !== dastur) rad(new DasturYoq(dastur));
       else rad(new Error(xato.trim().split('\n').slice(-3).join(' ') || `${dastur} ${kod} kod bilan to'xtadi`));
     });
   });

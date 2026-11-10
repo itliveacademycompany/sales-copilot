@@ -120,6 +120,24 @@ const schema = z.object({
     .transform((v) => v !== 'false'),
 
   /**
+   * Lokal STT jarayonlarining protsessor ustuvorligi (Linux `nice`, 0–19).
+   * STT barcha yadrolarni oladi va baza (Postgres) hamda API bilan bitta
+   * serverda turadi. Teng ustuvorlikda transkripsiya paytida oddiy so'rovlar
+   * ham soniyalab kutib qolardi — sayt "yuklanmoqda"da osilib turardi.
+   * 10 bilan STT faqat bo'sh protsessorni ishlatadi: foydalanuvchi so'rovi
+   * kelsa, protsessor avval unga beriladi. 0 — o'chirish.
+   */
+  STT_NICE: z.coerce.number().int().min(0).max(19).default(10),
+
+  /**
+   * Bitta SQL so'rovning eng uzun vaqti (ms) — ilova ulanishlari uchun.
+   * Chegarasiz bitta osilgan so'rov ulanishni abadiy band qiladi; 20 tasi
+   * band bo'lsa butun sayt to'xtaydi. Chegara bilan so'rov xato qaytaradi
+   * va ulanish pulga qaytadi.
+   */
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().min(1000).default(30_000),
+
+  /**
    * Moi Zvonki qo'ng'iroqlari bir vaqtda nechtadan baholanadi. Sekin qism —
    * LLM (GLM bitta qo'ng'iroqqa ~8 daqiqa), STT esa `STT_CONCURRENCY` bilan
    * alohida cheklangan. Serverda (2026-10-21) 2 ta bilan soatiga ~3-4 ta

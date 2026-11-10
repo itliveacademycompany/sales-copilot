@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
 import { isProd } from '../config.js';
+import { isDbTimeout } from '../db/errors.js';
 
 /**
  * Xatolar RFC 7807 (Problem Details) formatida qaytadi.
@@ -130,6 +131,22 @@ export function registerErrorHandler(app: FastifyInstance): void {
         status,
         traceId,
       } satisfies Problem);
+      return;
+    }
+
+    // ── Baza vaqt chegarasi — server band, qayta urinish mumkin ──
+    if (isDbTimeout(err)) {
+      req.log.warn({ err, url: req.url }, 'baza so\'rovi vaqt chegarasidan oshdi');
+      reply
+        .status(503)
+        .header('retry-after', '5')
+        .type('application/problem+json')
+        .send({
+          type: 'about:blank#db-timeout',
+          title: 'Server hozir band. Bir necha soniyadan keyin qayta urinib ko\'ring.',
+          status: 503,
+          traceId,
+        } satisfies Problem);
       return;
     }
 
