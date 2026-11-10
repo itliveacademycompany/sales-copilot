@@ -5,61 +5,199 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Deal Mind</title>
     <!--
-      Saqlangan mavzu JS bo'lagi kelguncha ham qo'llansin — yuklanish ekrani
-      to'g'ri rangda chiqsin (main.tsx dagi bilan bir xil qoida).
+      Saqlangan mavzu va til JS bo'lagi kelguncha ham qo'llansin — yuklanish
+      ekrani to'g'ri rangda va to'g'ri tilda chiqsin (main.tsx / i18n.tsx dagi
+      bilan bir xil kalitlar).
     -->
     <script>
       try {
         var m = localStorage.getItem('sotuvai-mavzu');
         if (m !== 'system') document.documentElement.setAttribute('data-theme', m === 'dark' ? 'dark' : 'light');
+        var til = localStorage.getItem('sotuvai-til');
+        document.documentElement.setAttribute('data-ilk-til', til === 'ru' || til === 'en' ? til : 'uz');
       } catch (e) {}
     </script>
     <style>
-      /* Ilova yuklanguncha ko'rinadigan ekran (React kelgach almashtiriladi). */
+      /*
+       * ═══ ILOVA YUKLANISH EKRANI ═══════════════════════════════════════════
+       * React kelguncha shu yerdagi HTML, keyin IlkYuklanish.tsx (bir xil
+       * markup) ko'rinadi — uslub faqat shu yerda. G'oya: neumorfik "ong"
+       * doirasi atrofida aylanuvchi halqalar (AI fikrlayapti), ostida ovoz
+       * to'lqini (qo'ng'iroq tahlili) va almashinuvchi holat matni.
+       * Kutubxonasiz: faqat CSS + SVG, yuklanishni sekinlashtirmaydi.
+       */
       .ilk-yuklanish {
+        --ilk-fon: #e8ecf2;
+        --ilk-matn: #1f2633;
+        --ilk-xira: #6b7686;
+        --ilk-brend: #2f6fed;
+        --ilk-soya-q: #c3cad6;
+        --ilk-soya-o: #ffffff;
         position: fixed;
         inset: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 18px;
-        background: #e8ecf2;
-        color: #1f2633;
+        gap: 22px;
+        background: var(--ilk-fon);
+        color: var(--ilk-matn);
         font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+        overflow: hidden;
       }
-      :root[data-theme='dark'] .ilk-yuklanish { background: #23272e; color: #e6e9ef; }
+      :root[data-theme='dark'] .ilk-yuklanish {
+        --ilk-fon: #23272e;
+        --ilk-matn: #e6e9ef;
+        --ilk-xira: #9aa4b2;
+        --ilk-brend: #6b9bff;
+        --ilk-soya-q: #191c21;
+        --ilk-soya-o: #2d323b;
+      }
       @media (prefers-color-scheme: dark) {
-        :root:not([data-theme='light']) .ilk-yuklanish { background: #23272e; color: #e6e9ef; }
+        :root:not([data-theme='light']) .ilk-yuklanish {
+          --ilk-fon: #23272e;
+          --ilk-matn: #e6e9ef;
+          --ilk-xira: #9aa4b2;
+          --ilk-brend: #6b9bff;
+          --ilk-soya-q: #191c21;
+          --ilk-soya-o: #2d323b;
+        }
       }
-      .ilk-brend { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 700; letter-spacing: -0.035em; }
-      .ilk-brend em { font-style: normal; color: #2f6fed; }
+      /* Yumshoq fon yorug'ligi — markazga e'tibor */
+      .ilk-yuklanish::before {
+        content: '';
+        position: absolute;
+        width: 520px;
+        height: 520px;
+        border-radius: 50%;
+        background: radial-gradient(closest-side, color-mix(in srgb, var(--ilk-brend) 12%, transparent), transparent);
+        pointer-events: none;
+      }
+
+      /* Tez yuklansa miltillamasin: ekran 150 ms dan keyin, ketma-ket paydo bo'ladi */
+      .ilk-yuklanish > * { position: relative; opacity: 0; animation: ilk-chiq 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) forwards; }
+      .ilk-yuklanish > .ilk-sahna { animation-delay: 0.15s; }
+      .ilk-yuklanish > .ilk-brend { animation-delay: 0.25s; }
+      .ilk-yuklanish > .ilk-tolqin { animation-delay: 0.32s; }
+      .ilk-yuklanish > .ilk-holat { animation-delay: 0.4s; }
+      /* React almashtirganda (davomi) — kirish animatsiyasi takrorlanmaydi */
+      .ilk-yuklanish.ilk-davom > * { opacity: 1; animation: none; }
+
+      /* ── Markaz: neumorfik doira + aylanuvchi halqalar ── */
+      .ilk-sahna { width: 148px; height: 148px; display: grid; place-items: center; }
+      .ilk-halqa {
+        position: absolute;
+        border-radius: 50%;
+        /* Kometa yoyi: konik gradiyent + halqa niqobi */
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+        mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2.5px));
+      }
+      .ilk-halqa-1 {
+        inset: 8px;
+        background: conic-gradient(from 0deg, transparent 0 55%, color-mix(in srgb, var(--ilk-brend) 35%, transparent) 75%, var(--ilk-brend) 100%);
+        animation: ilk-aylan 1.4s linear infinite;
+      }
+      .ilk-halqa-2 {
+        inset: -4px;
+        opacity: 0.55;
+        -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+        mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1.5px));
+        background: conic-gradient(from 180deg, transparent 0 65%, var(--ilk-brend) 100%);
+        animation: ilk-aylan 2.4s linear infinite reverse;
+      }
+      /* Tashqi orbitada yuguruvchi nuqta — "ma'lumot oqimi" */
+      .ilk-orbita { position: absolute; inset: -4px; animation: ilk-aylan 3.2s linear infinite; }
+      .ilk-orbita::after {
+        content: '';
+        position: absolute;
+        top: -3px;
+        left: 50%;
+        width: 7px;
+        height: 7px;
+        margin-left: -3.5px;
+        border-radius: 50%;
+        background: var(--ilk-brend);
+        box-shadow: 0 0 10px 2px color-mix(in srgb, var(--ilk-brend) 60%, transparent);
+      }
+      .ilk-orb {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        display: grid;
+        place-items: center;
+        background: var(--ilk-fon);
+        box-shadow: 9px 9px 20px var(--ilk-soya-q), -9px -9px 20px var(--ilk-soya-o);
+      }
       .ilk-belgi {
-        width: 46px;
-        height: 46px;
-        border-radius: 14px;
+        width: 54px;
+        height: 54px;
+        border-radius: 17px;
         display: grid;
         place-items: center;
         color: #fff;
         background: linear-gradient(145deg, #4c87ff 0%, #2a62de 100%);
-        box-shadow: 0 8px 20px -6px rgba(47, 111, 237, 0.55);
-        animation: ilk-nafas 1.6s ease-in-out infinite;
+        animation: ilk-nur 2.4s ease-in-out infinite;
       }
-      .ilk-belgi svg { width: 24px; height: 24px; }
-      .ilk-chiziq { position: relative; width: 140px; height: 3px; border-radius: 3px; overflow: hidden; background: rgba(47, 111, 237, 0.15); }
-      .ilk-chiziq::after {
-        content: '';
-        position: absolute;
-        inset: 0;
-        width: 40%;
+      .ilk-belgi svg { width: 28px; height: 28px; animation: ilk-yulduz 2.4s ease-in-out infinite; }
+
+      /* ── Nom ── */
+      .ilk-brend { font-size: 26px; font-weight: 700; letter-spacing: -0.035em; line-height: 1; }
+      .ilk-brend em {
+        font-style: normal;
+        background: linear-gradient(90deg, #2a62de, #6b9bff, #2a62de);
+        background-size: 200% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: ilk-yaltira 2.6s linear infinite;
+      }
+
+      /* ── Ovoz to'lqini (qo'ng'iroq tahlili) ── */
+      .ilk-tolqin { display: flex; align-items: center; gap: 4px; height: 22px; margin-top: -6px; }
+      .ilk-tolqin i {
+        width: 3px;
+        height: 100%;
         border-radius: 3px;
-        background: #2f6fed;
-        animation: ilk-yur 1.1s ease-in-out infinite;
+        background: var(--ilk-brend);
+        opacity: 0.85;
+        transform: scaleY(0.25);
+        animation: ilk-tolqin 1.1s ease-in-out infinite;
       }
-      @keyframes ilk-nafas { 50% { transform: scale(0.94); } }
-      @keyframes ilk-yur { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      .ilk-tolqin i:nth-child(1), .ilk-tolqin i:nth-child(9) { animation-delay: -0.9s; opacity: 0.35; }
+      .ilk-tolqin i:nth-child(2), .ilk-tolqin i:nth-child(8) { animation-delay: -0.7s; opacity: 0.5; }
+      .ilk-tolqin i:nth-child(3), .ilk-tolqin i:nth-child(7) { animation-delay: -0.5s; opacity: 0.65; }
+      .ilk-tolqin i:nth-child(4), .ilk-tolqin i:nth-child(6) { animation-delay: -0.3s; }
+      .ilk-tolqin i:nth-child(5) { animation-delay: -0.1s; }
+
+      /* ── Almashinuvchi holat matni (tanlangan tilda) ── */
+      .ilk-holat { height: 20px; overflow: hidden; font-size: 13.5px; font-weight: 500; color: var(--ilk-xira); text-align: center; }
+      .ilk-holat-ichi { display: none; animation: ilk-almash 6s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+      .ilk-holat-ichi span { display: block; height: 20px; line-height: 20px; white-space: nowrap; }
+      :root:not([data-ilk-til]) .ilk-holat-ichi[data-l='uz'],
+      :root[data-ilk-til='uz'] .ilk-holat-ichi[data-l='uz'],
+      :root[data-ilk-til='ru'] .ilk-holat-ichi[data-l='ru'],
+      :root[data-ilk-til='en'] .ilk-holat-ichi[data-l='en'] { display: block; }
+
+      @keyframes ilk-chiq { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+      @keyframes ilk-aylan { to { transform: rotate(360deg); } }
+      @keyframes ilk-nur {
+        0%, 100% { box-shadow: 0 8px 18px -6px rgba(47, 111, 237, 0.55), 0 0 0 0 rgba(76, 135, 255, 0.35); }
+        50% { box-shadow: 0 10px 24px -6px rgba(47, 111, 237, 0.7), 0 0 0 10px rgba(76, 135, 255, 0); }
+      }
+      @keyframes ilk-yulduz { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(0.88) rotate(12deg); } }
+      @keyframes ilk-yaltira { to { background-position: -200% 0; } }
+      @keyframes ilk-tolqin { 0%, 100% { transform: scaleY(0.25); } 50% { transform: scaleY(1); } }
+      /* 3 ta matn, har biri ~1.7 s; 4-qator 1-ning nusxasi — sakramasdan aylanadi */
+      @keyframes ilk-almash {
+        0%, 27% { transform: translateY(0); }
+        33%, 60% { transform: translateY(-20px); }
+        66%, 93% { transform: translateY(-40px); }
+        100% { transform: translateY(-60px); }
+      }
+
       @media (prefers-reduced-motion: reduce) {
-        .ilk-belgi, .ilk-chiziq::after { animation: none; }
+        .ilk-halqa, .ilk-orbita, .ilk-belgi, .ilk-belgi svg, .ilk-brend em, .ilk-tolqin i, .ilk-holat-ichi { animation: none; }
+        .ilk-tolqin i { transform: scaleY(0.5); }
       }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -83,20 +221,31 @@
   </head>
   <body>
     <div id="root">
+      <!-- Markup IlkYuklanish.tsx bilan bir xil bo'lishi shart -->
       <div class="ilk-yuklanish" role="status" aria-label="Yuklanmoqda">
-        <div class="ilk-brend">
-          <span class="ilk-belgi" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
-              <path d="M20 3v4" />
-              <path d="M22 5h-4" />
-              <path d="M4 17v2" />
-              <path d="M5 18H3" />
-            </svg>
+        <div class="ilk-sahna" aria-hidden="true">
+          <span class="ilk-halqa ilk-halqa-2"></span>
+          <span class="ilk-halqa ilk-halqa-1"></span>
+          <span class="ilk-orbita"></span>
+          <span class="ilk-orb">
+            <span class="ilk-belgi">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" />
+                <path d="M20 3v4" />
+                <path d="M22 5h-4" />
+                <path d="M4 17v2" />
+                <path d="M5 18H3" />
+              </svg>
+            </span>
           </span>
-          <span>Deal <em>Mind</em></span>
         </div>
-        <div class="ilk-chiziq"></div>
+        <div class="ilk-brend">Deal <em>Mind</em></div>
+        <div class="ilk-tolqin" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="ilk-holat" aria-hidden="true">
+          <div class="ilk-holat-ichi" data-l="uz"><span>Suhbatlar yig'ilmoqda…</span><span>AI tahlil tayyorlanmoqda…</span><span>Ko'rsatkichlar hisoblanmoqda…</span><span>Suhbatlar yig'ilmoqda…</span></div>
+          <div class="ilk-holat-ichi" data-l="ru"><span>Собираем разговоры…</span><span>Готовим AI-анализ…</span><span>Считаем показатели…</span><span>Собираем разговоры…</span></div>
+          <div class="ilk-holat-ichi" data-l="en"><span>Gathering conversations…</span><span>Preparing AI analysis…</span><span>Calculating metrics…</span><span>Gathering conversations…</span></div>
+        </div>
       </div>
     </div>
     <script type="module" src="/src/main.tsx"></script>
