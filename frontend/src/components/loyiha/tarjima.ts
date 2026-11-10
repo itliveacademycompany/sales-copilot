@@ -241,7 +241,7 @@ const UZ: LandingMatn = {
           "Xabarlar suhbat sessiyasiga yig'iladi. Mijoz 20 daqiqa jim tursa, suhbat yakunlangan deb tahlilga yuboriladi. Qo'ng'iroq audiosi avval matnga aylantiriladi.",
         bandlar: [
           "Yangi xabar kelsa — suhbat to'liq holda qayta baholanadi",
-          'Audio → matn: lokal Whisper yoki bulutli STT',
+          'Audio → matn: serverdagi GigaAM yoki bulutli STT',
           "So'zlovchilar (menejer / mijoz) ajratiladi",
         ],
         joy: 'Sozlamalar → Nutqni matnga',
@@ -565,7 +565,7 @@ const RU: LandingMatn = {
           'Сообщения собираются в сессию разговора. Если клиент молчит 20 минут, разговор считается завершённым и уходит на анализ. Аудио звонка сначала превращается в текст.',
         bandlar: [
           'Новое сообщение — и разговор переоценивается целиком',
-          'Аудио → текст: локальный Whisper или облачный STT',
+          'Аудио → текст: GigaAM на сервере или облачный STT',
           'Реплики разделяются по ролям (менеджер / клиент)',
         ],
         joy: 'Настройки → Речь в текст',
@@ -889,7 +889,7 @@ const EN: LandingMatn = {
           'Messages are grouped into a conversation session. Once the customer has been silent for 20 minutes, the conversation is considered finished and sent for analysis. Call audio is transcribed first.',
         bandlar: [
           'A new message triggers a full re-evaluation',
-          'Audio → text: local Whisper or cloud STT',
+          'Audio → text: on-server GigaAM or cloud STT',
           'Speakers are separated (rep / customer)',
         ],
         joy: 'Settings → Speech to text',

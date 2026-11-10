@@ -35,7 +35,10 @@ function period(q: { from?: Date; to?: Date }): { from: Date; to: Date } {
 }
 
 /** jsonb ichidan birinchi javob soniyasi. */
-const firstResponseExpr = sql`(a.dynamics #>> '{replyMetrics,firstResponseSeconds}')::numeric`;
+// Faqat yozishmalar (Telegram): telefonda "mijozning birinchi xabariga javob" yo'q —
+// transkriptdan 0 s chiqib, telefon jamoasiga "javob tezligi 0 s" ko'rsatilardi.
+// NULL qatorlarni percentile_cont e'tiborsiz qoldiradi.
+const firstResponseExpr = sql`(case when c.channel <> 'phone' then (a.dynamics #>> '{replyMetrics,firstResponseSeconds}')::numeric end)`;
 
 async function kpiFor(
   tx: Tx,

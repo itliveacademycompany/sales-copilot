@@ -271,6 +271,8 @@ export async function kontaktniTopYokiYarat(
   k: { name?: string | null; phone?: string | null; email?: string | null },
 ): Promise<string | null> {
   const kalit = telefonKaliti(k.phone ?? null);
+  // Bo'sh/probelli ism — ism yo'q (NULL), aks holda interfeys telefonni ko'rsatmaydi
+  const ism = k.name?.trim() || null;
   if (kalit) {
     const [bor] = await tx
       .select({ id: contact.id, name: contact.name })
@@ -278,14 +280,14 @@ export async function kontaktniTopYokiYarat(
       .where(telefonSharti(kalit))
       .limit(1);
     if (bor) {
-      if (!bor.name && k.name) await tx.update(contact).set({ name: k.name }).where(eq(contact.id, bor.id));
+      if (!bor.name && ism) await tx.update(contact).set({ name: ism }).where(eq(contact.id, bor.id));
       return bor.id;
     }
   }
-  if (!k.name && !kalit) return null;
+  if (!ism && !kalit) return null;
   const [yangi] = await tx
     .insert(contact)
-    .values({ businessId, name: k.name ?? null, phone: k.phone ? kontaktTelefoni(k.phone) : null, email: k.email ?? null })
+    .values({ businessId, name: ism, phone: k.phone ? kontaktTelefoni(k.phone) : null, email: k.email ?? null })
     .returning({ id: contact.id });
   return yangi!.id;
 }

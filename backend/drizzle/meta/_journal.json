@@ -218,6 +218,13 @@
       "when": 1794215356041,
       "tag": "0030_simulyator",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1794290247509,
+      "tag": "0031_kontakt_bosh_ism",
+      "breakpoints": true
     }
   ]
 }

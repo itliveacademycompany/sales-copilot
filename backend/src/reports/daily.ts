@@ -122,7 +122,8 @@ export async function buildDailyStats(
             and coalesce(a.dynamics #>> '{needsReply}', 'true') <> 'false'
         )::int                                                           as unanswered,
         percentile_cont(0.5) within group (
-          order by (a.dynamics #>> '{replyMetrics,firstResponseSeconds}')::numeric
+          -- Faqat yozishmalar: telefonda birinchi javob vaqti doim 0 s chiqardi
+          order by (case when c.channel <> 'phone' then (a.dynamics #>> '{replyMetrics,firstResponseSeconds}')::numeric end)
         )::float                                                         as median_first_response
       from conversation c
       left join analysis a on a.conversation_id = c.id

@@ -16,11 +16,13 @@ import { tarjima } from '../../i18n';
 /**
  * AI Chat javob mexanizmi.
  *
- * MUHIM: backendda erkin savolga javob beruvchi AI yordamchi API'si hali
- * yo'q. Shuning uchun javob O'YLAB TOPILMAYDI — savol tayyor niyatlardan
- * biriga moslanadi va javob mavjud hisobot API'laridan aniq hisoblanadi.
- * Niyat aniqlanmasa — yordamchi buni ochiq aytadi. Backend tayyor bo'lganda
- * `javobBer` ichidagi zaxira tarmog'i haqiqiy so'rov bilan almashtiriladi.
+ * Tayyor niyatlar (kartochkalar) — AI'siz, mavjud hisobot API'laridan aniq
+ * hisoblanadi (token sarflanmaydi). Niyat aniqlanmagan erkin savol serverdagi
+ * AI yordamchiga (`assistant/chat`) ketadi — AiChat.tsx `sora()`.
+ *
+ * Ma'lum kamchilik: `niyatniTop` kalit so'zlari juda keng ("menejer",
+ * "qo'ng'iroq", "lid"…), shuning uchun aniq savollar ham shablonga tushib
+ * qolishi mumkin — tahlil hisobotidagi S3.
  *
  * Javob matni joriy interfeys tilida yoziladi (`tarjima`). Havola nomi esa
  * o'zbekcha kalit bo'lib qoladi — chat uni ko'rsatishda tarjima qiladi,

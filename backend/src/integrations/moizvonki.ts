@@ -348,7 +348,9 @@ async function kontaktniTop(
   }
   const [yangi] = await tx
     .insert(contact)
-    .values({ businessId, phone: raqam, name: ism, firstSeenAt: vaqt, lastSeenAt: vaqt })
+    // Moi Zvonki ismsiz mijozga "" yuboradi — bo'sh satr NULL bo'lishi shart,
+    // aks holda interfeys uni ism deb olib, telefon raqamini ko'rsatmaydi.
+    .values({ businessId, phone: raqam, name: ism?.trim() || null, firstSeenAt: vaqt, lastSeenAt: vaqt })
     .returning({ id: contact.id });
   return yangi?.id ?? null;
 }

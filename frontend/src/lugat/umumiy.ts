@@ -11,6 +11,7 @@ const UMUMIY: Lugat = {
   "Qo'ng'iroqlar": { en: 'Calls', ru: 'Звонки' },
   'AI Chat': { en: 'AI Chat', ru: 'AI Чат' },
   Analitika: { en: 'Analytics', ru: 'Аналитика' },
+  'Voronka tahlili': { en: 'Funnel analysis', ru: 'Анализ воронки' },
   'Kunlik hisobot': { en: 'Daily report', ru: 'Ежедневный отчёт' },
   'Lid xulosalari': { en: 'Lead summaries', ru: 'Сводки по лидам' },
   Ogohlantirishlar: { en: 'Alerts', ru: 'Уведомления' },

@@ -1407,7 +1407,8 @@ export function registerAnalyticsRoutes(app: FastifyInstance): void {
       and coalesce(a.dynamics #>> '{needsReply}', 'true') <> 'false'
     `;
     /** Birinchi javob soniyalari — takrorlanmasligi uchun. */
-    const BIRINCHI = sql`(a.dynamics #>> '{replyMetrics,firstResponseSeconds}')::numeric`;
+    // Faqat yozishmalar: telefonda birinchi javob vaqti ma'nosiz (doim 0 s) — dashboard.ts bilan bir xil
+    const BIRINCHI = sql`(case when c.channel <> 'phone' then (a.dynamics #>> '{replyMetrics,firstResponseSeconds}')::numeric end)`;
 
     /**
      * ── "ULANGAN" NIMA DEGANI ────────────────────────────────────────────

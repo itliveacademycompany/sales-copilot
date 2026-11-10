@@ -8,6 +8,7 @@ import {
   ChevronsRight,
   ContactRound,
   FileText,
+  Funnel,
   Headset,
   ListChecks,
   PlugZap,
@@ -235,6 +236,9 @@ export function Layout() {
               {item('/crm/kontaktlar', <ContactRound />, 'Kontaktlar')}
               {item('/crm/kompaniyalar', <Building2 />, 'Kompaniyalar')}
               {item('/crm/qongiroqlar', <Phone />, "Qo'ng'iroqlar")}
+              {/* CRM'ning o'z voronka hisobotlari (bosqichlar, xodimlar, hodisalar, maqsadlar) —
+                  ilgari menyuda yo'q edi, faqat manzil orqali ochilardi */}
+              {item('/crm/voronka-tahlili', <Funnel />, 'Voronka tahlili')}
               {rahbar && item('/crm/analitika', <ChartNoAxesColumnIncreasing />, 'Analitika')}
               {rahbar && item('/crm/hisobotlar', <CalendarDays />, 'Hisobotlar')}
               {item('/crm/lid-xulosalari', <FileText />, 'Lid xulosalari')}

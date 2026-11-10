@@ -1,5 +1,6 @@
 import { AlertTriangle, Camera, FileAudio, MessageCircle, Send } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { fmtSana } from '../../api';
 import { useT } from '../../i18n';
 import { pul } from '../malumot';
 import type { BitimVidjetNatija, PanelJavob, Vidjet } from './turlar';
@@ -568,7 +569,8 @@ export function VidjetIchi({ w, ctx }: { w: Vidjet; ctx: VidjetKontekst }) {
                 <span className="pn-fayl-asos">
                   <b>{f.fileName ?? t("Qo'ng'iroq yozuvi")}</b>
                   <small>
-                    {[f.contact, f.seat, new Date(f.at).toLocaleString([], { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })]
+                    {/* Brauzer tiliga bog'liq emas: ilgari ingliz tilli brauzerda "11/10, 09:53 AM" chiqardi */}
+                    {[f.contact, f.seat, fmtSana(f.at)]
                       .filter(Boolean)
                       .join(' · ')}
                   </small>

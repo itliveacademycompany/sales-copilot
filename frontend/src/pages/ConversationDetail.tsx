@@ -17,7 +17,8 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { crmdami } from '../components/IlovaAlmashtirgich';
 import {
   api,
   ApiError,
@@ -233,6 +234,8 @@ export function ConversationDetail() {
   const { id } = useParams<{ id: string }>();
   const { business, user } = useAuth();
   const navigate = useNavigate();
+  // CRM ichida ochilgan bo'lsa havolalar ham CRM ichida qolsin
+  const crmda = crmdami(useLocation().pathname);
   const tr = useT();
   const [params, setParams] = useSearchParams();
   const [d, setD] = useState<Detail | null>(null);
@@ -427,7 +430,7 @@ export function ConversationDetail() {
       <button
         type="button"
         className="sd-orqaga"
-        onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/qongiroqlar'))}
+        onClick={() => (window.history.length > 1 ? navigate(-1) : navigate(crmda ? '/crm/qongiroqlar' : '/qongiroqlar'))}
         aria-label={tr('Orqaga')}
         title={tr('Orqaga')}
       >
@@ -899,7 +902,7 @@ export function ConversationDetail() {
                     <span className={`ball ${ballKlass(p.overallScore === null ? null : Number(p.overallScore))}`} style={{ minWidth: 40, fontSize: 12 }}>
                       {p.overallScore === null ? '—' : `${Math.round(Number(p.overallScore))}%`}
                     </span>
-                    <Link to={`/suhbatlar/${p.id}`} className="matn">
+                    <Link to={`${crmda ? '/crm/suhbatlar' : '/suhbatlar'}/${p.id}`} className="matn">
                       {p.summary ?? tr("Xulosa yo'q")}
                     </Link>
                     <span className="sana">{fmtSana(p.startedAt)}</span>

@@ -17,7 +17,8 @@ import {
   X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { crmdami } from '../components/IlovaAlmashtirgich';
 import {
   api,
   ballKlass,
@@ -122,6 +123,9 @@ export function Qongiroqlar() {
   const navigate = useNavigate();
   const tr = useT();
   const [params, setParams] = useSearchParams();
+  // CRM menyusidan ochilgan bo'lsa, qo'ng'iroq ham CRM ichida ochilsin —
+  // aks holda /suhbatlar/:id foydalanuvchini Deal Mind menyusiga otib yuborardi.
+  const suhbatYoli = crmdami(useLocation().pathname) ? '/crm/suhbatlar' : '/suhbatlar';
 
   // ─── Filtr holati (URL'dan) ───
   const qidiruv = params.get('q') ?? '';
@@ -345,7 +349,7 @@ export function Qongiroqlar() {
     } catch {
       /* xotira yopiq */
     }
-    navigate(`/suhbatlar/${r.id}`);
+    navigate(`${suhbatYoli}/${r.id}`);
   };
 
   // ─── Eksport ───
@@ -359,7 +363,8 @@ export function Qongiroqlar() {
       return [
         fmtSana(r.startedAt),
         r.seatId ? seatNom.get(r.seatId) ?? '' : tr('Biriktirilmagan'),
-        r.phoneFrom ?? r.phoneTo ?? '',
+        // Chiquvchida phoneFrom — menejer raqami bo'lishi mumkin; mijoz raqami yo'nalishga qarab
+        (r.direction === 'outbound' ? r.phoneTo : r.phoneFrom) || r.phoneTo || r.phoneFrom || '',
         HOLAT_BELGI[r.status] ? tr(HOLAT_BELGI[r.status]!.nom) : r.status,
         r.overallScore === null ? null : Math.round(Number(r.overallScore) * 10) / 10,
         lid === 'hot' ? tr('Issiq') : lid === 'warm' ? tr('Iliq') : lid === 'cold' ? tr('Sovuq') : '',
@@ -411,7 +416,7 @@ export function Qongiroqlar() {
           <span
             className="malumot-ikon"
             title={tr(
-              "Telefon suhbatlari: yozuv matnga aylantiriladi va baholash mezonlari bo'yicha isbot bilan baholanadi. Telefoniya avtomatik ulanishi keyingi bosqichda — hozircha yozuv qo'lda yuklanadi.",
+              "Telefon suhbatlari: yozuv matnga aylantiriladi va baholash mezonlari bo'yicha isbot bilan baholanadi. Moi Zvonki ulangan bo'lsa yozuvlar avtomatik keladi; boshqa yozuvni qo'lda yuklash mumkin.",
             )}
           >
             <FileText />
@@ -425,7 +430,7 @@ export function Qongiroqlar() {
               tugmaMatni={tr("Qo'ng'iroq yuklash")}
               onYuklandi={(id) => {
                 setYangilash((v) => v + 1);
-                navigate(`/suhbatlar/${id}`);
+                navigate(`${suhbatYoli}/${id}`);
               }}
             />
           </div>
@@ -554,7 +559,7 @@ export function Qongiroqlar() {
           <EksportMenyu soni={filtrlangan.length} onEksport={eksport} />
           <TarixMenyu
             tarix={tarix}
-            onOch={(id) => navigate(`/suhbatlar/${id}`)}
+            onOch={(id) => navigate(`${suhbatYoli}/${id}`)}
             onTozala={() => {
               setTarix([]);
               try {
@@ -632,7 +637,8 @@ export function Qongiroqlar() {
                   const ism = r.seatId ? seatNom.get(r.seatId) ?? tr('Menejer') : tr('Biriktirilmagan');
                   const lid = lidTuri(r.leadQuality);
                   const turi = r.callFamily ? oilaNom.get(r.callFamily) ?? r.callFamily : null;
-                  const mijoz = r.contactName ?? r.phoneFrom ?? r.phoneTo ?? null;
+                  // `||` — bo'sh satr ism ham telefonga o'tsin
+                  const mijoz = r.contactName || (r.direction === 'outbound' ? r.phoneTo : r.phoneFrom) || r.phoneTo || r.phoneFrom || null;
                   return (
                     <tr
                       key={r.id}

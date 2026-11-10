@@ -162,7 +162,11 @@ export function useBoshMalumot(business: BusinessAccess | null, davr: Davr) {
             api
               .get<{ criteria: CriterionAgg[] }>(`${biz}/dashboard/criteria${q}`)
               .catch(() => ({ criteria: [] as CriterionAgg[] })),
-            suhbatlarniYukla(biz, eng).catch(() => [] as ConversationRow[]),
+            // Xato YUTILMAYDI: ilgari bo'sh ro'yxat qo'yilardi va sahifa "0 issiq lid",
+            // bo'sh issiqlik xaritasi kabi NOTO'G'RI raqamlarni chizardi (serverda 269 ta
+            // bo'lganda ham). Pulsdan so'nggi tahlillargacha hammasi shu ro'yxatdan
+            // hisoblanadi — u bo'lmasa, xato va "Qayta urinish" ko'rsatilgani to'g'ri.
+            suhbatlarniYukla(biz, eng),
             ogohKoradi
               ? api
                   .get<{ alerts: AlertRow[]; unseenCount: number }>(`${biz}/alerts?limit=20`)

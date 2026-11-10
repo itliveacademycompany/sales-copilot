@@ -10,6 +10,9 @@ import { SAHIFA } from './sahifalar';
 import { KabinetHolati } from './pages/KabinetHolati';
 import { Login } from './pages/Login';
 
+/** Shu tabda kirishdagi CRM yo'naltirishi bajarilgan foydalanuvchi ID'si. */
+const YONALTIRISH_KALIT = 'sotuvai-crm-yonaltirildi';
+
 export function App() {
   const { loading, user, business, businesses, logout } = useAuth();
   const kabinet = useKabinet();
@@ -23,6 +26,10 @@ export function App() {
    * keyin, agar odam bosh sahifaga ("/", "/kirish") kelayotgan bo'lsa.
    * Aniq havola (masalan /qongiroqlar/…) o'z joyida qoladi; keyin logo
    * orqali "/" ga qaytilsa — Deal Mind bosh sahifasi ochiladi.
+   *
+   * Yo'naltirish shu brauzer tabida (sessionStorage) bir marta: ilgari "/"
+   * ni yangilash (F5) yoki xatcho'pdan ochish ham har safar CRM ga otardi —
+   * Deal Mind bosh sahifasiga faqat logo orqali kirish mumkin edi.
    */
   const kirishTekshirildi = useRef(false);
   useLayoutEffect(() => {
@@ -31,9 +38,15 @@ export function App() {
     const p = business.permissions;
     const rahbarMi = p.includes('analytics:read:all');
     const crmBor = rahbarMi || p.includes('task:read:all') || Boolean(business.seatId);
-    if (rahbarMi && crmBor && (loc.pathname === '/' || loc.pathname === '/kirish')) {
-      navigate('/crm/ish-stoli', { replace: true });
+    if (!rahbarMi || !crmBor || (loc.pathname !== '/' && loc.pathname !== '/kirish')) return;
+    let avvalYonaltirilgan = false;
+    try {
+      avvalYonaltirilgan = sessionStorage.getItem(YONALTIRISH_KALIT) === user.id;
+      sessionStorage.setItem(YONALTIRISH_KALIT, user.id);
+    } catch {
+      /* xotira yopiq — har safar yo'naltiriladi (avvalgidek) */
     }
+    if (loc.pathname === '/kirish' || !avvalYonaltirilgan) navigate('/crm/ish-stoli', { replace: true });
   }, [loading, user, business, loc.pathname, navigate]);
 
   // Ochiq veb-forma (CRM) — kirishsiz va kabinet tekshiruvisiz; saytga iframe bilan joylanadi

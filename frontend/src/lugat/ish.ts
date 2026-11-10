@@ -505,9 +505,9 @@ const ISH: Lugat = {
   'Yopilishga yaqin lidlar': { en: 'Leads close to closing', ru: 'Лиды, близкие к закрытию' },
   Biriktirilmagan: { en: 'Unassigned', ru: 'Не назначен' },
   "{nom} bo'yicha saralash": { en: 'Sort by {nom}', ru: 'Сортировать: {nom}' },
-  "Telefon suhbatlari: yozuv matnga aylantiriladi va baholash mezonlari bo'yicha isbot bilan baholanadi. Telefoniya avtomatik ulanishi keyingi bosqichda — hozircha yozuv qo'lda yuklanadi.": {
-    en: 'Phone conversations: the recording is transcribed and scored against the scoring criteria with evidence. Automatic telephony integration comes in the next phase — for now, recordings are uploaded manually.',
-    ru: 'Телефонные разговоры: запись расшифровывается и оценивается по критериям с доказательствами. Автоматическое подключение телефонии — на следующем этапе, пока записи загружаются вручную.',
+  "Telefon suhbatlari: yozuv matnga aylantiriladi va baholash mezonlari bo'yicha isbot bilan baholanadi. Moi Zvonki ulangan bo'lsa yozuvlar avtomatik keladi; boshqa yozuvni qo'lda yuklash mumkin.": {
+    en: 'Phone conversations: the recording is transcribed and scored against the scoring criteria with evidence. With Moi Zvonki connected, recordings arrive automatically; other recordings can be uploaded manually.',
+    ru: 'Телефонные разговоры: запись расшифровывается и оценивается по критериям с доказательствами. При подключённом Moi Zvonki записи поступают автоматически; другие записи можно загрузить вручную.',
   },
   "Qo'ng'iroq yuklash": { en: 'Upload call', ru: 'Загрузить звонок' },
   "Mijoz, telefon, menejer yoki qo'ng'iroq mazmuni": {
