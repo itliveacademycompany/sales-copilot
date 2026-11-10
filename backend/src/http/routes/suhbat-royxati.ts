@@ -132,13 +132,15 @@ export function registerSuhbatRoyxatiRoutes(app: FastifyInstance): void {
           direction: string;
           channel: string;
           is_flagged: boolean | null;
+          scoring_mode: string | null;
         }>(
           await tx.execute(sql`
             select c.id,
                    extract(epoch from c.started_at)::bigint as s,
                    extract(epoch from c.ended_at)::bigint as e,
                    c.seat_id, c.status, a.lead_quality, a.overall_score, c.duration_seconds,
-                   a.call_family, a.service_line, a.business_relevance, c.direction, c.channel, a.is_flagged
+                   a.call_family, a.service_line, a.business_relevance, c.direction, c.channel, a.is_flagged,
+                   a.scoring_mode
             from conversation c
             left join analysis a on a.conversation_id = c.id
             where ${shart}
@@ -171,11 +173,12 @@ export function registerSuhbatRoyxatiRoutes(app: FastifyInstance): void {
         soha: new Lugat(),
         yonalish: new Lugat(),
         kanal: new Lugat(),
+        rejim: new Lugat(),
       };
       /**
        * Kortej tartibi (frontend `components/bosh/malumot.ts` → `ixchamniOch`):
        * [id, boshlanish(s), tugash(s)|null, seat, holat, lid, ball|null,
-       *  davomiylik|null, oila, xizmat, soha, yo'nalish, kanal, bayroq(0/1)]
+       *  davomiylik|null, oila, xizmat, soha, yo'nalish, kanal, bayroq(0/1), baholash rejimi]
        * Lug'at maydonlarida -1 = null.
        */
       const rows = qator.map((r) => [
@@ -193,6 +196,8 @@ export function registerSuhbatRoyxatiRoutes(app: FastifyInstance): void {
         L.yonalish.id(r.direction),
         L.kanal.id(r.channel),
         r.is_flagged ? 1 : 0,
+        // Analitika (Mijoz tahlili) va kunlik hisobot "baholangan/baholanmagan"ni ajratadi
+        L.rejim.id(r.scoring_mode),
       ]);
 
       return {

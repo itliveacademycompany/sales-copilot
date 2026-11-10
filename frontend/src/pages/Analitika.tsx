@@ -94,7 +94,8 @@ export function Analitika() {
       { replace: true },
     );
 
-  const { data, loading, xato, qaytaYukla } = useBoshMalumot(business, davr);
+  // Ixcham rejim: bitta yengil so'rov (matn va telefon tahlil tafsilotidan olinadi)
+  const { data, loading, xato, qaytaYukla } = useBoshMalumot(business, davr, { ixcham: true });
   const joriyRows = useMemo(
     () => (data ? oraliqda(data.suhbatlar, davr.from, davr.to) : null),
     [data, davr],

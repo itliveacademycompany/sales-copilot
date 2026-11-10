@@ -96,7 +96,8 @@ export function KunlikHisobotSahifa() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tur, from.getTime()],
   );
-  const { data, loading, xato } = useBoshMalumot(business, davr);
+  // Ixcham rejim: bitta yengil so'rov; suhbat xulosasi tahlil tafsilotidan olinadi
+  const { data, loading, xato } = useBoshMalumot(business, davr, { ixcham: true });
   const joriyRows = useMemo(() => (data ? oraliqda(data.suhbatlar, davr.from, davr.to) : null), [data, davr]);
   const q = useAnalitikaQoshimcha(business, davr, joriyRows);
 
@@ -660,7 +661,8 @@ function MenejerlarTahlili({ data, rows, q }: { data: BoshMalumot; rows: Convers
                       {done.slice(0, 6).map((r) => (
                         <li key={r.id}>
                           <Link to={`/lidlar/${r.id}`}>
-                            <span>{r.summary ?? t('Suhbat #{id}', { id: r.id.slice(0, 8) })}</span>
+                            {/* Ixcham ro'yxatda xulosa faqat oxirgi tahlillarda — qolgani tafsilotdan */}
+                            <span>{r.summary ?? q.tafsilot[r.id]?.analysis?.summary ?? t('Suhbat #{id}', { id: r.id.slice(0, 8) })}</span>
                             {r.overallScore !== null && <b>{Math.round(Number(r.overallScore))}%</b>}
                           </Link>
                         </li>

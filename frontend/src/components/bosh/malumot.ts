@@ -107,9 +107,9 @@ export async function suhbatlarniYukla(
 interface IxchamJavob {
   v: number;
   kesildi: boolean;
-  lugat: Record<'seat' | 'status' | 'lead' | 'oila' | 'xizmat' | 'soha' | 'yonalish' | 'kanal', string[]>;
-  /** [id, boshlanish(s), tugash(s)|null, seat, holat, lid, ball|null, davomiylik|null, oila, xizmat, soha, yo'nalish, kanal, bayroq] */
-  rows: [string, number, number | null, number, number, number, number | null, number | null, number, number, number, number, number, 0 | 1][];
+  lugat: Record<'seat' | 'status' | 'lead' | 'oila' | 'xizmat' | 'soha' | 'yonalish' | 'kanal', string[]> & { rejim?: string[] };
+  /** [id, boshlanish(s), tugash(s)|null, seat, holat, lid, ball|null, davomiylik|null, oila, xizmat, soha, yo'nalish, kanal, bayroq, baholash rejimi?] */
+  rows: [string, number, number | null, number, number, number, number | null, number | null, number, number, number, number, number, 0 | 1, number?][];
   /** id → [xulosa, eng zaif joy] — faqat oxirgi tahlillar uchun. */
   matnlar: Record<string, [string | null, string | null]>;
 }
@@ -128,7 +128,7 @@ export async function ixchamYukla(biz: string, since: Date): Promise<{ rows: Con
   const L = j.lugat;
   const ol = (lug: string[], i: number) => (i < 0 ? null : (lug[i] ?? null));
   const iso = (s: number | null) => (s === null ? null : new Date(s * 1000).toISOString());
-  const rows = j.rows.map(([id, s, e, seat, holat, lid, ball, davom, oila, xizmat, soha, yonalish, kanal, bayroq]): ConversationRow => {
+  const rows = j.rows.map(([id, s, e, seat, holat, lid, ball, davom, oila, xizmat, soha, yonalish, kanal, bayroq, rejim]): ConversationRow => {
     const matn = j.matnlar[id];
     return {
       id,
@@ -145,7 +145,7 @@ export async function ixchamYukla(biz: string, since: Date): Promise<{ rows: Con
       primaryGap: matn?.[1] ?? null,
       summary: matn?.[0] ?? null,
       isFlagged: bayroq === 1,
-      scoringMode: null,
+      scoringMode: rejim === undefined ? null : ol(L.rejim ?? [], rejim),
       callFamily: ol(L.oila, oila),
       serviceLine: ol(L.xizmat, xizmat),
       businessRelevance: ol(L.soha, soha),
@@ -177,9 +177,9 @@ export interface BoshMalumot {
 }
 
 /**
- * `ixcham` — Bosh sahifa: suhbatlar `ixchamYukla` orqali (bitta yengil so'rov).
- * Analitika va kunlik hisobot matn/telefon maydonlarini ham ishlatadi —
- * ular hozircha to'liq ro'yxat bilan qoladi.
+ * `ixcham` — suhbatlar `ixchamYukla` orqali (bitta yengil so'rov). Bosh sahifa,
+ * Analitika va kunlik hisobot shu rejimda: ularga kerakli matn va telefonlar
+ * tahlil tafsilotidan (`useAnalitikaQoshimcha`) olinadi, ro'yxatdan emas.
  */
 export function useBoshMalumot(business: BusinessAccess | null, davr: Davr, opts: { ixcham?: boolean } = {}) {
   const ixcham = opts.ixcham ?? false;
