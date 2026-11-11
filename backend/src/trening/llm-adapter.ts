@@ -39,7 +39,9 @@ const STANDART: BosqichSozlama = { maxTokens: 8192, timeoutMs: 60_000, temperatu
 
 const BOSQICH: Record<string, BosqichSozlama> = {
   // Jonli suhbat — tez va jonli
-  'training.turn': { maxTokens: 4096, timeoutMs: 25_000, temperature: null, reasoning: 'low' },
+  // Jonli suhbat: fikrlash o'chiq — Gemini 2.5 Flash'da fikrlash bilan javob
+  // 3.7-4.8 s edi. Mijoz gapi qisqa, chuqur mulohaza kerak emas.
+  'training.turn': { maxTokens: 4096, timeoutMs: 25_000, temperature: null, reasoning: 'none' },
   'training.persona': { maxTokens: 8192, timeoutMs: 45_000, temperature: null, reasoning: 'low' },
   'training.scenario_draft': { maxTokens: 8192, timeoutMs: 60_000, temperature: null, reasoning: 'low' },
   // Baholash — barqaror va puxta (tranzaksiyadan tashqarida)

@@ -282,9 +282,11 @@ export class OpenAiCompatLlm implements LlmClient {
     const maxTokens = jsonObjectOnly
       ? Math.min((req.maxTokens ?? 8192) * 4, 131_072)
       : (req.maxTokens ?? 8192);
-    const effort = jsonObjectOnly
+    const soralgan = jsonObjectOnly
       ? (req.reasoningEffort ?? process.env.LLM_REASONING_EFFORT?.trim())
       : req.reasoningEffort;
+    // Gemini 3 oilasida fikrlashni butunlay o'chirib bo'lmaydi ("none" rad etiladi) — eng pastini so'raymiz.
+    const effort = soralgan === 'none' && /gemini-3/i.test(model) ? 'low' : soralgan;
     const temperature = req.temperature === undefined ? 0 : req.temperature;
 
     const res = await uzunFetch(`${this.baseUrl}/chat/completions`, {

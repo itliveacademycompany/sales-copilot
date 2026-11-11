@@ -183,6 +183,9 @@ export function Mashq() {
           boshla={() => sessiyaOch(karta, tanlov)}
           onTugadi={(sessionId, iz) => setKorinish({ nom: 'xulosa', sessionId, karta, iz })}
           onBekor={bosh}
+          sttHolati={() =>
+            sorov<{ tayyor: boolean }>(`${asos}/ovoz-isit`, { method: 'POST', body: {} }).then((h) => h.tayyor === true)
+          }
         />
       );
       break;

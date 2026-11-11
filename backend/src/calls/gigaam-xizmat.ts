@@ -149,6 +149,11 @@ class GigaamHovuzi {
     });
   }
 
+  /** Kamida bitta jarayonda model yuklangan va tirik. */
+  tayyor(): boolean {
+    return this.ishchilar.some((i) => i.tayyor && !i.olik);
+  }
+
   /** Ishchi yo'q bo'lsa — oldindan ishga tushiradi (model yuklanishi navbatdan oldin boshlansin). */
   isit(): void {
     if (this.ishchilar.some((i) => !i.olik)) return;
@@ -228,7 +233,7 @@ export function gigaamXizmatida(input: string, output: string): Promise<void> {
  *   - bitta alohida jarayon, faqat jonli so'rovlar uchun;
  *   - odatiy ustuvorlikda (fon transkripsiyasidan oldin protsessor oladi);
  *   - `chunks` rejimi: 30 s gacha yozuvda og'ir VAD/longform kerak emas;
- *   - talab bo'yicha ishga tushadi va 10 daqiqa ishlatilmasa to'xtaydi —
+ *   - talab bo'yicha ishga tushadi va 20 daqiqa ishlatilmasa to'xtaydi —
  *     model xotirasi (bir necha GB) doim band turmaydi.
  */
 let jonliHovuz: GigaamHovuzi | null = null;
@@ -237,7 +242,7 @@ const jonli = (): GigaamHovuzi =>
     hajm: () => 1,
     args: ['--mode', 'chunks', '--chunk-seconds', '30'],
     pastUstuvor: false,
-    boshQolishMs: 10 * 60_000,
+    boshQolishMs: 20 * 60_000,
   }));
 
 export function gigaamJonli(input: string, output: string): Promise<void> {
@@ -247,6 +252,11 @@ export function gigaamJonli(input: string, output: string): Promise<void> {
 /** Mashq boshlanishida chaqiriladi — birinchi gapgacha model yuklanib ulgursin. */
 export function gigaamJonliniIsit(): void {
   jonli().isit();
+}
+
+/** Jonli jarayonda model yuklanganmi (qo'ng'iroq ekrani shunga qarab gudokni to'xtatadi). */
+export function gigaamJonliTayyormi(): boolean {
+  return jonliHovuz?.tayyor() ?? false;
 }
 
 /** Server to'xtaganda — jarayonlarga stdin yopiladi, ular o'zi chiqadi. */

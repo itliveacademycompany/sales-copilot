@@ -3,7 +3,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { getSimulyatorGeminiKaliti } from '../../ai/llm.js';
 import { profileSchema, type BusinessProfile } from '../../business/profile.js';
-import { gigaamJonliniIsit } from '../../calls/gigaam-xizmat.js';
+import { gigaamJonliniIsit, gigaamJonliTayyormi } from '../../calls/gigaam-xizmat.js';
 import { withTenant } from '../../db/index.js';
 import { business, trainingSession } from '../../db/schema/index.js';
 import { createTrainingEngine } from '../../training/engine.js';
@@ -157,9 +157,12 @@ export async function registerTreningRoutes(app: FastifyInstance): Promise<void>
     });
 
     // "Boshlashdan oldin" oynasi ochilganda — nutqni tanish modeli oldindan yuklanadi.
-    scope.post(`${PREFIX}/ovoz-isit`, async (_req, reply) => {
-      if (await ovozTayyormi()) gigaamJonliniIsit();
-      return reply.code(204).send();
+    // Qo'ng'iroq ekrani gudok paytida shu yerga qayta-qayta murojaat qiladi va
+    // `tayyor` bo'lguncha kutadi — birinchi gap model yuklanishini kutib qolmaydi.
+    scope.post(`${PREFIX}/ovoz-isit`, async () => {
+      if (!(await ovozTayyormi())) return { tayyor: false, ovoz: false };
+      gigaamJonliniIsit();
+      return { tayyor: gigaamJonliTayyormi(), ovoz: true };
     });
 
     // Mashqdan keyingi fikr: faqat o'z sessiyasiga (boshqasiga 404).

@@ -25,7 +25,7 @@ import {
  * Vaqt tugashidan 30 s oldin ogohlantirish, tugaganda qo'ng'iroq yopiladi.
  */
 
-type Bosqich = 'ulanmoqda' | 'tinglayapti' | 'oylayapti' | 'gapiryapti' | 'tugamoqda';
+type Bosqich = 'ulanmoqda' | 'tinglayapti' | 'tanilmoqda' | 'oylayapti' | 'gapiryapti' | 'tugamoqda';
 
 interface Qator extends JurnalQator {
   id: number;
@@ -41,6 +41,8 @@ interface Props {
   onTugadi: (sessionId: string, iz: QongiroqIzi) => void;
   /** Ulanmasdan bekor qilindi yoki sessiya yaratilmadi. */
   onBekor: () => void;
+  /** Serverdagi nutqni tanish modeli yuklanganmi (gudok shunga qarab to'xtaydi). */
+  sttHolati: () => Promise<boolean>;
 }
 
 interface Sessiya {
@@ -81,7 +83,7 @@ function base64Blob(b64: string, mime: string): Blob {
   return new Blob([arr], { type: mime || 'audio/wav' });
 }
 
-export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor }: Props) {
+export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor, sttHolati }: Props) {
   const jami = davomiylik(karta.qiyinlik);
   const [sessiya, setSessiya] = useState<Sessiya | null>(null);
   const [ulanishXato, setUlanishXato] = useState<string | null>(null);
@@ -209,12 +211,9 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor }: P
     async (wav: Blob): Promise<void> => {
       const s = sessiyaRef.current;
       if (tugadiRef.current || !s) return;
-      setBosqich('oylayapti');
+      setBosqich('tanilmoqda');
       const kutishId = qosh('seller', '', true);
-      let javob: VoiceTurnResponse;
-      try {
-        javob = await api.takeVoiceTurn(s.id, wav);
-      } catch (err) {
+      const xatoga = (err: unknown): void => {
         qatorlarniYangila((q) => q.filter((x) => x.id !== kutishId));
         if (tugadiRef.current) return;
         const status = (err as { status?: number }).status;
@@ -224,14 +223,43 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor }: P
         }
         xabarKorsat(`${errorText(err, true)} Qayta gapiring.`);
         setBosqich('tinglayapti');
+      };
+
+      // 1-bosqich: faqat nutqni tanish (~2 s) — gapingiz darhol ekranda ko'rinadi.
+      let tanildi: Awaited<ReturnType<TrainingApi['transcribeVoice']>>;
+      try {
+        tanildi = await api.transcribeVoice(s.id, wav);
+      } catch (err) {
+        xatoga(err);
         return;
       }
-      if (javob.needsRepeat || !javob.sellerText.trim()) {
+      if (tugadiRef.current) return;
+      const matn = tanildi.sttText.trim();
+      if (!tanildi.recognized || !matn) {
         qatorlarniYangila((q) => q.filter((x) => x.id !== kutishId));
-      } else {
-        qatorlarniYangila((q) =>
-          q.map((x) => (x.id === kutishId ? { ...x, matn: javob.sellerText, kutilmoqda: false } : x)),
-        );
+        xabarKorsat("Gapingiz eshitilmadi — biroz balandroq va aniqroq qaytaring.");
+        setBosqich('tinglayapti');
+        return;
+      }
+      qatorlarniYangila((q) => q.map((x) => (x.id === kutishId ? { ...x, matn, kutilmoqda: false } : x)));
+
+      // 2-bosqich: mijoz javobi (AI) va ovozi.
+      setBosqich('oylayapti');
+      let javob: VoiceTurnResponse;
+      try {
+        javob = await api.voiceReply(s.id, { transcriptId: tanildi.transcriptId, text: matn });
+      } catch (err) {
+        if (tugadiRef.current) return;
+        // Gap ekranda qoladi, lekin serverga yetib bormadi — belgilab qo'yamiz.
+        qatorlarniYangila((q) => q.map((x) => (x.id === kutishId ? { ...x, matn: `${matn} (yuborilmadi)` } : x)));
+        const status = (err as { status?: number }).status;
+        if (status === 409 && /tugag|ended|not_active|budget/i.test(String((err as Error).message))) {
+          void tugat('mijoz');
+          return;
+        }
+        xabarKorsat(`${errorText(err, true)} Qayta gapiring.`);
+        setBosqich('tinglayapti');
+        return;
       }
       ijro(
         javob.audioStreamUrl ? { url: javob.audioStreamUrl } : { b64: javob.audio, mime: javob.audioMime },
@@ -267,11 +295,26 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor }: P
           xato = e ?? new Error('sessiya yaratilmadi');
         },
       );
-      // Kamida bir gudok; keyin sessiya tayyor bo'lguncha davom etadi.
+      // Nutqni tanish modeli tayyormi — har gudokda so'raladi (birinchi gap yuklanishni kutmasin).
+      let sttTayyor = false;
+      const sttniTekshir = (): void => {
+        void sttHolati()
+          .then((t) => {
+            if (t) sttTayyor = true;
+          })
+          .catch(() => {
+            sttTayyor = true; // tekshirib bo'lmasa — kutib o'tirmaymiz
+          });
+      };
+      sttniTekshir();
+      const gudokBoshi = Date.now();
+      // Kamida bir gudok; sessiya VA nutqni tanish tayyor bo'lguncha davom etadi
+      // (STT uchun ko'pi bilan ~60 s — undan keyin baribir ulanadi).
       do {
         await gudok();
         if (bekor) return;
-      } while (natija === null && xato === null);
+        if (!sttTayyor) sttniTekshir();
+      } while ((natija === null && xato === null) || (!sttTayyor && Date.now() - gudokBoshi < 60_000));
       await sorov;
       if (bekor) return;
       if (xato || !natija) {
@@ -348,7 +391,9 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor }: P
           ? 'Qo\'ng\'iroq tugadi'
           : ochirilgan
             ? 'Mikrofoningiz o\'chiq'
-            : bosqich === 'oylayapti'
+            : bosqich === 'tanilmoqda'
+              ? 'Tinglab oldi…'
+              : bosqich === 'oylayapti'
               ? 'O\'ylayapti…'
               : bosqich === 'gapiryapti'
                 ? 'Gapiryapti'
