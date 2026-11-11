@@ -232,6 +232,13 @@
       "when": 1794393990761,
       "tag": "0032_trening",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1794401369781,
+      "tag": "0033_trening_fikr",
+      "breakpoints": true
     }
   ]
 }

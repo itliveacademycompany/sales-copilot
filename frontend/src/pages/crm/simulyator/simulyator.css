@@ -1,0 +1,1500 @@
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * CRM → SIMULYATOR (sm-*)
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Bosh sahifa va oynalar — loyiha tokenlarida (yorug'/qorong'i mavzu o'zi
+ * ishlaydi). Qo'ng'iroq va xulosa — doim to'q "qo'ng'iroq" fonida, mavzuga
+ * bog'liq emas (telefon ekrani kabi diqqatni bir joyga yig'adi).
+ */
+
+.sm-ilova {
+  --sm-r: 16px;
+  --sm-r-sm: 10px;
+  --sm-karta: var(--bg-surface);
+  --sm-soya: var(--neu-out-sm);
+  --sm-soya-hover: var(--neu-out);
+  --sm-tun: #0f1a33;
+  --sm-tun-2: #15223f;
+  --sm-tun-karta: #1a2848;
+  --sm-tun-chegara: rgba(148, 170, 214, 0.16);
+  --sm-tun-matn: #e8eefc;
+  --sm-tun-xira: #93a3c4;
+  --sm-kok: #2f8cff;
+  color: var(--text-primary);
+  min-height: 100%;
+}
+
+/* ── Tugmalar ──────────────────────────────────────────────────────────── */
+.sm-tugma {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--sm-r-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: var(--neu-out-xs);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: box-shadow 0.15s var(--ease), transform 0.15s var(--ease), background 0.15s var(--ease);
+}
+.sm-tugma:hover:not(:disabled) {
+  box-shadow: var(--neu-out-sm);
+}
+.sm-tugma:active:not(:disabled) {
+  box-shadow: var(--neu-in-xs);
+  transform: translateY(1px);
+}
+.sm-tugma:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.sm-tugma-asosiy {
+  background: var(--ia-grad);
+  color: var(--ia-on);
+  box-shadow: var(--ia-glow);
+}
+.sm-tugma-asosiy:hover:not(:disabled) {
+  box-shadow: var(--ia-glow), 0 0 0 3px var(--focus-ring);
+}
+.sm-tugma-keng {
+  flex: 1;
+}
+.sm-tugma-belgi {
+  width: 40px;
+  padding: 0;
+  color: var(--text-secondary);
+}
+.sm-tugma:focus-visible,
+.sm-havola:focus-visible,
+.sm-oxirgi-qator:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+.sm-havola {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--ia-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.sm-havola:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.sm-havola:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Xabarlar ──────────────────────────────────────────────────────────── */
+.sm-xabar {
+  padding: 10px 14px;
+  border-radius: var(--sm-r-sm);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.sm-xabar-xato {
+  background: var(--past-soft);
+  color: var(--past-text);
+}
+.sm-xabar-ogoh {
+  background: var(--orta-soft);
+  color: var(--orta-text);
+}
+.sm-xabar-info {
+  background: var(--ia-soft);
+  color: var(--ia-text);
+}
+
+/* ═══ BOSH SAHIFA ═════════════════════════════════════════════════════════ */
+.sm-bosh {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 8px 4px 48px;
+}
+.sm-bosh-bosh {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.sm-bosh-bosh h1 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.sm-bosh-tur {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 24px;
+  align-items: start;
+}
+.sm-bosh-asosiy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sm-qidiruv {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: var(--sm-r-sm);
+  background: var(--bg-surface);
+  box-shadow: var(--neu-in-sm);
+  color: var(--text-secondary);
+}
+.sm-qidiruv:focus-within {
+  box-shadow: var(--neu-in-sm), 0 0 0 3px var(--focus-ring);
+}
+.sm-qidiruv input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+}
+.sm-qidiruv-tozala {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.sm-bolim {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.sm-kartalar {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 16px;
+}
+.sm-karta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 186px;
+  padding: 18px;
+  border-radius: var(--sm-r);
+  background: var(--sm-karta);
+  box-shadow: var(--sm-soya);
+  transition: box-shadow 0.2s var(--ease), transform 0.2s var(--ease);
+}
+.sm-karta:hover {
+  box-shadow: var(--sm-soya-hover);
+  transform: translateY(-2px);
+}
+.sm-karta-nom {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.sm-karta-meta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.sm-karta-tavsif {
+  flex: 1;
+  margin: 2px 0 6px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sm-karta-past {
+  display: flex;
+  gap: 10px;
+}
+.sm-karta-skelet {
+  min-height: 186px;
+  animation: sm-miltillash 1.4s ease-in-out infinite;
+}
+.sm-bosh-yoq {
+  padding: 40px 16px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+/* ── O'ng panel ── */
+.sm-yon {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: 12px;
+}
+.sm-panel {
+  padding: 16px;
+  border-radius: var(--sm-r);
+  background: var(--sm-karta);
+  box-shadow: var(--sm-soya);
+}
+.sm-panel-bosh {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sm-panel-nom {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.sm-panel-bosh .sm-panel-nom {
+  margin-bottom: 12px;
+}
+.sm-hafta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.sm-hafta-son {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+  border-radius: var(--sm-r-sm);
+  background: var(--bg-surface);
+  box-shadow: var(--neu-in-xs);
+}
+.sm-hafta-son b {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.sm-hafta-son span {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+.sm-oxirgi {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sm-oxirgi-qator {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2px 8px;
+  width: 100%;
+  padding: 9px 8px;
+  border: none;
+  border-radius: var(--sm-r-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sm-oxirgi-qator:hover:not(:disabled) {
+  background: var(--bg-sunken);
+}
+.sm-oxirgi-qator:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+.sm-oxirgi-nom {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sm-oxirgi-vaqt {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.sm-belgi {
+  align-self: start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sm-belgi-neytral {
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+}
+.sm-belgi-yaxshi {
+  background: var(--yuqori-soft);
+  color: var(--yuqori-text);
+}
+.sm-belgi-orta {
+  background: var(--orta-soft);
+  color: var(--orta-text);
+}
+.sm-belgi-past {
+  background: var(--past-soft);
+  color: var(--past-text);
+}
+.sm-yon-bosh {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.sm-maxfiy {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+.sm-skelet-qator {
+  height: 120px;
+  border-radius: var(--sm-r-sm);
+  background: var(--bg-sunken);
+  animation: sm-miltillash 1.4s ease-in-out infinite;
+}
+
+/* ═══ OYNALAR ═════════════════════════════════════════════════════════════ */
+.sm-qoplama {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 20, 28, 0.42);
+  backdrop-filter: blur(3px);
+  animation: sm-paydo 0.18s ease;
+}
+.sm-oyna {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: var(--bg-base);
+  box-shadow: var(--shadow-lg);
+  animation: sm-kotarilish 0.22s var(--ease);
+  overflow: hidden;
+}
+.sm-oyna-boshlash {
+  width: min(560px, 100%);
+}
+.sm-oyna-bosh {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 8px;
+}
+.sm-oyna-bosh h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+.sm-yopish {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.sm-yopish:hover:not(:disabled) {
+  background: var(--bg-sunken);
+}
+.sm-oyna-tana {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 10px 22px 18px;
+  overflow-y: auto;
+}
+.sm-oyna-past {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.sm-bosh-joy {
+  flex: 1;
+}
+
+.sm-vaziyat {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--sm-r);
+  background: var(--ia-soft);
+}
+.sm-vaziyat-belgi {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--bg-surface);
+  color: var(--ia-text);
+}
+.sm-vaziyat-nom {
+  font-size: 15px;
+  font-weight: 700;
+}
+.sm-vaziyat-tavsif {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.sm-kayfiyat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+.sm-kayfiyat select,
+.sm-qurilma {
+  height: 30px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg-surface);
+  box-shadow: var(--neu-out-xs);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.sm-qurilma {
+  max-width: 220px;
+}
+
+.sm-qadam {
+  display: flex;
+  gap: 12px;
+}
+.sm-qadam-belgi {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+.sm-qadam-belgi.sm-ok {
+  background: var(--yuqori-soft);
+  color: var(--yuqori-text);
+}
+.sm-qadam-tana {
+  flex: 1;
+  min-width: 0;
+}
+.sm-qadam-sarlavha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 26px;
+  font-size: 14px;
+  flex-wrap: wrap;
+}
+.sm-profil-qisqa {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.sm-profil {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.sm-profil input {
+  height: 36px;
+  min-width: 0;
+  flex: 1 1 140px;
+  padding: 0 12px;
+  border: none;
+  border-radius: var(--sm-r-sm);
+  background: var(--bg-surface);
+  box-shadow: var(--neu-in-sm);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 14px;
+}
+.sm-profil input:focus {
+  outline: none;
+  box-shadow: var(--neu-in-sm), 0 0 0 3px var(--focus-ring);
+}
+.sm-profil .sm-yosh {
+  flex: 0 0 76px;
+}
+.sm-segment {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: var(--sm-r-sm);
+  background: var(--bg-surface);
+  box-shadow: var(--neu-in-sm);
+}
+.sm-segment button {
+  height: 30px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sm-segment button.sm-faol {
+  background: var(--bg-surface);
+  color: var(--ia-text);
+  box-shadow: var(--neu-out-xs);
+}
+.sm-izoh {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.sm-izoh-ok {
+  color: var(--yuqori-text);
+}
+.sm-izoh-xato {
+  color: var(--past-text);
+}
+
+/* Mikrofon darajasi */
+.sm-daraja {
+  display: grid;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 4px;
+  margin-top: 10px;
+}
+.sm-daraja span {
+  height: 10px;
+  border-radius: 3px;
+  background: var(--bg-sunken);
+  transition: background 0.08s linear;
+}
+.sm-daraja span.sm-yongan {
+  background: var(--yuqori);
+}
+
+/* Vaqt chizig'i */
+.sm-vaqt-chiziq {
+  position: relative;
+  height: 6px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--bg-sunken);
+}
+.sm-vaqt-belgi {
+  position: absolute;
+  top: -5px;
+  width: 3px;
+  height: 16px;
+  margin-left: -1px;
+  border-radius: 2px;
+  background: var(--orta);
+}
+.sm-vaqt-yozuv {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.sm-rozilik {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.sm-rozilik svg {
+  flex: none;
+  margin-top: 2px;
+}
+.sm-rozilik-qator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sm-matn-qator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 0 22px 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* Mashq tafsiloti */
+.sm-tafsilot-matn {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.sm-tafsilot-royxat {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.sm-tafsilot-royxat div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--sm-r-sm);
+  background: var(--bg-surface);
+  box-shadow: var(--neu-in-xs);
+  font-size: 13px;
+}
+.sm-tafsilot-royxat dt {
+  color: var(--text-secondary);
+}
+.sm-tafsilot-royxat dd {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-weight: 600;
+}
+
+/* ═══ MODUL SAHIFALARI (tarix, to'liq tahlil, ssenariy yaratish) ═════════ */
+.sm-modul-bosh {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1040px;
+  margin: 0 auto 8px;
+  padding: 4px 0;
+}
+.sm-orqaga {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px 0 10px;
+  border: none;
+  border-radius: var(--sm-r-sm);
+  background: var(--bg-surface);
+  box-shadow: var(--neu-out-xs);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sm-orqaga:hover {
+  box-shadow: var(--neu-out-sm);
+}
+/* Modul sahifasining o'z navigatsiyasi bu yerda kerak emas. */
+.sm-modul .mq-nav {
+  display: none;
+}
+
+/* ═══ QO'NG'IROQ EKRANI ═══════════════════════════════════════════════════ */
+.sm-qongiroq {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  min-height: calc(100vh - 48px);
+  padding: 0;
+  color: var(--sm-tun-matn);
+}
+.sm-q-sahna {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 22px;
+  background:
+    radial-gradient(120% 70% at 50% 42%, rgba(47, 140, 255, 0.16) 0%, transparent 60%),
+    linear-gradient(180deg, var(--sm-tun-2) 0%, var(--sm-tun) 100%);
+  box-shadow: 0 24px 60px -24px rgba(10, 18, 40, 0.65);
+  overflow: hidden;
+}
+.sm-q-tepa {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 24px 0;
+}
+.sm-q-taymer {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 10px;
+  width: min(460px, 100%);
+}
+.sm-q-son {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.sm-q-izoh,
+.sm-q-yakun {
+  font-size: 12.5px;
+  color: var(--sm-tun-xira);
+}
+.sm-q-chiziq {
+  position: relative;
+  width: min(460px, 100%);
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(148, 170, 214, 0.18);
+}
+.sm-q-chiziq span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #4c9bff, var(--sm-kok));
+  transition: width 0.25s linear;
+}
+.sm-q-chiziq i {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 14px;
+  background: #f5a524;
+  border-radius: 2px;
+}
+.sm-q-maqsad {
+  max-width: min(560px, 100%);
+  padding: 6px 14px;
+  border: 1px solid var(--sm-tun-chegara);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12.5px;
+  color: var(--sm-tun-xira);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sm-q-markaz {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+}
+.sm-q-avatar {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 128px;
+  height: 128px;
+  margin-bottom: 14px;
+}
+.sm-q-harf {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #eef3ff, #d9e4fb);
+  color: #1d3f7a;
+  font-size: 42px;
+  font-weight: 700;
+  box-shadow: 0 0 0 10px rgba(47, 140, 255, 0.1), 0 0 0 22px rgba(47, 140, 255, 0.05);
+}
+.sm-q-tolqin {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(76, 155, 255, 0.55);
+  opacity: 0;
+}
+.sm-q-gapiryapti .sm-q-tolqin {
+  animation: sm-tolqin 1.6s ease-out infinite;
+}
+.sm-q-gapiryapti .sm-q-tolqin-2 {
+  animation-delay: 0.8s;
+}
+.sm-q-ulanmoqda .sm-q-harf {
+  animation: sm-urilish 2s ease-in-out infinite;
+}
+.sm-q-oylayapti .sm-q-harf {
+  box-shadow: 0 0 0 10px rgba(245, 165, 36, 0.12), 0 0 0 22px rgba(245, 165, 36, 0.05);
+}
+.sm-q-ism {
+  font-size: 24px;
+  font-weight: 700;
+}
+.sm-q-holat {
+  min-height: 20px;
+  font-size: 13.5px;
+  color: var(--sm-tun-xira);
+}
+.sm-q-ogoh,
+.sm-q-xabar,
+.sm-q-xato {
+  margin-top: 10px;
+  max-width: 440px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.sm-q-ogoh {
+  background: rgba(245, 165, 36, 0.14);
+  color: #ffd27a;
+  border: 1px solid rgba(245, 165, 36, 0.35);
+}
+.sm-q-xabar {
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--sm-tun-matn);
+}
+.sm-q-xato {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: rgba(231, 76, 92, 0.14);
+  color: #ffb3bc;
+  border: 1px solid rgba(231, 76, 92, 0.35);
+}
+.sm-q-xato button {
+  height: 32px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: #fff;
+  color: #13203d;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sm-q-boshqaruv {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  padding: 0 24px 28px;
+}
+.sm-q-tugma {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: none;
+  color: var(--sm-tun-xira);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sm-q-tugma:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.sm-q-doira {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--sm-tun-chegara);
+  color: var(--sm-tun-matn);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.sm-q-tugma:hover:not(:disabled) .sm-q-doira {
+  background: rgba(255, 255, 255, 0.14);
+}
+.sm-q-tugma:active:not(:disabled) .sm-q-doira {
+  transform: scale(0.95);
+}
+.sm-q-tugma-faol .sm-q-doira {
+  background: #fff;
+  color: #13203d;
+}
+.sm-q-tugat .sm-q-doira {
+  background: #e5484d;
+  border-color: transparent;
+  color: #fff;
+}
+.sm-q-tugat:hover:not(:disabled) .sm-q-doira {
+  background: #f2555a;
+}
+.sm-q-tugma:focus-visible .sm-q-doira {
+  outline: 2px solid #8ab8ff;
+  outline-offset: 3px;
+}
+.sm-q-mik-yonadi {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid #3ddc84;
+  animation: sm-tolqin 1.2s ease-out infinite;
+}
+
+/* Jonli matn */
+.sm-q-matn {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: calc(100vh - 48px);
+  border-radius: 22px;
+  background: var(--bg-surface);
+  box-shadow: var(--neu-out-sm);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+.sm-q-matn-bosh {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.sm-q-matn-bosh b {
+  font-size: 14px;
+}
+.sm-q-matn-bosh span {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.sm-q-matn-royxat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px 18px;
+  overflow-y: auto;
+}
+.sm-q-matn-bosh-yoq {
+  margin: auto 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.sm-q-qator {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 88%;
+  animation: sm-kotarilish 0.2s var(--ease);
+}
+.sm-q-seller {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.sm-q-kim {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.sm-q-pufak {
+  padding: 9px 12px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+.sm-q-customer .sm-q-pufak {
+  background: var(--bg-elevated);
+  box-shadow: var(--neu-out-xs);
+  border-top-left-radius: 4px;
+}
+.sm-q-seller .sm-q-pufak {
+  background: var(--ia-soft);
+  color: var(--text-primary);
+  border-top-right-radius: 4px;
+}
+.sm-q-nuqtalar {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px 2px;
+}
+.sm-q-nuqtalar i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ia);
+  opacity: 0.4;
+  animation: sm-nuqta 1.1s ease-in-out infinite;
+}
+.sm-q-nuqtalar i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.sm-q-nuqtalar i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+/* ═══ XULOSA EKRANI ═══════════════════════════════════════════════════════ */
+.sm-xulosa {
+  min-height: calc(100vh - 48px);
+  padding: 18px 20px 40px;
+  border-radius: 22px;
+  background:
+    radial-gradient(100% 60% at 50% 0%, rgba(47, 140, 255, 0.14) 0%, transparent 60%),
+    linear-gradient(180deg, var(--sm-tun-2) 0%, var(--sm-tun) 100%);
+  color: var(--sm-tun-matn);
+}
+.sm-xulosa-kutish {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+}
+.sm-x-chiplar {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+.sm-x-chip {
+  padding: 7px 14px;
+  border: 1px solid var(--sm-tun-chegara);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 12.5px;
+  color: var(--sm-tun-xira);
+}
+.sm-x-karta {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(640px, 100%);
+  margin: 0 auto;
+}
+.sm-x-tugadi {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--sm-tun-xira);
+}
+.sm-x-harf {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #e6edfb;
+  color: #1d3f7a;
+  font-size: 12px;
+  font-weight: 700;
+}
+.sm-x-asosiy {
+  display: flex;
+  gap: 14px;
+  margin-top: 6px;
+}
+.sm-x-belgi {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(245, 165, 36, 0.14);
+  color: #f5b544;
+}
+.sm-x-belgi-ok {
+  background: rgba(61, 220, 132, 0.14);
+  color: #4ade80;
+}
+.sm-x-yorliq {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--sm-tun-xira);
+}
+.sm-x-ball {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--sm-tun-matn);
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.sm-x-sarlavha {
+  margin: 6px 0 0;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+.sm-x-izoh {
+  margin: 8px 0 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: #c3cee6;
+}
+.sm-x-keyingi {
+  padding: 16px 18px;
+  border: 1px solid var(--sm-tun-chegara);
+  border-radius: 16px;
+  background: var(--sm-tun-karta);
+}
+.sm-x-keyingi-yorliq {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #6fb1ff;
+}
+.sm-x-keyingi p {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.55;
+}
+.sm-x-vaqt {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+  color: var(--sm-tun-xira);
+  font-variant-numeric: tabular-nums;
+}
+.sm-x-namuna {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #eef4ff;
+  color: #13203d;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.sm-x-kuchli {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #b9f2cf;
+}
+.sm-x-kuchli svg {
+  flex: none;
+  margin-top: 3px;
+}
+.sm-x-qayta {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  background: var(--sm-kok);
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 24px -10px rgba(47, 140, 255, 0.8);
+}
+.sm-x-qayta:hover {
+  background: #4598ff;
+}
+.sm-x-toliq {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--sm-tun-chegara);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--sm-tun-matn);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.sm-x-toliq:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+.sm-x-toliq > span:nth-child(2) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sm-x-toliq b {
+  font-size: 14px;
+}
+.sm-x-toliq small {
+  font-size: 12px;
+  color: var(--sm-tun-xira);
+}
+.sm-x-och {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6fb1ff;
+}
+.sm-x-fikr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13.5px;
+  color: #c3cee6;
+}
+.sm-x-fikr-tugmalar {
+  display: inline-flex;
+  gap: 8px;
+}
+.sm-x-fikr-tugmalar button {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid var(--sm-tun-chegara);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--sm-tun-matn);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sm-x-fikr-tugmalar button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+.sm-x-rahmat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #b9f2cf;
+}
+.sm-x-oq {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 38px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 10px;
+  background: #fff;
+  color: #13203d;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sm-x-oq:hover {
+  background: #e8eefc;
+}
+.sm-x-qaytish {
+  align-self: center;
+  margin-top: 4px;
+}
+.sm-x-qayta:focus-visible,
+.sm-x-toliq:focus-visible,
+.sm-x-oq:focus-visible,
+.sm-x-fikr-tugmalar button:focus-visible {
+  outline: 2px solid #8ab8ff;
+  outline-offset: 2px;
+}
+.sm-x-spinner {
+  width: 28px;
+  height: 28px;
+  margin-top: 8px;
+  border-radius: 50%;
+  border: 3px solid rgba(148, 170, 214, 0.25);
+  border-top-color: #6fb1ff;
+  animation: sm-aylanish 0.9s linear infinite;
+}
+.sm-x-kutish-nom {
+  margin: 4px 0 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+.sm-x-kutish-izoh {
+  margin: 0 0 8px;
+  max-width: 420px;
+  font-size: 13.5px;
+  color: var(--sm-tun-xira);
+}
+
+/* ═══ ANIMATSIYALAR ═══════════════════════════════════════════════════════ */
+@keyframes sm-tolqin {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.45);
+    opacity: 0;
+  }
+}
+@keyframes sm-urilish {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
+}
+@keyframes sm-nuqta {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+@keyframes sm-aylanish {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes sm-miltillash {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes sm-paydo {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sm-kotarilish {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sm-ilova *,
+  .sm-qoplama,
+  .sm-oyna {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ═══ MOSLASHUVCHAN ═══════════════════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .sm-bosh-tur {
+    grid-template-columns: 1fr;
+  }
+  .sm-yon {
+    position: static;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media (max-width: 900px) {
+  .sm-qongiroq {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+  .sm-q-sahna {
+    min-height: 520px;
+  }
+  .sm-q-matn {
+    max-height: 360px;
+  }
+}
+@media (max-width: 640px) {
+  .sm-yon {
+    grid-template-columns: 1fr;
+  }
+  .sm-bosh-bosh h1 {
+    font-size: 22px;
+  }
+  .sm-q-son {
+    font-size: 32px;
+  }
+  .sm-q-taymer {
+    grid-template-columns: auto 1fr;
+  }
+  .sm-q-yakun {
+    display: none;
+  }
+  .sm-x-sarlavha {
+    font-size: 21px;
+  }
+  .sm-oyna-past .sm-tugma {
+    flex: 1;
+  }
+}

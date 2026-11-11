@@ -12,6 +12,10 @@ export { MashqPage } from './pages/MashqPage.js';
 export { SessionPage } from './pages/SessionPage.js';
 export { NatijaPage } from './pages/NatijaPage.js';
 export { TarixPage } from './pages/TarixPage.js';
+export { ScenarioBuilderPage } from './pages/ScenarioBuilderPage.js';
+export { PresentationContext } from './lib/presentation.js';
+export { trimSilence, joinChunks, ensureAudioRunning } from './lib/voice-recording.js';
+export { errorText } from './lib/api-error.js';
 
 export { createTrainingApi } from './lib/api.js';
 export type {
@@ -19,6 +23,10 @@ export type {
   ApiRequestInit,
   TrainingApi,
   ArchetypeInfo,
+  ScenarioInfo,
+  SellerProfile,
+  StartSessionResponse,
+  ImprovementView,
   SessionDetail,
   SessionListItem,
   ResultResponse,

@@ -75,6 +75,8 @@ export const trainingSession = pgTable(
     scenario: jsonb('scenario').$type<Scenario>(),
     /** Sotuvchi profili (ism, jins, yosh) — sessiya boshida beriladi, taxmin qilinmaydi. */
     sellerProfile: jsonb('seller_profile').$type<SellerProfile>(),
+    /** Sotuvchining fikri: AI mijoz haqiqiy mijozdek tuyuldimi (migratsiya 0033). */
+    sellerFeedback: jsonb('seller_feedback').$type<{ realism: 'ha' | 'qisman' | 'yoq'; at: string }>(),
   },
   (table) => [
     index('training_session_business_user_started_idx').on(

@@ -1,10 +1,11 @@
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import { getSimulyatorGeminiKaliti } from '../../ai/llm.js';
 import { profileSchema, type BusinessProfile } from '../../business/profile.js';
 import { gigaamJonliniIsit } from '../../calls/gigaam-xizmat.js';
 import { withTenant } from '../../db/index.js';
-import { business } from '../../db/schema/index.js';
+import { business, trainingSession } from '../../db/schema/index.js';
 import { createTrainingEngine } from '../../training/engine.js';
 import type { TrainingContext, TrainingTx, WithTenant } from '../../training/ports.js';
 import {
@@ -153,6 +154,35 @@ export async function registerTreningRoutes(app: FastifyInstance): Promise<void>
         (req.method === 'POST' && url === `${PREFIX}/sessions`) ||
         (req.method === 'GET' && url === `${PREFIX}/sessions/:id`);
       if (sessiya && (await ovozTayyormi())) gigaamJonliniIsit();
+    });
+
+    // "Boshlashdan oldin" oynasi ochilganda — nutqni tanish modeli oldindan yuklanadi.
+    scope.post(`${PREFIX}/ovoz-isit`, async (_req, reply) => {
+      if (await ovozTayyormi()) gigaamJonliniIsit();
+      return reply.code(204).send();
+    });
+
+    // Mashqdan keyingi fikr: faqat o'z sessiyasiga (boshqasiga 404).
+    const fikrBody = z.object({ realism: z.enum(['ha', 'qisman', 'yoq']) });
+    scope.post(`${PREFIX}/sessions/:id/fikr`, async (req, reply) => {
+      const { id } = z.object({ id: z.string().uuid() }).parse(req.params);
+      const body = fikrBody.parse(req.body);
+      const b = req.business!;
+      const yangilandi = await withTenant(b.businessId, (tx) =>
+        tx
+          .update(trainingSession)
+          .set({ sellerFeedback: { realism: body.realism, at: new Date().toISOString() } })
+          .where(
+            and(
+              eq(trainingSession.id, id),
+              eq(trainingSession.businessId, b.businessId),
+              eq(trainingSession.userId, req.auth!.user.id),
+            ),
+          )
+          .returning({ id: trainingSession.id }),
+      );
+      if (yangilandi.length === 0) return reply.code(404).send({ error: 'session_not_found' });
+      return reply.code(204).send();
     });
 
     scope.get(`${PREFIX}/ovoz-holati`, async () => {
