@@ -1,6 +1,8 @@
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { getSimulyatorGeminiKaliti } from '../../ai/llm.js';
 import { profileSchema, type BusinessProfile } from '../../business/profile.js';
+import { gigaamJonliniIsit } from '../../calls/gigaam-xizmat.js';
 import { withTenant } from '../../db/index.js';
 import { business } from '../../db/schema/index.js';
 import { createTrainingEngine } from '../../training/engine.js';
@@ -11,8 +13,11 @@ import {
   type TrainingPermission,
 } from '../../training/routes.js';
 import { createScoringService } from '../../training/scoring/scoring.js';
+import { createVoiceService } from '../../training/voice/voice-turn.js';
+import { createGeminiTts, DEFAULT_GEMINI_TTS_MODEL } from '../../trening/gemini-tts.js';
 import { createTrainerLlm, trainerNarx } from '../../trening/llm-adapter.js';
 import { tayyorSsenariylarniQosh } from '../../trening/ssenariylar.js';
+import { createGigaamStt } from '../../trening/stt-gigaam.js';
 import { requireBusiness } from '../auth-plugin.js';
 
 /**
@@ -38,7 +43,12 @@ import { requireBusiness } from '../auth-plugin.js';
  *   - training:scenario:manage  — business:write (ssenariy yaratish/tahrirlash).
  *
  * `allowDebug` O'CHIQ: holat sonlari va "blocker"lar mashqning javoblari —
- * prod'da ko'rsatilmaydi. Ovoz (STT/TTS) keyingi bosqichda ulanadi.
+ * prod'da ko'rsatilmaydi.
+ *
+ * OVOZ (push-to-talk): STT — serverdagi GigaAM (alohida jonli jarayon,
+ * pulsiz, audio tashqariga chiqmaydi); TTS — Google Gemini (Admin → AI
+ * provayderlar'dagi Gemini kaliti). Kalit bo'lmasa `ovoz-holati` "yo'q"
+ * qaytaradi va UI ovoz panelini yoqmaydi — matnli mashq ishlayveradi.
  */
 
 const PREFIX = '/api/v1/businesses/:businessId/trening';
@@ -98,13 +108,66 @@ export async function registerTreningRoutes(app: FastifyInstance): Promise<void>
     logger,
   });
 
+  const voice = createVoiceService({
+    engine,
+    withTenant: tenant,
+    stt: createGigaamStt(),
+    tts: createGeminiTts({
+      kalit: getSimulyatorGeminiKaliti,
+      log: (line) => logger.warn(line),
+      onSynth: (e) =>
+        logger[e.ok ? 'info' : 'warn'](
+          { tts: { ...e, costUsd: Number(e.costUsd.toFixed(6)) } },
+          e.ok ? 'simulyator: TTS' : 'simulyator: TTS xatosi',
+        ),
+    }),
+    models: { stt: 'gigaam', tts: DEFAULT_GEMINI_TTS_MODEL },
+    getBusinessProfile: biznesProfili,
+    // GigaAM serverda — pulsiz. Gemini TTS audio tokenlar bilan hisoblanadi
+    // ($9/1M, 1 s ≈ 25 token); o'zbekcha nutqda ~15 belgi/s → ~$15 / 1M belgi (taxminiy).
+    cost: { sttPerMinuteUsd: 0, ttsPerMillionCharsUsd: 15 },
+    logger,
+    streamTts: true,
+  });
+
+  /** Ovoz ishlaydimi: hozircha shart — Gemini kaliti bor (STT serverda doim bor). */
+  async function ovozTayyormi(): Promise<boolean> {
+    try {
+      return (await getSimulyatorGeminiKaliti()) !== null;
+    } catch (err) {
+      logger.warn({ err }, "simulyator: Gemini kalitini o'qib bo'lmadi");
+      return false;
+    }
+  }
+
   await app.register(async (scope) => {
     scope.addHook('preHandler', requireBusiness);
+
+    // Sessiya ochilganda (yangi yoki mavjud) STT modeli oldindan yuklanadi —
+    // birinchi gapda 15-30 s model yuklanishini kutmaslik uchun. Jarayon
+    // allaqachon tirik bo'lsa hech narsa qilmaydi; 10 daqiqa ishlatilmasa o'zi to'xtaydi.
+    scope.addHook('onResponse', async (req, reply) => {
+      if (reply.statusCode >= 400) return;
+      const url = req.routeOptions.url ?? '';
+      const sessiya =
+        (req.method === 'POST' && url === `${PREFIX}/sessions`) ||
+        (req.method === 'GET' && url === `${PREFIX}/sessions/:id`);
+      if (sessiya && (await ovozTayyormi())) gigaamJonliniIsit();
+    });
+
+    scope.get(`${PREFIX}/ovoz-holati`, async () => {
+      const tayyor = await ovozTayyormi();
+      return tayyor
+        ? { enabled: true }
+        : { enabled: false, sabab: "Ovozli mashq uchun Admin → AI provayderlar'da Google Gemini kaliti qo'shilmagan" };
+    });
+
     await registerTrainingRoutes(scope, {
       engine,
       scoring,
       withTenant: tenant,
       logger,
+      voice,
       getContext: async (req: FastifyRequest): Promise<TrainingContext> => {
         const b = req.business!;
         const ctx: TrainingContext = { businessId: b.businessId, userId: req.auth!.user.id, seatId: b.seatId };

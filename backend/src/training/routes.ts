@@ -696,12 +696,22 @@ export async function registerTrainingRoutes(
           });
 
           if (result.ended && autoScore) scoreInBackground(ctx, id);
-          return voiceTurnPayload(result);
+          return voiceTurnPayload(result, req);
         }),
     );
 
     /** Ovozli navbat javobi (bir bosqichli va tekshirilgan yo'l uchun bir xil). */
-    function voiceTurnPayload(result: Awaited<ReturnType<typeof voice.takeVoiceTurn>>): Record<string, unknown> {
+    function voiceTurnPayload(
+      result: Awaited<ReturnType<typeof voice.takeVoiceTurn>>,
+      req: FastifyRequest,
+    ): Record<string, unknown> {
+      // Prefiksda yo'l parametrlari bo'lishi mumkin (host: `/businesses/:businessId/trening`) —
+      // brauzerga beriladigan havola shu so'rovning haqiqiy qiymatlari bilan to'ldiriladi.
+      const params = (req.params ?? {}) as Record<string, string | undefined>;
+      const base = prefix.replace(/:([A-Za-z_]\w*)/g, (m, nom: string) => {
+        const qiymat = params[nom];
+        return qiymat !== undefined ? encodeURIComponent(qiymat) : m;
+      });
       return {
         sellerText: result.sellerText,
         customerText: result.customerText,
@@ -709,7 +719,7 @@ export async function registerTrainingRoutes(
         // Audio FAQAT shu javobda (yoki bir martalik oqim URL'ida) va saqlanmaydi.
         audio: result.audio.toString('base64'),
         audioMime: result.audioMime,
-        ...(result.audioStream ? { audioStreamUrl: `${prefix}/voice-audio/${result.audioStream.id}` } : {}),
+        ...(result.audioStream ? { audioStreamUrl: `${base}/voice-audio/${result.audioStream.id}` } : {}),
         needsRepeat: result.needsRepeat,
         ended: result.ended,
         outcome: result.outcome ?? null,
@@ -754,7 +764,7 @@ export async function registerTrainingRoutes(
         const body = voiceReplyBody.parse(req.body);
         const result = await voice.replyToText(ctx, { sessionId: id, transcriptId: body.transcriptId, text: body.text });
         if (result.ended && autoScore) scoreInBackground(ctx, id);
-        return voiceTurnPayload(result);
+        return voiceTurnPayload(result, req);
       }),
     );
 

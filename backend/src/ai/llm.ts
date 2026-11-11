@@ -623,3 +623,52 @@ export async function getSimulyatorLlm(): Promise<LlmClient> {
   });
   return alohida ? provayderKlienti(alohida) : getActiveLlm();
 }
+
+/**
+ * Simulyator ovozi (Gemini TTS) uchun kalit.
+ *
+ * Alohida sozlama yo'q: Admin → AI provayderlar'dagi Google Gemini kaliti
+ * (manzili `generativelanguage.googleapis.com`) ishlatiladi. Bir nechta bo'lsa —
+ * "Faqat Simulyator" belgilangani ustun. `models.simulyatorTts` berilsa — shu
+ * TTS modeli. 60 s keshlanadi: har gapda DB o'qilmaydi, kalit almashsa
+ * bir daqiqada kuchga kiradi.
+ */
+export interface SimulyatorGeminiKaliti {
+  apiKey: string;
+  /** `.../v1beta` (OpenAI-moslik qo'shimchasisiz). */
+  baseUrl: string;
+  ttsModel: string | null;
+}
+
+let geminiKesh: { qiymat: SimulyatorGeminiKaliti | null; vaqt: number } | null = null;
+
+export async function getSimulyatorGeminiKaliti(): Promise<SimulyatorGeminiKaliti | null> {
+  if (geminiKesh && Date.now() - geminiKesh.vaqt < 60_000) return geminiKesh.qiymat;
+  const qatorlar = await withoutTenantIsolation('simulyator: Gemini TTS kalitini o\'qish (platforma darajasi)', (tx) =>
+    tx
+      .select({
+        apiKeyEncrypted: aiProvider.apiKeyEncrypted,
+        models: aiProvider.models,
+        baseUrl: aiProvider.baseUrl,
+      })
+      .from(aiProvider)
+      .where(and(eq(aiProvider.purpose, 'llm'), isNotNull(aiProvider.apiKeyEncrypted))),
+  );
+  const gemini = qatorlar
+    .filter((q) => q.apiKeyEncrypted && /generativelanguage\.googleapis\.com/i.test(q.baseUrl ?? ''))
+    .map((q) => ({ q, m: (q.models ?? {}) as Record<string, unknown> }))
+    .sort((a, b) => Number(typeof b.m.simulyator === 'string') - Number(typeof a.m.simulyator === 'string'))[0];
+
+  let qiymat: SimulyatorGeminiKaliti | null = null;
+  if (gemini) {
+    const asos = (gemini.q.baseUrl ?? '').replace(/\/+$/, '').replace(/\/openai$/i, '');
+    const tts = gemini.m.simulyatorTts;
+    qiymat = {
+      apiKey: decryptSecret(Buffer.from(gemini.q.apiKeyEncrypted!)),
+      baseUrl: asos || 'https://generativelanguage.googleapis.com/v1beta',
+      ttsModel: typeof tts === 'string' && tts.trim() ? tts.trim() : null,
+    };
+  }
+  geminiKesh = { qiymat, vaqt: Date.now() };
+  return qiymat;
+}

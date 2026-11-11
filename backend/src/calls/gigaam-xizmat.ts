@@ -43,8 +43,11 @@ class Ishchi {
     private readonly hovuz: GigaamHovuzi,
     python: string,
     script: string,
+    qoshimchaArgs: readonly string[] = [],
+    pastUstuvor = true,
   ) {
-    const [buyruq, args] = pastUstuvorlikda(python, [script, '--serve', '--engine', 'gigaam', '--latin']);
+    const asosiy = [script, '--serve', '--engine', 'gigaam', '--latin', ...qoshimchaArgs];
+    const [buyruq, args] = pastUstuvor ? pastUstuvorlikda(python, asosiy) : [python, asosiy];
     this.proc = spawn(buyruq, args, {
       env: process.env,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -121,15 +124,42 @@ class Ishchi {
   }
 }
 
+interface HovuzSozlama {
+  /** Bir vaqtda nechta jarayon. */
+  hajm: () => number;
+  /** `--serve` dan keyingi qo'shimcha argumentlar (masalan rejim). */
+  args: readonly string[];
+  /** Linux `nice` bilan (fon ishi) yoki odatiy ustuvorlikda (jonli so'rov). */
+  pastUstuvor: boolean;
+  /** Shuncha vaqt bo'sh tursa jarayon to'xtatiladi (xotira bo'shaydi). Berilmasa — doim turadi. */
+  boshQolishMs?: number;
+}
+
 class GigaamHovuzi {
   private ishchilar: Ishchi[] = [];
   private navbat: Vazifa[] = [];
+  private boshTimer: NodeJS.Timeout | null = null;
+
+  constructor(private readonly s: HovuzSozlama) {}
 
   transkript(input: string, output: string): Promise<void> {
     return new Promise((resolve, reject) => {
       this.navbat.push({ input, output, resolve, reject });
       this.tarqat();
     });
+  }
+
+  /** Ishchi yo'q bo'lsa — oldindan ishga tushiradi (model yuklanishi navbatdan oldin boshlansin). */
+  isit(): void {
+    if (this.ishchilar.some((i) => !i.olik)) return;
+    this.yangiIshchi();
+    this.boshliqniKuzat();
+  }
+
+  private yangiIshchi(): void {
+    const python = process.env.GIGAAM_PYTHON || process.env.PYTHON || 'python';
+    const script = join(process.cwd(), '..', 'tools', 'gigaam-local.py');
+    this.ishchilar.push(new Ishchi(this, python, script, this.s.args, this.s.pastUstuvor));
   }
 
   tarqat(): void {
@@ -140,14 +170,25 @@ class GigaamHovuzi {
         continue;
       }
       const tirik = this.ishchilar.filter((i) => !i.olik).length;
-      if (tirik < config.STT_CONCURRENCY) {
-        const python = process.env.GIGAAM_PYTHON || process.env.PYTHON || 'python';
-        const script = join(process.cwd(), '..', 'tools', 'gigaam-local.py');
-        this.ishchilar.push(new Ishchi(this, python, script));
+      if (tirik < this.s.hajm()) {
+        this.yangiIshchi();
         continue; // yangi ishchi tayyor bo'lgach `tarqat` yana chaqiriladi
       }
       return;
     }
+    this.boshliqniKuzat();
+  }
+
+  /** Navbat bo'sh va hech kim ishlamayotgan bo'lsa — `boshQolishMs` dan keyin to'xtatish. */
+  private boshliqniKuzat(): void {
+    if (this.s.boshQolishMs === undefined) return;
+    if (this.boshTimer) clearTimeout(this.boshTimer);
+    this.boshTimer = setTimeout(() => {
+      this.boshTimer = null;
+      if (this.navbat.length > 0 || this.ishchilar.some((i) => i.joriy)) return;
+      for (const i of this.ishchilar) i.toxtat();
+    }, this.s.boshQolishMs);
+    this.boshTimer.unref();
   }
 
   ishchiOldi(ishchi: Ishchi, sabab: string): void {
@@ -164,19 +205,52 @@ class GigaamHovuzi {
   }
 
   toxtat(): void {
+    if (this.boshTimer) clearTimeout(this.boshTimer);
     for (const i of this.ishchilar) i.toxtat();
   }
 }
 
+/** Qo'ng'iroqlar transkripsiyasi: `STT_CONCURRENCY` ta jarayon, past ustuvorlikda, doim tayyor. */
 let hovuz: GigaamHovuzi | null = null;
 
 /** GigaAM bilan transkript: `input` audio → `output` matn fayli. */
 export function gigaamXizmatida(input: string, output: string): Promise<void> {
-  hovuz ??= new GigaamHovuzi();
+  hovuz ??= new GigaamHovuzi({ hajm: () => config.STT_CONCURRENCY, args: [], pastUstuvor: true });
   return hovuz.transkript(input, output);
+}
+
+/**
+ * JONLI MASHQ (CRM → Simulyator ovozi) uchun ALOHIDA jarayon.
+ *
+ * Qo'ng'iroqlar puli bir necha daqiqalik yozuvlar bilan band bo'lishi
+ * mumkin — jonli suhbatdagi 3 soniyalik gap ularning ortida 30-60 s
+ * kutib qolardi. Shuning uchun:
+ *   - bitta alohida jarayon, faqat jonli so'rovlar uchun;
+ *   - odatiy ustuvorlikda (fon transkripsiyasidan oldin protsessor oladi);
+ *   - `chunks` rejimi: 30 s gacha yozuvda og'ir VAD/longform kerak emas;
+ *   - talab bo'yicha ishga tushadi va 10 daqiqa ishlatilmasa to'xtaydi —
+ *     model xotirasi (bir necha GB) doim band turmaydi.
+ */
+let jonliHovuz: GigaamHovuzi | null = null;
+const jonli = (): GigaamHovuzi =>
+  (jonliHovuz ??= new GigaamHovuzi({
+    hajm: () => 1,
+    args: ['--mode', 'chunks', '--chunk-seconds', '30'],
+    pastUstuvor: false,
+    boshQolishMs: 10 * 60_000,
+  }));
+
+export function gigaamJonli(input: string, output: string): Promise<void> {
+  return jonli().transkript(input, output);
+}
+
+/** Mashq boshlanishida chaqiriladi — birinchi gapgacha model yuklanib ulgursin. */
+export function gigaamJonliniIsit(): void {
+  jonli().isit();
 }
 
 /** Server to'xtaganda — jarayonlarga stdin yopiladi, ular o'zi chiqadi. */
 export function gigaamXizmatiniToxtat(): void {
   hovuz?.toxtat();
+  jonliHovuz?.toxtat();
 }

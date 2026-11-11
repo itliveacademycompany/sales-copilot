@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth';
 import { createTrainingApi, TrainingApp, type ApiRequestInit } from '../../features/mashq';
@@ -15,8 +15,10 @@ import '../../features/mashq/deal-mind.css';
  * tanasi xatoga biriktiriladi — modul UI'si xato qaysi BOSQICHDA (AI, sessiya,
  * server) bo'lganini o'zbekcha ko'rsatadi, foydalanuvchi xom JSON ko'rmaydi.
  *
- * Ovozli rejim keyingi bosqichda ulanadi (`voiceEnabled`). Eski simulyator
- * mashqlari tarixi `/crm/simulyator/eski` da saqlanadi.
+ * Ovozli rejim (`voiceEnabled`) server aytganda yoqiladi: `ovoz-holati` —
+ * Gemini kaliti sozlanganmi (STT serverdagi GigaAM). Holat kelguncha va xato
+ * bo'lsa — o'chiq: matnli mashq baribir ishlaydi. Eski simulyator mashqlari
+ * tarixi `/crm/simulyator/eski` da saqlanadi.
  */
 
 async function sorov<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
@@ -57,6 +59,19 @@ export function Mashq() {
     () => (business ? createTrainingApi(sorov, `/api/v1/businesses/${business.businessId}/trening`) : null),
     [business],
   );
+  const [ovoz, setOvoz] = useState(false);
+  const businessId = business?.businessId;
+  useEffect(() => {
+    if (!businessId) return undefined;
+    let tirik = true;
+    setOvoz(false);
+    sorov<{ enabled: boolean }>(`/api/v1/businesses/${businessId}/trening/ovoz-holati`)
+      .then((h) => tirik && setOvoz(h.enabled === true))
+      .catch(() => tirik && setOvoz(false));
+    return () => {
+      tirik = false;
+    };
+  }, [businessId]);
   if (!business || !api) return null;
 
   const rahbar = business.permissions.includes('analytics:read:all');
@@ -65,7 +80,7 @@ export function Mashq() {
       <div className="mq-eski-havola">
         <Link to="/crm/simulyator/eski">Eski mashqlar tarixi</Link>
       </div>
-      <TrainingApp api={api} canViewAll={rahbar} voiceEnabled={false} />
+      <TrainingApp api={api} canViewAll={rahbar} voiceEnabled={ovoz} />
     </div>
   );
 }

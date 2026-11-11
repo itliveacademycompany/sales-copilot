@@ -61,8 +61,8 @@ export const mashq = {
   customerThinking: 'Mijoz javob yozyapti…',
   voiceSlotTitle: 'Ovozli mashq',
   voiceSlotPending:
-    "Ovozli rejim serverda yoqilmagan. `npm run diag:voice` bilan modellarni aniqlab, " +
-    'harness/.env ga yozing. Hozircha matn bilan mashq qiling.',
+    "Ovozli rejim hali yoqilmagan: administrator Admin → AI provayderlar bo'limiga " +
+    "Google Gemini kalitini qo'shishi kerak. Hozircha matn bilan mashq qiling.",
   voiceHoldToTalk: "Gapirish uchun bosib turing (yoki BO'SHLIQ)",
   voiceRecording: "Yozilyapti… qo'yib yuboring",
   voiceToggleStart: "Gapirish uchun bosing (yoki BO'SHLIQ)",
