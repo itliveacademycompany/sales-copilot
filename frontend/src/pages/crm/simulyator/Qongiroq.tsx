@@ -76,6 +76,59 @@ async function gudok(): Promise<void> {
   }
 }
 
+/**
+ * ZAXIRA OVOZ — server ovozi (Gemini TTS) kelmaganda brauzerning o'z nutq
+ * sintezi. Tanlov: o'zbekcha (Edge'da "Microsoft Madina/Sardor") → turkcha
+ * (lotin yozuvini o'zbekchaga yaqin o'qiydi). Ikkalasi ham bo'lmasa — o'qilmaydi
+ * (inglizcha/ruscha ovoz o'zbekcha matnni tushunarsiz o'qiydi), matn ko'rinadi.
+ */
+let tanlanganOvoz: SpeechSynthesisVoice | null | undefined;
+
+async function zaxiraOvoz(): Promise<SpeechSynthesisVoice | null> {
+  if (tanlanganOvoz !== undefined) return tanlanganOvoz;
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return (tanlanganOvoz = null);
+  let ovozlar = window.speechSynthesis.getVoices();
+  if (ovozlar.length === 0) {
+    // Chrome ovozlar ro'yxatini kechikib beradi.
+    await new Promise<void>((r) => {
+      const t = window.setTimeout(r, 1500);
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.clearTimeout(t);
+        r();
+      };
+    });
+    ovozlar = window.speechSynthesis.getVoices();
+  }
+  const til = (prefiks: string) => ovozlar.filter((v) => v.lang.toLowerCase().startsWith(prefiks));
+  const birinchi = (r: SpeechSynthesisVoice[]) => r.find((v) => /natural|online/i.test(v.name)) ?? r[0] ?? null;
+  tanlanganOvoz = birinchi(til('uz')) ?? birinchi(til('tr'));
+  return tanlanganOvoz;
+}
+
+/** Matnni zaxira ovozda o'qiydi; o'qilmasa `false` (ovoz yo'q yoki xato). */
+async function brauzerdaOqi(matn: string): Promise<boolean> {
+  const ovoz = await zaxiraOvoz();
+  if (!ovoz) return false;
+  return new Promise((resolve) => {
+    const u = new SpeechSynthesisUtterance(matn);
+    u.voice = ovoz;
+    u.lang = ovoz.lang;
+    u.rate = 1;
+    // Sintez ba'zan `end` bermay qoladi — taxminiy vaqtdan keyin baribir davom etamiz.
+    const zaxiraVaqt = window.setTimeout(() => resolve(true), Math.min(30_000, 2000 + matn.length * 90));
+    u.onend = () => {
+      window.clearTimeout(zaxiraVaqt);
+      resolve(true);
+    };
+    u.onerror = () => {
+      window.clearTimeout(zaxiraVaqt);
+      resolve(false);
+    };
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  });
+}
+
 function base64Blob(b64: string, mime: string): Blob {
   const bin = atob(b64);
   const arr = new Uint8Array(bin.length);
@@ -103,6 +156,8 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor, stt
   const idRef = useRef(0);
   const jurnalRef = useRef<Qator[]>([]);
   const pastRef = useRef<HTMLDivElement | null>(null);
+  /** "Zaxira ovoz yo'q" xabari bir qo'ng'iroqda bir marta. */
+  const zaxiraOgohRef = useRef(false);
 
   const vaqt = (): number => (boshlanish.current === null ? 0 : (Date.now() - boshlanish.current) / 1000);
 
@@ -131,6 +186,7 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor, stt
       tugadiRef.current = true;
       setBosqich('tugamoqda');
       audioRef.current?.pause();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       mikRef.current?.yop();
       const s = sessiyaRef.current;
       if (!s) {
@@ -167,7 +223,10 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor, stt
         korsatildi = true;
         qosh('customer', matn);
       };
+      let yakunlandi = false;
       const keyingi = (): void => {
+        if (yakunlandi) return; // `onerror` va `play()` rad etilishi ikkalasi kelishi mumkin
+        yakunlandi = true;
         matnniKorsat();
         if (tugadiRef.current) return;
         if (oxirgi) {
@@ -177,8 +236,27 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor, stt
         // Mijoz ovozining "dumi" mikrofonga tushmasin.
         window.setTimeout(() => !tugadiRef.current && setBosqich('tinglayapti'), 250);
       };
+      /** Server ovozi yo'q — brauzerning o'z ovozi o'qiydi (bo'lmasa faqat matn). */
+      let zaxiraBoshlandi = false;
+      const zaxira = (): void => {
+        if (zaxiraBoshlandi || yakunlandi) return;
+        zaxiraBoshlandi = true;
+        matnniKorsat();
+        if (!matn || tugadiRef.current) {
+          keyingi();
+          return;
+        }
+        setBosqich('gapiryapti');
+        void brauzerdaOqi(matn).then((oqildi) => {
+          if (!oqildi && !zaxiraOgohRef.current) {
+            zaxiraOgohRef.current = true;
+            xabarKorsat("Mijoz ovozi hozir yo'q — javobi o'ngda matn bo'lib chiqadi. Edge brauzerida o'zbekcha zaxira ovoz bor.");
+          }
+          keyingi();
+        });
+      };
       if (!audio || (!manba.url && !manba.b64)) {
-        keyingi();
+        zaxira();
         return;
       }
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
@@ -193,14 +271,9 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor, stt
         matnniKorsat();
       };
       audio.onended = keyingi;
-      audio.onerror = () => {
-        xabarKorsat("Mijoz ovozi yuklanmadi — matni o'ngda ko'rinadi.");
-        keyingi();
-      };
-      audio.play().catch(() => {
-        // Brauzer ijroni to'sdi — matn ko'rsatiladi, suhbat davom etadi.
-        keyingi();
-      });
+      // Server ovozi kelmadi (masalan TTS kunlik chegarasi) yoki brauzer ijroni to'sdi — zaxira ovoz.
+      audio.onerror = zaxira;
+      audio.play().catch(zaxira);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tugat],
@@ -341,7 +414,13 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor, stt
             return;
           }
         } catch {
-          /* ochilish ovozi bo'lmasa ham suhbat davom etadi */
+          // Ochilish ovozi yaratilmadi (masalan TTS chegarasi) — birinchi gap zaxira ovozda/matnda.
+          if (bekor) return;
+          const birinchiGap = r.openingLine ?? r.persona.openingLine;
+          if (birinchiGap) {
+            ijro({}, birinchiGap, false);
+            return;
+          }
         }
       }
       setBosqich('tinglayapti');
@@ -368,6 +447,7 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor, stt
   useEffect(
     () => () => {
       audioRef.current?.pause();
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       if (urlRef.current) URL.revokeObjectURL(urlRef.current);
     },
     [],
