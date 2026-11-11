@@ -286,7 +286,10 @@ function ProvayderQatori({
     ? { nom: t('Faol'), ton: 'ok' }
     : p.fallbackOrder
       ? { nom: t('Zaxira #{n}', { n: p.fallbackOrder }), ton: 'info' }
-      : { nom: t('Ishlatilmaydi'), ton: '' };
+      : typeof p.models.simulyator === 'string'
+        ? // Faol emas, lekin CRM → Simulyator (AI mijoz) aynan shuni ishlatadi
+          { nom: t('Simulyator'), ton: 'info' }
+        : { nom: t('Ishlatilmaydi'), ton: '' };
 
   return (
     <div className="ai-prov-qator">
@@ -390,6 +393,13 @@ function YangiProvayder({ keyingiNavbat, onQoshildi }: { keyingiNavbat: number |
   const [model, setModel] = useState<string>(PRESETLAR.groq.model);
   const [split, setSplit] = useState<string>(PRESETLAR.groq.split);
   const [zaxiraga, setZaxiraga] = useState(true);
+  /**
+   * Faqat CRM → Simulyator (AI mijoz) uchun: jonli suhbatga tez model kerak,
+   * qo'ng'iroq tahlili esa faol provayderda qoladi. Model `simulyator`
+   * kalitiga yoziladi, provayder faollashtirilmaydi va zaxiraga qo'shilmaydi
+   * (backend `getSimulyatorLlm` shunday provayderni topadi).
+   */
+  const [faqatSimulyator, setFaqatSimulyator] = useState(false);
   const [holat, setHolat] = useState<'tinch' | 'ketmoqda'>('tinch');
   const [xato, setXato] = useState<string | null>(null);
 
@@ -417,10 +427,24 @@ function YangiProvayder({ keyingiNavbat, onQoshildi }: { keyingiNavbat: number |
         label: nom.trim(),
         apiKey: kalit.trim(),
         baseUrl: baseUrl.trim(),
-        models: { stage2: m, stage3: m, playbookBuilder: m, ...(split.trim() ? { splitFields: Number(split) } : {}) },
+        models: faqatSimulyator
+          ? { simulyator: m }
+          : { stage2: m, stage3: m, playbookBuilder: m, ...(split.trim() ? { splitFields: Number(split) } : {}) },
       });
       setKalit('');
       const tek = await api.post<TekshiruvNatija>(`/api/v1/admin/providers/${yaratildi.id}/test`);
+      if (faqatSimulyator) {
+        await onQoshildi(
+          tek.ok
+            ? t("{nom} qo'shildi va ishlayapti ({izoh}) — endi CRM → Simulyator shu modelda ishlaydi.", { nom: nom.trim(), izoh: tek.note })
+            : t("{nom} saqlandi, lekin tekshiruv o'tmadi: {xato}. Kalit yoki model nomini tekshirib, «Kalit» orqali almashtiring.", {
+                nom: nom.trim(),
+                xato: tek.problems.join('; '),
+              }),
+          tek.ok,
+        );
+        return;
+      }
       if (tek.ok && zaxiraga && keyingiNavbat) {
         await api.patch(`/api/v1/admin/providers/${yaratildi.id}`, { fallbackOrder: keyingiNavbat });
       }
@@ -487,7 +511,11 @@ function YangiProvayder({ keyingiNavbat, onQoshildi }: { keyingiNavbat: number |
           <input id="aip-split" value={split} onChange={(e) => setSplit(e.target.value)} inputMode="numeric" aria-invalid={!splitTogri} placeholder={t('zaif modellar uchun 4')} />
         </div>
       </div>
-      {keyingiNavbat && (
+      <label className="ai-prov-belgi">
+        <input type="checkbox" checked={faqatSimulyator} onChange={(e) => setFaqatSimulyator(e.target.checked)} />{' '}
+        {t("Faqat CRM → Simulyator (AI mijoz) uchun — qo'ng'iroq tahlili hozirgi provayderda qoladi")}
+      </label>
+      {keyingiNavbat && !faqatSimulyator && (
         <label className="ai-prov-belgi">
           <input type="checkbox" checked={zaxiraga} onChange={(e) => setZaxiraga(e.target.checked)} />{' '}
           {t("Ishlasa, zaxira zanjiriga qo'shish (#{n})", { n: keyingiNavbat })}

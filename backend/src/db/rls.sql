@@ -60,6 +60,7 @@ DECLARE
     'crm_automation', 'crm_automation_run', 'crm_goal', 'crm_product', 'deal_item',
     'crm_activity', 'crm_dashboard',
     'simulyator_ssenariy', 'simulyator_mashq',
+    'training_session', 'training_scenario', 'training_turn', 'training_result',
     'analysis_job',
     'subscription', 'billing_transaction', 'usage_record',
     'alert', 'dashboard_layout', 'audit_log', 'daily_summary'

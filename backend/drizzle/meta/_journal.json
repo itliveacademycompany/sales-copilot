@@ -225,6 +225,13 @@
       "when": 1794290247509,
       "tag": "0031_kontakt_bosh_ism",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1794393990761,
+      "tag": "0032_trening",
+      "breakpoints": true
     }
   ]
 }

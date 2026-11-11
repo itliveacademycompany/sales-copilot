@@ -1,5 +1,5 @@
 import { ArrowRight, Columns3, GraduationCap, LayoutTemplate, PlugZap, Sparkles } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, useCallback, useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { api, ApiError } from '../../api';
 import { useAuth } from '../../auth';
@@ -22,6 +22,9 @@ import { SimulyatorNatija } from './SimulyatorNatija';
 import { VoronkaSozlash } from './VoronkaSozlash';
 import './crm-ilova.css';
 import './crm-ilova-2.css';
+
+// Mashq (AI mijoz moduli, ~80 KB) — faqat Simulyator ochilganda yuklanadi
+const Mashq = lazy(() => import('./Mashq').then((m) => ({ default: m.Mashq })));
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
@@ -105,7 +108,9 @@ export function CrmIlova() {
             <Route path="qongiroqlar" element={<SAHIFA.qongiroqlar />} />
             <Route path="suhbatlar/:id" element={<SAHIFA.conversationDetail />} />
             <Route path="ai-chat" element={<SAHIFA.aiChat />} />
-            <Route path="simulyator" element={<Simulyator />} />
+            {/* AI mijoz bilan mashq (Mijoz-AI moduli); eski simulyator tarixi — /eski */}
+            <Route path="simulyator" element={<Mashq />} />
+            <Route path="simulyator/eski" element={<Simulyator />} />
             <Route path="simulyator/mashq/:id" element={<SimulyatorNatija />} />
             {/* Metasell'dagi Lid xulosalari: yo'qotilgan lidlar AI tahlili va qayta tiriltirish */}
             <Route path="lid-xulosalari" element={<LidXulosalariCrm />} />

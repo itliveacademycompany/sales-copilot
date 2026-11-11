@@ -18,6 +18,7 @@ import { registerAssistantRoutes } from './routes/assistant.js';
 import { registerBusinessRoutes } from './routes/business.js';
 import { registerConversationRoutes } from './routes/conversations.js';
 import { registerSuhbatRoyxatiRoutes } from './routes/suhbat-royxati.js';
+import { registerTreningRoutes } from './routes/trening.js';
 import { registerCrmRoutes } from './routes/crm.js';
 import { registerImportRoutes } from './routes/import.js';
 import { registerAnalyticsRoutes } from './routes/analytics.js';
@@ -178,6 +179,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerAppealRoutes(app);
   registerConversationRoutes(app);
   registerSuhbatRoyxatiRoutes(app);
+  // CRM → Simulyator: AI mijoz trenajyori (Mijoz-AI moduli)
+  await registerTreningRoutes(app);
   registerImportRoutes(app);
   registerTaskRoutes(app);
   registerAlertRoutes(app);

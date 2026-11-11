@@ -1,0 +1,197 @@
+/*
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Mashq moduli → Deal Mind (SotuvAI) ko'rinishi
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Modulning o'z `styles.css` i TEGILMAYDI (keyingi yangilanishlar oson
+ * qo'shilsin) — bu qatlam undan KEYIN yuklanib, ranglarni loyiha
+ * tokenlariga ulaydi va panellarga neumorfik ko'rinish beradi. Qorong'i
+ * mavzu loyiha tokenlari orqali o'zi ishlaydi (`:root[data-theme]`), shuning
+ * uchun modulning `prefers-color-scheme` qoidalari bu yerda bosib o'tiladi.
+ *
+ * Tanlov `.mq-root.mq-root` — modulning qorong'i rejim selektorlaridan
+ * (`.mq-root:not([data-theme])`) kuchsiz bo'lmasligi uchun.
+ */
+.mq-root.mq-root {
+  --mq-bg: transparent;
+  --mq-panel: var(--bg-surface);
+  --mq-line: var(--border);
+  --mq-text: var(--text-primary);
+  --mq-muted: var(--text-secondary);
+  --mq-accent: var(--ia);
+  --mq-accent-soft: var(--ia-soft);
+  --mq-ok: var(--yuqori);
+  --mq-warn: var(--orta);
+  --mq-bad: var(--past);
+  --mq-radius: var(--radius-sm);
+  font-family: inherit;
+  background: transparent;
+}
+
+.mq-root.mq-root .mq-wrap {
+  max-width: 1040px;
+  padding: 4px 0 56px;
+}
+
+/* ── Panellar va kartalar: neumorfik bo'rtma ── */
+.mq-root.mq-root .mq-panel,
+.mq-root.mq-root .mq-card {
+  background: var(--bg-surface);
+  border: none;
+  border-radius: var(--radius);
+  box-shadow: var(--neu-out-sm);
+}
+.mq-root.mq-root .mq-card {
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.mq-root.mq-root .mq-card:hover,
+.mq-root.mq-root .mq-card:focus-visible {
+  background: var(--bg-surface);
+  box-shadow: var(--neu-out);
+  transform: translateY(-1px);
+}
+.mq-root.mq-root .mq-card[aria-pressed='true'] {
+  background: var(--bg-surface);
+  box-shadow: var(--neu-in-sm);
+  color: var(--ia-text);
+  transform: none;
+}
+
+/* ── Tugmalar ── */
+.mq-root.mq-root .mq-btn {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--neu-out-xs);
+  font-weight: 600;
+  transition: box-shadow 0.15s ease;
+}
+.mq-root.mq-root .mq-btn:hover:not(:disabled) {
+  box-shadow: var(--neu-out-sm);
+}
+.mq-root.mq-root .mq-btn:active:not(:disabled) {
+  box-shadow: var(--neu-in-xs);
+}
+.mq-root.mq-root .mq-btn-primary {
+  background: var(--ia-grad);
+  color: var(--ia-on);
+  box-shadow: var(--ia-glow);
+}
+.mq-root.mq-root .mq-btn-primary:hover:not(:disabled) {
+  box-shadow: var(--ia-glow), var(--neu-out-xs);
+}
+.mq-root.mq-root .mq-btn.mq-recording {
+  background: var(--past);
+  color: #fff;
+}
+.mq-root.mq-root .mq-btn:focus-visible,
+.mq-root.mq-root .mq-card:focus-visible,
+.mq-root.mq-root .mq-chip:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ── Maydonlar: neumorfik botiq ── */
+.mq-root.mq-root input:not([type='checkbox']):not([type='radio']),
+.mq-root.mq-root select,
+.mq-root.mq-root textarea,
+.mq-root.mq-root .mq-composer textarea {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--neu-in-sm);
+  font: inherit;
+}
+.mq-root.mq-root input:focus,
+.mq-root.mq-root select:focus,
+.mq-root.mq-root textarea:focus {
+  outline: none;
+  box-shadow: var(--neu-in-sm), 0 0 0 3px var(--focus-ring);
+}
+
+/* ── Suhbat pufakchalari ── */
+.mq-root.mq-root .mq-turn-seller {
+  background: var(--ia-grad);
+  color: var(--ia-on);
+  box-shadow: var(--ia-glow);
+}
+.mq-root.mq-root .mq-turn-customer {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: none;
+  box-shadow: var(--neu-out-xs);
+}
+
+/* ── Oq fonli kichik bloklar → loyiha yuzasi ── */
+.mq-root.mq-root .mq-metric,
+.mq-root.mq-root .mq-improvement,
+.mq-root.mq-root .mq-quote,
+.mq-root.mq-root .mq-badge,
+.mq-root.mq-root .mq-table,
+.mq-root.mq-root .mq-empty {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+.mq-root.mq-root .mq-metric {
+  border: none;
+  box-shadow: var(--neu-in-xs);
+}
+.mq-root.mq-root .mq-better {
+  background: var(--yuqori-soft);
+}
+.mq-root.mq-root .mq-badge-won { color: var(--yuqori-text); background: var(--yuqori-soft); }
+.mq-root.mq-root .mq-badge-lost { color: var(--past-text); background: var(--past-soft); }
+.mq-root.mq-root .mq-badge-timeout { color: var(--orta-text); background: var(--orta-soft); }
+
+.mq-root.mq-root .mq-notice-info { background: var(--ia-soft); color: var(--ia-text); }
+.mq-root.mq-root .mq-notice-warn { background: var(--orta-soft); color: var(--orta-text); }
+.mq-root.mq-root .mq-notice-error { background: var(--past-soft); color: var(--past-text); }
+
+/* ── Chiplar (filtr, qiyinlik) ── */
+.mq-root.mq-root .mq-chip {
+  border: none;
+  background: var(--bg-surface);
+  box-shadow: var(--neu-out-xs);
+}
+.mq-root.mq-root .mq-chip-on {
+  background: var(--bg-surface);
+  color: var(--ia-text);
+  box-shadow: var(--neu-in-xs);
+}
+
+/* ── Progress chizig'i va skelet ── */
+.mq-root.mq-root .mq-bar {
+  background: var(--bg-sunken);
+}
+.mq-root.mq-root .mq-skeleton {
+  background: linear-gradient(90deg, var(--bg-sunken) 25%, var(--bg-elevated) 37%, var(--bg-sunken) 63%);
+  background-size: 400% 100%;
+}
+
+/* ── Sarlavhalar loyiha tipografiyasida ── */
+.mq-root.mq-root .mq-h1 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.mq-root.mq-root .mq-h2 {
+  letter-spacing: -0.02em;
+}
+
+/* ── Eski mashqlar havolasi (Deal Mind qo'shimchasi) ── */
+.mq-eski-havola {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 4px;
+}
+.mq-eski-havola a {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+.mq-eski-havola a:hover {
+  color: var(--ia-text);
+  text-decoration: underline;
+}

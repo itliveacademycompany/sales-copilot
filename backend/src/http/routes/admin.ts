@@ -272,13 +272,19 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     if (problems.length === 0 && row.purpose === 'llm') {
       liveCheck = true;
       const boshlandi = Date.now();
+      // Faqat Simulyator uchun qo'shilgan provayderda (masalan Gemini) tahlil
+      // bosqichi modeli yo'q — uni o'zining Simulyator modeli bilan tekshiramiz,
+      // aks holda standart model nomi yuborilib, tekshiruv noto'g'ri yiqilardi.
+      const m = (row.models ?? {}) as Record<string, unknown>;
+      const faqatSimulyator = !m.stage2 && !m.stage3 && typeof m.simulyator === 'string';
       try {
         const javob = await provayderKlienti({ kind: row.kind, apiKeyEncrypted: row.key, models: row.models, baseUrl: row.baseUrl }).completeJson({
-          stage: 'stage2',
+          stage: faqatSimulyator ? 'simulyator' : 'stage2',
           system: 'Siz ulanish tekshiruvisiz. Faqat berilgan JSON sxemaga mos javob qaytaring.',
           user: 'Ulanish ishlayaptimi? ok maydoniga true yozing.',
           schema: { type: 'object', properties: { ok: { type: 'boolean' } }, required: ['ok'], additionalProperties: false },
-          maxTokens: 200,
+          // Fikrlovchi modellarda (Gemini 3) fikrlash ham shu limitdan yeyiladi
+          ...(faqatSimulyator ? { maxTokens: 2048, reasoningEffort: 'low' as const, timeoutMs: 45_000 } : { maxTokens: 200 }),
         });
         model = javob.model;
         if ((javob.json as { ok?: unknown } | null)?.ok !== true) problems.push('Model javob berdi, lekin JSON sxemaga mos emas');

@@ -13,3 +13,4 @@ export * from './jobs.js';
 export * from './oauth.js';
 export * from './qollanma.js';
 export * from './simulyator.js';
+export * from './training.js';

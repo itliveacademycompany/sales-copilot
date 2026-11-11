@@ -24,8 +24,23 @@ export interface LlmJsonRequest {
   /** Javob majburan shu JSON sxemaga tushadi (structured outputs). */
   schema: Record<string, unknown>;
   maxTokens?: number;
-  /** Faqat Z.ai (GLM): shu so'rov uchun `reasoning_effort` (LLM_REASONING_EFFORT dan ustun). */
-  reasoningEffort?: 'low' | 'high' | 'max';
+  /**
+   * `reasoning_effort`. Z.ai (GLM) da LLM_REASONING_EFFORT dan ustun; boshqa
+   * OpenAI-mos provayderlarda (masalan Gemini) FAQAT aniq berilsa yuboriladi.
+   */
+  reasoningEffort?: 'none' | 'low' | 'medium' | 'high' | 'max';
+  /**
+   * Standart 0 (tahlil — takrorlanuvchan bo'lsin). `null` — umuman
+   * yuborilmaydi (provayder standarti): AI mijoz rolini o'ynashda kerak,
+   * aks holda javoblar robotdek bir xil bo'ladi.
+   */
+  temperature?: number | null;
+  /**
+   * So'rovning eng uzun vaqti (ms). Berilmasa — eski xatti-harakat (uzoq
+   * tahlil uchun 15 daqiqagacha). Jonli suhbat (Simulyator) qisqa chegara
+   * beradi: chaqiruv baza tranzaksiyasi ichida bo'lishi mumkin.
+   */
+  timeoutMs?: number;
 }
 
 export interface LlmJsonResponse {
@@ -109,15 +124,18 @@ export class AnthropicLlm implements LlmClient {
   async completeJson(req: LlmJsonRequest): Promise<LlmJsonResponse> {
     const model = bosqichModeli(this.models, req.stage, DEFAULT_MODEL);
 
-    const response = await this.client.messages.create({
-      model,
-      max_tokens: req.maxTokens ?? 8192,
-      system: req.system,
-      messages: [{ role: 'user', content: req.user }],
-      output_config: {
-        format: { type: 'json_schema', schema: req.schema },
+    const response = await this.client.messages.create(
+      {
+        model,
+        max_tokens: req.maxTokens ?? 8192,
+        system: req.system,
+        messages: [{ role: 'user', content: req.user }],
+        output_config: {
+          format: { type: 'json_schema', schema: req.schema },
+        },
       },
-    });
+      req.timeoutMs ? { timeout: req.timeoutMs, maxRetries: 0 } : undefined,
+    );
 
     if (response.stop_reason === 'refusal') {
       throw new LlmRefusalError(model);
@@ -266,11 +284,13 @@ export class OpenAiCompatLlm implements LlmClient {
       : (req.maxTokens ?? 8192);
     const effort = jsonObjectOnly
       ? (req.reasoningEffort ?? process.env.LLM_REASONING_EFFORT?.trim())
-      : undefined;
+      : req.reasoningEffort;
+    const temperature = req.temperature === undefined ? 0 : req.temperature;
 
     const res = await uzunFetch(`${this.baseUrl}/chat/completions`, {
       dispatcher: LLM_ULANISH,
       method: 'POST',
+      ...(req.timeoutMs ? { signal: AbortSignal.timeout(req.timeoutMs) } : {}),
       headers: {
         authorization: `Bearer ${this.apiKey}`,
         'content-type': 'application/json',
@@ -279,7 +299,7 @@ export class OpenAiCompatLlm implements LlmClient {
         model,
         ...(jsonObjectOnly ? { max_tokens: maxTokens } : { max_completion_tokens: maxTokens }),
         ...(effort ? { reasoning_effort: effort } : {}),
-        temperature: 0,
+        ...(temperature === null ? {} : { temperature }),
         messages: [
           { role: 'system', content: system },
           { role: 'user', content: req.user },
@@ -563,4 +583,43 @@ export async function getActiveLlm(): Promise<LlmClient> {
   if (zaxiralar.length === 0) return provayderKlienti(faol);
 
   return new ZaxiraLlm([faol, ...zaxiralar].map((q) => ({ nom: q.label, klient: provayderKlienti(q) })));
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * SIMULYATOR UCHUN ALOHIDA PROVAYDER
+ * ═══════════════════════════════════════════════════════════════════════════
+ *
+ * AI mijoz jonli suhbatda 1-3 soniyada javob berishi kerak. Qo'ng'iroq
+ * tahlili uchun tanlangan fikrlovchi model (masalan GLM) buning uchun juda
+ * sekin. Shuning uchun Simulyator o'z provayderini ishlata oladi:
+ *
+ *   Admin → AI provayderlar: provayder qo'shiladi (masalan Gemini,
+ *   OpenAI-mos `baseUrl`), modellarda `"simulyator": "<model>"` beriladi va
+ *   u FAOL QILINMAYDI (faol provayder qo'ng'iroq tahlili uchun qoladi).
+ *
+ * Shunday provayder bo'lsa — Simulyator faqat shuni ishlatadi (tahlil
+ * zaxira zanjiriga qo'shilmaydi, chunki `fallbackOrder` bo'sh). Bo'lmasa —
+ * hamma qatori faol provayder (avvalgi xatti-harakat).
+ */
+export async function getSimulyatorLlm(): Promise<LlmClient> {
+  const qatorlar = await withoutTenantIsolation('simulyator: alohida LLM provayderini o\'qish (platforma darajasi)', (tx) =>
+    tx
+      .select({
+        label: aiProvider.label,
+        kind: aiProvider.kind,
+        apiKeyEncrypted: aiProvider.apiKeyEncrypted,
+        models: aiProvider.models,
+        baseUrl: aiProvider.baseUrl,
+        isActive: aiProvider.isActive,
+        fallbackOrder: aiProvider.fallbackOrder,
+      })
+      .from(aiProvider)
+      .where(and(eq(aiProvider.purpose, 'llm'), eq(aiProvider.isActive, false))),
+  );
+  const alohida = qatorlar.find((q) => {
+    const m = (q.models ?? {}) as Record<string, unknown>;
+    return q.apiKeyEncrypted && typeof m.simulyator === 'string' && m.simulyator.trim() !== '';
+  });
+  return alohida ? provayderKlienti(alohida) : getActiveLlm();
 }
