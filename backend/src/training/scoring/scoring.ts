@@ -811,6 +811,36 @@ export function createScoringService(deps: ScoringDeps): ScoringService {
       return await llm.completeJson(req);
     };
 
+    // Ssenariy hisobot kartasi asosiy baholashga bog'liq emas (faqat ssenariy,
+    // persona va suhbat matni) — PARALLEL boshlanadi: tahlil vaqti ikki
+    // so'rovning yig'indisi emas, kattarog'i bo'ladi. Xato bo'lsa — asosiy
+    // natija buzilmaydi, faqat logga yoziladi.
+    const hisobotVada = r.scenario
+      ? (async () => {
+          try {
+            const scenario = parseScenario(r.scenario, `session:${sessionId}`);
+            const sellerParsed = sellerProfileSchema.safeParse(r.seller);
+            const lastState = [...turns].reverse().find((t) => t.speaker === 'customer')?.stateAfter as
+              | { emotion?: { level?: string } }
+              | undefined;
+            return await computeScenarioReport({
+              llm,
+              priceCall,
+              scenario,
+              persona,
+              seller: sellerParsed.success ? sellerParsed.data : null,
+              turns,
+              outcome: r.session.outcome,
+              endReason: r.session.endReason,
+              level: lastState?.emotion?.level ?? 'medium',
+            });
+          } catch (err) {
+            deps.logger?.warn({ err, sessionId }, 'ssenariy hisobot kartasi yaratilmadi');
+            return null;
+          }
+        })()
+      : Promise.resolve(null);
+
     try {
       let raw: LlmScoring;
       try {
@@ -894,30 +924,11 @@ export function createScoringService(deps: ScoringDeps): ScoringService {
           figure: m.figure,
         }));
       }
-      // Ssenariy hisobot kartasi (xato bo'lsa — asosiy natija buzilmaydi, faqat logga).
-      if (r.scenario) {
-        try {
-          const scenario = parseScenario(r.scenario, `session:${sessionId}`);
-          const sellerParsed = sellerProfileSchema.safeParse(r.seller);
-          const lastState = [...turns].reverse().find((t) => t.speaker === 'customer')?.stateAfter as
-            | { emotion?: { level?: string } }
-            | undefined;
-          const rep = await computeScenarioReport({
-            llm,
-            priceCall,
-            scenario,
-            persona,
-            seller: sellerParsed.success ? sellerParsed.data : null,
-            turns,
-            outcome: r.session.outcome,
-            endReason: r.session.endReason,
-            level: lastState?.emotion?.level ?? 'medium',
-          });
-          costUsd += rep.costUsd;
-          processed.coaching.scenarioReport = rep.report;
-        } catch (err) {
-          deps.logger?.warn({ err, sessionId }, 'ssenariy hisobot kartasi yaratilmadi');
-        }
+      // Ssenariy hisobot kartasi — yuqorida parallel boshlangan.
+      const rep = await hisobotVada;
+      if (rep) {
+        costUsd += rep.costUsd;
+        processed.coaching.scenarioReport = rep.report;
       }
       processed.coaching.lowQualityReasons = [
         ...(evidenceLow ? (['evidence'] as const) : []),

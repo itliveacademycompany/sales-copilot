@@ -255,6 +255,8 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor, stt
           keyingi();
         });
       };
+      // Javob matni DARHOL ko'rinadi — ovoz kechiksa ham sotuvchi kutib o'tirmaydi.
+      matnniKorsat();
       if (!audio || (!manba.url && !manba.b64)) {
         zaxira();
         return;
@@ -266,14 +268,34 @@ export function Qongiroq({ api, karta, boshla, qurilmaId, onTugadi, onBekor, stt
         urlRef.current = URL.createObjectURL(base64Blob(manba.b64!, manba.mime ?? 'audio/wav'));
         audio.src = urlRef.current;
       }
+      let yangradi = false;
+      // Ovoz 7 s ichida boshlanmasa (TTS band yoki chegara) — kutmasdan zaxira ovozga o'tamiz.
+      const nazorat = window.setTimeout(() => {
+        if (yangradi || yakunlandi) return;
+        audio.onerror = null;
+        audio.onended = null;
+        audio.pause();
+        audio.removeAttribute('src');
+        zaxira();
+      }, 7000);
       audio.onplaying = () => {
+        yangradi = true;
+        window.clearTimeout(nazorat);
         setBosqich('gapiryapti');
-        matnniKorsat();
       };
-      audio.onended = keyingi;
+      audio.onended = () => {
+        window.clearTimeout(nazorat);
+        keyingi();
+      };
       // Server ovozi kelmadi (masalan TTS kunlik chegarasi) yoki brauzer ijroni to'sdi — zaxira ovoz.
-      audio.onerror = zaxira;
-      audio.play().catch(zaxira);
+      audio.onerror = () => {
+        window.clearTimeout(nazorat);
+        zaxira();
+      };
+      audio.play().catch(() => {
+        window.clearTimeout(nazorat);
+        zaxira();
+      });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tugat],

@@ -12,7 +12,7 @@ import { encodeWav, ensureAudioRunning, joinChunks, trimSilence } from '../../..
  *   - chegaradan baland ovoz ~130 ms davom etsa — gap boshlandi (oldingi
  *     ~0.4 s ham qo'shiladi, so'z boshi kesilmasin);
  *   - ~1 s jimlik — gap tugadi: jimlik kesiladi va 16 kHz WAV `onGap` ga beriladi;
- *   - 25 s dan uzun gap o'zi bo'linadi (server chegarasi 30 s).
+ *   - 29 s dan uzun gap o'zi yuboriladi (server chegarasi 30 s).
  *
  * `tinglash=false` bo'lganda (mijoz gapiryapti, javob kutilyapti, mikrofon
  * o'chirilgan) hech narsa yig'ilmaydi — mijoz ovozi qayta "eshitilib" ketmaydi.
@@ -24,7 +24,7 @@ const BUFER = 1024; // 64 ms
 const BOSHLASH_BUFER = 2; // ~130 ms ovoz — gap boshlandi
 const PAUZA_MS = 1000;
 const OLDINGI_MS = 400;
-const MAKS_GAP_S = 25;
+const MAKS_GAP_S = 29; // server chegarasi 30 s
 const MIN_GAP_S = 0.35;
 
 export interface JonliMikrofonXatosi {

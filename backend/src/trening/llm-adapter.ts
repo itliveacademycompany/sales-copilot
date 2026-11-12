@@ -45,9 +45,11 @@ const BOSQICH: Record<string, BosqichSozlama> = {
   'training.persona': { maxTokens: 8192, timeoutMs: 45_000, temperature: null, reasoning: 'low' },
   'training.scenario_draft': { maxTokens: 8192, timeoutMs: 60_000, temperature: null, reasoning: 'low' },
   // Baholash — barqaror va puxta (tranzaksiyadan tashqarida)
-  'training.scoring': { maxTokens: 16_384, timeoutMs: 120_000, temperature: 0, reasoning: 'medium' },
+  // Baholash: "low" fikrlash — "medium" bilan 14 navbatli suhbat tahlili ~60 s edi.
+  // Dalil iqtiboslari kod bilan tekshiriladi (yiqilsa bitta qayta so'rov), sifat himoyalangan.
+  'training.scoring': { maxTokens: 16_384, timeoutMs: 120_000, temperature: 0, reasoning: 'low' },
   'training.scoring.language': { maxTokens: 8192, timeoutMs: 60_000, temperature: 0, reasoning: 'low' },
-  'training.scenario_report': { maxTokens: 8192, timeoutMs: 90_000, temperature: 0, reasoning: 'medium' },
+  'training.scenario_report': { maxTokens: 8192, timeoutMs: 90_000, temperature: 0, reasoning: 'low' },
 };
 
 /** Sxema yasab bo'lmasa — eng umumiy obyekt (javobni baribir zod tekshiradi). */
