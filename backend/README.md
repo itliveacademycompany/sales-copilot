@@ -749,14 +749,16 @@ GET|PUT|DELETE /api/v1/admin/crm/amocrm-oauth      super admin: integratsiya kal
 
 ## CRM: Facebook Lead Ads ("Facebook orqali ulash")
 
-Meta Instant Form lidlari «Saralanmagan»ga (manba `meta_lead_ads`). Platformada BITTA
-Meta ilovasi (env: `META_APP_ID`, `META_APP_SECRET`, `META_LOGIN_CONFIG_ID`,
-`META_WEBHOOK_VERIFY_TOKEN` …), mijoz kalit kiritmaydi. Kod: `src/crm/metaLeadAds/`,
+Meta Instant Form lidlari «Saralanmagan»ga (manba `meta_lead_ads`). SaaS: har kompaniya
+o'z Meta ilovasini (App ID, App Secret, Configuration ID) kartaning o'zida kiritadi
+(`meta_app_config`, secret shifrlangan, alohida webhook `/webhooks/crm/meta-app/:id`);
+env (`META_*`) — faqat ixtiyoriy platforma ilovasi. Kod: `src/crm/metaLeadAds/`,
 sozlash va sinov: [`docs/meta-lead-ads.md`](../docs/meta-lead-ads.md). Qo'lda ulash
 (`crm/tarmoq.ts`) o'zgarmagan; bitta lid ikki yo'ldan kelsa ham bitta murojaat.
 
 ```
 GET    /api/v1/businesses/:id/meta-lead-ads                       holat + diagnostika
+GET|PUT|DELETE /api/v1/businesses/:id/meta-lead-ads/app            kompaniyaning o'z Meta ilovasi
 POST   /api/v1/businesses/:id/meta-lead-ads/oauth/start           Meta oynasi manzili
 GET    /api/v1/businesses/:id/meta-lead-ads/sessions/:sid         ruxsat berilgan sahifalar
 GET    /api/v1/businesses/:id/meta-lead-ads/sessions/:sid/pages/:pageId/forms
@@ -767,7 +769,8 @@ POST   /api/v1/businesses/:id/meta-lead-ads/:connId/check         holatni tekshi
 POST   /api/v1/businesses/:id/meta-lead-ads/:connId/retry         xato hodisalarni qayta ishlash
 DELETE /api/v1/businesses/:id/meta-lead-ads/:connId               uzish
 GET    /api/v1/crm/oauth/meta/callback                            OAuth redirect URI
-GET|POST /api/v1/webhooks/crm/meta                                ilova webhook'i (Page → leadgen)
+GET|POST /api/v1/webhooks/crm/meta                                platforma ilovasi webhook'i (Page → leadgen)
+GET|POST /api/v1/webhooks/crm/meta-app/:ilovaId                   kompaniya ilovasi webhook'i (+ /deauthorize, /data-deletion)
 POST   /api/v1/webhooks/crm/meta/deauthorize | data-deletion      Meta callback'lari
 ```
 

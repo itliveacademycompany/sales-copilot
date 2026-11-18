@@ -410,7 +410,7 @@ function TarmoqOyna({
             <div className="tm-bir-tugma">
               <b>{t('Facebook Lead Ads — bir tugmada ulash')}</b>
               {!birTugma.configured ? (
-                <p>{t('Integratsiya hali sozlanmagan. Platforma administratoriga murojaat qiling.')}</p>
+                <p>{t('Avval kompaniyangizning Meta ilovasini «Holat va diagnostika» sahifasida sozlang — App ID va App Secret bir marta kiritiladi.')}</p>
               ) : birTugma.sahifalar.length > 0 ? (
                 <p>{t('Ulangan sahifalar: {s}. Reklama formalari lidlari «Saralanmagan»ga o‘zi tushadi.', { s: birTugma.sahifalar.join(', ') })}</p>
               ) : (

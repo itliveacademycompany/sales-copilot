@@ -246,6 +246,13 @@
       "when": 1794487769781,
       "tag": "0034_meta_lead_ads",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1794574169781,
+      "tag": "0035_meta_app_config",
+      "breakpoints": true
     }
   ]
 }

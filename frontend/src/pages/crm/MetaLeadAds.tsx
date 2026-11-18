@@ -1,4 +1,4 @@
-import { Check, CircleAlert, CircleCheck, ListChecks, Plug, RefreshCw, RotateCcw, TriangleAlert, Unplug } from 'lucide-react';
+import { Check, CircleAlert, CircleCheck, Copy, Eye, EyeOff, KeyRound, ListChecks, Plug, RefreshCw, RotateCcw, Settings2, Trash2, TriangleAlert, Unplug } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, ApiError, fmtSana } from '../../api';
@@ -67,9 +67,25 @@ interface Ulanish {
   problems: Muammo[];
 }
 
+/** Tashkilotning o'z Meta ilovasi — App Secret hech qachon kelmaydi, faqat niqob. */
+interface Ilova {
+  configured: boolean;
+  appId: string | null;
+  appName: string | null;
+  secretHint: string | null;
+  loginConfigId: string | null;
+  verifyToken: string;
+  redirectUri: string;
+  webhookUrl: string;
+  deauthorizeUrl: string;
+  dataDeletionUrl: string;
+}
+
 interface Holat {
   configured: boolean;
-  admin?: { missingEnv: string[]; redirectUri: string; webhookUrl: string };
+  /** Ishlayotgan ilova: tashkilotniki yoki platformaniki (zaxira). */
+  source: 'kompaniya' | 'platforma' | null;
+  app: Ilova;
   connections: Ulanish[];
 }
 
@@ -203,7 +219,7 @@ export function MetaLeadAdsKarta() {
   const xatoBor = ulanishlar.some((c) => c.status === 'error');
 
   return (
-    <section className={`card crm-karta mla${ulangan ? ' ulangan keng' : ''}`} aria-labelledby="mla-nom">
+    <section className={`card crm-karta mla${ulangan ? ' ulangan' : ''}${ulangan || (holat && !holat.app.configured) ? ' keng' : ''}`} aria-labelledby="mla-nom">
       <div className="crm-karta-bosh">
         <span className="crm-logo mla-logo" aria-hidden="true">
           <FacebookBelgi />
@@ -224,25 +240,7 @@ export function MetaLeadAdsKarta() {
       )}
       {xato && <div className="xato-qator">{xato}</div>}
 
-      {holat && !holat.configured && (
-        <>
-          <p className="crm-karta-matn">{t('Integratsiya hali sozlanmagan. Platforma administratoriga murojaat qiling.')}</p>
-          {holat.admin && (
-            <div className="crm-ogoh orta mla-admin" role="note">
-              <TriangleAlert aria-hidden="true" />
-              <span>
-                {t('Administrator uchun: serverda quyidagi sozlamalar yetishmaydi — {env}. Qo‘llanma: docs/meta-lead-ads.md', {
-                  env: holat.admin.missingEnv.join(', '),
-                })}
-                <br />
-                {t('OAuth redirect URI')}: <code>{holat.admin.redirectUri}</code>
-                <br />
-                {t('Webhook callback URL')}: <code>{holat.admin.webhookUrl}</code>
-              </span>
-            </div>
-          )}
-        </>
-      )}
+      {holat && <IlovaBolim base={base} holat={holat} onSaqlandi={yukla} />}
 
       {holat?.configured && !ulangan && (
         <>
@@ -292,6 +290,198 @@ export function MetaLeadAdsKarta() {
         />
       )}
     </section>
+  );
+}
+
+// ─── Kompaniyaning o'z Meta ilovasi ──────────────────────────────────────────
+
+function NusxaQatori({ nom, qiymat, yordam }: { nom: string; qiymat: string; yordam?: string }) {
+  const t = useT();
+  const [nusxa, setNusxa] = useState(false);
+  return (
+    <div className="maydon-blok">
+      <label>{nom}</label>
+      <div className="tm-nusxa">
+        <code>{qiymat}</code>
+        <button
+          type="button"
+          className="btn ikkinchi kichik"
+          onClick={() =>
+            void navigator.clipboard?.writeText(qiymat).then(() => {
+              setNusxa(true);
+              setTimeout(() => setNusxa(false), 1600);
+            })
+          }
+        >
+          {nusxa ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />} {nusxa ? t('Nusxalandi') : t('Nusxalash')}
+        </button>
+      </div>
+      {yordam && <div className="yordam">{yordam}</div>}
+    </div>
+  );
+}
+
+/**
+ * SaaS: har tashkilot O'Z Meta ilovasini shu yerda kiritadi (serverdagi env'ga
+ * tegilmaydi). Verify token va manzillar server tomonidan beriladi — rahbar
+ * ularni Meta paneliga nusxalaydi. Kalitlar saqlashdan oldin Meta'da tekshiriladi.
+ */
+function IlovaBolim({ base, holat, onSaqlandi }: { base: string; holat: Holat; onSaqlandi: () => Promise<void> }) {
+  const t = useT();
+  const a = holat.app;
+  const [ochiq, setOchiq] = useState(!a.configured && holat.source !== 'platforma');
+  const [f, setF] = useState({ appId: a.appId ?? '', appSecret: '', loginConfigId: a.loginConfigId ?? '' });
+  const [korsat, setKorsat] = useState(false);
+  const [band, setBand] = useState<'saqla' | 'ochir' | null>(null);
+  const [xato, setXato] = useState<string | null>(null);
+  const [xabar, setXabar] = useState<string | null>(null);
+
+  useEffect(() => {
+    setF((x) => ({ ...x, appId: a.appId ?? x.appId, loginConfigId: a.loginConfigId ?? x.loginConfigId }));
+  }, [a.appId, a.loginConfigId]);
+
+  const saqla = async () => {
+    setBand('saqla');
+    setXato(null);
+    setXabar(null);
+    try {
+      await api.put(base + '/meta-lead-ads/app', {
+        appId: f.appId.trim(),
+        appSecret: f.appSecret.trim() || undefined,
+        loginConfigId: f.loginConfigId.trim() || null,
+      });
+      setF((x) => ({ ...x, appSecret: '' }));
+      setXabar(t('Meta ilovasi tekshirildi va saqlandi. Endi «Facebook orqali ulash» ni bosing.'));
+      setOchiq(false);
+      await onSaqlandi();
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t('Saqlanmadi'));
+    } finally {
+      setBand(null);
+    }
+  };
+
+  const ochir = async () => {
+    if (!window.confirm(t('Meta ilovasi sozlamalari o‘chirilsinmi? App Secret o‘chiriladi, verify token yangilanadi.'))) return;
+    setBand('ochir');
+    setXato(null);
+    try {
+      await api.del(base + '/meta-lead-ads/app');
+      setF({ appId: '', appSecret: '', loginConfigId: '' });
+      await onSaqlandi();
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t("Bajarib bo'lmadi"));
+    } finally {
+      setBand(null);
+    }
+  };
+
+  return (
+    <div className="mla-ilova">
+      <div className="mla-ilova-bosh">
+        <KeyRound aria-hidden="true" />
+        <span>
+          <b>{t('Meta ilovasi')}</b>
+          <small>
+            {a.configured
+              ? t('{nom} · App ID {id} · App Secret {h}', { nom: a.appName ?? '—', id: a.appId ?? '', h: a.secretHint ?? '' })
+              : holat.source === 'platforma'
+                ? t('Platforma ilovasi ishlatilmoqda. Xohlasangiz, kompaniyangizning o‘z Meta ilovasini ulang.')
+                : t('Kompaniyangizning Meta ilovasi kalitlarini bir marta kiriting — keyin «Facebook orqali ulash» paydo bo‘ladi.')}
+          </small>
+        </span>
+        <button type="button" className="btn ikkinchi kichik" onClick={() => setOchiq((x) => !x)} aria-expanded={ochiq}>
+          <Settings2 aria-hidden="true" /> {ochiq ? t('Yopish') : a.configured ? t('Sozlamalar') : t('Sozlash')}
+        </button>
+      </div>
+
+      {xabar && (
+        <div className="ok-qator" role="status">
+          <CircleCheck aria-hidden="true" /> {xabar}
+        </div>
+      )}
+
+      {ochiq && (
+        <div className="mla-ilova-ichi">
+          <details className="tm-yoriq" open={!a.configured}>
+            <summary>{t('Meta panelida qanday sozlanadi — qadam-baqadam')}</summary>
+            <ol>
+              <li>{t('developers.facebook.com → My Apps → Create app (turi: Business). App settings → Basic: App ID va App secret ni pastga kiriting; App Domains — saytingiz domeni.')}</li>
+              <li>{t('«Facebook Login for Business» mahsulotini qo‘shing → Settings: «Valid OAuth Redirect URIs» ga quyidagi redirect manzilini, «Deauthorize callback URL» ga deauthorize manzilini qo‘ying.')}</li>
+              <li>{t('Facebook Login for Business → Configurations → Create: token turi «User access token», Assets — Pages, ruxsatlar: pages_show_list, pages_read_engagement, pages_manage_metadata, leads_retrieval, pages_manage_ads, ads_management. Configuration ID ni pastga kiriting.')}</li>
+              <li>{t('«Webhooks» mahsuloti → «Page»: Callback URL va Verify token ni qo‘ying → «Verify and save» → «leadgen» maydoniga obuna bo‘ling.')}</li>
+              <li>{t('App settings → Basic: Privacy Policy URL va «Data deletion callback URL» ni kiriting. Sahifani ulaydigan xodim ilovada Admin yoki Tester bo‘lsin.')}</li>
+            </ol>
+          </details>
+
+          <div className="tm-blok">
+            <h4>{t('Meta paneliga nusxalang')}</h4>
+            <NusxaQatori nom={t('Valid OAuth Redirect URI')} qiymat={a.redirectUri} yordam={t('Facebook Login for Business → Settings')} />
+            <NusxaQatori nom={t('Webhook Callback URL')} qiymat={a.webhookUrl} yordam={t('Webhooks → Page → Callback URL (kompaniyangiz uchun alohida)')} />
+            <NusxaQatori nom={t('Verify token')} qiymat={a.verifyToken} yordam={t('Webhooks → Page → Verify token')} />
+            <NusxaQatori nom={t('Deauthorize callback URL')} qiymat={a.deauthorizeUrl} />
+            <NusxaQatori nom={t('Data deletion callback URL')} qiymat={a.dataDeletionUrl} />
+          </div>
+
+          <div className="tm-blok">
+            <h4>{t('Ilova kalitlari')}</h4>
+            <div className="vr-oyna-ikki">
+              <div className="maydon-blok">
+                <label htmlFor="mla-app-id">{t('App ID')}</label>
+                <input id="mla-app-id" className="input" inputMode="numeric" maxLength={25} value={f.appId} onChange={(e) => setF({ ...f, appId: e.target.value.replace(/\D/g, '') })} />
+              </div>
+              <div className="maydon-blok">
+                <label htmlFor="mla-config">
+                  {t('Configuration ID')} <span className="yordam">({t('ixtiyoriy')})</span>
+                </label>
+                <input id="mla-config" className="input" inputMode="numeric" maxLength={25} value={f.loginConfigId} onChange={(e) => setF({ ...f, loginConfigId: e.target.value.replace(/\D/g, '') })} />
+              </div>
+            </div>
+            <div className="maydon-blok">
+              <label htmlFor="mla-secret">{t('App Secret')}</label>
+              <div className="tm-sir">
+                <input
+                  id="mla-secret"
+                  className="input"
+                  type={korsat ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  data-1p-ignore=""
+                  data-lpignore="true"
+                  data-bwignore=""
+                  data-form-type="other"
+                  spellCheck={false}
+                  maxLength={128}
+                  value={f.appSecret}
+                  placeholder={a.secretHint ? t('Saqlangan: {h} — almashtirish uchun yangisini kiriting', { h: a.secretHint }) : ''}
+                  onChange={(e) => setF({ ...f, appSecret: e.target.value })}
+                />
+                <button type="button" className="vr-amal" aria-label={korsat ? t('Yashirish') : t("Ko'rsatish")} onClick={() => setKorsat((x) => !x)}>
+                  {korsat ? <EyeOff /> : <Eye />}
+                </button>
+              </div>
+              <div className="yordam">{t('App Secret shifrlangan holda saqlanadi va hech kimga ko‘rsatilmaydi.')}</div>
+            </div>
+          </div>
+
+          {xato && (
+            <div className="xato-qator" role="alert">
+              {xato}
+            </div>
+          )}
+
+          <div className="crm-tugmalar">
+            <button type="button" className="btn" disabled={band !== null || !f.appId || (!a.configured && !f.appSecret)} onClick={() => void saqla()}>
+              <Check aria-hidden="true" /> {band === 'saqla' ? t('Tekshirilmoqda…') : t('Saqlash va tekshirish')}
+            </button>
+            {a.configured && (
+              <button type="button" className="btn ikkinchi crm-uzish" disabled={band !== null} onClick={() => void ochir()}>
+                <Trash2 aria-hidden="true" /> {t('Ilovani o‘chirish')}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 

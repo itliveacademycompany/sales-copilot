@@ -1,12 +1,14 @@
 import { createHmac } from 'node:crypto';
 import { and, count, desc, eq, gte, inArray, ne, sql } from 'drizzle-orm';
+import { config } from '../../config.js';
 import { decryptSecret } from '../../crypto/secrets.js';
 import { withoutTenantIsolation, withTenant } from '../../db/index.js';
 import { auditLog, metaLeadgenEvent, metaPageConnection } from '../../db/schema/index.js';
 import { CrmXatosi } from '../xato.js';
 import { graf } from './graph.js';
-import { formalarniTekshir, obunaQil, sahifaFormalari, voronkaniTekshir } from './oauth.js';
-import { MAJBURIY_RUXSATLAR, metaSozlama, redirectUri, webhookManzili, yetishmaydi } from './sozlama.js';
+import { ilovaKorinishi } from './ilova.js';
+import { formalarniTekshir, obunaQil, sahifaFormalari, sozlamaShart, voronkaniTekshir } from './oauth.js';
+import { kompaniyaSozlamasi, MAJBURIY_RUXSATLAR, metaSozlama, redirectUri, webhookManzili, yetishmaydi } from './sozlama.js';
 import { formalar, XATO_MATNI, type XatoTuri } from './sof.js';
 
 /**
@@ -17,12 +19,6 @@ import { formalar, XATO_MATNI, type XatoTuri } from './sof.js';
  * "Ulandi" (OAuth + obuna) va "Lid qabul qilindi" (`first_lead_at`) alohida
  * holatlar — OAuth muvaffaqiyati butun zanjir ishlayapti degani emas.
  */
-
-const sozlamaShart = () => {
-  const s = metaSozlama();
-  if (!s) throw new CrmXatosi('ziddiyat', XATO_MATNI.config);
-  return s;
-};
 
 const ulanishTopilmadi = new CrmXatosi('topilmadi', 'Ulanish topilmadi');
 
@@ -44,7 +40,7 @@ function sahifaTokeni(b: Buffer | null): string | null {
 // ─── Holat ───────────────────────────────────────────────────────────────────
 
 export async function metaHolati(businessId: string, superAdmin: boolean) {
-  const sozlangan = metaSozlama() !== null;
+  const [amaldagi, ilova] = await Promise.all([kompaniyaSozlamasi(businessId), ilovaKorinishi(businessId)]);
   const [ulanishlar, sonlar, xatolar] = await withTenant(businessId, (tx) =>
     Promise.all([
       tx.select().from(metaPageConnection).where(ne(metaPageConnection.status, 'disconnected')).orderBy(metaPageConnection.connectedAt),
@@ -71,9 +67,13 @@ export async function metaHolati(businessId: string, superAdmin: boolean) {
     ]),
   );
   return {
-    configured: sozlangan,
-    // Texnik tafsilotlar faqat platforma administratoriga
-    ...(superAdmin ? { admin: { missingEnv: yetishmaydi(), redirectUri: redirectUri(), webhookUrl: webhookManzili() } } : {}),
+    configured: amaldagi !== null,
+    /** Qaysi ilova ishlayapti: tashkilotning o'zi kiritgani yoki platformaniki (env). */
+    source: amaldagi?.manba ?? null,
+    /** Tashkilotning o'z Meta ilovasi (App Secret yo'q, faqat niqob) — rahbar kartada kiritadi. */
+    app: ilova,
+    // Platforma ilovasi (env) tafsilotlari faqat platforma administratoriga
+    ...(superAdmin ? { admin: { missingEnv: yetishmaydi(), redirectUri: redirectUri(), webhookUrl: webhookManzili(), platformConfigured: metaSozlama() !== null } } : {}),
     connections: ulanishlar.map((c) => {
       const son = (st: string) => Number(sonlar.find((x) => x.connectionId === c.id && x.status === st)?.n ?? 0);
       const berilgan = Array.isArray(c.grantedScopes) ? (c.grantedScopes as string[]) : [];
@@ -133,7 +133,7 @@ const KOD: Record<XatoTuri, string> = {
  * o'qish huquqi (Leads Access). Natija ulanishga yoziladi.
  */
 export async function ulanishniTekshir(businessId: string, id: string): Promise<{ ok: boolean; qadamlar: TekshiruvQadami[] }> {
-  const cfg = sozlamaShart();
+  const cfg = await sozlamaShart(businessId);
   const c = await ulanishniOl(businessId, id);
   if (c.status === 'disconnected') throw new CrmXatosi('ziddiyat', 'Ulanish uzilgan — «Facebook orqali ulash» ni bosing');
   const token = sahifaTokeni(c.pageTokenEncrypted);
@@ -230,7 +230,7 @@ export async function ulanishniTekshir(businessId: string, id: string): Promise<
 // ─── Formalarni o'zgartirish ─────────────────────────────────────────────────
 
 export async function ulanishFormalari(businessId: string, id: string) {
-  const cfg = sozlamaShart();
+  const cfg = await sozlamaShart(businessId);
   const c = await ulanishniOl(businessId, id);
   const token = sahifaTokeni(c.pageTokenEncrypted);
   if (!token || c.status === 'disconnected') throw new CrmXatosi('ziddiyat', XATO_MATNI.token_revoked);
@@ -238,7 +238,7 @@ export async function ulanishFormalari(businessId: string, id: string) {
 }
 
 export async function ulanishniYangila(p: { businessId: string; id: string; formIds?: string[] | undefined; pipelineId?: string | null | undefined; userId: string }) {
-  const cfg = sozlamaShart();
+  const cfg = await sozlamaShart(p.businessId);
   const c = await ulanishniOl(p.businessId, p.id);
   if (c.status === 'disconnected') throw ulanishTopilmadi;
   const yangi: { forms?: unknown; pipelineId?: string | null; updatedAt: Date } = { updatedAt: new Date() };
@@ -273,7 +273,7 @@ export async function ulanishniYangila(p: { businessId: string; id: string; form
 export async function ulanishniUz(p: { businessId: string; id: string; userId: string; ip?: string; userAgent?: string | null }): Promise<{ unsubscribed: boolean; warning: string | null }> {
   const c = await ulanishniOl(p.businessId, p.id);
   if (c.status === 'disconnected') return { unsubscribed: false, warning: null };
-  const cfg = metaSozlama();
+  const cfg = await kompaniyaSozlamasi(p.businessId);
   const token = sahifaTokeni(c.pageTokenEncrypted);
   const [boshqa] = await withoutTenantIsolation('Meta: uzishdan oldin sahifaning boshqa faol ulanishi bormi', (tx) =>
     tx
@@ -350,12 +350,23 @@ export async function hodisalarniQaytar(businessId: string, connectionId: string
  * tashladi. Shu foydalanuvchi ulagan ulanishlar "xato" holatiga o'tadi —
  * rahbar «Qayta ulash» ni ko'radi. Lidlar (CRM yozuvlari) tegilmaydi.
  */
-export async function ruxsatBekorQilindi(fbUserId: string): Promise<number> {
-  const r = await withoutTenantIsolation('Meta deauthorize: FB foydalanuvchisi bo‘yicha ulanishlar (barcha tenantlar)', (tx) =>
+/**
+ * Qaysi ilovaning callback'i kelgani bo'yicha doira: FB foydalanuvchi ID si
+ * ilovaga xos (app-scoped) — kompaniya ilovasi faqat o'z tashkilotiga,
+ * platforma ilovasi esa o'z ilovasi YO'Q tashkilotlarga ta'sir qiladi.
+ */
+function ilovaDoirasi(businessId: string | null) {
+  return businessId
+    ? eq(metaPageConnection.businessId, businessId)
+    : sql`not exists (select 1 from meta_app_config m where m.business_id = ${metaPageConnection.businessId} and m.app_id is not null and m.app_secret_encrypted is not null)`;
+}
+
+export async function ruxsatBekorQilindi(fbUserId: string, businessId: string | null): Promise<number> {
+  const r = await withoutTenantIsolation('Meta deauthorize: FB foydalanuvchisi bo‘yicha ulanishlar (ilova doirasida)', (tx) =>
     tx
       .update(metaPageConnection)
       .set({ status: 'error', lastErrorCode: 'token_revoked', lastError: XATO_MATNI.token_revoked, lastErrorAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(metaPageConnection.fbUserId, fbUserId), ne(metaPageConnection.status, 'disconnected')))
+      .where(and(eq(metaPageConnection.fbUserId, fbUserId), ne(metaPageConnection.status, 'disconnected'), ilovaDoirasi(businessId)))
       .returning({ id: metaPageConnection.id }),
   );
   return r.length;
@@ -367,20 +378,23 @@ export async function ruxsatBekorQilindi(fbUserId: string): Promise<number> {
  * Lidlar reklama beruvchi (tashkilot) ma'lumoti — ular CRM'da qoladi
  * (docs/meta-lead-ads.md). Tasdiqlash kodi bazasiz tekshiriladi (HMAC).
  */
-export async function malumotniOchir(fbUserId: string): Promise<{ confirmationCode: string }> {
-  await withoutTenantIsolation('Meta data deletion: FB foydalanuvchisi tokenlarini o‘chirish (barcha tenantlar)', async (tx) => {
+export async function malumotniOchir(fbUserId: string, businessId: string | null): Promise<{ confirmationCode: string }> {
+  await withoutTenantIsolation('Meta data deletion: FB foydalanuvchisi tokenlarini o‘chirish (ilova doirasida)', async (tx) => {
     await tx
       .update(metaPageConnection)
       .set({ status: 'disconnected', pageTokenEncrypted: null, fbUserId: null, disconnectedAt: new Date(), updatedAt: new Date() })
-      .where(eq(metaPageConnection.fbUserId, fbUserId));
-    await tx.execute(sql`update meta_oauth_session set pages_encrypted = null, fb_user_id = null where fb_user_id = ${fbUserId}`);
+      .where(and(eq(metaPageConnection.fbUserId, fbUserId), ilovaDoirasi(businessId)));
+    await tx.execute(
+      businessId
+        ? sql`update meta_oauth_session set pages_encrypted = null, fb_user_id = null where fb_user_id = ${fbUserId} and business_id = ${businessId}`
+        : sql`update meta_oauth_session set pages_encrypted = null, fb_user_id = null where fb_user_id = ${fbUserId}`,
+    );
   });
   return { confirmationCode: tasdiqKodi(Date.now()) };
 }
 
 function tasdiqImzosi(ts: string): string {
-  const s = metaSozlama();
-  return createHmac('sha256', s?.appSecret ?? 'meta').update(`meta-deletion.${ts}`).digest('hex').slice(0, 16);
+  return createHmac('sha256', config.COOKIE_SECRET).update(`meta-deletion.${ts}`).digest('hex').slice(0, 16);
 }
 
 export function tasdiqKodi(ms: number): string {

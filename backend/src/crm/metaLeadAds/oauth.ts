@@ -6,7 +6,7 @@ import { auditLog, crmPipeline, metaLeadgenEvent, metaOauthSession, metaPageConn
 import { frontendUrl, hostDanSlug, rootHostmi, rootUrl } from '../../http/tenant.js';
 import { CrmXatosi } from '../xato.js';
 import { graf, hammasiniOl } from './graph.js';
-import { dialogManzili, MAJBURIY_RUXSATLAR, metaSozlama, type MetaSozlama } from './sozlama.js';
+import { dialogManzili, kompaniyaSozlamasi, MAJBURIY_RUXSATLAR, type MetaSozlama } from './sozlama.js';
 import {
   ID,
   sahifaRuxsati,
@@ -40,8 +40,9 @@ import {
  *              ulanish saqlanadi, sessiyadagi tokenlar o'chiriladi
  */
 
-const sozlamaShart = (): MetaSozlama => {
-  const s = metaSozlama();
+/** Tashkilotning amaldagi Meta ilovasi (o'zi kiritgan yoki platformaniki); yo'q bo'lsa — xato. */
+export const sozlamaShart = async (businessId: string): Promise<MetaSozlama> => {
+  const s = await kompaniyaSozlamasi(businessId);
   if (!s) throw new CrmXatosi('ziddiyat', XATO_MATNI.config);
   return s;
 };
@@ -70,7 +71,7 @@ export async function oauthBoshla(p: {
   /** Oldin rad etilgan ruxsatlarni qayta so'rash ("Qayta ulash"). */
   qaytaSora?: boolean | undefined;
 }): Promise<{ url: string }> {
-  const s = sozlamaShart();
+  const s = await sozlamaShart(p.businessId);
   const { state, hash } = yangiState();
   const origin = qaytishOrigini(p.qaytish, p.slug);
   await withTenant(p.businessId, async (tx) => {
@@ -166,7 +167,8 @@ export async function oauthCallback(
     log({ sessionId: s.id, reason: (q.error_reason ?? q.error ?? 'no_code').slice(0, 40) }, 'meta oauth: foydalanuvchi rad etdi yoki kod yo‘q');
     return yakunla('rad');
   }
-  const cfg = metaSozlama();
+  // Shu tashkilotning ilovasi — start'dagi bilan bir xil (redirect_uri va client_id mos bo'lishi shart)
+  const cfg = await kompaniyaSozlamasi(s.businessId);
   if (!cfg) return yakunla('sozlanmagan');
 
   // code → qisqa muddatli user token (server tomonda, App Secret bilan)
@@ -346,7 +348,7 @@ export async function sahifaFormalari(pageId: string, token: string, appSecret: 
 }
 
 export async function sessiyaFormalari(businessId: string, userId: string, sessionId: string, pageId: string) {
-  const cfg = sozlamaShart();
+  const cfg = await sozlamaShart(businessId);
   const { token } = await tanlashRuxsati(businessId, userId, sessionId, pageId);
   return { forms: await sahifaFormalari(pageId, token, cfg.appSecret) };
 }
@@ -395,7 +397,7 @@ export async function sahifaniUla(p: {
   ip?: string;
   userAgent?: string | null;
 }): Promise<{ connectionId: string }> {
-  const cfg = sozlamaShart();
+  const cfg = await sozlamaShart(p.businessId);
   const { s, sahifa, token } = await tanlashRuxsati(p.businessId, p.userId, p.sessionId, p.pageId);
   const forms = formalarniTekshir(p.formIds, await sahifaFormalari(p.pageId, token, cfg.appSecret));
   const pipelineId = await voronkaniTekshir(p.businessId, p.pipelineId);

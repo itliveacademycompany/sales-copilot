@@ -1,9 +1,14 @@
+import { and, eq, inArray, isNotNull } from 'drizzle-orm';
 import { config } from '../../config.js';
+import { decryptSecret } from '../../crypto/secrets.js';
+import { withoutTenantIsolation, withTenant } from '../../db/index.js';
+import { metaAppConfig } from '../../db/schema/index.js';
 import { rootUrl } from '../../http/tenant.js';
 
 /**
- * Meta ilovasi sozlamasi (env). Platformada BITTA ilova — CRM operatori bir
- * marta sozlaydi; mijoz hech qanday kalit kiritmaydi.
+ * Meta ilovasi sozlamasi. SaaS: har tashkilot O'Z Meta ilovasini kartada
+ * kiritadi (`meta_app_config`, App Secret shifrlangan) — serverdagi env'ga
+ * tegilmaydi. Kiritmagan tashkilot uchun zaxira — platforma ilovasi (env).
  */
 
 /**
@@ -41,10 +46,97 @@ export interface MetaSozlama {
   redirectUri: string;
   verifyToken: string;
   ruxsatlar: string[];
+  /** `kompaniya` — tashkilotning o'z ilovasi (bazada), `platforma` — env. */
+  manba: 'kompaniya' | 'platforma';
+  /** Kompaniya ilovasi qatori (`meta_app_config.id`) — webhook manzili shundan. */
+  ilovaId: string | null;
 }
 
-function tashqiManzil(): string {
+export function tashqiManzil(): string {
   return (config.PUBLIC_URL ?? rootUrl()).replace(/\/+$/, '');
+}
+
+/** Kompaniya ilovasining webhook yo'li — har tashkilotga alohida (imzo o'z App Secret'i bilan). */
+export const KOMPANIYA_WEBHOOK_YOLI = '/api/v1/webhooks/crm/meta-app';
+
+export function kompaniyaManzillari(ilovaId: string) {
+  const asos = `${tashqiManzil()}${KOMPANIYA_WEBHOOK_YOLI}/${ilovaId}`;
+  return { webhookUrl: asos, deauthorizeUrl: `${asos}/deauthorize`, dataDeletionUrl: `${asos}/data-deletion` };
+}
+
+function ruxsatlar(): string[] {
+  return config.META_OAUTH_SCOPES ? config.META_OAUTH_SCOPES.split(',').map((s) => s.trim()).filter(Boolean) : [...STANDART_RUXSATLAR];
+}
+
+export interface IlovaQatori {
+  id: string;
+  appId: string | null;
+  appSecretEncrypted: Buffer | null;
+  loginConfigId: string | null;
+  verifyToken: string;
+}
+
+/**
+ * Qaysi ilova ishlatiladi: kompaniyaning to'liq sozlangan ilovasi (App ID +
+ * App Secret) ustun, bo'lmasa platforma (env). Sof funksiya — testda bazasiz.
+ */
+export function sozlamaniYig(qator: IlovaQatori | null | undefined, ochish: (b: Buffer) => string, platforma: MetaSozlama | null): MetaSozlama | null {
+  if (qator?.appId && qator.appSecretEncrypted) {
+    let appSecret: string;
+    try {
+      appSecret = ochish(qator.appSecretEncrypted);
+    } catch {
+      return null;
+    }
+    return {
+      appId: qator.appId,
+      appSecret,
+      configId: qator.loginConfigId,
+      versiya: grafVersiyasi(),
+      redirectUri: redirectUri(),
+      verifyToken: qator.verifyToken,
+      ruxsatlar: ruxsatlar(),
+      manba: 'kompaniya',
+      ilovaId: qator.id,
+    };
+  }
+  return platforma;
+}
+
+const QATOR_MAYDONLARI = {
+  id: metaAppConfig.id,
+  businessId: metaAppConfig.businessId,
+  appId: metaAppConfig.appId,
+  appSecretEncrypted: metaAppConfig.appSecretEncrypted,
+  loginConfigId: metaAppConfig.loginConfigId,
+  verifyToken: metaAppConfig.verifyToken,
+};
+
+/** Tashkilot uchun amaldagi sozlama (kompaniya ilovasi yoki platforma). */
+export async function kompaniyaSozlamasi(businessId: string): Promise<MetaSozlama | null> {
+  const [q] = await withTenant(businessId, (tx) => tx.select(QATOR_MAYDONLARI).from(metaAppConfig).limit(1));
+  return sozlamaniYig(q, decryptSecret, metaSozlama());
+}
+
+/** Webhook: ilova qatori ID si bo'yicha (tenant konteksti yo'q). */
+export async function ilovaBoyicha(ilovaId: string): Promise<{ businessId: string; s: MetaSozlama | null; verifyToken: string } | null> {
+  const [q] = await withoutTenantIsolation('Meta webhook: kompaniya ilovasi id bo‘yicha — tenant konteksti yo‘q', (tx) =>
+    tx.select(QATOR_MAYDONLARI).from(metaAppConfig).where(eq(metaAppConfig.id, ilovaId)).limit(1),
+  );
+  if (!q) return null;
+  return { businessId: q.businessId, s: sozlamaniYig(q, decryptSecret, null), verifyToken: q.verifyToken };
+}
+
+/** O'z to'liq ilovasi bor tashkilotlar — platforma webhook'i ularning sahifalarini qabul qilmaydi. */
+export async function oziIlovaliBizneslar(businessIds: string[]): Promise<Set<string>> {
+  if (!businessIds.length) return new Set();
+  const r = await withoutTenantIsolation('Meta webhook: qaysi tashkilotlarning o‘z ilovasi bor', (tx) =>
+    tx
+      .select({ businessId: metaAppConfig.businessId })
+      .from(metaAppConfig)
+      .where(and(inArray(metaAppConfig.businessId, businessIds), isNotNull(metaAppConfig.appId), isNotNull(metaAppConfig.appSecretEncrypted))),
+  );
+  return new Set(r.map((x) => x.businessId));
 }
 
 export function grafVersiyasi(): string {
@@ -68,12 +160,12 @@ export function yetishmaydi(): string[] {
   return y;
 }
 
-/** To'liq sozlangan bo'lsa — sozlama, aks holda null ("Integratsiya hali sozlanmagan"). */
+/**
+ * PLATFORMA ilovasi (env) — zaxira: tashkilot o'z ilovasini kiritmagan bo'lsa.
+ * To'liq sozlanmagan bo'lsa null.
+ */
 export function metaSozlama(): MetaSozlama | null {
   if (yetishmaydi().length) return null;
-  const ruxsatlar = config.META_OAUTH_SCOPES
-    ? config.META_OAUTH_SCOPES.split(',').map((s) => s.trim()).filter(Boolean)
-    : [...STANDART_RUXSATLAR];
   return {
     appId: config.META_APP_ID!,
     appSecret: config.META_APP_SECRET!,
@@ -81,7 +173,9 @@ export function metaSozlama(): MetaSozlama | null {
     versiya: grafVersiyasi(),
     redirectUri: redirectUri(),
     verifyToken: config.META_WEBHOOK_VERIFY_TOKEN!,
-    ruxsatlar,
+    ruxsatlar: ruxsatlar(),
+    manba: 'platforma',
+    ilovaId: null,
   };
 }
 

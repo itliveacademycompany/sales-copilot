@@ -5,7 +5,7 @@ import { withoutTenantIsolation, withTenant } from '../../db/index.js';
 import { crmInbox, crmPipeline, metaLeadgenEvent, metaPageConnection } from '../../db/schema/index.js';
 import { kontaktniTopYokiYarat } from '../xizmat.js';
 import { graf, type GraphJavob } from './graph.js';
-import { metaSozlama } from './sozlama.js';
+import { ilovaBoyicha, kompaniyaSozlamasi, metaSozlama, oziIlovaliBizneslar } from './sozlama.js';
 import {
   formalar,
   formaTanlanganmi,
@@ -43,10 +43,21 @@ const LID_MANBALARI = ['facebook', 'instagram', MANBA];
 
 // ─── Webhook ─────────────────────────────────────────────────────────────────
 
-export function webhookTasdiq(q: { mode?: string; token?: string; challenge?: string }): string | null {
-  const s = metaSozlama();
-  if (!s || q.mode !== 'subscribe' || !q.token || !q.challenge || q.challenge.length > 200) return null;
-  return safeCompare(s.verifyToken, q.token) ? q.challenge : null;
+/**
+ * Qaysi ilovaning webhook'i: platforma (env, `/webhooks/crm/meta`) yoki
+ * kompaniyaning o'z ilovasi (`/webhooks/crm/meta-app/:ilovaId`).
+ */
+export type WebhookManba = { tur: 'platforma' } | { tur: 'kompaniya'; ilovaId: string };
+
+/**
+ * GET tasdiqlash. Kompaniya ilovasida verify token App Secret'dan OLDIN ham
+ * ishlaydi — rahbar Meta panelida webhook'ni kalitlarni saqlashdan oldin
+ * sozlashi mumkin.
+ */
+export async function webhookTasdiq(manba: WebhookManba, q: { mode?: string; token?: string; challenge?: string }): Promise<string | null> {
+  if (q.mode !== 'subscribe' || !q.token || !q.challenge || q.challenge.length > 200) return null;
+  const kutilgan = manba.tur === 'platforma' ? metaSozlama()?.verifyToken : (await ilovaBoyicha(manba.ilovaId))?.verifyToken;
+  return kutilgan && safeCompare(kutilgan, q.token) ? q.challenge : null;
 }
 
 export interface WebhookNatija {
@@ -61,9 +72,11 @@ export interface WebhookNatija {
  * POST. Hodisa bazaga yozilmasa xato OTILADI (marshrut 500 qaytaradi, Meta
  * 36 soat davomida qayta yuboradi; unikal kalit tufayli dubl bo'lmaydi).
  */
-export async function webhookQabul(xom: Buffer, imzo: unknown): Promise<WebhookNatija> {
+export async function webhookQabul(manba: WebhookManba, xom: Buffer, imzo: unknown): Promise<WebhookNatija> {
   const bosh: WebhookNatija = { kod: 200, saqlandi: 0, etiborsiz: 0, takror: 0, begona: 0 };
-  const s = metaSozlama();
+  const ilova = manba.tur === 'kompaniya' ? await ilovaBoyicha(manba.ilovaId) : null;
+  if (manba.tur === 'kompaniya' && !ilova) return { ...bosh, kod: 401 };
+  const s = manba.tur === 'platforma' ? metaSozlama() : ilova!.s;
   if (!s) return { ...bosh, kod: 503 };
   if (!imzoTogrimi(xom, imzo, s.appSecret)) return { ...bosh, kod: 401 };
   let tana: unknown;
@@ -76,12 +89,22 @@ export async function webhookQabul(xom: Buffer, imzo: unknown): Promise<WebhookN
   if (!hodisalar.length) return bosh;
 
   const sahifalar = [...new Set(hodisalar.map((h) => h.pageId))];
-  const ulanishlar = await withoutTenantIsolation('Meta webhook: page_id bo‘yicha faol ulanish — tenant konteksti yo‘q', (tx) =>
+  const topilgan = await withoutTenantIsolation('Meta webhook: page_id bo‘yicha faol ulanish — tenant konteksti yo‘q', (tx) =>
     tx
       .select({ id: metaPageConnection.id, businessId: metaPageConnection.businessId, pageId: metaPageConnection.pageId, forms: metaPageConnection.forms })
       .from(metaPageConnection)
-      .where(and(inArray(metaPageConnection.pageId, sahifalar), ne(metaPageConnection.status, 'disconnected'))),
+      .where(
+        and(
+          inArray(metaPageConnection.pageId, sahifalar),
+          ne(metaPageConnection.status, 'disconnected'),
+          // Kompaniya ilovasining imzosi — faqat o'sha tashkilotning sahifalari
+          ...(ilova ? [eq(metaPageConnection.businessId, ilova.businessId)] : []),
+        ),
+      ),
   );
+  // Platforma ilovasi — o'z ilovasi bor tashkilotlarning sahifalarini qabul qilmaydi
+  const ozIlovali = manba.tur === 'platforma' ? await oziIlovaliBizneslar([...new Set(topilgan.map((c) => c.businessId))]) : new Set<string>();
+  const ulanishlar = topilgan.filter((c) => !ozIlovali.has(c.businessId));
 
   const natija = { ...bosh };
   for (const c of ulanishlar) {
@@ -127,6 +150,8 @@ export interface UlanishMalumoti {
   forms: TanlanganForma[];
   pipelineId: string | null;
   token: string | null;
+  /** Shu tashkilot ilovasining App Secret'i (appsecret_proof uchun); ilova o'chirilgan bo'lsa null. */
+  appSecret: string | null;
 }
 
 export interface MurojaatKirish {
@@ -142,9 +167,9 @@ export interface MurojaatKirish {
 
 export interface IshlovPortlari {
   ulanish(businessId: string, connectionId: string): Promise<UlanishMalumoti | null>;
-  lidniOl(token: string, leadgenId: string): Promise<GraphJavob<MetaLid>>;
+  lidniOl(token: string, appSecret: string, leadgenId: string): Promise<GraphJavob<MetaLid>>;
   /** Reklama/kampaniya nomlari — ixtiyoriy (ruxsat bo'lmasa null). */
-  reklamaNomlari(token: string, leadgenId: string): Promise<{ adName?: string; adsetName?: string; campaignName?: string } | null>;
+  reklamaNomlari(token: string, appSecret: string, leadgenId: string): Promise<{ adName?: string; adsetName?: string; campaignName?: string } | null>;
   /** Idempotent: shu leadgen uchun murojaat bo'lsa — yangisi yaratilmaydi. */
   murojaatYoz(k: MurojaatKirish): Promise<{ inboxId: string | null; takror: boolean }>;
 }
@@ -166,8 +191,9 @@ export async function hodisaniIshla(h: IshlovHodisasi, p: IshlovPortlari): Promi
   // Backend filtri (ingest'da ham bor — sozlama keyin o'zgargan bo'lishi mumkin)
   if (!formaTanlanganmi(c.forms, h.formId)) return { holat: 'ignored', sabab: 'form_not_selected' };
   if (!c.token) return { holat: 'auth_wait', tur: 'token_revoked', xabar: XATO_MATNI.token_revoked };
+  if (!c.appSecret) return { holat: 'auth_wait', tur: 'permission', xabar: XATO_MATNI.config };
 
-  const r = await p.lidniOl(c.token, h.leadgenId);
+  const r = await p.lidniOl(c.token, c.appSecret, h.leadgenId);
   if (!r.ok) {
     const holat = vaqtinchalikmi(r.tur) ? 'retry' : ruxsatKutadimi(r.tur) ? 'auth_wait' : 'failed';
     return { holat, tur: r.tur, xabar: `${XATO_MATNI[r.tur]} (Meta: ${r.xabar})` };
@@ -178,7 +204,7 @@ export async function hodisaniIshla(h: IshlovHodisasi, p: IshlovPortlari): Promi
 
   const formId = lid.form_id ?? h.formId;
   const forma = c.forms.find((f) => f.id === formId) ?? null;
-  const nomlar = await p.reklamaNomlari(c.token, h.leadgenId).catch(() => null);
+  const nomlar = await p.reklamaNomlari(c.token, c.appSecret, h.leadgenId).catch(() => null);
   const reklamaNomi = [nomlar?.campaignName, nomlar?.adsetName, nomlar?.adName].filter(Boolean).join(' / ') || null;
   const m = lidniMoslash(lid, { formaNomi: forma?.name ?? null, reklamaNomi });
 
@@ -222,7 +248,6 @@ export async function hodisaniIshla(h: IshlovHodisasi, p: IshlovPortlari): Promi
 const LID_MAYDONLARI = 'id,created_time,field_data,form_id,ad_id,adset_id,campaign_id,platform,is_organic';
 
 export function bazaPortlari(): IshlovPortlari {
-  const appSecret = () => metaSozlama()?.appSecret ?? null;
   return {
     async ulanish(businessId, connectionId) {
       const [c] = await withTenant(businessId, (tx) => tx.select().from(metaPageConnection).where(eq(metaPageConnection.id, connectionId)).limit(1));
@@ -233,14 +258,15 @@ export function bazaPortlari(): IshlovPortlari {
       } catch {
         token = null;
       }
-      return { status: c.status, pageId: c.pageId, pageName: c.pageName, forms: formalar(c.forms), pipelineId: c.pipelineId, token };
+      const cfg = await kompaniyaSozlamasi(businessId);
+      return { status: c.status, pageId: c.pageId, pageName: c.pageName, forms: formalar(c.forms), pipelineId: c.pipelineId, token, appSecret: cfg?.appSecret ?? null };
     },
-    lidniOl: (token, leadgenId) => graf<MetaLid>({ yol: `/${leadgenId}`, token, appSecret: appSecret(), params: { fields: LID_MAYDONLARI }, kontekst: 'lid' }),
-    async reklamaNomlari(token, leadgenId) {
+    lidniOl: (token, appSecret, leadgenId) => graf<MetaLid>({ yol: `/${leadgenId}`, token, appSecret, params: { fields: LID_MAYDONLARI }, kontekst: 'lid' }),
+    async reklamaNomlari(token, appSecret, leadgenId) {
       const r = await graf<{ ad_name?: string; adset_name?: string; campaign_name?: string }>({
         yol: `/${leadgenId}`,
         token,
-        appSecret: appSecret(),
+        appSecret,
         params: { fields: 'ad_name,adset_name,campaign_name' },
         timeoutMs: 5000,
       });
@@ -403,7 +429,7 @@ let band = false;
  */
 export async function metaLidlariniIshla(portlar: IshlovPortlari = bazaPortlari(), limit = 20) {
   const son = { done: 0, duplicate: 0, ignored: 0, retry: 0, authWait: 0, failed: 0 };
-  if (band || !metaSozlama()) return son;
+  if (band) return son;
   band = true;
   try {
     const hodisalar = await hodisalarniOl(limit);

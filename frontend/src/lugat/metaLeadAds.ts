@@ -126,6 +126,64 @@ const META_LEAD_ADS: Lugat = {
   },
   'Meta Lead Ads': { en: 'Meta Lead Ads', ru: 'Meta Lead Ads' },
 
+  // ─── Kompaniyaning o'z Meta ilovasi (SaaS) ───
+  'Meta ilovasi': { en: 'Meta app', ru: 'Приложение Meta' },
+  '{nom} · App ID {id} · App Secret {h}': { en: '{nom} · App ID {id} · App Secret {h}', ru: '{nom} · App ID {id} · App Secret {h}' },
+  'Platforma ilovasi ishlatilmoqda. Xohlasangiz, kompaniyangizning o‘z Meta ilovasini ulang.': {
+    en: 'The platform app is in use. You can connect your company’s own Meta app instead.',
+    ru: 'Используется приложение платформы. При желании подключите собственное приложение Meta вашей компании.',
+  },
+  'Kompaniyangizning Meta ilovasi kalitlarini bir marta kiriting — keyin «Facebook orqali ulash» paydo bo‘ladi.': {
+    en: 'Enter your company’s Meta app keys once — then “Connect with Facebook” appears.',
+    ru: 'Один раз введите ключи приложения Meta вашей компании — после этого появится «Подключить через Facebook».',
+  },
+  'Meta panelida qanday sozlanadi — qadam-baqadam': { en: 'How to set it up in the Meta dashboard — step by step', ru: 'Как настроить в панели Meta — пошагово' },
+  'developers.facebook.com → My Apps → Create app (turi: Business). App settings → Basic: App ID va App secret ni pastga kiriting; App Domains — saytingiz domeni.': {
+    en: 'developers.facebook.com → My Apps → Create app (type: Business). App settings → Basic: enter the App ID and App secret below; App Domains — your site domain.',
+    ru: 'developers.facebook.com → My Apps → Create app (тип: Business). App settings → Basic: введите ниже App ID и App secret; App Domains — домен вашего сайта.',
+  },
+  '«Facebook Login for Business» mahsulotini qo‘shing → Settings: «Valid OAuth Redirect URIs» ga quyidagi redirect manzilini, «Deauthorize callback URL» ga deauthorize manzilini qo‘ying.': {
+    en: 'Add the “Facebook Login for Business” product → Settings: paste the redirect URL below into “Valid OAuth Redirect URIs” and the deauthorize URL into “Deauthorize callback URL”.',
+    ru: 'Добавьте продукт «Facebook Login for Business» → Settings: вставьте адрес redirect ниже в «Valid OAuth Redirect URIs», а адрес deauthorize — в «Deauthorize callback URL».',
+  },
+  'Facebook Login for Business → Configurations → Create: token turi «User access token», Assets — Pages, ruxsatlar: pages_show_list, pages_read_engagement, pages_manage_metadata, leads_retrieval, pages_manage_ads, ads_management. Configuration ID ni pastga kiriting.': {
+    en: 'Facebook Login for Business → Configurations → Create: token type “User access token”, Assets — Pages, permissions: pages_show_list, pages_read_engagement, pages_manage_metadata, leads_retrieval, pages_manage_ads, ads_management. Enter the Configuration ID below.',
+    ru: 'Facebook Login for Business → Configurations → Create: тип токена «User access token», Assets — Pages, разрешения: pages_show_list, pages_read_engagement, pages_manage_metadata, leads_retrieval, pages_manage_ads, ads_management. Введите Configuration ID ниже.',
+  },
+  '«Webhooks» mahsuloti → «Page»: Callback URL va Verify token ni qo‘ying → «Verify and save» → «leadgen» maydoniga obuna bo‘ling.': {
+    en: '“Webhooks” product → “Page”: paste the Callback URL and Verify token → “Verify and save” → subscribe to the “leadgen” field.',
+    ru: 'Продукт «Webhooks» → «Page»: вставьте Callback URL и Verify token → «Verify and save» → подпишитесь на поле «leadgen».',
+  },
+  'App settings → Basic: Privacy Policy URL va «Data deletion callback URL» ni kiriting. Sahifani ulaydigan xodim ilovada Admin yoki Tester bo‘lsin.': {
+    en: 'App settings → Basic: enter the Privacy Policy URL and “Data deletion callback URL”. The person connecting the Page must be an Admin or Tester of the app.',
+    ru: 'App settings → Basic: укажите Privacy Policy URL и «Data deletion callback URL». Сотрудник, подключающий страницу, должен быть Admin или Tester приложения.',
+  },
+  'Meta paneliga nusxalang': { en: 'Copy into the Meta dashboard', ru: 'Скопируйте в панель Meta' },
+  'Valid OAuth Redirect URI': { en: 'Valid OAuth Redirect URI', ru: 'Valid OAuth Redirect URI' },
+  'Facebook Login for Business → Settings': { en: 'Facebook Login for Business → Settings', ru: 'Facebook Login for Business → Settings' },
+  'Webhook Callback URL': { en: 'Webhook Callback URL', ru: 'Webhook Callback URL' },
+  'Webhooks → Page → Callback URL (kompaniyangiz uchun alohida)': { en: 'Webhooks → Page → Callback URL (unique to your company)', ru: 'Webhooks → Page → Callback URL (отдельный для вашей компании)' },
+  'Webhooks → Page → Verify token': { en: 'Webhooks → Page → Verify token', ru: 'Webhooks → Page → Verify token' },
+  'Deauthorize callback URL': { en: 'Deauthorize callback URL', ru: 'Deauthorize callback URL' },
+  'Data deletion callback URL': { en: 'Data deletion callback URL', ru: 'Data deletion callback URL' },
+  'Ilova kalitlari': { en: 'App keys', ru: 'Ключи приложения' },
+  'App ID': { en: 'App ID', ru: 'App ID' },
+  'Configuration ID': { en: 'Configuration ID', ru: 'Configuration ID' },
+  'App Secret shifrlangan holda saqlanadi va hech kimga ko‘rsatilmaydi.': { en: 'The App Secret is stored encrypted and never shown to anyone.', ru: 'App Secret хранится в зашифрованном виде и никому не показывается.' },
+  'Ilovani o‘chirish': { en: 'Remove app', ru: 'Удалить приложение' },
+  'Meta ilovasi tekshirildi va saqlandi. Endi «Facebook orqali ulash» ni bosing.': { en: 'The Meta app was verified and saved. Now click “Connect with Facebook”.', ru: 'Приложение Meta проверено и сохранено. Теперь нажмите «Подключить через Facebook».' },
+  'Meta ilovasi sozlamalari o‘chirilsinmi? App Secret o‘chiriladi, verify token yangilanadi.': { en: 'Remove the Meta app settings? The App Secret will be deleted and the verify token renewed.', ru: 'Удалить настройки приложения Meta? App Secret будет удалён, verify token обновится.' },
+  'Avval kompaniyangizning Meta ilovasini «Holat va diagnostika» sahifasida sozlang — App ID va App Secret bir marta kiritiladi.': {
+    en: 'First set up your company’s Meta app on the “Status and diagnostics” page — App ID and App Secret are entered once.',
+    ru: 'Сначала настройте приложение Meta вашей компании на странице «Статус и диагностика» — App ID и App Secret вводятся один раз.',
+  },
+  "App ID faqat raqamlardan iborat — Meta ilovasi → App settings → Basic": { en: 'The App ID consists of digits only — Meta app → App settings → Basic', ru: 'App ID состоит только из цифр — приложение Meta → App settings → Basic' },
+  'Configuration ID faqat raqamlardan iborat': { en: 'The Configuration ID consists of digits only', ru: 'Configuration ID состоит только из цифр' },
+  "App Secret noto'g'ri — Meta ilovasi → App settings → Basic → App secret ni to'liq nusxalang": { en: 'Invalid App Secret — copy Meta app → App settings → Basic → App secret in full', ru: 'Неверный App Secret — скопируйте полностью: приложение Meta → App settings → Basic → App secret' },
+  "Meta App ID yoki App Secret ni tasdiqlamadi — ikkalasini Meta ilovasi → App settings → Basic dan qayta nusxalang": { en: 'Meta did not accept the App ID or App Secret — copy both again from Meta app → App settings → Basic', ru: 'Meta не подтвердила App ID или App Secret — скопируйте оба заново: приложение Meta → App settings → Basic' },
+  'Avval ulangan sahifalarni uzing — ular shu ilova orqali ishlaydi': { en: 'Disconnect the connected Pages first — they work through this app', ru: 'Сначала отключите подключённые страницы — они работают через это приложение' },
+  'Meta ilovasi almashtirildi — «Qayta ulash» ni bosing.': { en: 'The Meta app was changed — click “Reconnect”.', ru: 'Приложение Meta изменено — нажмите «Переподключить».' },
+
   // ─── Server xabarlari ───
   'Integratsiya hali sozlanmagan.': { en: 'The integration is not configured yet.', ru: 'Интеграция ещё не настроена.' },
   "Facebook ruxsati bekor qilingan yoki muddati o'tgan — «Qayta ulash» ni bosing.": { en: 'Facebook access was revoked or expired — click “Reconnect”.', ru: 'Доступ Facebook отозван или истёк — нажмите «Переподключить».' },

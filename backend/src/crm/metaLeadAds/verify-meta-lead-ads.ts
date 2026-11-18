@@ -109,7 +109,8 @@ async function main(): Promise<void> {
   // config env'ni import paytida o'qiydi — shuning uchun dinamik import
   const sof = await import('./sof.js');
   const { graf, hammasiniOl } = await import('./graph.js');
-  const { dialogManzili, metaSozlama } = await import('./sozlama.js');
+  const { dialogManzili, metaSozlama, sozlamaniYig, kompaniyaManzillari } = await import('./sozlama.js');
+  const { encryptSecret, decryptSecret } = await import('../../crypto/secrets.js');
   const { qaytishOrigini } = await import('./oauth.js');
   const { hodisaniIshla } = await import('./ishlov.js');
   const { frontendUrl } = await import('../../http/tenant.js');
@@ -248,6 +249,20 @@ async function main(): Promise<void> {
   const d2 = new URL(dialogManzili({ ...cfg, configId: '987654321' }, st.state, true));
   check('config_id bor → scope yuborilmaydi; qayta ulashda auth_type=rerequest', d2.searchParams.get('config_id') === '987654321' && !d2.searchParams.has('scope') && d2.searchParams.get('auth_type') === 'rerequest');
 
+  console.log('\nJ2. SaaS: kompaniyaning o\'z Meta ilovasi');
+  const platforma = metaSozlama();
+  const KQ = { id: '66666666-6666-4666-8666-666666666666', appId: '5550001112', appSecretEncrypted: encryptSecret('kompaniyasecret0123456789'), loginConfigId: '777000111', verifyToken: 'kompaniya-verify-token-123' };
+  const k1 = sozlamaniYig(KQ, decryptSecret, platforma);
+  check("to'liq kompaniya ilovasi → platformadan ustun", k1?.manba === 'kompaniya' && k1.appId === '5550001112' && k1.appSecret === 'kompaniyasecret0123456789');
+  check('kompaniya ilovasining verify token va Login config ishlatiladi', k1?.verifyToken === 'kompaniya-verify-token-123' && k1?.configId === '777000111' && k1?.ilovaId === KQ.id);
+  check("App Secret kiritilmagan (faqat verify token) → platforma ilovasi", sozlamaniYig({ ...KQ, appSecretEncrypted: null }, decryptSecret, platforma)?.manba === 'platforma');
+  check("hech biri yo'q → null (\"Integratsiya hali sozlanmagan\")", sozlamaniYig({ ...KQ, appId: null }, decryptSecret, null) === null);
+  check('buzilgan shifr → null (begona kalit bilan ishlamaydi)', sozlamaniYig({ ...KQ, appSecretEncrypted: Buffer.from('buzuq-buzuq-buzuq-buzuq-buzuq-buzuq') }, decryptSecret, platforma) === null);
+  const km = kompaniyaManzillari(KQ.id);
+  check('har kompaniyaga alohida webhook manzili', km.webhookUrl.endsWith('/api/v1/webhooks/crm/meta-app/' + KQ.id) && km.deauthorizeUrl.endsWith('/deauthorize') && km.dataDeletionUrl.endsWith('/data-deletion'));
+  const d3 = new URL(dialogManzili(k1!, st.state, false));
+  check('Meta oynasi kompaniya App ID va config_id bilan', d3.searchParams.get('client_id') === '5550001112' && d3.searchParams.get('config_id') === '777000111');
+
   console.log('\nK. Graph klienti: sahifalash, appsecret_proof, token sizmasligi');
   const formlar = await hammasiniOl<{ id: string }>({ yol: '/555/leadgen_forms', token: TOKEN_OK, appSecret: APP_SECRET, params: { fields: 'id,name' } });
   check('3 sahifa kursor bilan → 3 forma', formlar.ok && formlar.data.map((f) => f.id).join() === '900,901,902');
@@ -260,15 +275,15 @@ async function main(): Promise<void> {
   const CONN = '55555555-5555-4555-8555-555555555555';
   const inbox = new Map<string, { id: string; payload: Record<string, unknown>; name: string | null; phone: string | null }>();
   let lidSorovlari = 0;
-  let ulanish = { status: 'active', pageId: '555', pageName: 'ITlive', forms: tanlangan, pipelineId: null as string | null, token: TOKEN_OK as string | null };
+  let ulanish = { status: 'active', pageId: '555', pageName: 'ITlive', forms: tanlangan, pipelineId: null as string | null, token: TOKEN_OK as string | null, appSecret: APP_SECRET as string | null };
   const portlar = {
     ulanish: async () => ulanish,
-    lidniOl: async (token: string, leadgenId: string) => {
+    lidniOl: async (token: string, appSecret: string, leadgenId: string) => {
       lidSorovlari++;
-      return graf<never>({ yol: `/${leadgenId}`, token, appSecret: APP_SECRET, params: { fields: 'id,field_data,form_id' }, kontekst: 'lid' });
+      return graf<never>({ yol: `/${leadgenId}`, token, appSecret, params: { fields: 'id,field_data,form_id' }, kontekst: 'lid' });
     },
-    reklamaNomlari: async (token: string, leadgenId: string) => {
-      const r = await graf<{ ad_name?: string; adset_name?: string; campaign_name?: string }>({ yol: `/${leadgenId}`, token, appSecret: APP_SECRET, params: { fields: 'ad_name,adset_name,campaign_name' } });
+    reklamaNomlari: async (token: string, appSecret: string, leadgenId: string) => {
+      const r = await graf<{ ad_name?: string; adset_name?: string; campaign_name?: string }>({ yol: `/${leadgenId}`, token, appSecret, params: { fields: 'ad_name,adset_name,campaign_name' } });
       return r.ok ? { adName: r.data.ad_name, adsetName: r.data.adset_name, campaignName: r.data.campaign_name } : null;
     },
     // Bazadagi `crm_inbox_external_uq` + advisory qulf o'rnini bosadi: tekshirish va yozish bitta sinxron qadamda
@@ -320,7 +335,9 @@ async function main(): Promise<void> {
   check('sahifa tokeni bekor qilingan → auth_wait', n8.holat === 'auth_wait');
   ulanish = { ...ulanish, token: null };
   check("token o'chirilgan → auth_wait", (await hodisaniIshla(h('111'), portlar)).holat === 'auth_wait');
-  ulanish = { ...ulanish, token: TOKEN_OK, status: 'disconnected' };
+  ulanish = { ...ulanish, token: TOKEN_OK, appSecret: null };
+  check("tashkilot ilovasi o'chirilgan (App Secret yo'q) → auth_wait", (await hodisaniIshla(h('111'), portlar)).holat === 'auth_wait');
+  ulanish = { ...ulanish, appSecret: APP_SECRET, status: 'disconnected' };
   check('uzilgan ulanish → ignored', (await hodisaniIshla(h('111'), portlar)).holat === 'ignored');
 
   // Tarmoq umuman yo'q

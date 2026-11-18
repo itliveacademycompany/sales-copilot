@@ -1,11 +1,11 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { malumotniOchir, ruxsatBekorQilindi, tasdiqKodiTogrimi, hodisalarniQaytar, metaHolati, ulanishFormalari, ulanishniTekshir, ulanishniUz, ulanishniYangila } from '../../crm/metaLeadAds/ulanish.js';
 import { oauthBoshla, oauthCallback, sahifaniUla, sessiyaFormalari, sessiyaKorinishi } from '../../crm/metaLeadAds/oauth.js';
-import { tezIshla, webhookQabul, webhookTasdiq } from '../../crm/metaLeadAds/ishlov.js';
-import { metaSozlama, WEBHOOK_YOLI } from '../../crm/metaLeadAds/sozlama.js';
+import { tezIshla, webhookQabul, webhookTasdiq, type WebhookManba } from '../../crm/metaLeadAds/ishlov.js';
+import { ilovaKorinishi, ilovaniOchir, ilovaniSaqla } from '../../crm/metaLeadAds/ilova.js';
+import { ilovaBoyicha, KOMPANIYA_WEBHOOK_YOLI, metaSozlama, tashqiManzil, WEBHOOK_YOLI } from '../../crm/metaLeadAds/sozlama.js';
 import { signedRequestniOch } from '../../crm/metaLeadAds/sof.js';
-import { config } from '../../config.js';
 import { rootUrl } from '../tenant.js';
 import { requireBusiness, requirePermission } from '../auth-plugin.js';
 import { bajar, BASE } from '../crm-yordam.js';
@@ -27,7 +27,9 @@ import { bajar, BASE } from '../crm-yordam.js';
  *   DELETE /businesses/:id/meta-lead-ads/:connId                      uzish (tenant doirasida)
  *
  *   GET      /api/v1/crm/oauth/meta/callback                  OAuth redirect URI (ommaviy)
- *   GET|POST /api/v1/webhooks/crm/meta                        ilova webhook'i (Page → leadgen)
+ *   GET|PUT|DELETE /businesses/:id/meta-lead-ads/app           kompaniyaning o'z Meta ilovasi
+ *   GET|POST /api/v1/webhooks/crm/meta                        platforma ilovasi webhook'i (Page → leadgen)
+ *   GET|POST /api/v1/webhooks/crm/meta-app/:ilovaId           kompaniya ilovasi webhook'i (+ /deauthorize, /data-deletion)
  *   POST     /api/v1/webhooks/crm/meta/deauthorize            Deauthorize callback
  *   POST     /api/v1/webhooks/crm/meta/data-deletion          Data deletion callback
  *   GET      /api/v1/public/meta/data-deletion/:code          o'chirish so'rovi holati
@@ -49,6 +51,27 @@ export function registerMetaLeadAdsRoutes(app: FastifyInstance): void {
   app.get(yol, guard, async (req) => {
     const superAdmin = req.auth!.user.systemRole === 'super_admin';
     return metaHolati(req.business!.businessId, superAdmin);
+  });
+
+  // ─── Kompaniyaning o'z Meta ilovasi (App ID, App Secret, Configuration ID) ──
+  app.get(yol + '/app', guard, async (req) => ilovaKorinishi(req.business!.businessId));
+
+  app.put(yol + '/app', sekin, async (req) => {
+    const body = z
+      .object({
+        appId: z.string().trim().max(30),
+        appSecret: z.string().trim().max(200).optional(),
+        loginConfigId: z.string().trim().max(30).nullable().optional(),
+      })
+      .parse(req.body);
+    await bajar(() => ilovaniSaqla({ businessId: req.business!.businessId, userId: req.auth!.user.id, ...body, ip: req.ip }));
+    req.log.info({ businessId: req.business!.businessId }, 'meta lead ads: kompaniya ilovasi saqlandi');
+    return ilovaKorinishi(req.business!.businessId);
+  });
+
+  app.delete(yol + '/app', guard, async (req) => {
+    await bajar(() => ilovaniOchir(req.business!.businessId, req.auth!.user.id));
+    return { ok: true };
   });
 
   app.post(`${yol}/oauth/start`, sekin, async (req) => {
@@ -148,31 +171,47 @@ export function registerMetaLeadAdsRoutes(app: FastifyInstance): void {
     // `application/x-www-form-urlencoded` — ilova darajasidagi parser (routes/oauth.ts) obyekt beradi
     const webhook = { config: { rateLimit: { max: 3000, timeWindow: '1 minute' } } };
 
-    qamrov.get(WEBHOOK_YOLI, webhook, async (req, reply) => {
+    const ilovaParam = z.object({ ilovaId: z.string().uuid() });
+    /** Platforma ilovasi (env) — `/webhooks/crm/meta`; kompaniya ilovasi — `/webhooks/crm/meta-app/:ilovaId`. */
+    const manbaniOl = (params: unknown): WebhookManba | null => {
+      if (!params || !(params as Record<string, unknown>).ilovaId) return { tur: 'platforma' };
+      const p = ilovaParam.safeParse(params);
+      return p.success ? { tur: 'kompaniya', ilovaId: p.data.ilovaId } : null;
+    };
+
+    const tasdiq = async (req: FastifyRequest, reply: FastifyReply) => {
+      const manba = manbaniOl(req.params);
       const q = req.query as Record<string, string | undefined>;
-      const javob = webhookTasdiq({ mode: q['hub.mode'], token: q['hub.verify_token'], challenge: q['hub.challenge'] });
+      const javob = manba ? await webhookTasdiq(manba, { mode: q['hub.mode'], token: q['hub.verify_token'], challenge: q['hub.challenge'] }) : null;
       if (javob === null) {
-        req.log.warn('meta lead ads webhook: verify token mos kelmadi yoki sozlanmagan');
+        req.log.warn({ manba: manba?.tur }, 'meta lead ads webhook: verify token mos kelmadi yoki sozlanmagan');
         return reply.status(403).type('text/plain').send('forbidden');
       }
       return reply.type('text/plain').send(javob);
-    });
+    };
 
-    qamrov.post(WEBHOOK_YOLI, webhook, async (req, reply) => {
+    const qabul = async (req: FastifyRequest, reply: FastifyReply) => {
+      const manba = manbaniOl(req.params);
+      if (!manba) return reply.status(404).send({ ok: false });
       const xom = Buffer.isBuffer(req.body) ? req.body : Buffer.from('');
       try {
-        const r = await webhookQabul(xom, req.headers['x-hub-signature-256']);
-        if (r.kod === 401) req.log.warn('meta lead ads webhook: imzo mos kelmadi');
-        if (r.kod === 503) req.log.error('meta lead ads webhook: META_APP_SECRET sozlanmagan — hodisa qabul qilinmadi');
+        const r = await webhookQabul(manba, xom, req.headers['x-hub-signature-256']);
+        if (r.kod === 401) req.log.warn({ manba: manba.tur }, 'meta lead ads webhook: imzo mos kelmadi');
+        if (r.kod === 503) req.log.error({ manba: manba.tur }, 'meta lead ads webhook: ilova App Secret sozlanmagan — hodisa qabul qilinmadi');
         if (r.kod === 200 && r.saqlandi > 0) tezIshla((obj, msg) => req.log.info(obj, msg));
-        if (r.kod === 200 && (r.saqlandi || r.etiborsiz || r.begona)) req.log.info({ saqlandi: r.saqlandi, etiborsiz: r.etiborsiz, takror: r.takror, begona: r.begona }, 'meta lead ads webhook');
+        if (r.kod === 200 && (r.saqlandi || r.etiborsiz || r.begona)) req.log.info({ manba: manba.tur, saqlandi: r.saqlandi, etiborsiz: r.etiborsiz, takror: r.takror, begona: r.begona }, 'meta lead ads webhook');
         return reply.status(r.kod).send({ ok: r.kod === 200 });
       } catch (err) {
         // Hodisa saqlanmadi — 500: Meta qayta yuboradi, unikal kalit tufayli dubl bo'lmaydi
         req.log.error({ err: (err as Error).message }, 'meta lead ads webhook: saqlashda xato');
         return reply.status(500).send({ ok: false });
       }
-    });
+    };
+
+    qamrov.get(WEBHOOK_YOLI, webhook, tasdiq);
+    qamrov.post(WEBHOOK_YOLI, webhook, qabul);
+    qamrov.get(KOMPANIYA_WEBHOOK_YOLI + '/:ilovaId', webhook, tasdiq);
+    qamrov.post(KOMPANIYA_WEBHOOK_YOLI + '/:ilovaId', webhook, qabul);
 
     const signed = (body: unknown): string | null => {
       if (typeof body === 'string') return new URLSearchParams(body).get('signed_request');
@@ -180,23 +219,39 @@ export function registerMetaLeadAdsRoutes(app: FastifyInstance): void {
       return typeof v === 'string' ? v : null;
     };
 
-    qamrov.post(`${WEBHOOK_YOLI}/deauthorize`, webhook, async (req, reply) => {
-      const s = metaSozlama();
-      const d = s ? signedRequestniOch(signed(req.body), s.appSecret) : null;
+    /** signed_request — qaysi ilovaniki bo'lsa, o'sha App Secret bilan; doira — o'sha ilova tashkilotlari. */
+    const signedniOch = async (req: FastifyRequest): Promise<{ userId: string; businessId: string | null } | null> => {
+      const manba = manbaniOl(req.params);
+      if (!manba) return null;
+      if (manba.tur === 'platforma') {
+        const s = metaSozlama();
+        const d = s ? signedRequestniOch(signed(req.body), s.appSecret) : null;
+        return d ? { userId: d.userId, businessId: null } : null;
+      }
+      const ilova = await ilovaBoyicha(manba.ilovaId);
+      const d = ilova?.s ? signedRequestniOch(signed(req.body), ilova.s.appSecret) : null;
+      return d ? { userId: d.userId, businessId: ilova!.businessId } : null;
+    };
+
+    const deauthorize = async (req: FastifyRequest, reply: FastifyReply) => {
+      const d = await signedniOch(req);
       if (!d) return reply.status(400).send({ ok: false });
-      const n = await ruxsatBekorQilindi(d.userId);
+      const n = await ruxsatBekorQilindi(d.userId, d.businessId);
       req.log.info({ connections: n }, 'meta lead ads: foydalanuvchi ilova ruxsatini bekor qildi');
       return { ok: true };
-    });
+    };
 
-    qamrov.post(`${WEBHOOK_YOLI}/data-deletion`, webhook, async (req, reply) => {
-      const s = metaSozlama();
-      const d = s ? signedRequestniOch(signed(req.body), s.appSecret) : null;
+    const malumotOchirish = async (req: FastifyRequest, reply: FastifyReply) => {
+      const d = await signedniOch(req);
       if (!d) return reply.status(400).send({ ok: false });
-      const { confirmationCode } = await malumotniOchir(d.userId);
+      const { confirmationCode } = await malumotniOchir(d.userId, d.businessId);
       req.log.info('meta lead ads: ma‘lumotni o‘chirish so‘rovi bajarildi');
-      const base = (config.PUBLIC_URL ?? rootUrl()).replace(/\/+$/, '');
-      return { url: `${base}/api/v1/public/meta/data-deletion/${confirmationCode}`, confirmation_code: confirmationCode };
-    });
+      return { url: tashqiManzil() + '/api/v1/public/meta/data-deletion/' + confirmationCode, confirmation_code: confirmationCode };
+    };
+
+    qamrov.post(WEBHOOK_YOLI + '/deauthorize', webhook, deauthorize);
+    qamrov.post(WEBHOOK_YOLI + '/data-deletion', webhook, malumotOchirish);
+    qamrov.post(KOMPANIYA_WEBHOOK_YOLI + '/:ilovaId/deauthorize', webhook, deauthorize);
+    qamrov.post(KOMPANIYA_WEBHOOK_YOLI + '/:ilovaId/data-deletion', webhook, malumotOchirish);
   });
 }

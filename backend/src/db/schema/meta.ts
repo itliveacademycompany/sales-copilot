@@ -24,6 +24,38 @@ const bytea = customType<{ data: Buffer; driverData: Buffer }>({
  */
 
 /**
+ * Kompaniyaning O'Z Meta ilovasi (SaaS: har tashkilot alohida). Rahbar
+ * kartaning o'zida kiritadi — serverdagi env'ga tegilmaydi. Bo'lmasa
+ * platforma ilovasi (env) ishlatiladi.
+ *
+ * Har kompaniyaga alohida webhook manzili (`/webhooks/crm/meta-app/:id`) va
+ * verify token: imzo shu ilovaning App Secret'i bilan tekshiriladi va hodisa
+ * faqat shu kompaniyaning sahifalariga tegishli bo'lishi mumkin.
+ */
+export const metaAppConfig = pgTable(
+  'meta_app_config',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => business.id, { onDelete: 'cascade' }),
+    appId: text('app_id'),
+    appName: text('app_name'),
+    /** App Secret — shifrlangan, hech qachon qaytmaydi (faqat niqob). */
+    appSecretEncrypted: bytea('app_secret_encrypted'),
+    secretHint: text('secret_hint'),
+    /** Facebook Login for Business konfiguratsiyasi (ixtiyoriy). */
+    loginConfigId: text('login_config_id'),
+    /** Webhook "Verify token" — server yaratadi, rahbar Meta paneliga nusxalaydi. */
+    verifyToken: text('verify_token').notNull(),
+    updatedBy: uuid('updated_by').references(() => appUser.id, { onDelete: 'set null' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('meta_app_config_business_uq').on(t.businessId)],
+);
+
+/**
  * Bitta "ulash" urinishi. `state` ochiq saqlanmaydi — faqat SHA-256 xeshi
  * (sessiya tokenlari kabi). Bir martalik: callback `used_at` ni atomik
  * belgilaydi, ikkinchi marta kelgan o'sha `state` rad etiladi.

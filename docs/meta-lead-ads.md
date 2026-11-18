@@ -1,11 +1,27 @@
 # Facebook Lead Ads: "Facebook orqali ulash"
 
 Meta Instant Form lidlari (Facebook va Instagram reklamasidagi lid formalari)
-CRM'ning **«Saralanmagan»** ustuniga o'zi tushadi. Mijoz (tashkilot rahbari)
-hech qanday kalit kiritmaydi: Facebook bilan kiradi, sahifa va formalarni tanlaydi.
+CRM'ning **«Saralanmagan»** ustuniga o'zi tushadi.
 
-Bu hujjat **CRM operatori (platforma administratori)** uchun: Meta ilovasini
-bir marta sozlash, env, sinov tartibi.
+**SaaS: har kompaniya o'z Meta ilovasini saytning o'zida kiritadi.** CRM →
+Integratsiyalar → «Facebook Lead Ads» kartasi → **Meta ilovasi → Sozlash**: App ID,
+App Secret, Configuration ID. Server env'ga tegilmaydi. Verify token va kompaniyaning
+alohida webhook manzili kartada ko'rsatiladi — ular Meta paneliga nusxalanadi.
+Kalitlar saqlashdan oldin Meta'da tekshiriladi, App Secret shifrlangan holda saqlanadi.
+Shundan keyin rahbar «Facebook orqali ulash» bilan sahifa va formalarni tanlaydi.
+
+| Variant | Qayerda kiritiladi | Webhook manzili |
+|---|---|---|
+| **Kompaniya ilovasi** (asosiy) | Kartada, har kompaniya o'zi | `/api/v1/webhooks/crm/meta-app/<id>` — kompaniyaga alohida |
+| Platforma ilovasi (zaxira) | Server env (`META_*`, 4-bo'lim) | `/api/v1/webhooks/crm/meta` |
+
+Kompaniya ilovasi kiritilgan bo'lsa — u ishlatiladi, aks holda platforma ilovasi (agar env
+bo'lsa). Kompaniya o'z sahifalarini o'z ilovasi orqali ulasa (ulaydigan odam ilovada
+Admin/Tester), Meta **App Review talab qilmaydi** — 3.4-bo'lim.
+
+Bu hujjat Meta panelida bir martalik sozlash va sinov tartibi uchun. Quyidagi 3-bo'limdagi
+manzillar kartada tayyor holda chiqadi (kompaniya ilovasi uchun webhook manzili —
+`/meta-app/<id>`).
 
 > Bu Instagram Direct, Messenger chatlari yoki Conversions API haqida **emas**.
 > Ular uchun qo'lda ulash (Saralanmagan → Facebook/Instagram ikoni → kalitlar) o'zgarmagan.
@@ -106,7 +122,8 @@ asosiy ruxsat (`leads_retrieval`) bilan birga asoslang. Instagram va Messenger r
    - **Verify and save** (server shu paytda `hub.challenge` ni qaytaradi — backend env bilan ishlab turgan bo'lishi kerak).
 2. Maydonlar ro'yxatida **`leadgen`** ga obuna bo'ling.
 
-Bu — ilova darajasidagi obuna (bitta URL hamma tashkilotlar uchun). Sahifa darajasidagi
+Kompaniya ilovasida Callback URL va Verify token kartadan olinadi (`/meta-app/<id>`) —
+Verify token kalitlarni saqlashdan oldin ham ishlaydi. Bu — ilova darajasidagi obuna. Sahifa darajasidagi
 obunani tizim har «Ulash»da o'zi qiladi va Meta javobini (`success: true`) tekshiradi.
 Meta hodisani faqat ikkala obuna ham bo'lsa yuboradi.
 
@@ -134,7 +151,10 @@ Ulaydigan odamning sahifada **Advertise** (yoki to'liq boshqaruv) huquqi bo'lish
 
 ---
 
-## 4. Server env
+## 4. Server env — faqat platforma ilovasi uchun (ixtiyoriy)
+
+Kompaniyalar o'z ilovasini kartada kiritsa, env **kerak emas**. Env — o'z ilovasi
+bo'lmagan kompaniyalar uchun umumiy zaxira ilova.
 
 `/opt/sotuv/.env` (namuna: `deploy/.env.example`, `backend/.env.example`):
 
@@ -152,8 +172,9 @@ META_WEBHOOK_VERIFY_TOKEN=...         # kamida 16 belgi, tasodifiy
 foydalanuvchi "Integratsiya hali sozlanmagan" ko'radi, super admin esa yetishmayotgan
 env nomlari va ikkala URL ni ko'radi. Env o'zgargach backend konteynerini qayta ishga tushiring.
 
-**Migratsiya:** `0034_meta_lead_ads.sql` (3 jadval, idempotent) — backend konteyneri ishga
-tushganda avtomatik qo'llanadi; RLS `rls.sql` da.
+**Migratsiyalar:** `0034_meta_lead_ads.sql` (3 jadval) va `0035_meta_app_config.sql`
+(kompaniya ilovasi) — idempotent, backend konteyneri ishga tushganda avtomatik
+qo'llanadi; RLS `rls.sql` da.
 
 ---
 
