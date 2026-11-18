@@ -72,6 +72,7 @@ Oxirgi qadam **405/405 o'tishi shart**. O'tmasa — davom etmang.
 | `npm run verify:password-reset` | Parol tiklash: token, muddat, oshkor qilmaslik |
 | `npm run verify:import` | Transkript parseri + qo'lda yuklash |
 | `npm run verify:stt` | STT javobini qayta ishlash (API'siz) |
+| `npm run verify:make-leads` | Make orqali Lead Ads: kalit, tenant, payload, takroriy/parallel, HTTP statuslar (bazasiz) |
 | `npm run verify:meta-lead-ads` | Facebook Lead Ads: imzo, OAuth state, tenant ruxsati, forma filtri, takroriy/parallel lid, retry (soxta Meta server, bazasiz) |
 | `npm run verify:crm-ulanish` | CRM adapterlari (amoCRM, Bitrix24): ulash, xavfsizlik, sdelkani topish, izoh/vazifa (soxta server, bazasiz) |
 | `npm run provider:stt` | Google STT kalitini qo'shish va tekshirish |
@@ -747,7 +748,19 @@ GET    /api/v1/crm/oauth/amocrm/callback           amoCRM qaytadigan manzil (omm
 GET|PUT|DELETE /api/v1/admin/crm/amocrm-oauth      super admin: integratsiya kalitlari
 ```
 
-## CRM: Facebook Lead Ads ("Facebook orqali ulash")
+## CRM: Facebook Lead Ads — Make orqali (asosiy usul)
+
+Meta Instant Form → Make (Facebook Lead Ads) → `POST /api/v1/webhooks/crm/make/:id/leads`
+(`X-API-Key`, faqat SHA-256 xeshi saqlanadi) → «Saralanmagan». Facebook ruxsatlari Make'da;
+DealMind Meta kalitlarini so'ramaydi. Kontrakt, statuslar va Make sozlash: [`docs/make-lead-ads.md`](../docs/make-lead-ads.md).
+
+```
+GET|POST|PATCH|DELETE /api/v1/businesses/:id/make-leads           holat / URL+kalit yaratish / voronka / o'chirish
+POST   /api/v1/businesses/:id/make-leads/rotate-key                kalitni almashtirish
+POST   /api/v1/webhooks/crm/make/:id/leads                         Make → DealMind
+```
+
+## CRM (ixtiyoriy): Facebook Lead Ads ("Facebook orqali ulash")
 
 Meta Instant Form lidlari «Saralanmagan»ga (manba `meta_lead_ads`). SaaS: har kompaniya
 o'z Meta ilovasini (App ID, App Secret, Configuration ID) kartaning o'zida kiritadi

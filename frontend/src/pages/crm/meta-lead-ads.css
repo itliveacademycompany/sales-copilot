@@ -60,3 +60,24 @@
 @media (max-width: 640px) {
   .mla-ilova-bosh { flex-wrap: wrap; }
 }
+
+/* ─── Make orqali (asosiy usul) ─── */
+.mla-make { display: flex; flex-direction: column; gap: 12px; }
+.mla-make-bosh { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mla-make-bosh b { font-size: 15px; }
+.mla-kalit { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border-radius: 12px; background: var(--bg-sunken); }
+.mla-make .tm-nusxa code { white-space: pre-wrap; max-height: 280px; overflow: auto; }
+.mla-make .tm-nusxa .btn svg { width: 14px; height: 14px; }
+.mla-bosqichlar.uchta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mla-make .crm-malumot select { margin-top: 2px; max-width: 320px; }
+.mla-eslatma { margin: 10px 0 0; }
+
+/* Bevosita Meta ulanishi — yig'iladigan ikkinchi darajali bo'lim */
+.mla-bevosita { border-radius: 14px; padding: 10px 14px; background: var(--bg-base); box-shadow: var(--neu-out-xs); }
+.mla-bevosita > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.mla-bevosita > summary b { font-size: 14px; }
+.mla-bevosita-ichi { display: flex; flex-direction: column; gap: 14px; margin-top: 12px; }
+
+@media (max-width: 760px) {
+  .mla-bosqichlar.uchta { grid-template-columns: 1fr; }
+}

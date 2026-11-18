@@ -272,43 +272,55 @@ export function bazaPortlari(): IshlovPortlari {
       });
       return r.ok ? { adName: r.data.ad_name, adsetName: r.data.adset_name, campaignName: r.data.campaign_name } : null;
     },
-    murojaatYoz: (k) =>
-      withTenant(k.businessId, async (tx) => {
-        const externalId = `lead:${k.leadgenId}`;
-        // Qo'lda ulash yo'li bilan BIR XIL qulf kaliti — ikki yo'l bir vaqtda kelsa ham bitta murojaat
-        await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`tarmoq:${k.businessId}:${externalId}`}, 0))`);
-        const [bor] = await tx
-          .select({ id: crmInbox.id })
-          .from(crmInbox)
-          .where(and(inArray(crmInbox.source, LID_MANBALARI), eq(crmInbox.externalId, externalId)))
-          .limit(1);
-        if (bor) return { inboxId: bor.id, takror: true };
-        let pipelineId: string | null = null;
-        if (k.pipelineId) {
-          const [v] = await tx.select({ id: crmPipeline.id }).from(crmPipeline).where(eq(crmPipeline.id, k.pipelineId)).limit(1);
-          pipelineId = v?.id ?? null;
-        }
-        // Telefonsiz kontakt yaratilmaydi (qo'lda ulash bilan bir xil qoida) — qabul qilinganda ism bilan yaratiladi
-        const contactId = k.phone ? await kontaktniTopYokiYarat(tx, k.businessId, { name: k.name, phone: k.phone, email: k.email }) : null;
-        const r = await tx
-          .insert(crmInbox)
-          .values({
-            businessId: k.businessId,
-            source: MANBA,
-            externalId,
-            name: k.name,
-            phone: k.phone,
-            email: k.email,
-            message: k.message,
-            contactId,
-            pipelineId,
-            payload: k.payload,
-          })
-          .onConflictDoNothing()
-          .returning({ id: crmInbox.id });
-        return r.length ? { inboxId: r[0]!.id, takror: false } : { inboxId: null, takror: true };
-      }),
+    murojaatYoz: metaLidiniYoz,
   };
+}
+
+/**
+ * "Saralanmagan"ga Meta Lead Ads murojaati — UMUMIY lid yaratish servisi:
+ * bevosita Meta ulanishi (worker) ham, Make orqali qabul ham shu yerdan o'tadi.
+ * Idempotent: (biznes, manba, `lead:<id>`) — `crm_inbox_external_uq` unikal
+ * kaliti + advisory qulf; qo'lda ulash yo'lidagi bir xil lid ham dubl bo'lmaydi.
+ */
+export function metaLidiniYoz(k: MurojaatKirish): Promise<{ inboxId: string | null; takror: boolean }> {
+  return withTenant(k.businessId, async (tx) => {
+    const externalId = `lead:${k.leadgenId}`;
+    // Qo'lda ulash yo'li bilan BIR XIL qulf kaliti — ikki yo'l bir vaqtda kelsa ham bitta murojaat
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtextextended(${`tarmoq:${k.businessId}:${externalId}`}, 0))`);
+    const [bor] = await tx
+      .select({ id: crmInbox.id })
+      .from(crmInbox)
+      .where(and(inArray(crmInbox.source, LID_MANBALARI), eq(crmInbox.externalId, externalId)))
+      .limit(1);
+    if (bor) return { inboxId: bor.id, takror: true };
+    let pipelineId: string | null = null;
+    if (k.pipelineId) {
+      const [v] = await tx.select({ id: crmPipeline.id }).from(crmPipeline).where(eq(crmPipeline.id, k.pipelineId)).limit(1);
+      pipelineId = v?.id ?? null;
+    }
+    // Telefonsiz kontakt yaratilmaydi (qo'lda ulash bilan bir xil qoida) — qabul qilinganda ism bilan yaratiladi
+    const contactId = k.phone ? await kontaktniTopYokiYarat(tx, k.businessId, { name: k.name, phone: k.phone, email: k.email }) : null;
+    const r = await tx
+      .insert(crmInbox)
+      .values({
+        businessId: k.businessId,
+        source: MANBA,
+        externalId,
+        name: k.name,
+        phone: k.phone,
+        email: k.email,
+        message: k.message,
+        contactId,
+        pipelineId,
+        payload: k.payload,
+      })
+      .onConflictDoNothing()
+      .returning({ id: crmInbox.id });
+    if (r.length) return { inboxId: r[0]!.id, takror: false };
+    // Unikal kalit (`crm_inbox_external_uq`) poygani to'xtatdi — mavjud murojaat ID si
+    const [mavjud] = await tx.select({ id: crmInbox.id }).from(crmInbox).where(and(eq(crmInbox.source, MANBA), eq(crmInbox.externalId, externalId))).limit(1);
+    return { inboxId: mavjud?.id ?? null, takror: true };
+  });
 }
 
 // ─── Navbat (worker) ─────────────────────────────────────────────────────────

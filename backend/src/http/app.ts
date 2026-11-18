@@ -31,6 +31,7 @@ import { registerCrmLidRoutes } from './routes/crm-lidlar.js';
 import { registerCrmOauthRoutes } from './routes/crm-oauth.js';
 import { registerCrmTarmoqRoutes } from './routes/crm-tarmoq.js';
 import { registerMetaLeadAdsRoutes } from './routes/meta-lead-ads.js';
+import { registerMakeLeadsRoutes } from './routes/make-leads.js';
 import { registerCrmUlanishRoutes } from './routes/crm-ulanish.js';
 import { registerSimulyatorRoutes } from './routes/simulyator.js';
 import { registerMoizvonkiRoutes } from './routes/moizvonki.js';
@@ -55,6 +56,8 @@ export async function buildApp(): Promise<FastifyInstance> {
         paths: [
           'req.headers.authorization',
           'req.headers.cookie',
+          // Make → DealMind lid qabul qilish kaliti (crm/metaLeadAds/make.ts)
+          'req.headers["x-api-key"]',
           'res.headers["set-cookie"]',
           'req.body.password',
           'req.body.currentPassword',
@@ -176,6 +179,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerCrmBoshqaruvRoutes(app);
   registerCrmTarmoqRoutes(app);
   registerMetaLeadAdsRoutes(app);
+  registerMakeLeadsRoutes(app);
   registerSimulyatorRoutes(app);
   registerReportRoutes(app);
   registerAppealRoutes(app);

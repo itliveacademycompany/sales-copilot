@@ -187,13 +187,25 @@ function TarmoqOyna({
   const [nusxa, setNusxa] = useState<string | null>(null);
   const meta = kanal !== 'telegram';
   const Belgi = TARMOQ_BELGISI[kanal];
-  // Facebook Lead Ads "bir tugmada ulash" (MetaLeadAds.tsx) holati — faqat rahbarga
-  const [birTugma, setBirTugma] = useState<{ configured: boolean; sahifalar: string[] } | null>(null);
+  // Facebook Lead Ads (MetaLeadAds.tsx): Make orqali — asosiy, bevosita Meta — ixtiyoriy. Faqat rahbarga.
+  const [birTugma, setBirTugma] = useState<{
+    configured: boolean;
+    sahifalar: string[];
+    make: { exists: boolean; firstLeadAt: string | null; lastLeadAt: string | null };
+  } | null>(null);
   useEffect(() => {
     if (!canManage || !meta) return;
-    void api
-      .get<{ configured: boolean; connections: { pageName: string | null; pageId: string }[] }>(`${base}/meta-lead-ads`)
-      .then((r) => setBirTugma({ configured: r.configured, sahifalar: r.connections.map((c) => c.pageName ?? c.pageId) }))
+    void Promise.all([
+      api.get<{ configured: boolean; connections: { pageName: string | null; pageId: string }[] }>(`${base}/meta-lead-ads`),
+      api.get<{ exists: boolean; firstLeadAt?: string | null; lastLeadAt?: string | null }>(`${base}/make-leads`),
+    ])
+      .then(([r, mk]) =>
+        setBirTugma({
+          configured: r.configured,
+          sahifalar: r.connections.map((c) => c.pageName ?? c.pageId),
+          make: { exists: mk.exists, firstLeadAt: mk.firstLeadAt ?? null, lastLeadAt: mk.lastLeadAt ?? null },
+        }),
+      )
       .catch(() => setBirTugma(null));
   }, [base, canManage, meta]);
   const facebookUla = async () => {
@@ -408,29 +420,30 @@ function TarmoqOyna({
 
           {meta && birTugma && (
             <div className="tm-bir-tugma">
-              <b>{t('Facebook Lead Ads — bir tugmada ulash')}</b>
-              {!birTugma.configured ? (
-                <p>{t('Avval kompaniyangizning Meta ilovasini «Holat va diagnostika» sahifasida sozlang — App ID va App Secret bir marta kiritiladi.')}</p>
-              ) : birTugma.sahifalar.length > 0 ? (
-                <p>{t('Ulangan sahifalar: {s}. Reklama formalari lidlari «Saralanmagan»ga o‘zi tushadi.', { s: birTugma.sahifalar.join(', ') })}</p>
+              <b>{t('Facebook Lead Ads — Make orqali')}</b>
+              {birTugma.make.exists && birTugma.make.firstLeadAt ? (
+                <p>{t('Make orqali lidlar qabul qilinmoqda — oxirgisi {sana}.', { sana: fmtQachon(birTugma.make.lastLeadAt ?? birTugma.make.firstLeadAt) })}</p>
+              ) : birTugma.make.exists ? (
+                <p>{t("Qabul qilish URL'i yaratilgan, lekin Make'dan haqiqiy lid hali kelmagan — scenario'ni Make'da yoqing va test lid yuboring.")}</p>
               ) : (
-                <p>{t('Reklama formalari (Instant Form) lidlari uchun kalit kiritish shart emas: Facebook hisobingiz bilan kiring, sahifa va formalarni tanlang.')}</p>
+                <p>{t("Reklama formalari (Instant Form) lidlari Make orqali keladi: integratsiyalar sahifasida qabul qilish URL'ini yarating va Make'da scenario sozlang. Meta kalitlari kerak emas.")}</p>
               )}
+              {birTugma.sahifalar.length > 0 && <p>{t('Bevosita ulangan sahifalar: {s}.', { s: birTugma.sahifalar.join(', ') })}</p>}
               <div className="tm-bir-tugma-tugmalar">
+                <Link to="/crm/integratsiya" className="btn">
+                  {birTugma.make.exists ? t('Holat va diagnostika') : t('Make orqali sozlash')}
+                </Link>
                 {birTugma.configured && (
                   <button type="button" className="btn mla-fb" disabled={band !== null} onClick={() => void facebookUla()}>
                     <FacebookBelgi /> {birTugma.sahifalar.length ? t('Yana bir sahifa ulash') : t('Facebook orqali ulash')}
                   </button>
                 )}
-                <Link to="/crm/integratsiya" className="ci-havola">
-                  {t('Holat va diagnostika')}
-                </Link>
               </div>
               <span className="yordam">{t("Quyidagi qo'lda ulash — Messenger/Direct xabarlari yoki o'z Meta ilovangiz uchun.")}</span>
             </div>
           )}
 
-          <details className="tm-yoriq" open={!h?.configured && !birTugma?.sahifalar.length}>
+          <details className="tm-yoriq" open={!h?.configured && !birTugma?.sahifalar.length && !birTugma?.make.exists}>
             <summary>{t('Qanday ulanadi — qadam-baqadam')}</summary>
             <ol>
               {YORIQNOMA[kanal].map((q) => (

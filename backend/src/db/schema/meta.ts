@@ -56,6 +56,47 @@ export const metaAppConfig = pgTable(
 );
 
 /**
+ * Facebook Lead Ads — MAKE ORQALI (asosiy usul). Facebook'ga kirish, sahifa va
+ * formalarni tanlash Make'da; Make har lidni to'liq ma'lumoti bilan
+ * `POST /api/v1/webhooks/crm/make/:id/leads` ga yuboradi.
+ *
+ * Autentifikatsiya — `X-API-Key`. Kalit ochiq saqlanmaydi: faqat SHA-256 xeshi
+ * (sessiya tokenlari kabi) va interfeys uchun niqob. Kalit faqat yaratilganda
+ * bir marta ko'rsatiladi. Tenant URL'dagi integratsiya ID si + kalit orqali
+ * aniqlanadi — so'rov tanasidagi hech qanday ID ga ishonilmaydi.
+ */
+export const makeLeadIntake = pgTable(
+  'make_lead_intake',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    businessId: uuid('business_id')
+      .notNull()
+      .references(() => business.id, { onDelete: 'cascade' }),
+    keyHash: text('key_hash').notNull(),
+    keyHint: text('key_hint').notNull(),
+    /** Lid qaysi voronkaning «Saralanmagan»iga tushadi (null — asosiy). */
+    pipelineId: uuid('pipeline_id').references(() => crmPipeline.id, { onDelete: 'set null' }),
+    createdBy: uuid('created_by').references(() => appUser.id, { onDelete: 'set null' }),
+    keyRotatedAt: timestamp('key_rotated_at', { withTimezone: true }),
+    /** Kalit to'g'ri bo'lgan oxirgi so'rov (har qanday natija). */
+    lastRequestAt: timestamp('last_request_at', { withTimezone: true }),
+    /** "Test request qabul qilindi" — `test: true` bilan kelgan to'g'ri so'rov. */
+    lastTestAt: timestamp('last_test_at', { withTimezone: true }),
+    /** "Haqiqiy Meta lidi qabul qilindi" — birinchi va oxirgi CRM'ga tushgan lid. */
+    firstLeadAt: timestamp('first_lead_at', { withTimezone: true }),
+    lastLeadAt: timestamp('last_lead_at', { withTimezone: true }),
+    leadCount: integer('lead_count').notNull().default(0),
+    duplicateCount: integer('duplicate_count').notNull().default(0),
+    /** Maxfiy ma'lumotsiz (kalit, telefon, ism yo'q) — faqat sabab va maydon nomlari. */
+    lastError: text('last_error'),
+    lastErrorAt: timestamp('last_error_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('make_lead_intake_business_uq').on(t.businessId), uniqueIndex('make_lead_intake_key_uq').on(t.keyHash)],
+);
+
+/**
  * Bitta "ulash" urinishi. `state` ochiq saqlanmaydi — faqat SHA-256 xeshi
  * (sessiya tokenlari kabi). Bir martalik: callback `used_at` ni atomik
  * belgilaydi, ikkinchi marta kelgan o'sha `state` rad etiladi.

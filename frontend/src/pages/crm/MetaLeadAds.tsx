@@ -1,4 +1,4 @@
-import { Check, CircleAlert, CircleCheck, Copy, Eye, EyeOff, KeyRound, ListChecks, Plug, RefreshCw, RotateCcw, Settings2, Trash2, TriangleAlert, Unplug } from 'lucide-react';
+import { Check, CircleAlert, CircleCheck, Copy, Eye, EyeOff, KeyRound, Link2, ListChecks, Plug, RefreshCw, RotateCcw, Settings2, Trash2, TriangleAlert, Unplug } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, ApiError, fmtSana } from '../../api';
@@ -80,6 +80,27 @@ interface Ilova {
   deauthorizeUrl: string;
   dataDeletionUrl: string;
 }
+
+/** Make orqali qabul qilish holati — API kaliti hech qachon kelmaydi (faqat yaratilganda bir marta). */
+type MakeHolat =
+  | { exists: false }
+  | {
+      exists: true;
+      url: string;
+      header: string;
+      keyHint: string;
+      pipelineId: string | null;
+      createdAt: string;
+      keyRotatedAt: string | null;
+      lastRequestAt: string | null;
+      lastTestAt: string | null;
+      firstLeadAt: string | null;
+      lastLeadAt: string | null;
+      leadCount: number;
+      duplicateCount: number;
+      lastError: string | null;
+      lastErrorAt: string | null;
+    };
 
 interface Holat {
   configured: boolean;
@@ -171,10 +192,16 @@ export function MetaLeadAdsKarta() {
   const [sessiyaId, setSessiyaId] = useState<string | null>(null);
   const [band, setBand] = useState(false);
   const [voronkalar, setVoronkalar] = useState<Voronka[]>([]);
+  const [make, setMake] = useState<MakeHolat | null>(null);
+  const [bevositaOchiq, setBevositaOchiq] = useState(false);
 
   const yukla = useCallback(async () => {
     try {
-      setHolat(await api.get<Holat>(`${base}/meta-lead-ads`));
+      const [h, mk] = await Promise.all([api.get<Holat>(`${base}/meta-lead-ads`), api.get<MakeHolat>(`${base}/make-leads`)]);
+      setHolat(h);
+      setMake(mk);
+      // Bevosita ulanish ishlatilayotgan bo'lsa — bo'lim ochiq turadi
+      if (h.connections.length > 0 || h.app.configured) setBevositaOchiq(true);
       setXato(null);
     } catch (e) {
       setXato(e instanceof ApiError ? t(e.message) : t("Ma'lumotni yuklab bo'lmadi"));
@@ -195,7 +222,10 @@ export function MetaLeadAdsKarta() {
     const s = params.get('meta_sessiya');
     const kod = params.get('meta_xato');
     if (!s && !kod) return;
-    if (s && /^[0-9a-f-]{36}$/i.test(s)) setSessiyaId(s);
+    if (s && /^[0-9a-f-]{36}$/i.test(s)) {
+      setSessiyaId(s);
+      setBevositaOchiq(true);
+    }
     if (kod) setXabar({ ok: false, matn: t(QAYTISH_XATO[kod] ?? "Ulab bo'lmadi") });
     const yangi = new URLSearchParams(params);
     yangi.delete('meta_sessiya');
@@ -217,9 +247,19 @@ export function MetaLeadAdsKarta() {
   const ulanishlar = holat?.connections ?? [];
   const ulangan = ulanishlar.length > 0;
   const xatoBor = ulanishlar.some((c) => c.status === 'error');
+  // Holat belgisi: avval Make (asosiy usul), keyin bevosita ulanish
+  const belgi: { sinf: string; matn: string } = !holat || !make
+    ? { sinf: 'kul', matn: '…' }
+    : make.exists && make.firstLeadAt
+      ? { sinf: 'ok', matn: t('lid qabul qilinmoqda') }
+      : make.exists
+        ? { sinf: 'sariq', matn: t('Make kutilmoqda') }
+        : ulangan
+          ? { sinf: xatoBor ? 'qizil' : 'ok', matn: xatoBor ? t('xato') : t('ulangan') }
+          : { sinf: 'kul', matn: t('ulanmagan') };
 
   return (
-    <section className={`card crm-karta mla${ulangan ? ' ulangan' : ''}${ulangan || (holat && !holat.app.configured) ? ' keng' : ''}`} aria-labelledby="mla-nom">
+    <section className={`card crm-karta mla keng${(make?.exists && make.firstLeadAt) || ulangan ? ' ulangan' : ''}`} aria-labelledby="mla-nom">
       <div className="crm-karta-bosh">
         <span className="crm-logo mla-logo" aria-hidden="true">
           <FacebookBelgi />
@@ -228,9 +268,7 @@ export function MetaLeadAdsKarta() {
           <h2 id="mla-nom">{t('Facebook Lead Ads')}</h2>
           <span className="yordam">{t('Facebook va Instagram reklamasidagi Instant Form lidlari')}</span>
         </div>
-        <span className={`badge ${!holat ? 'kul' : !holat.configured ? 'kul' : xatoBor ? 'qizil' : ulangan ? 'ok' : 'kul'}`}>
-          {!holat ? '…' : !holat.configured ? t('sozlanmagan') : xatoBor ? t('xato') : ulangan ? t('ulangan') : t('ulanmagan')}
-        </span>
+        <span className={`badge ${belgi.sinf}`}>{belgi.matn}</span>
       </div>
 
       {xabar && (
@@ -240,39 +278,46 @@ export function MetaLeadAdsKarta() {
       )}
       {xato && <div className="xato-qator">{xato}</div>}
 
-      {holat && <IlovaBolim base={base} holat={holat} onSaqlandi={yukla} />}
+      {make && <MakeBolim base={base} holat={make} voronkalar={voronkalar} onYangilandi={yukla} setHolat={setMake} />}
 
-      {holat?.configured && !ulangan && (
-        <>
-          <p className="crm-karta-matn">
-            {t("Facebook hisobingiz bilan kiring, sahifa va formalarni tanlang — yangi lidlar «Saralanmagan» ustuniga o'zi tushadi. Kalit yoki token kiritish shart emas.")}
-          </p>
-          <div className="crm-tugmalar">
-            <button type="button" className="btn mla-fb" disabled={band} onClick={() => void ula()}>
-              <FacebookBelgi /> {band ? t('Facebook ochilmoqda…') : t('Facebook orqali ulash')}
-            </button>
+      {holat && (
+        <details className="mla-bevosita" open={bevositaOchiq} onToggle={(e) => setBevositaOchiq((e.target as HTMLDetailsElement).open)}>
+          <summary>
+            <b>{t('Bevosita Meta ulanishi')}</b>
+            <span className="yordam">{t('Ixtiyoriy: kompaniyaning o‘z Meta ilovasi orqali, Make’siz')}</span>
+          </summary>
+          <div className="mla-bevosita-ichi">
+            <IlovaBolim base={base} holat={holat} onSaqlandi={yukla} />
+
+            {holat.configured && !ulangan && (
+              <div className="crm-tugmalar">
+                <button type="button" className="btn mla-fb" disabled={band} onClick={() => void ula()}>
+                  <FacebookBelgi /> {band ? t('Facebook ochilmoqda…') : t('Facebook orqali ulash')}
+                </button>
+              </div>
+            )}
+
+            {holat.configured &&
+              ulanishlar.map((c) => (
+                <UlanishBlok
+                  key={c.id}
+                  c={c}
+                  base={base}
+                  voronkalar={voronkalar}
+                  onYangilandi={yukla}
+                  onQaytaUla={() => void ula({ connectionId: c.id, qaytaSora: true })}
+                />
+              ))}
+
+            {holat.configured && ulangan && (
+              <div className="crm-tugmalar">
+                <button type="button" className="btn ikkinchi" disabled={band} onClick={() => void ula()}>
+                  <Plug aria-hidden="true" /> {t('Yana bir sahifa ulash')}
+                </button>
+              </div>
+            )}
           </div>
-        </>
-      )}
-
-      {holat?.configured &&
-        ulanishlar.map((c) => (
-          <UlanishBlok
-            key={c.id}
-            c={c}
-            base={base}
-            voronkalar={voronkalar}
-            onYangilandi={yukla}
-            onQaytaUla={() => void ula({ connectionId: c.id, qaytaSora: true })}
-          />
-        ))}
-
-      {holat?.configured && ulangan && (
-        <div className="crm-tugmalar">
-          <button type="button" className="btn ikkinchi" disabled={band} onClick={() => void ula()}>
-            <Plug aria-hidden="true" /> {t('Yana bir sahifa ulash')}
-          </button>
-        </div>
+        </details>
       )}
 
       {sessiyaId && (
@@ -290,6 +335,259 @@ export function MetaLeadAdsKarta() {
         />
       )}
     </section>
+  );
+}
+
+// ─── Make orqali (asosiy usul) ───────────────────────────────────────────────
+
+/** Make HTTP modulidagi Data structure uchun namuna — README/qo'llanmadagi kontrakt bilan bir xil. */
+const NAMUNA = JSON.stringify(
+  {
+    external_lead_id: '1234567890123456',
+    full_name: 'Aziza Karimova',
+    phone_number: '+998901234567',
+    email: 'aziza@example.com',
+    page_id: '102030405060708',
+    page_name: 'Sahifa nomi',
+    form_id: '900800700600500',
+    form_name: 'Forma nomi',
+    ad_id: '120200000000001',
+    ad_name: 'Reklama nomi',
+    campaign_id: '120200000000003',
+    campaign_name: 'Kampaniya nomi',
+    created_time: '2026-11-18T10:00:00+0000',
+    custom_fields: { 'qaysi_kurs_sizni_qiziqtiradi?': 'Frontend' },
+  },
+  null,
+  2,
+);
+
+function MakeBolim({
+  base,
+  holat,
+  voronkalar,
+  onYangilandi,
+  setHolat,
+}: {
+  base: string;
+  holat: MakeHolat;
+  voronkalar: Voronka[];
+  onYangilandi: () => Promise<void>;
+  setHolat: (h: MakeHolat) => void;
+}) {
+  const t = useT();
+  const yol = base + '/make-leads';
+  /** Kalit faqat yaratilgan/almashtirilgan javobda keladi — sahifadan chiqilsa qayta ko'rsatilmaydi. */
+  const [yangiKalit, setYangiKalit] = useState<string | null>(null);
+  const [band, setBand] = useState<'yarat' | 'almashtir' | 'ochir' | 'voronka' | null>(null);
+  const [xato, setXato] = useState<string | null>(null);
+
+  const amal = async (tur: NonNullable<typeof band>, fn: () => Promise<void>) => {
+    setBand(tur);
+    setXato(null);
+    try {
+      await fn();
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t("Bajarib bo'lmadi"));
+    } finally {
+      setBand(null);
+    }
+  };
+
+  const yarat = () =>
+    amal('yarat', async () => {
+      const r = await api.post<MakeHolat & { key: string }>(yol, {});
+      setYangiKalit(r.key);
+      const { key: _k, ...h } = r;
+      setHolat(h as MakeHolat);
+    });
+
+  const almashtir = () => {
+    if (!window.confirm(t("Yangi API kaliti yaratilsinmi? Eski kalit DARHOL ishlamay qoladi — Make'dagi keychain'ni yangi kalit bilan yangilashingiz kerak bo'ladi.")))
+      return;
+    void amal('almashtir', async () => {
+      const r = await api.post<MakeHolat & { key: string }>(yol + '/rotate-key', {});
+      setYangiKalit(r.key);
+      const { key: _k, ...h } = r;
+      setHolat(h as MakeHolat);
+    });
+  };
+
+  const ochir = () => {
+    if (!window.confirm(t("Make integratsiyasi o'chirilsinmi? Qabul qilish URL'i va API kaliti ishlamay qoladi. Kelgan lidlar CRM da qoladi.")))
+      return;
+    void amal('ochir', async () => {
+      await api.del(yol);
+      setYangiKalit(null);
+      await onYangilandi();
+    });
+  };
+
+  const voronka = (v: string) =>
+    amal('voronka', async () => {
+      setHolat(await api.patch<MakeHolat>(yol, { pipelineId: v || null }));
+    });
+
+  if (!holat.exists) {
+    return (
+      <div className="mla-make">
+        <div className="mla-make-bosh">
+          <b>{t('Make orqali ulash')}</b>
+          <span className="badge navy">{t('tavsiya etiladi')}</span>
+        </div>
+        <p className="crm-karta-matn">
+          {t("Facebook hisobiga kirish, sahifa va formalarni tanlash Make'da bajariladi. DealMind faqat Make yuborgan lidlarni qabul qiladi — Meta App ID, App Secret yoki token kerak emas.")}
+        </p>
+        {xato && (
+          <div className="xato-qator" role="alert">
+            {xato}
+          </div>
+        )}
+        <div className="crm-tugmalar">
+          <button type="button" className="btn" disabled={band !== null} onClick={() => void yarat()}>
+            <Link2 aria-hidden="true" /> {band === 'yarat' ? t('Yaratilmoqda…') : t('Qabul qilish URL’ini yaratish')}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const bosqich = (ok: boolean, nom: string, izoh: string) => (
+    <div className={`mla-bosqich ${ok ? 'ok' : 'kutish'}`}>
+      {ok ? <CircleCheck aria-hidden="true" /> : <CircleAlert aria-hidden="true" />}
+      <span>
+        <b>{nom}</b>
+        <small>{izoh}</small>
+      </span>
+    </div>
+  );
+
+  return (
+    <div className="mla-make">
+      <div className="mla-make-bosh">
+        <b>{t('Make orqali ulash')}</b>
+        <span className="badge navy">{t('asosiy usul')}</span>
+      </div>
+
+      {yangiKalit && (
+        <div className="mla-kalit" role="status">
+          <div className="crm-ogoh orta">
+            <TriangleAlert aria-hidden="true" />
+            <span>{t("API kaliti faqat hozir ko'rsatiladi. Uni Make'dagi HTTP modulining Credentials (keychain) qismiga saqlang — keyin qayta ko'rib bo'lmaydi, faqat almashtirish mumkin.")}</span>
+          </div>
+          <NusxaQatori nom={t('API kaliti (X-API-Key)')} qiymat={yangiKalit} />
+          <div className="crm-tugmalar">
+            <button type="button" className="btn ikkinchi kichik" onClick={() => setYangiKalit(null)}>
+              <Check aria-hidden="true" /> {t("Saqladim — yashirish")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Uch alohida holat: URL yaratildi ≠ test o'tdi ≠ haqiqiy lid keldi */}
+      <div className="mla-bosqichlar uchta">
+        {bosqich(true, t('URL yaratildi'), fmtSana(holat.createdAt))}
+        {bosqich(Boolean(holat.lastTestAt), t('Test request qabul qilindi'), holat.lastTestAt ? fmtSana(holat.lastTestAt) : t('hali yo‘q — Make’da "test": true bilan Run once'))}
+        {bosqich(Boolean(holat.firstLeadAt), t('Haqiqiy Meta lidi qabul qilindi'), holat.firstLeadAt ? fmtSana(holat.firstLeadAt) : t('hali yo‘q — Lead Ads Testing Tool orqali test lid yuboring'))}
+      </div>
+
+      {holat.lastError && (
+        <div className="crm-ogoh past" role="alert">
+          <TriangleAlert aria-hidden="true" />
+          <span>
+            {holat.lastErrorAt && <b>{fmtSana(holat.lastErrorAt)} · </b>}
+            {t(holat.lastError)}
+          </span>
+        </div>
+      )}
+
+      <NusxaQatori nom={t('Qabul qilish URL’i (POST)')} qiymat={holat.url} yordam={t("Make → HTTP → Make a request → URL. Kalit URL'ga qo'shilmaydi — faqat X-API-Key sarlavhasida.")} />
+
+      <dl className="crm-malumot">
+        <div>
+          <dt>{t('Sarlavha')}</dt>
+          <dd>
+            <code>{holat.header}</code>
+          </dd>
+        </div>
+        <div>
+          <dt>{t('API kaliti')}</dt>
+          <dd>
+            <code>{holat.keyHint}</code>
+            {holat.keyRotatedAt && <span className="crm-izoh"> · {t('almashtirilgan: {sana}', { sana: fmtSana(holat.keyRotatedAt) })}</span>}
+          </dd>
+        </div>
+        <div>
+          <dt>{t('Oxirgi qabul qilingan lid')}</dt>
+          <dd>{holat.lastLeadAt ? fmtSana(holat.lastLeadAt) : t("hali bo'lmagan")}</dd>
+        </div>
+        <div>
+          <dt>{t('Lidlar')}</dt>
+          <dd>
+            {t('{n} ta yangi', { n: holat.leadCount })}
+            {holat.duplicateCount > 0 && <span className="crm-izoh"> · {t('{n} ta takroriy (o‘tkazib yuborildi)', { n: holat.duplicateCount })}</span>}
+          </dd>
+        </div>
+        <div className="mla-keng">
+          <dt>
+            <label htmlFor="mla-make-voronka">{t('Voronka')}</label>
+          </dt>
+          <dd>
+            <select id="mla-make-voronka" className="input" disabled={band !== null} value={holat.pipelineId ?? ''} onChange={(e) => void voronka(e.target.value)}>
+              <option value="">{t('Asosiy voronka')}</option>
+              {voronkalar
+                .filter((v) => !v.isMain)
+                .map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.name}
+                  </option>
+                ))}
+            </select>
+          </dd>
+        </div>
+      </dl>
+
+      <details className="tm-yoriq">
+        <summary>{t("Make'da qanday sozlanadi — qadam-baqadam")}</summary>
+        <div className="crm-ogoh orta mla-eslatma">
+          <TriangleAlert aria-hidden="true" />
+          <span>{t("Make hisobingiz DealMind ichida ulanmaydi: scenario'ni Make saytida o'zingiz yaratasiz va yoqasiz. Bu yerda faqat URL va kalit beriladi.")}</span>
+        </div>
+        <ol>
+          <li>{t("Meta Business Settings → Integrations → Leads Access → sahifangiz → CRMs → Assign CRMs → «Make» ni belgilang.")}</li>
+          <li>{t("Make → Create a new scenario → «Facebook Lead Ads» → «New Lead». «Create a webhook» → «Create a connection» (standart ulanish, Advanced settings shart emas) → sahifa va formani tanlang.")}</li>
+          <li>{t("Lid javoblari (field_data) yetishmasa — keyingi modul «Facebook Lead Ads → Get Lead Details» (Lead ID = New Lead'dan).")}</li>
+          <li>{t("«HTTP → Make a request»: Method = POST, URL = yuqoridagi qabul qilish URL'i; Authentication type = API key → Credentials → Add: Key = API kaliti, API key placement = In the header, API key parameter name = x-api-key.")}</li>
+          <li>{t("Body content type = application/json, Body input method = Data structure (qiymatlar avtomatik escape qilinadi). Data structure'ni pastdagi JSON namunasidan «Generate» bilan yarating va maydonlarni Facebook modulidan moslang. ID larni matn sifatida yuboring.")}</li>
+          <li>{t("«Return error if HTTP request fails» = Yes. Scenario settings → «Store incomplete executions» ni yoqing va HTTP moduliga xato ishlovchisi qo'shing — 5xx/429 da qayta yuboriladi, takroriy yuborish dubl yaratmaydi.")}</li>
+          <li>{t("Tekshirish: «Run once» + Data structure'da test = true → yuqorida «Test request qabul qilindi». Keyin test = false (yoki maydonni olib tashlang), scenario'ni yoqing (ON) va Lead Ads Testing Tool bilan haqiqiy test lid yuboring.")}</li>
+        </ol>
+      </details>
+
+      <details className="tm-yoriq">
+        <summary>{t('JSON namunasi (payload kontrakti)')}</summary>
+        <p className="yordam">{t("Majburiy faqat external_lead_id (Meta lead ID, matn). Qolganlari ixtiyoriy; bo'sh maydonlar xato bermaydi. Javob: 201 created / 200 duplicate / 200 test_ok; 401 — kalit, 422 — payload xatosi.")}</p>
+        <NusxaQatori nom={t('Namuna')} qiymat={NAMUNA} />
+      </details>
+
+      {xato && (
+        <div className="xato-qator" role="alert">
+          {xato}
+        </div>
+      )}
+
+      <div className="crm-tugmalar">
+        <button type="button" className="btn ikkinchi" disabled={band !== null} onClick={() => void onYangilandi()}>
+          <RefreshCw aria-hidden="true" /> {t('Holatni yangilash')}
+        </button>
+        <button type="button" className="btn ikkinchi" disabled={band !== null} onClick={almashtir}>
+          <KeyRound aria-hidden="true" /> {band === 'almashtir' ? t('Almashtirilmoqda…') : t('Kalitni almashtirish')}
+        </button>
+        <button type="button" className="btn ikkinchi crm-uzish" disabled={band !== null} onClick={ochir}>
+          <Trash2 aria-hidden="true" /> {band === 'ochir' ? t('O‘chirilmoqda…') : t('Integratsiyani o‘chirish')}
+        </button>
+      </div>
+    </div>
   );
 }
 

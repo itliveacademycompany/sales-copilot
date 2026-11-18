@@ -23,6 +23,8 @@ type MurojaatTafsil = Omit<Murojaat, 'payload'> & {
   payload: Murojaat['payload'] & {
     startParam?: string;
     leadForm?: string | null;
+    /** Meta Lead Ads yetkazib beruvchisi: `make` yoki `meta_lead_ads` (bevosita). */
+    provider?: string;
     adName?: string | null;
     campaignName?: string | null;
     /** Kartada to'ldirilgan qo'shimcha maydonlar (veb-forma javoblari ham shu yerda). */
@@ -313,6 +315,7 @@ export function MurojaatKarta() {
                   <dd>
                     {manba}
                     {m.payload.type === 'lead_ad' && ` · ${t('reklama formasi')}`}
+                    {m.payload.provider === 'make' && ` · ${t('Make orqali')}`}
                   </dd>
                 </div>
                 <div>
