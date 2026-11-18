@@ -239,6 +239,13 @@
       "when": 1794401369781,
       "tag": "0033_trening_fikr",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1794487769781,
+      "tag": "0034_meta_lead_ads",
+      "breakpoints": true
     }
   ]
 }

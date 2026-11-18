@@ -6,7 +6,7 @@ import { useCrm } from '../../crm/malumot';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
 import { sanaVaqt } from './Bitimlar';
-import { TARMOQ_BELGISI, type Kanal } from './IjtimoiyTarmoqlar';
+import { FacebookBelgi, TARMOQ_BELGISI, type Kanal } from './IjtimoiyTarmoqlar';
 import { avatarManzili, AvatarRasmi, boshHarflar } from './MurojaatAvatar';
 import './saralanmagan.css';
 
@@ -18,12 +18,13 @@ function ManbaBelgisi({ source }: { source: Murojaat['source'] }) {
     const B = TARMOQ_BELGISI[source];
     return <B />;
   }
+  if (source === 'meta_lead_ads') return <FacebookBelgi />;
   return source === 'call' ? <PhoneCall aria-hidden="true" /> : source === 'form' ? <FileText aria-hidden="true" /> : <Hand aria-hidden="true" />;
 }
 
 export interface Murojaat {
   id: string;
-  source: 'call' | 'form' | 'manual' | Kanal;
+  source: 'call' | 'form' | 'manual' | Kanal | 'meta_lead_ads';
   status: string;
   name: string | null;
   phone: string | null;
@@ -38,6 +39,8 @@ export interface Murojaat {
     /** Ijtimoiy tarmoq: `lead_ad` — reklama formasi, `message` — xabar. */
     type?: 'lead_ad' | 'message';
     username?: string | null;
+    /** Meta Lead Ads: ulangan Facebook sahifa nomi. */
+    pageName?: string | null;
   };
   contactId: string | null;
   contactName: string | null;
@@ -67,6 +70,7 @@ const MANBALAR: [Manba, string][] = [
   ['telegram', 'Telegram'],
   ['instagram', 'Instagram'],
   ['facebook', 'Facebook'],
+  ['meta_lead_ads', 'Meta Lead Ads'],
   ['form', 'Veb-forma'],
   ['manual', "Qo'lda"],
 ];
@@ -275,7 +279,12 @@ export function Saralanmagan() {
               const nom = m.contactName ?? m.name ?? m.payload.username ?? m.phone ?? t('Ismsiz');
               const qoshimcha = [m.phone && m.phone !== nom ? m.phone : null, m.payload.username && m.payload.username !== nom ? m.payload.username : null].filter(Boolean).join(' · ');
               const matn = korinishMatni(m);
-              const manbaNomi = m.source === 'form' ? (m.formName ?? t('Veb-forma')) : (m.accountName ?? t(MANBA_NOMI[m.source]));
+              const manbaNomi =
+                m.source === 'form'
+                  ? (m.formName ?? t('Veb-forma'))
+                  : m.source === 'meta_lead_ads'
+                    ? (m.payload.pageName ?? t(MANBA_NOMI[m.source]))
+                    : (m.accountName ?? t(MANBA_NOMI[m.source]));
               return (
                 <li
                   key={m.id}

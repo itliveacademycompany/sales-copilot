@@ -39,7 +39,7 @@ import {
 import { MsBosh } from '../../crm/MsBosh';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
-import { TARMOQ_BELGISI, TarmoqIkonlari } from './IjtimoiyTarmoqlar';
+import { FacebookBelgi, TARMOQ_BELGISI, TarmoqIkonlari } from './IjtimoiyTarmoqlar';
 import { avatarManzili, AvatarRasmi, boshHarflar } from './MurojaatAvatar';
 import { ImportOyna } from './ImportOyna';
 import './kanban.css';
@@ -945,7 +945,7 @@ function KanbanKarta({
 
 interface MurojaatQisqa {
   id: string;
-  source: 'call' | 'form' | 'manual' | 'facebook' | 'instagram' | 'telegram';
+  source: 'call' | 'form' | 'manual' | 'facebook' | 'instagram' | 'telegram' | 'meta_lead_ads';
   name: string | null;
   phone: string | null;
   message: string | null;
@@ -954,11 +954,11 @@ interface MurojaatQisqa {
   createdAt: string;
   /** Tarmoq murojaatlarida — ulangan hisob nomi (sahifa, @instagram, @bot). */
   accountName?: string | null;
-  payload?: { type?: string } | null;
+  payload?: { type?: string; pageName?: string | null } | null;
 }
 
-const MANBA_NOMI = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda kiritilgan", facebook: 'Facebook', instagram: 'Instagram', telegram: 'Telegram' } as const;
-const MANBA_IKON = { call: Phone, form: FileText, manual: PenLine, ...TARMOQ_BELGISI } as const;
+const MANBA_NOMI = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda kiritilgan", facebook: 'Facebook', instagram: 'Instagram', telegram: 'Telegram', meta_lead_ads: 'Meta Lead Ads' } as const;
+const MANBA_IKON = { call: Phone, form: FileText, manual: PenLine, ...TARMOQ_BELGISI, meta_lead_ads: FacebookBelgi } as const;
 
 /**
  * Voronkaning birinchi ustuni — "Saralanmagan" (amoCRM "Неразобранное"):
@@ -1035,7 +1035,7 @@ function SaralanmaganUstun({ voronkaId, yangilash, onQabul }: { voronkaId: strin
               <div className="kb-murojaat-asos">
                 <div className="kb-karta-tepa">
                   <span className="kb-karta-kim">
-                    {t('dan:')} <b>{m.formName ?? m.accountName ?? t(MANBA_NOMI[m.source])}</b>
+                    {t('dan:')} <b>{m.formName ?? m.accountName ?? m.payload?.pageName ?? t(MANBA_NOMI[m.source])}</b>
                   </span>
                   <time dateTime={m.createdAt} title={sanaVaqt(m.createdAt)}>
                     {kartaVaqti(m.createdAt, t)}

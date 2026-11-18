@@ -1,0 +1,47 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   FACEBOOK LEAD ADS — integratsiya kartasi, tanlash oynasi, holat
+   Umumiy CRM kartasi uslubi (crm.css) va oyna bloklari (ijtimoiy-tarmoq.css)
+   ustiga faqat farqlar. Brend rangi faqat logotip va asosiy tugmada.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.mla-logo { background: rgba(24, 119, 242, 0.12); color: #1877f2; }
+
+.mla-admin code { font-size: 12px; overflow-wrap: anywhere; }
+
+.mla-ulanish { display: flex; flex-direction: column; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border, rgba(0, 0, 0, 0.06)); }
+.mla-ulanish:first-of-type { border-top: 0; padding-top: 0; }
+
+/* Ikki alohida holat: "Ulandi" va "Lid qabul qilindi" */
+.mla-bosqichlar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.mla-bosqich { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: var(--bg-sunken); }
+.mla-bosqich svg { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+.mla-bosqich span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mla-bosqich b { font-size: 14px; }
+.mla-bosqich small { font-size: 12.5px; color: var(--text-secondary); overflow-wrap: anywhere; }
+.mla-bosqich.ok svg { color: var(--yuqori); }
+.mla-bosqich.xato svg { color: var(--past); }
+.mla-bosqich.kutish svg { color: var(--orta); }
+
+.crm-malumot .mla-keng { grid-column: 1 / -1; }
+.mla-qizil { color: var(--past-text); }
+
+.mla-muammolar ul { list-style: none; margin: 10px 0 2px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.mla-muammolar li { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.mla-muammolar li span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mla-muammolar li small { color: var(--text-secondary); overflow-wrap: anywhere; }
+.mla-muammolar .btn { flex: none; }
+.mla-muammolar .btn svg { width: 14px; height: 14px; }
+
+/* Sahifa / forma ro'yxati (oyna) */
+.mla-royxat { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 280px; overflow-y: auto; }
+.mla-royxat label { display: flex; gap: 10px; align-items: flex-start; padding: 9px 12px; border-radius: 12px; background: var(--bg-base); box-shadow: var(--neu-out-xs); cursor: pointer; }
+.mla-royxat label.ochiq-emas { opacity: 0.6; cursor: not-allowed; }
+.mla-royxat input { margin-top: 3px; flex: none; }
+.mla-royxat span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mla-royxat b { font-size: 14px; overflow-wrap: anywhere; }
+.mla-royxat small { font-size: 12px; color: var(--text-secondary); }
+.mla-forma-amal { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+@media (max-width: 640px) {
+  .mla-bosqichlar { grid-template-columns: 1fr; }
+}

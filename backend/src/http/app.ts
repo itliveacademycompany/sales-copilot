@@ -30,6 +30,7 @@ import { registerCrmBoshqaruvRoutes } from './routes/crm-boshqaruv.js';
 import { registerCrmLidRoutes } from './routes/crm-lidlar.js';
 import { registerCrmOauthRoutes } from './routes/crm-oauth.js';
 import { registerCrmTarmoqRoutes } from './routes/crm-tarmoq.js';
+import { registerMetaLeadAdsRoutes } from './routes/meta-lead-ads.js';
 import { registerCrmUlanishRoutes } from './routes/crm-ulanish.js';
 import { registerSimulyatorRoutes } from './routes/simulyator.js';
 import { registerMoizvonkiRoutes } from './routes/moizvonki.js';
@@ -174,6 +175,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerCrmAppRoutes(app);
   registerCrmBoshqaruvRoutes(app);
   registerCrmTarmoqRoutes(app);
+  registerMetaLeadAdsRoutes(app);
   registerSimulyatorRoutes(app);
   registerReportRoutes(app);
   registerAppealRoutes(app);

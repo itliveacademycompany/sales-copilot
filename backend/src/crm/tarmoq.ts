@@ -889,7 +889,8 @@ async function leadgenniQabul(r: TopilganIntegratsiya, s: Sirlar, v: Record<stri
   const leadgenId = idSatr(v.leadgen_id);
   if (!leadgenId) return 'takror';
   const externalId = `lead:${leadgenId}`;
-  const sharti = and(inArray(crmInbox.source, META_MANBALAR), eq(crmInbox.externalId, externalId));
+  // `meta_lead_ads` — "Facebook orqali ulash" (crm/metaLeadAds) shu lidni allaqachon yozgan bo'lsa ham dubl bo'lmasin
+  const sharti = and(inArray(crmInbox.source, [...META_MANBALAR, 'meta_lead_ads']), eq(crmInbox.externalId, externalId));
   const [bor] = await withTenant(r.businessId, (tx) => tx.select({ id: crmInbox.id }).from(crmInbox).where(sharti).limit(1));
   if (bor) return 'takror';
 

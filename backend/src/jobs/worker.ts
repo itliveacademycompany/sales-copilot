@@ -7,6 +7,8 @@ import { dispatchTaskExports } from '../integrations/crm-export.js';
 import { dispatchCrmWriteback } from '../integrations/crm/yozish.js';
 import { crmLidlarniSinxronla } from '../integrations/crm/lidlar.js';
 import { avtomatikaTiki } from '../crm/avtomatika.js';
+import { metaLidlariniIshla } from '../crm/metaLeadAds/ishlov.js';
+import { eskiSessiyalarniTozala } from '../crm/metaLeadAds/oauth.js';
 import { qongiroqlardanQabul } from '../crm/qabul.js';
 import { oldindanTranskriptQil, qongiroqlarniQaytaIshla, sinxronla } from '../integrations/moizvonki.js';
 import { runDailyReportTick } from '../reports/daily.js';
@@ -100,6 +102,8 @@ let crmLidBand = false;
 let crmIchkiBand = false;
 let mzQaytaIshlashBand = false;
 let mzSttBand = false;
+/** Meta Lead Ads hodisalari ishlanyaptimi (lid ma'lumoti Graph'dan olinadi). */
+let metaBand = false;
 
 /** Server bilan birga ishga tushadigan doimiy sikl. */
 export function startWorkerLoop(log: {
@@ -119,6 +123,7 @@ export function startWorkerLoop(log: {
     let lastReclaim = 0;
     let lastBilling = 0;
     let lastReport = 0;
+    let lastMeta = 0;
 
     while (!stopRequested) {
       try {
@@ -206,6 +211,24 @@ export function startWorkerLoop(log: {
             });
         }
 
+        /**
+         * Meta Lead Ads — har 5 soniyada, fonda: webhook saqlagan hodisalar
+         * uchun lid ma'lumoti Graph API'dan olinadi va "Saralanmagan"ga
+         * yoziladi. Navbat bo'sh bo'lsa — bitta arzon so'rov.
+         */
+        if (now - lastMeta > 5_000 && !metaBand) {
+          lastMeta = now;
+          metaBand = true;
+          void metaLidlariniIshla()
+            .then((r) => {
+              if (r.done || r.retry || r.authWait || r.failed) log.info(r, 'meta lead ads: hodisalar ishlandi');
+            })
+            .catch((err: unknown) => log.error({ err }, 'meta lead ads: navbat yiqildi'))
+            .finally(() => {
+              metaBand = false;
+            });
+        }
+
         if (now - lastCrmLid > 60_000 && !crmLidBand) {
           lastCrmLid = now;
           crmLidBand = true;
@@ -285,6 +308,7 @@ export function startWorkerLoop(log: {
           if (reclaimed > 0) log.info({ reclaimed }, 'queue: osilgan ishlar qaytarildi');
           const missed = await markOverdueCommitments();
           if (missed > 0) log.info({ missed }, 'maintenance: muddati o\'tgan va\'dalar belgilandi');
+          await eskiSessiyalarniTozala().catch((err: unknown) => log.error({ err }, 'meta lead ads: sessiyalarni tozalash yiqildi'));
         }
 
         // Billing tsikli (TZ 3.10) — har soatda. Idempotent, chastota

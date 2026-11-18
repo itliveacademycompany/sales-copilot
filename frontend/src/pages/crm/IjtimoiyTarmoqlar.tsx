@@ -1,5 +1,6 @@
 import { Check, CircleAlert, Copy, Eye, EyeOff, Plug, RefreshCw, Unplug } from 'lucide-react';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { api, ApiError, fmtQachon } from '../../api';
 import { useCrm } from '../../crm/malumot';
 import { Oyna } from '../../crm/Oyna';
@@ -186,6 +187,24 @@ function TarmoqOyna({
   const [nusxa, setNusxa] = useState<string | null>(null);
   const meta = kanal !== 'telegram';
   const Belgi = TARMOQ_BELGISI[kanal];
+  // Facebook Lead Ads "bir tugmada ulash" (MetaLeadAds.tsx) holati — faqat rahbarga
+  const [birTugma, setBirTugma] = useState<{ configured: boolean; sahifalar: string[] } | null>(null);
+  useEffect(() => {
+    if (!canManage || !meta) return;
+    void api
+      .get<{ configured: boolean; connections: { pageName: string | null; pageId: string }[] }>(`${base}/meta-lead-ads`)
+      .then((r) => setBirTugma({ configured: r.configured, sahifalar: r.connections.map((c) => c.pageName ?? c.pageId) }))
+      .catch(() => setBirTugma(null));
+  }, [base, canManage, meta]);
+  const facebookUla = async () => {
+    setXato(null);
+    try {
+      const r = await api.post<{ url: string }>(`${base}/meta-lead-ads/oauth/start`, { qaytish: window.location.origin });
+      window.location.assign(r.url);
+    } catch (e) {
+      setXato(e instanceof ApiError ? t(e.message) : t("Ulab bo'lmadi"));
+    }
+  };
 
   // Meta: webhook manzili va verify token kalitlardan OLDIN kerak — qator tayyorlanadi
   useEffect(() => {
@@ -387,7 +406,31 @@ function TarmoqOyna({
             </div>
           ))}
 
-          <details className="tm-yoriq" open={!h?.configured}>
+          {meta && birTugma && (
+            <div className="tm-bir-tugma">
+              <b>{t('Facebook Lead Ads — bir tugmada ulash')}</b>
+              {!birTugma.configured ? (
+                <p>{t('Integratsiya hali sozlanmagan. Platforma administratoriga murojaat qiling.')}</p>
+              ) : birTugma.sahifalar.length > 0 ? (
+                <p>{t('Ulangan sahifalar: {s}. Reklama formalari lidlari «Saralanmagan»ga o‘zi tushadi.', { s: birTugma.sahifalar.join(', ') })}</p>
+              ) : (
+                <p>{t('Reklama formalari (Instant Form) lidlari uchun kalit kiritish shart emas: Facebook hisobingiz bilan kiring, sahifa va formalarni tanlang.')}</p>
+              )}
+              <div className="tm-bir-tugma-tugmalar">
+                {birTugma.configured && (
+                  <button type="button" className="btn mla-fb" disabled={band !== null} onClick={() => void facebookUla()}>
+                    <FacebookBelgi /> {birTugma.sahifalar.length ? t('Yana bir sahifa ulash') : t('Facebook orqali ulash')}
+                  </button>
+                )}
+                <Link to="/crm/integratsiya" className="ci-havola">
+                  {t('Holat va diagnostika')}
+                </Link>
+              </div>
+              <span className="yordam">{t("Quyidagi qo'lda ulash — Messenger/Direct xabarlari yoki o'z Meta ilovangiz uchun.")}</span>
+            </div>
+          )}
+
+          <details className="tm-yoriq" open={!h?.configured && !birTugma?.sahifalar.length}>
             <summary>{t('Qanday ulanadi — qadam-baqadam')}</summary>
             <ol>
               {YORIQNOMA[kanal].map((q) => (

@@ -72,6 +72,7 @@ Oxirgi qadam **405/405 o'tishi shart**. O'tmasa — davom etmang.
 | `npm run verify:password-reset` | Parol tiklash: token, muddat, oshkor qilmaslik |
 | `npm run verify:import` | Transkript parseri + qo'lda yuklash |
 | `npm run verify:stt` | STT javobini qayta ishlash (API'siz) |
+| `npm run verify:meta-lead-ads` | Facebook Lead Ads: imzo, OAuth state, tenant ruxsati, forma filtri, takroriy/parallel lid, retry (soxta Meta server, bazasiz) |
 | `npm run verify:crm-ulanish` | CRM adapterlari (amoCRM, Bitrix24): ulash, xavfsizlik, sdelkani topish, izoh/vazifa (soxta server, bazasiz) |
 | `npm run provider:stt` | Google STT kalitini qo'shish va tekshirish |
 | `npm run db:studio` | Bazani brauzerda ko'rish |
@@ -744,6 +745,30 @@ POST   /api/v1/businesses/:id/crm/:kind/leads/sync lidlarni hozir olish
 GET    /api/v1/businesses/:id/crm-leads            CRM lidlari (filtr, sahifalash)
 GET    /api/v1/crm/oauth/amocrm/callback           amoCRM qaytadigan manzil (ommaviy)
 GET|PUT|DELETE /api/v1/admin/crm/amocrm-oauth      super admin: integratsiya kalitlari
+```
+
+## CRM: Facebook Lead Ads ("Facebook orqali ulash")
+
+Meta Instant Form lidlari «Saralanmagan»ga (manba `meta_lead_ads`). Platformada BITTA
+Meta ilovasi (env: `META_APP_ID`, `META_APP_SECRET`, `META_LOGIN_CONFIG_ID`,
+`META_WEBHOOK_VERIFY_TOKEN` …), mijoz kalit kiritmaydi. Kod: `src/crm/metaLeadAds/`,
+sozlash va sinov: [`docs/meta-lead-ads.md`](../docs/meta-lead-ads.md). Qo'lda ulash
+(`crm/tarmoq.ts`) o'zgarmagan; bitta lid ikki yo'ldan kelsa ham bitta murojaat.
+
+```
+GET    /api/v1/businesses/:id/meta-lead-ads                       holat + diagnostika
+POST   /api/v1/businesses/:id/meta-lead-ads/oauth/start           Meta oynasi manzili
+GET    /api/v1/businesses/:id/meta-lead-ads/sessions/:sid         ruxsat berilgan sahifalar
+GET    /api/v1/businesses/:id/meta-lead-ads/sessions/:sid/pages/:pageId/forms
+POST   /api/v1/businesses/:id/meta-lead-ads/connect               sahifa + formalar
+GET    /api/v1/businesses/:id/meta-lead-ads/:connId/forms
+PATCH  /api/v1/businesses/:id/meta-lead-ads/:connId               formalar / voronka
+POST   /api/v1/businesses/:id/meta-lead-ads/:connId/check         holatni tekshirish
+POST   /api/v1/businesses/:id/meta-lead-ads/:connId/retry         xato hodisalarni qayta ishlash
+DELETE /api/v1/businesses/:id/meta-lead-ads/:connId               uzish
+GET    /api/v1/crm/oauth/meta/callback                            OAuth redirect URI
+GET|POST /api/v1/webhooks/crm/meta                                ilova webhook'i (Page → leadgen)
+POST   /api/v1/webhooks/crm/meta/deauthorize | data-deletion      Meta callback'lari
 ```
 
 ## Test ma'lumotlari o'zidan keyin tozalanadi

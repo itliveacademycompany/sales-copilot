@@ -194,6 +194,30 @@ const schema = z.object({
     .regex(/^v\d{1,3}\.\d{1,2}$/)
     .catch('v23.0')
     .default('v23.0'),
+
+  // ─── Meta Lead Ads: "Facebook orqali ulash" (OAuth) ───
+  //
+  // Platformadagi BITTA Meta ilovasi — CRM operatori bir marta sozlaydi
+  // (docs/meta-lead-ads.md). Hammasi ixtiyoriy: yetishmasa server ishga
+  // tushaveradi, interfeysda esa "Integratsiya hali sozlanmagan" ko'rinadi.
+  // Qo'lda ulash (crm/tarmoq.ts) bu sozlamalarga bog'liq emas.
+
+  META_APP_ID: z.string().trim().regex(/^\d{5,25}$/, "META_APP_ID faqat raqamlardan iborat").optional().catch(undefined),
+  META_APP_SECRET: z.string().trim().regex(/^[A-Za-z0-9]{16,128}$/, "META_APP_SECRET noto'g'ri").optional().catch(undefined),
+  /** Facebook Login for Business konfiguratsiyasi (User access token turi). Bo'lsa — `scope` o'rniga ishlatiladi. */
+  META_LOGIN_CONFIG_ID: z.string().trim().regex(/^\d{5,25}$/).optional().catch(undefined),
+  /** `META_GRAPH_VERSION` ning yangi nomi; berilsa ustun turadi. */
+  META_GRAPH_API_VERSION: z.string().trim().regex(/^v\d{1,3}\.\d{1,2}$/).optional().catch(undefined),
+  /** Bo'sh bo'lsa: `${PUBLIC_URL}/api/v1/crm/oauth/meta/callback`. Meta panelidagi qiymat bilan AYNAN bir xil bo'lishi shart. */
+  META_OAUTH_REDIRECT_URI: z.string().trim().url().optional().catch(undefined),
+  /** Meta App Dashboard → Webhooks → Page → Verify token. */
+  META_WEBHOOK_VERIFY_TOKEN: z.string().trim().min(16).max(200).optional().catch(undefined),
+  /**
+   * Ixtiyoriy: so'raladigan ruxsatlar ro'yxati (vergul bilan). Faqat
+   * `META_LOGIN_CONFIG_ID` bo'lmaganda ishlatiladi — konfiguratsiyada
+   * ruxsatlar Meta panelida tanlanadi.
+   */
+  META_OAUTH_SCOPES: z.string().trim().regex(/^[a-z_,]+$/).optional().catch(undefined),
 });
 
 const parsed = schema.safeParse(process.env);

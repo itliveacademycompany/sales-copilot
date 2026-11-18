@@ -5,7 +5,7 @@ import { api, ApiError, ballKlass, fmtSoniya } from '../../api';
 import { qiymatniTayyorla, useCrm } from '../../crm/malumot';
 import { useT } from '../../i18n';
 import { sanaVaqt } from './Bitimlar';
-import { TARMOQ_BELGISI, type Kanal } from './IjtimoiyTarmoqlar';
+import { FacebookBelgi, TARMOQ_BELGISI, type Kanal } from './IjtimoiyTarmoqlar';
 import { KartaMaydonlari } from './KartaMaydonlari';
 import { avatarManzili, AvatarRasmi, boshHarflar } from './MurojaatAvatar';
 import { QabulOyna, type Murojaat } from './Saralanmagan';
@@ -55,7 +55,7 @@ const summa = (s: string): number | null => (s.trim() === '' ? null : Number(s.r
 
 const TARMOQ_NOMI: Record<Kanal, string> = { facebook: 'Facebook', instagram: 'Instagram', telegram: 'Telegram' };
 const tarmoqmi = (s: string): s is Kanal => s in TARMOQ_NOMI;
-const MANBA_NOMI: Record<string, string> = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda kiritilgan", ...TARMOQ_NOMI };
+const MANBA_NOMI: Record<string, string> = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda kiritilgan", ...TARMOQ_NOMI, meta_lead_ads: 'Meta Lead Ads' };
 /** Yangi xabarlar shu oraliqda tekshiriladi (oyna ochiq va sahifa ko'rinib turganda). */
 const YANGILASH_MS = 10_000;
 
@@ -64,6 +64,7 @@ function ManbaIkoni({ source }: { source: string }) {
     const B = TARMOQ_BELGISI[source];
     return <B />;
   }
+  if (source === 'meta_lead_ads') return <FacebookBelgi />;
   return source === 'call' ? <Phone aria-hidden="true" /> : source === 'form' ? <FileText aria-hidden="true" /> : <Hand aria-hidden="true" />;
 }
 
@@ -326,6 +327,12 @@ export function MurojaatKarta() {
                   <div>
                     <dt>{t('Havola belgisi')}</dt>
                     <dd>{m.payload.startParam}</dd>
+                  </div>
+                )}
+                {m.source === 'meta_lead_ads' && m.payload.pageName && (
+                  <div>
+                    <dt>{t('Facebook sahifa')}</dt>
+                    <dd>{m.payload.pageName}</dd>
                   </div>
                 )}
                 {m.payload.leadForm && (

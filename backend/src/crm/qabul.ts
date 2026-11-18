@@ -169,7 +169,7 @@ async function kirishBosqichi(tx: Tx, pipelineId: string | null | undefined): Pr
   return { pipelineId: v.id, stageId: b.id };
 }
 
-const MANBA_NOMI: Record<string, string> = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda", ...TARMOQ_NOMI };
+const MANBA_NOMI: Record<string, string> = { call: "Qo'ng'iroq", form: 'Veb-forma', manual: "Qo'lda", ...TARMOQ_NOMI, meta_lead_ads: 'Meta Lead Ads' };
 
 export const qabulSxemasi = z.object({
   /** Mavjud bitimga bog'lash (yangi bitim yaratilmaydi). */

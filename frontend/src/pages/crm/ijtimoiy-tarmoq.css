@@ -131,3 +131,30 @@
 :root[data-theme='dark'] .ci-manba.facebook { color: #6ea8ff; }
 :root[data-theme='dark'] .ci-manba.instagram { color: #ff7aa6; }
 :root[data-theme='dark'] .ci-manba.telegram { color: #6ccaf5; }
+
+/* ─── Facebook Lead Ads: "Facebook orqali ulash" (MetaLeadAds.tsx) ─────────── */
+.mla-fb { background: #1877f2; color: #fff; }
+.mla-fb:hover:not(:disabled) { background: #1464cc; }
+.mla-fb svg { width: 16px; height: 16px; }
+
+/* Facebook oynasidagi bir tugmada ulash bloki (qo'lda ulashdan yuqorida) */
+.tm-bir-tugma { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border-radius: 14px; background: rgba(24, 119, 242, 0.08); }
+.tm-bir-tugma p { margin: 0; font-size: 13px; line-height: 1.5; }
+.tm-bir-tugma-tugmalar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+/* Manba belgisi: Meta Lead Ads (kanban, "Saralanmagan", murojaat oynasi) */
+.kb-avatar-belgi.meta_lead_ads,
+.srl-belgi.meta_lead_ads,
+.mrj-belgi.meta_lead_ads { background: #0866ff; }
+.srl-manbalar button.meta_lead_ads svg { color: #0866ff; }
+.srl-manba.meta_lead_ads,
+.mrj-hisob.meta_lead_ads,
+.ci-manba.meta_lead_ads { color: #0a55cc; background: rgba(8, 102, 255, 0.12); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .srl-manba.meta_lead_ads,
+  :root:not([data-theme='light']) .mrj-hisob.meta_lead_ads,
+  :root:not([data-theme='light']) .ci-manba.meta_lead_ads { color: #6ea8ff; }
+}
+:root[data-theme='dark'] .srl-manba.meta_lead_ads,
+:root[data-theme='dark'] .mrj-hisob.meta_lead_ads,
+:root[data-theme='dark'] .ci-manba.meta_lead_ads { color: #6ea8ff; }

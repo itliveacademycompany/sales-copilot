@@ -19,6 +19,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError, fmtSana } from '../api';
 import { useAuth } from '../auth';
 import { useT } from '../i18n';
+import { MetaLeadAdsKarta } from './crm/MetaLeadAds';
 // Kalit (switch) va sozlama qatorlari — Sozlamalar bilan bir xil uslub
 import '../components/sozlama/integratsiyalar.css';
 import './crm.css';
@@ -194,6 +195,8 @@ export function Crm() {
           onOzgardi={yukla}
         />
           ))}
+
+          {business?.permissions.includes('integration:manage') && <MetaLeadAdsKarta />}
 
           <section className="card crm-karta" aria-labelledby="crm-boshqa-nom">
             <div className="crm-karta-bosh">
