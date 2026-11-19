@@ -248,7 +248,9 @@ async function qayd(businessId: string, id: string, o: Partial<{ test: boolean; 
         lastRequestAt: hozir,
         ...(o.test ? { lastTestAt: hozir } : {}),
         ...(o.lid === 'created'
-          ? { lastLeadAt: hozir, firstLeadAt: sql`coalesce(${makeLeadIntake.firstLeadAt}, ${hozir})`, leadCount: sql`${makeLeadIntake.leadCount} + 1` }
+          ? // `${hozir}` (Date) sql`` ichida postgres-js'da yiqiladi va pastdagi catch
+            // uni yutib yuborardi — statistika hech qachon yangilanmasdi. ISO + cast.
+            { lastLeadAt: hozir, firstLeadAt: sql`coalesce(${makeLeadIntake.firstLeadAt}, ${hozir.toISOString()}::timestamptz)`, leadCount: sql`${makeLeadIntake.leadCount} + 1` }
           : {}),
         ...(o.lid === 'duplicate' ? { duplicateCount: sql`${makeLeadIntake.duplicateCount} + 1` } : {}),
         ...(o.xato !== undefined ? { lastError: o.xato?.slice(0, 500) ?? null, lastErrorAt: o.xato ? hozir : makeLeadIntake.lastErrorAt } : {}),

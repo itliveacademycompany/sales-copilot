@@ -3,7 +3,12 @@ import { and, eq, inArray, lt, ne, sql } from 'drizzle-orm';
 import { decryptSecret, safeCompare } from '../../crypto/secrets.js';
 import { withoutTenantIsolation, withTenant } from '../../db/index.js';
 import { crmInbox, crmPipeline, metaLeadgenEvent, metaPageConnection } from '../../db/schema/index.js';
-import { kontaktniTopYokiYarat } from '../xizmat.js';
+import { murojaatniQabul } from '../qabul.js';
+import { kontaktniTopYokiYarat, type CrmDoira } from '../xizmat.js';
+import { formaLidiniSana, formaNavbatdagiMasul, formaniQolla } from './forma.js';
+
+/** Avto-qabul tizim nomidan (mas'ul forma navbatidan). */
+const TIZIM: CrmDoira = { korish: 'all', yozish: 'all', seatId: null };
 import { graf, type GraphJavob } from './graph.js';
 import { ilovaBoyicha, kompaniyaSozlamasi, metaSozlama, oziIlovaliBizneslar } from './sozlama.js';
 import {
@@ -293,30 +298,63 @@ export function metaLidiniYoz(k: MurojaatKirish): Promise<{ inboxId: string | nu
       .where(and(inArray(crmInbox.source, LID_MANBALARI), eq(crmInbox.externalId, externalId)))
       .limit(1);
     if (bor) return { inboxId: bor.id, takror: true };
+
+    // Forma sozlamasi (amoCRM'dagidek): voronka, savol → maydon, teg, manba, avto-taqsimot
+    const pl = k.payload as { formId?: unknown; leadForm?: unknown; pageName?: unknown; values?: unknown };
+    const javoblar = pl.values && typeof pl.values === 'object' ? (pl.values as Record<string, string>) : {};
+    const formId = typeof pl.formId === 'string' && pl.formId ? pl.formId : null;
+    const f = await formaniQolla(tx, {
+      businessId: k.businessId,
+      formId,
+      formName: typeof pl.leadForm === 'string' ? pl.leadForm : null,
+      pageName: typeof pl.pageName === 'string' ? pl.pageName : null,
+      name: k.name,
+      phone: k.phone,
+      email: k.email,
+      pipelineId: k.pipelineId,
+      javoblar,
+    });
+
     let pipelineId: string | null = null;
-    if (k.pipelineId) {
-      const [v] = await tx.select({ id: crmPipeline.id }).from(crmPipeline).where(eq(crmPipeline.id, k.pipelineId)).limit(1);
+    if (f.pipelineId) {
+      const [v] = await tx.select({ id: crmPipeline.id }).from(crmPipeline).where(eq(crmPipeline.id, f.pipelineId)).limit(1);
       pipelineId = v?.id ?? null;
     }
     // Telefonsiz kontakt yaratilmaydi (qo'lda ulash bilan bir xil qoida) — qabul qilinganda ism bilan yaratiladi
-    const contactId = k.phone ? await kontaktniTopYokiYarat(tx, k.businessId, { name: k.name, phone: k.phone, email: k.email }) : null;
+    const contactId = f.phone ? await kontaktniTopYokiYarat(tx, k.businessId, { name: f.name, phone: f.phone, email: f.email }) : null;
     const r = await tx
       .insert(crmInbox)
       .values({
         businessId: k.businessId,
         source: MANBA,
         externalId,
-        name: k.name,
-        phone: k.phone,
-        email: k.email,
+        name: f.name,
+        phone: f.phone,
+        email: f.email,
         message: k.message,
         contactId,
         pipelineId,
-        payload: k.payload,
+        // `fields`, `tags`, `formName` — qabulda bitimga o'tadi (veb-forma bilan bir xil kontrakt)
+        payload: { ...k.payload, fields: f.fields, tags: f.tags, formName: f.formName, mapped: f.qollandi },
       })
       .onConflictDoNothing()
       .returning({ id: crmInbox.id });
-    if (r.length) return { inboxId: r[0]!.id, takror: false };
+    if (r.length) {
+      const inboxId = r[0]!.id;
+      await formaLidiniSana(tx, k.businessId, formId);
+      if (f.autoAccept && formId) {
+        // amoCRM "Taqsimot" Salesbot'i: kelishi bilan bitim, mas'ul — forma navbati (bo'lmasa CRM navbati)
+        const masul = await formaNavbatdagiMasul(tx, k.businessId, formId);
+        await murojaatniQabul(tx, {
+          id: inboxId,
+          businessId: k.businessId,
+          userId: null,
+          doira: TIZIM,
+          kirish: { pipelineId, stageId: pipelineId ? f.stageId : null, seatId: masul },
+        });
+      }
+      return { inboxId, takror: false };
+    }
     // Unikal kalit (`crm_inbox_external_uq`) poygani to'xtatdi — mavjud murojaat ID si
     const [mavjud] = await tx.select({ id: crmInbox.id }).from(crmInbox).where(and(eq(crmInbox.source, MANBA), eq(crmInbox.externalId, externalId))).limit(1);
     return { inboxId: mavjud?.id ?? null, takror: true };
@@ -387,7 +425,9 @@ async function natijaniYoz(h: OlinganHodisa, n: IshlovNatija): Promise<void> {
           .update(metaPageConnection)
           .set({
             lastLeadAt: hozir,
-            firstLeadAt: sql`coalesce(${metaPageConnection.firstLeadAt}, ${hozir})`,
+            // Date'ni sql`` ichiga to'g'ridan berib bo'lmaydi (postgres-js yiqiladi va
+            // butun tranzaksiya qaytadi) — ISO + cast.
+            firstLeadAt: sql`coalesce(${metaPageConnection.firstLeadAt}, ${hozir.toISOString()}::timestamptz)`,
             status: sql`case when ${metaPageConnection.status} = 'error' then 'active' else ${metaPageConnection.status} end`,
             lastErrorCode: null,
             lastError: null,
