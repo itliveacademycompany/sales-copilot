@@ -17,6 +17,10 @@ DealMind Meta App ID, App Secret, Configuration ID, Page token yoki Verify token
 Bevosita Meta ulanishi (kompaniyaning o'z Meta ilovasi, `docs/meta-lead-ads.md`) o'zgarmagan —
 kartada alohida «Bevosita Meta ulanishi» bo'limida. Bitta lid ikkala yo'ldan kelsa ham CRM'da bitta bo'ladi.
 
+Forma bo'yicha voronka, savol → maydon, teg, avto-taqsimot va Conversions API ikkala yo'l uchun
+umumiy — [meta-forma-capi.md](meta-forma-capi.md). Make payload'idagi `form_id` shu sozlamaning
+kaliti, shuning uchun Make'da uni albatta yuboring.
+
 ---
 
 ## 1. DealMind'da: URL va kalit

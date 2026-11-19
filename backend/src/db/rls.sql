@@ -61,6 +61,7 @@ DECLARE
     'crm_activity', 'crm_dashboard',
     'simulyator_ssenariy', 'simulyator_mashq',
     'meta_oauth_session', 'meta_page_connection', 'meta_leadgen_event', 'meta_app_config', 'make_lead_intake',
+    'meta_form_setting', 'meta_capi_config', 'meta_capi_rule', 'meta_capi_event',
     'training_session', 'training_scenario', 'training_turn', 'training_result',
     'analysis_job',
     'subscription', 'billing_transaction', 'usage_record',

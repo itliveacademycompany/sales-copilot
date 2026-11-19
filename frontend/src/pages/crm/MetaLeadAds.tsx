@@ -6,6 +6,7 @@ import { useAuth } from '../../auth';
 import { Oyna } from '../../crm/Oyna';
 import { useT } from '../../i18n';
 import { FacebookBelgi } from './IjtimoiyTarmoqlar';
+import { MetaFormaCapi } from './MetaFormaCapi';
 import './meta-lead-ads.css';
 
 /**
@@ -319,6 +320,8 @@ export function MetaLeadAdsKarta() {
           </div>
         </details>
       )}
+
+      {(make || holat) && <MetaFormaCapi base={base} />}
 
       {sessiyaId && (
         <TanlashOyna

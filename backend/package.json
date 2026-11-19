@@ -40,6 +40,7 @@
     "verify:crm-ulanish": "tsx src/integrations/crm/verify-crm.ts",
     "verify:meta-lead-ads": "tsx src/crm/metaLeadAds/verify-meta-lead-ads.ts",
     "verify:make-leads": "tsx src/crm/metaLeadAds/verify-make-leads.ts",
+    "verify:meta-forma-capi": "tsx src/crm/metaLeadAds/verify-forma-capi.ts",
     "verify:crm": "tsx src/integrations/verify-crm-export.ts",
     "verify:password-reset": "tsx src/http/verify-password-reset.ts",
     "verify:activation": "tsx src/http/verify-activation.ts",

@@ -7,6 +7,7 @@ import { dispatchTaskExports } from '../integrations/crm-export.js';
 import { dispatchCrmWriteback } from '../integrations/crm/yozish.js';
 import { crmLidlarniSinxronla } from '../integrations/crm/lidlar.js';
 import { avtomatikaTiki } from '../crm/avtomatika.js';
+import { capiNavbatgaQoy, capiYubor } from '../crm/metaLeadAds/capi.js';
 import { metaLidlariniIshla } from '../crm/metaLeadAds/ishlov.js';
 import { eskiSessiyalarniTozala } from '../crm/metaLeadAds/oauth.js';
 import { qongiroqlardanQabul } from '../crm/qabul.js';
@@ -104,6 +105,8 @@ let mzQaytaIshlashBand = false;
 let mzSttBand = false;
 /** Meta Lead Ads hodisalari ishlanyaptimi (lid ma'lumoti Graph'dan olinadi). */
 let metaBand = false;
+/** Meta Conversions API navbati (bitim natijasi → Meta). */
+let capiBand = false;
 
 /** Server bilan birga ishga tushadigan doimiy sikl. */
 export function startWorkerLoop(log: {
@@ -124,6 +127,7 @@ export function startWorkerLoop(log: {
     let lastBilling = 0;
     let lastReport = 0;
     let lastMeta = 0;
+    let lastCapi = 0;
 
     while (!stopRequested) {
       try {
@@ -226,6 +230,25 @@ export function startWorkerLoop(log: {
             .catch((err: unknown) => log.error({ err }, 'meta lead ads: navbat yiqildi'))
             .finally(() => {
               metaBand = false;
+            });
+        }
+
+        /**
+         * Meta Conversions API — har 20 soniyada, fonda: bosqichga kirgan
+         * bitimlar navbatga qo'yiladi va Meta'ga yuboriladi (amoCRM'dagi
+         * tashqi CAPI vidjeti o'rni). Qoida bo'lmasa — ikkita arzon so'rov.
+         */
+        if (now - lastCapi > 20_000 && !capiBand) {
+          lastCapi = now;
+          capiBand = true;
+          void capiNavbatgaQoy()
+            .then(() => capiYubor())
+            .then((r) => {
+              if (r.yuborildi || r.otkazildi || r.xato) log.info(r, 'meta capi: hodisalar yuborildi');
+            })
+            .catch((err: unknown) => log.error({ err }, 'meta capi: navbat yiqildi'))
+            .finally(() => {
+              capiBand = false;
             });
         }
 

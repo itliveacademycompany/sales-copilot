@@ -23,8 +23,12 @@ Bu hujjat Meta panelida bir martalik sozlash va sinov tartibi uchun. Quyidagi 3-
 manzillar kartada tayyor holda chiqadi (kompaniya ilovasi uchun webhook manzili —
 `/meta-app/<id>`).
 
-> Bu Instagram Direct, Messenger chatlari yoki Conversions API haqida **emas**.
-> Ular uchun qo'lda ulash (Saralanmagan → Facebook/Instagram ikoni → kalitlar) o'zgarmagan.
+> Bu Instagram Direct yoki Messenger chatlari haqida **emas**: ular qo'lda ulanadi
+> (Saralanmagan → Facebook/Instagram ikoni → kalitlar) va bu tartib o'zgarmagan.
+>
+> Lid kelgandan keyingi qadamlar alohida hujjatda: forma bo'yicha voronka, savol → maydon,
+> teg, avto-taqsimot hamda natijani Meta'ga qaytarish (Conversions API) —
+> [meta-forma-capi.md](meta-forma-capi.md).
 
 ---
 

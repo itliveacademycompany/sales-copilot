@@ -15,3 +15,4 @@ export * from './qollanma.js';
 export * from './simulyator.js';
 export * from './training.js';
 export * from './meta.js';
+export * from './metaCapi.js';
